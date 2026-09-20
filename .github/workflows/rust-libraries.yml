@@ -8,7 +8,9 @@ on:
       - 'rust-toolchain.toml'
       - 'crates/**'
       - 'apple/**'
+      - 'apple-app/**'
       - 'scripts/build-apple.sh'
+      - 'scripts/embed-apple-server.sh'
       - '.github/workflows/rust-libraries.yml'
   push:
     branches:
@@ -19,7 +21,9 @@ on:
       - 'rust-toolchain.toml'
       - 'crates/**'
       - 'apple/**'
+      - 'apple-app/**'
       - 'scripts/build-apple.sh'
+      - 'scripts/embed-apple-server.sh'
       - '.github/workflows/rust-libraries.yml'
   workflow_dispatch:
 
@@ -63,3 +67,41 @@ jobs:
         with:
           name: metocast-apple-xcframework
           path: apple/MetocastFFI.xcframework
+
+  apple-app:
+    name: Metocast app (iOS and macOS)
+    runs-on: macos-latest
+    needs: apple-libraries
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.98.1
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Cache Rust dependencies
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+          shared-key: apple-libraries
+
+      # The app links the XCFramework and, on macOS, embeds the headless server.
+      - name: Build the bridge
+        run: ./scripts/build-apple.sh
+
+      - name: Build for iPhone
+        run: |
+          xcodebuild -project apple-app/Metocast.xcodeproj -scheme Metocast \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath target/apple-app-derived \
+            CODE_SIGNING_ALLOWED=NO build
+
+      - name: Build for Mac
+        run: |
+          xcodebuild -project apple-app/Metocast.xcodeproj -scheme Metocast \
+            -destination 'platform=macOS' \
+            -derivedDataPath target/apple-app-derived \
+            CODE_SIGNING_ALLOWED=NO build

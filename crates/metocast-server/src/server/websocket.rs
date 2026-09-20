@@ -21,8 +21,8 @@ use uuid::Uuid;
 use sqlx::{PgPool, Row};
 
 use crate::connectors::atem::AtemCommand;
-use crate::connectors::rodecaster_audio::{FinalizedAudioFile, RecorderStatus};
-use crate::connectors::{ConnectorStatus, RodecasterConfig, facebook, youtube};
+use crate::connectors::rodecaster_audio::FinalizedAudioFile;
+use crate::connectors::{ConnectorStatus, RecorderStatus, RodecasterConfig, facebook, youtube};
 use crate::models::{
     activity,
     cron_job::{self, CreateCronJob, UpdateCronJob},
@@ -438,6 +438,14 @@ enum WsCommand {
     #[serde(rename = "presentation.unmute")]
     PresentationUnmute,
     // ── OBS Devices ──────────────────────────────────────────────────────────
+    #[serde(rename = "obs.stream.start")]
+    ObsStreamStart,
+    #[serde(rename = "obs.stream.stop")]
+    ObsStreamStop,
+    #[serde(rename = "obs.record.start")]
+    ObsRecordStart,
+    #[serde(rename = "obs.record.stop")]
+    ObsRecordStop,
     #[serde(rename = "obs.devices.scan")]
     ObsDevicesScan,
     #[serde(rename = "obs.devices.available")]
@@ -604,6 +612,13 @@ fn ws_error(tx: &mpsc::UnboundedSender<Message>, msg: &str) {
     ));
 }
 
+fn reply(tx: &mpsc::UnboundedSender<Message>, result: Result<(), String>) {
+    match result {
+        Ok(()) => ws_ok(tx),
+        Err(error) => ws_error(tx, &error),
+    }
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct PresenterEventList {
@@ -730,6 +745,28 @@ mod tests {
         assert!(matches!(
             parsed(r#"{"type":"atem.stream.push_youtube"}"#),
             WsCommand::AtemStreamPushYoutube
+        ));
+    }
+
+    #[test]
+    fn obs_output_commands_parse_from_their_wire_names() {
+        let parsed = |text: &str| serde_json::from_str::<WsCommand>(text).expect(text);
+
+        assert!(matches!(
+            parsed(r#"{"type":"obs.stream.start"}"#),
+            WsCommand::ObsStreamStart
+        ));
+        assert!(matches!(
+            parsed(r#"{"type":"obs.stream.stop"}"#),
+            WsCommand::ObsStreamStop
+        ));
+        assert!(matches!(
+            parsed(r#"{"type":"obs.record.start"}"#),
+            WsCommand::ObsRecordStart
+        ));
+        assert!(matches!(
+            parsed(r#"{"type":"obs.record.stop"}"#),
+            WsCommand::ObsRecordStop
         ));
     }
 
@@ -2743,6 +2780,19 @@ async fn handle_ws_command(
                 Ok(r) => ws_error(client_tx, &r.error.unwrap_or_default()),
                 Err(e) => ws_error(client_tx, &e.to_string()),
             }
+        }
+        // ── OBS outputs ──────────────────────────────────────────────────────
+        WsCommand::ObsStreamStart => {
+            reply(client_tx, state.obs_connector.set_streaming(true).await)
+        }
+        WsCommand::ObsStreamStop => {
+            reply(client_tx, state.obs_connector.set_streaming(false).await)
+        }
+        WsCommand::ObsRecordStart => {
+            reply(client_tx, state.obs_connector.set_recording(true).await)
+        }
+        WsCommand::ObsRecordStop => {
+            reply(client_tx, state.obs_connector.set_recording(false).await)
         }
         // ── OBS Devices ───────────────────────────────────────────────────────
         WsCommand::ObsDevicesScan => {

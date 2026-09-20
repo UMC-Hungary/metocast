@@ -53,6 +53,38 @@ When a public HTTP or WebSocket contract changes, update the core Rust record, s
 OpenAPI/Bruno examples, `@metocast/core-client` Zod schema, and affected native bridge record in
 the same change.
 
+## Native Apple app
+
+`apple-app/Metocast.xcodeproj` is a SwiftUI app for iOS 26 and macOS 26 built on the `apple/`
+Swift package. The iPhone is a client of a Metocast server. The Mac is either a client or the
+server: its build embeds the headless `metocast-server` in `Contents/MacOS`
+(`scripts/embed-apple-server.sh`), and server mode runs it, then talks to it over loopback like
+any other client. Client devices connect by address and token, or by opening the
+`metocast://connect` link that the Mac's Settings shows as a QR code.
+
+```bash
+./scripts/build-apple.sh   # once, and after Rust bridge changes: the app links this XCFramework
+open apple-app/Metocast.xcodeproj
+```
+
+The app covers events, live production (OBS, ATEM, Middle Control, RØDECaster), slides and
+presentations, connector settings and an event's recordings. **Settings → Connectors** lists every
+connector and edits its configuration, with secrets that can be replaced or forgotten but never
+read back. **Presentation → Open Slides** searches the server's watched folders, opens a deck in
+whichever backend the server uses, and writes a song deck from pasted lyrics.
+
+On Mac, open **Settings (⌘,) → Equipment → Discover Devices** for ATEM, Blackmagic
+camera, Middle Control, Broadlink, OBS device, and RØDECaster audio discovery. Scans run on
+the connected server (also in client mode). ATEM and Middle Control results can fill the
+connection form; manual host/port entry is available when discovery finds nothing. Save
+Connection applies and enables/disables the connector using its existing API. OBS and
+RØDECaster must already be connected to scan their devices. Camera discovery can automatically
+adopt the first camera when unconfigured; Broadlink discovery saves devices in the background,
+so its panel shows saved devices and provides a refresh button.
+
+Building the server needs `cmake` (`brew install cmake`). The Mac app is not sandboxed, because
+the server spawns PostgreSQL and listens on the network.
+
 ## API access and secrets
 
 The core exposes one HTTP/WebSocket API, used by the desktop app, remote client-mode UIs,
@@ -110,6 +142,10 @@ cargo run --manifest-path presenter-receiver/Cargo.toml --bin presenter-receiver
 
 The Companion module communicates with Metocast only through the app WebSocket. Its Textus and Lekcio presets call `presenter.load_bible_reference` without an `event_id`, so the backend-selected current/next event is used.
 The active Classic/Editorial presenter design is selected in Metocast and is applied automatically when Companion opens a text-mode song or Bible presentation.
+
+OBS streaming and recording are started and stopped with the authenticated WebSocket commands
+`obs.stream.start`/`stop` and `obs.record.start`/`stop`. Each replies `ok` or an `error` (`obs_not_connected`
+when OBS is not connected); the new state then arrives as `connector.state` (`connector: "obs"`).
 
 RØDECaster audio capture is core-owned and uses the authenticated WebSocket commands
 `rodecaster.audio.discover`, `rodecaster.audio.record.start` (with `event_id`),

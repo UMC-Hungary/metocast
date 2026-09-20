@@ -86,6 +86,15 @@ impl ServerHandle {
         }
     }
 
+    /// Resolves if the server stops on its own, e.g. after a fatal error. Once it
+    /// has resolved, the server is gone and `shutdown` must not be called.
+    pub async fn finished(&mut self) -> Result<(), HostError> {
+        (&mut self.task)
+            .await
+            .map_err(|error| HostError::Failed(error.to_string()))?
+            .map_err(HostError::Failed)
+    }
+
     pub async fn shutdown(self) -> Result<(), HostError> {
         self.shutdown
             .send(true)

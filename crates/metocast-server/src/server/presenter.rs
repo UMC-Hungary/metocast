@@ -54,34 +54,7 @@ pub enum PresenterRenderMode {
     Svg,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
-#[serde(rename_all = "lowercase")]
-pub enum PresenterTheme {
-    #[default]
-    Classic,
-    Editorial,
-}
-
-impl PresenterTheme {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Classic => "classic",
-            Self::Editorial => "editorial",
-        }
-    }
-}
-
-impl std::str::FromStr for PresenterTheme {
-    type Err = ();
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "classic" => Ok(Self::Classic),
-            "editorial" => Ok(Self::Editorial),
-            _ => Err(()),
-        }
-    }
-}
+pub use metocast_core::protocol::PresenterTheme;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]

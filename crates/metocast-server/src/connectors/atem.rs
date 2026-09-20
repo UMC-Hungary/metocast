@@ -9,7 +9,9 @@ use tokio::sync::{Mutex, RwLock, broadcast, mpsc, oneshot};
 use tokio::task::JoinHandle;
 use tokio::time::{Duration, Instant, interval, timeout_at};
 
-use super::{AtemConfig, ConnectorConfig, ConnectorStatus};
+use super::{
+    AtemConfig, AtemInput, AtemState, ConnectorConfig, ConnectorStatus, RecordStatus, StreamStatus,
+};
 
 const INITIAL_BACKOFF: Duration = Duration::from_secs(5);
 const MAX_BACKOFF: Duration = Duration::from_secs(60);
@@ -40,43 +42,6 @@ pub struct DiscoveredAtem {
     pub host: String,
     pub port: u16,
     pub usb: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AtemInput {
-    pub id: u16,
-    pub name: String,
-    pub short_name: String,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum StreamStatus {
-    Idle,
-    Connecting,
-    Streaming,
-    Stopping,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum RecordStatus {
-    Idle,
-    Recording,
-    Stopping,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AtemState {
-    pub product: String,
-    pub program: Option<u16>,
-    pub preview: Option<u16>,
-    pub inputs: Vec<AtemInput>,
-    pub streaming: Option<StreamStatus>,
-    pub recording: Option<RecordStatus>,
-    pub stream_service: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
