@@ -62,25 +62,32 @@ jobs:
       - name: Build and test Swift package
         run: ./scripts/build-apple.sh
 
-      - name: Upload XCFramework
+      # Both halves of the bridge: the framework and the Swift it generates. The app job
+      # takes these instead of building four Rust targets again.
+      - name: Upload the bridge
         uses: actions/upload-artifact@v6
         with:
           name: metocast-apple-xcframework
-          path: apple/MetocastFFI.xcframework
+          path: |
+            apple/MetocastFFI.xcframework
+            apple/Sources/Metocast/Metocast.swift
+          if-no-files-found: error
 
   apple-app:
     name: Metocast app (iOS and macOS)
-    runs-on: macos-latest
+    # Pinned, not `macos-latest`: an image roll must not change the SDK this app is built against.
+    runs-on: macos-26
     needs: apple-libraries
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      # The Mac app embeds the headless server, which its Xcode build phase compiles.
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.98.1
         with:
-          targets: aarch64-apple-ios,aarch64-apple-ios-sim,aarch64-apple-darwin,x86_64-apple-darwin
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
 
       - name: Cache Rust dependencies
         uses: swatinem/rust-cache@v2
@@ -88,9 +95,11 @@ jobs:
           workspaces: '. -> target'
           shared-key: apple-libraries
 
-      # The app links the XCFramework and, on macOS, embeds the headless server.
-      - name: Build the bridge
-        run: ./scripts/build-apple.sh
+      - name: Download the bridge
+        uses: actions/download-artifact@v6
+        with:
+          name: metocast-apple-xcframework
+          path: apple
 
       - name: Build for iPhone
         run: |
