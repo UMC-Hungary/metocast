@@ -70,7 +70,10 @@ open apple-app/Metocast.xcodeproj
 The app covers events, live production (OBS, ATEM, Middle Control, RØDECaster), slides and
 presentations, connector settings and an event's recordings. **Settings → Connectors** lists every
 connector and edits its configuration, with secrets that can be replaced or forgotten but never
-read back. **Presentation → Open Slides** searches the server's watched folders, opens a deck in
+read back; on the Mac that hosts the server, **Show Stored Secrets** reads them back through the
+run's admin token over loopback. **Settings → Server Tools** covers the scheduled jobs, the upload
+queues, the saved Broadlink commands, the OBS sources the server watches, recordings that belong
+to no event, the caption overlay address and the core log. **Presentation → Open Slides** searches the server's watched folders, opens a deck in
 whichever backend the server uses, and writes a song deck from pasted lyrics.
 
 On Mac, open **Settings (⌘,) → Equipment → Discover Devices** for ATEM, Blackmagic

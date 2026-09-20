@@ -17,10 +17,14 @@ use metocast_core::{
         BibleReference, BibleVerse, CreateBibleReference, CreateConnection, CreateEvent, Event,
         EventConnection, EventSummary,
     },
+    operations::{
+        BroadlinkCommand, CronJob, CronJobDraft, DeviceListener, QueueJob, QueueSummary,
+        UntrackedRecording,
+    },
     protocol::{
-        ConnectedClient, ParagraphContent, PresentationCommand, PresentationStatus,
-        PresenterCommand, PresenterState, PresenterTheme, ProductionCommand, ServerEvent,
-        SlideContent, SvgSlideContent,
+        ConnectedClient, DeviceAlertCommand, ParagraphContent, PresentationCommand,
+        PresentationStatus, PresenterCommand, PresenterState, PresenterTheme, ProductionCommand,
+        ServerEvent, SlideContent, SvgSlideContent,
     },
     recordings::Recording,
     slides::{CreateSongSlides, PptFile, SongSlides},
@@ -292,6 +296,41 @@ pub enum ProductionControl {
         event_id: String,
     },
     RodecasterRecordStop,
+    CameraRecording {
+        on: bool,
+    },
+    CameraStreaming {
+        on: bool,
+    },
+    /// Copies the YouTube ingestion address and key into the camera, without going live.
+    CameraPushYoutube,
+    /// The same for the ATEM.
+    AtemPushYoutube,
+}
+
+/// The OBS sources the server watches. Ids cross the bridge as strings.
+#[derive(Clone, uniffi::Enum)]
+pub enum DeviceAlertControl {
+    List,
+    Scan,
+    Available,
+    Create {
+        category: String,
+        device_item_value: String,
+        device_item_name: String,
+        friendly_name: String,
+    },
+    Delete {
+        id: String,
+    },
+}
+
+#[derive(Clone, uniffi::Record)]
+pub struct DeviceListenerRecord {
+    pub id: String,
+    pub category: String,
+    pub device_item_name: String,
+    pub friendly_name: String,
 }
 
 // Slides and the presentation backend: the core types as they are.
@@ -363,6 +402,61 @@ pub enum PresentationCommand {
         hostname: Option<String>,
     },
     ClientsList,
+}
+
+#[derive(Clone, uniffi::Record)]
+pub struct CronJobRecord {
+    pub id: String,
+    pub name: String,
+    pub cron_expression: String,
+    pub enabled: bool,
+    pub pull_youtube: bool,
+    pub auto_upload: bool,
+}
+
+#[derive(Clone, uniffi::Record)]
+pub struct QueueSummaryRecord {
+    pub queue: String,
+    pub pending: i64,
+    pub processing: i64,
+    pub succeeded: i64,
+    pub dead: i64,
+}
+
+#[derive(Clone, uniffi::Record)]
+pub struct QueueJobRecord {
+    pub id: String,
+    pub queue: String,
+    pub job_type: String,
+    pub status: String,
+    pub attempts: i32,
+    pub max_attempts: i32,
+    pub last_error: Option<String>,
+    /// RFC 3339.
+    pub updated_at: String,
+}
+
+#[derive(Clone, uniffi::Record)]
+pub struct BroadlinkCommandRecord {
+    pub id: String,
+    pub name: String,
+    pub category: String,
+}
+
+#[derive(Clone, uniffi::Record)]
+pub struct UntrackedRecordingRecord {
+    pub id: String,
+    pub file_name: String,
+    pub file_size: i64,
+    pub duration_seconds: f64,
+    /// RFC 3339.
+    pub detected_at: String,
+}
+
+#[derive(Clone, uniffi::Record)]
+pub struct BibleSuggestionRecord {
+    pub label: String,
+    pub category: String,
 }
 
 /// One recorded file for an event, as the event screen lists it.
@@ -515,6 +609,15 @@ pub enum AppleEvent {
     },
     Clients {
         clients: Vec<ConnectedClientRecord>,
+    },
+    CameraState {
+        streaming: bool,
+        recording: bool,
+        /// The camera's own word for what streaming is doing.
+        stream_status: String,
+    },
+    DeviceAlerts {
+        listeners: Vec<DeviceListenerRecord>,
     },
     Unknown,
 }
@@ -677,11 +780,161 @@ impl AppleClient {
         self.send(ProductionCommand::try_from(control)?).await
     }
 
+    /// Manages the OBS sources the server watches and warns about.
+    pub async fn device_alert_control(
+        &self,
+        command: DeviceAlertControl,
+    ) -> Result<(), AppleError> {
+        self.send(DeviceAlertCommand::try_from(command)?).await
+    }
+
     pub async fn presentation_control(
         &self,
         command: PresentationCommand,
     ) -> Result<(), AppleError> {
         self.send(command).await
+    }
+
+    // ── Housekeeping ─────────────────────────────────────────────────────────
+
+    pub async fn cron_jobs(&self) -> Result<Vec<CronJobRecord>, AppleError> {
+        let client = self.client.clone();
+        let jobs = self.run(async move { client.cron_jobs().await }).await?;
+        Ok(jobs.into_iter().map(Into::into).collect())
+    }
+
+    /// Creates the job when `id` is empty, otherwise updates it.
+    pub async fn save_cron_job(
+        &self,
+        id: String,
+        job: CronJobRecord,
+    ) -> Result<CronJobRecord, AppleError> {
+        let draft = CronJobDraft {
+            name: job.name,
+            cron_expression: job.cron_expression,
+            enabled: job.enabled,
+            pull_youtube: job.pull_youtube,
+            auto_upload: job.auto_upload,
+        };
+        if draft.name.trim().is_empty() || draft.cron_expression.trim().is_empty() {
+            return Err(AppleError::InvalidInput);
+        }
+        let client = self.client.clone();
+        let saved = if id.is_empty() {
+            self.run(async move { client.create_cron_job(&draft).await })
+                .await?
+        } else {
+            let id = parse_id(&id)?;
+            self.run(async move { client.update_cron_job(id, &draft).await })
+                .await?
+        };
+        Ok(saved.into())
+    }
+
+    pub async fn delete_cron_job(&self, id: String) -> Result<(), AppleError> {
+        let id = parse_id(&id)?;
+        let client = self.client.clone();
+        self.run(async move { client.delete_cron_job(id).await })
+            .await
+    }
+
+    pub async fn queues(&self) -> Result<Vec<QueueSummaryRecord>, AppleError> {
+        let client = self.client.clone();
+        let queues = self.run(async move { client.queues().await }).await?;
+        Ok(queues.into_iter().map(Into::into).collect())
+    }
+
+    pub async fn queue_jobs(&self, queue: String) -> Result<Vec<QueueJobRecord>, AppleError> {
+        let client = self.client.clone();
+        let jobs = self
+            .run(async move { client.queue_jobs(&queue).await })
+            .await?;
+        Ok(jobs.into_iter().map(Into::into).collect())
+    }
+
+    pub async fn retry_job(&self, id: String) -> Result<(), AppleError> {
+        let id = parse_id(&id)?;
+        let client = self.client.clone();
+        self.run(async move { client.retry_job(id).await }).await
+    }
+
+    pub async fn purge_job(&self, id: String) -> Result<(), AppleError> {
+        let id = parse_id(&id)?;
+        let client = self.client.clone();
+        self.run(async move { client.purge_job(id).await }).await
+    }
+
+    /// Runs the upload cycle now.
+    pub async fn trigger_uploads(&self) -> Result<(), AppleError> {
+        let client = self.client.clone();
+        self.run(async move { client.trigger_uploads().await })
+            .await
+    }
+
+    pub async fn broadlink_commands(&self) -> Result<Vec<BroadlinkCommandRecord>, AppleError> {
+        let client = self.client.clone();
+        let commands = self
+            .run(async move { client.broadlink_commands().await })
+            .await?;
+        Ok(commands.into_iter().map(Into::into).collect())
+    }
+
+    pub async fn send_broadlink_command(&self, id: String) -> Result<(), AppleError> {
+        let id = parse_id(&id)?;
+        let client = self.client.clone();
+        self.run(async move { client.send_broadlink_command(id).await })
+            .await
+    }
+
+    pub async fn untracked_recordings(&self) -> Result<Vec<UntrackedRecordingRecord>, AppleError> {
+        let client = self.client.clone();
+        let recordings = self
+            .run(async move { client.untracked_recordings().await })
+            .await?;
+        Ok(recordings.into_iter().map(Into::into).collect())
+    }
+
+    /// Moves a stray recording onto an event.
+    pub async fn assign_untracked(&self, id: String, event_id: String) -> Result<(), AppleError> {
+        let id = parse_id(&id)?;
+        let event = parse_id(&event_id)?;
+        let client = self.client.clone();
+        self.run(async move { client.assign_untracked(id, event).await })
+            .await
+    }
+
+    pub async fn delete_untracked(&self, id: String) -> Result<(), AppleError> {
+        let id = parse_id(&id)?;
+        let client = self.client.clone();
+        self.run(async move { client.delete_untracked(id).await })
+            .await
+    }
+
+    /// Book and chapter autocomplete for a Bible reference.
+    pub async fn bible_suggestions(
+        &self,
+        term: String,
+    ) -> Result<Vec<BibleSuggestionRecord>, AppleError> {
+        let client = self.client.clone();
+        let suggestions = self
+            .run(async move { client.bible_suggestions(&term).await })
+            .await?;
+        Ok(suggestions
+            .into_iter()
+            .map(|suggestion| BibleSuggestionRecord {
+                label: suggestion.label,
+                category: suggestion.cat,
+            })
+            .collect())
+    }
+
+    /// The core's own log. Only a core inside the desktop app has one.
+    pub async fn application_log(&self) -> Result<String, AppleError> {
+        let client = self.client.clone();
+        Ok(self
+            .run(async move { client.application_log().await })
+            .await?
+            .content)
     }
 
     /// The files recorded for one event, newest first.
@@ -758,6 +1011,35 @@ impl AppleClient {
         Ok(metocast_core::config::form(&connector, &config)
             .into_iter()
             .map(Into::into)
+            .collect())
+    }
+
+    /// The stored secrets for one connector, which only the Mac hosting the server can read.
+    /// Returns the same fields as `connector_form`, with the secrets filled in.
+    pub async fn connector_secrets(
+        &self,
+        connector: String,
+        admin_token: String,
+    ) -> Result<Vec<ConfigFieldRecord>, AppleError> {
+        let client = self.client.clone();
+        let name = connector.clone();
+        let secrets = self
+            .run(async move { client.connector_secrets(&name, &admin_token).await })
+            .await?;
+        Ok(metocast_core::config::schema(&connector)
+            .iter()
+            .filter(|(_, _, kind)| matches!(kind, metocast_core::config::ConfigFieldKind::Secret))
+            .map(|(key, label, kind)| ConfigFieldRecord {
+                key: (*key).to_string(),
+                label: (*label).to_string(),
+                kind: *kind,
+                value: secrets
+                    .get(*key)
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
+                is_set: true,
+            })
             .collect())
     }
 
@@ -1085,7 +1367,112 @@ impl TryFrom<ProductionControl> for ProductionCommand {
                 event_id: parse_id(&event_id)?,
             },
             ProductionControl::RodecasterRecordStop => Self::RodecasterRecordStop,
+            ProductionControl::CameraRecording { on: true } => Self::CameraRecordStart,
+            ProductionControl::CameraRecording { on: false } => Self::CameraRecordStop,
+            ProductionControl::CameraStreaming { on: true } => Self::CameraStreamStart,
+            ProductionControl::CameraStreaming { on: false } => Self::CameraStreamStop,
+            ProductionControl::CameraPushYoutube => Self::CameraPushYoutube,
+            ProductionControl::AtemPushYoutube => Self::AtemPushYoutube,
         })
+    }
+}
+
+impl TryFrom<DeviceAlertControl> for DeviceAlertCommand {
+    type Error = AppleError;
+
+    fn try_from(command: DeviceAlertControl) -> Result<Self, AppleError> {
+        Ok(match command {
+            DeviceAlertControl::List => Self::List,
+            DeviceAlertControl::Scan => Self::Scan,
+            DeviceAlertControl::Available => Self::Available,
+            DeviceAlertControl::Create {
+                category,
+                device_item_value,
+                device_item_name,
+                friendly_name,
+            } => Self::Create {
+                // Only OBS reports devices to watch today.
+                connector_type: "obs".to_string(),
+                category,
+                device_item_value,
+                device_item_name,
+                friendly_name,
+            },
+            DeviceAlertControl::Delete { id } => Self::Delete { id: parse_id(&id)? },
+        })
+    }
+}
+
+impl From<DeviceListener> for DeviceListenerRecord {
+    fn from(listener: DeviceListener) -> Self {
+        Self {
+            id: listener.id.to_string(),
+            category: listener.category,
+            device_item_name: listener.device_item_name,
+            friendly_name: listener.friendly_name,
+        }
+    }
+}
+
+impl From<CronJob> for CronJobRecord {
+    fn from(job: CronJob) -> Self {
+        Self {
+            id: job.id.to_string(),
+            name: job.name,
+            cron_expression: job.cron_expression,
+            enabled: job.enabled,
+            pull_youtube: job.pull_youtube,
+            auto_upload: job.auto_upload,
+        }
+    }
+}
+
+impl From<QueueSummary> for QueueSummaryRecord {
+    fn from(queue: QueueSummary) -> Self {
+        Self {
+            queue: queue.queue,
+            pending: queue.pending,
+            processing: queue.processing,
+            succeeded: queue.succeeded,
+            dead: queue.dead,
+        }
+    }
+}
+
+impl From<QueueJob> for QueueJobRecord {
+    fn from(job: QueueJob) -> Self {
+        Self {
+            id: job.id.to_string(),
+            queue: job.queue,
+            job_type: job.job_type,
+            status: job.status,
+            attempts: job.attempts,
+            max_attempts: job.max_attempts,
+            last_error: job.last_error,
+            updated_at: job.updated_at.to_rfc3339(),
+        }
+    }
+}
+
+impl From<BroadlinkCommand> for BroadlinkCommandRecord {
+    fn from(command: BroadlinkCommand) -> Self {
+        Self {
+            id: command.id.to_string(),
+            name: command.name,
+            category: command.category,
+        }
+    }
+}
+
+impl From<UntrackedRecording> for UntrackedRecordingRecord {
+    fn from(recording: UntrackedRecording) -> Self {
+        Self {
+            id: recording.id.to_string(),
+            file_name: recording.file_name,
+            file_size: recording.file_size,
+            duration_seconds: recording.duration_seconds,
+            detected_at: recording.detected_at.to_rfc3339(),
+        }
     }
 }
 
@@ -1211,6 +1598,18 @@ impl From<ServerEvent> for AppleEvent {
             ServerEvent::ConnectorState(ConnectorState::Middlecontrol { state }) => {
                 Self::MiddlecontrolState { state }
             }
+            ServerEvent::ConnectorState(ConnectorState::Camera {
+                is_streaming,
+                is_recording,
+                stream_status,
+            }) => Self::CameraState {
+                streaming: is_streaming,
+                recording: is_recording,
+                stream_status,
+            },
+            ServerEvent::DeviceAlerts { listeners } => Self::DeviceAlerts {
+                listeners: listeners.into_iter().map(Into::into).collect(),
+            },
             ServerEvent::RodecasterProfile { profile } => Self::RodecasterProfile { profile },
             ServerEvent::RodecasterMute {
                 channel,

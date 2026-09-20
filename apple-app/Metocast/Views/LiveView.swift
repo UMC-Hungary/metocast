@@ -35,10 +35,27 @@ struct LiveView: View {
                             .buttonStyle(.bordered)
                             .controlSize(.large)
                             outputRows(outputs, for: "atem", session: session)
+                            Button("Push YouTube Destination", systemImage: "arrow.up.forward.square") {
+                                session.control(.atemPushYoutube)
+                            }
                         } header: {
                             Text("Switcher")
                         } footer: {
                             Text(atem.product)
+                        }
+                    }
+                    if session.camera != nil {
+                        Section {
+                            outputRows(outputs, for: "blackmagic-camera", session: session)
+                            Button("Push YouTube Destination", systemImage: "arrow.up.forward.square") {
+                                session.control(.cameraPushYoutube)
+                            }
+                        } header: {
+                            Text("Camera")
+                        } footer: {
+                            if let status = session.camera?.streamStatus, !status.isEmpty {
+                                Text("Stream: \(status)")
+                            }
                         }
                     }
                     if let cameras = session.middlecontrol {
@@ -99,7 +116,8 @@ struct LiveView: View {
 
 extension MetocastSession {
     var hasLiveDevices: Bool {
-        obs != nil || atem != nil || middlecontrol != nil || rodecaster != nil || !outputs.isEmpty
+        obs != nil || atem != nil || middlecontrol != nil || rodecaster != nil || camera != nil
+            || !outputs.isEmpty
     }
 }
 

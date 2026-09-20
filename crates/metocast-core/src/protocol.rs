@@ -74,6 +74,43 @@ pub enum ProductionCommand {
     RodecasterRecordStart { event_id: Uuid },
     #[serde(rename = "rodecaster.audio.record.stop")]
     RodecasterRecordStop,
+    #[serde(rename = "blackmagic-camera.record.start")]
+    CameraRecordStart,
+    #[serde(rename = "blackmagic-camera.record.stop")]
+    CameraRecordStop,
+    #[serde(rename = "blackmagic-camera.stream.start")]
+    CameraStreamStart,
+    #[serde(rename = "blackmagic-camera.stream.stop")]
+    CameraStreamStop,
+    /// Copies the channel's ingestion address and key into the camera; does not go live.
+    #[serde(rename = "blackmagic-camera.stream.push_youtube")]
+    CameraPushYoutube,
+    /// The same for the ATEM's streaming service.
+    #[serde(rename = "atem.stream.push_youtube")]
+    AtemPushYoutube,
+}
+
+/// The OBS sources the server watches and warns about. Each is answered by
+/// `obs.listeners.list` or `obs.devices.available`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "type")]
+pub enum DeviceAlertCommand {
+    #[serde(rename = "obs.listeners.list")]
+    List,
+    #[serde(rename = "obs.devices.scan")]
+    Scan,
+    #[serde(rename = "obs.devices.available")]
+    Available,
+    #[serde(rename = "obs.listeners.create")]
+    Create {
+        connector_type: String,
+        category: String,
+        device_item_value: String,
+        device_item_name: String,
+        friendly_name: String,
+    },
+    #[serde(rename = "obs.listeners.delete")]
+    Delete { id: Uuid },
 }
 
 /// The visual treatment of text-mode song and Bible slides.
@@ -324,6 +361,10 @@ pub enum ServerEvent {
     /// Broadcast whenever a client connects, leaves or is renamed.
     #[serde(rename = "clients.updated")]
     ClientsUpdated { clients: Vec<ConnectedClient> },
+    #[serde(rename = "obs.listeners.list")]
+    DeviceAlerts {
+        listeners: Vec<crate::operations::DeviceListener>,
+    },
     #[serde(rename = "ping")]
     Ping {
         #[serde(rename = "pingId")]
@@ -419,7 +460,36 @@ mod tests {
             decode(
                 r#"{"type":"connector.state","connector":"blackmagic-camera","isStreaming":false,"streamStatus":"Idle","isRecording":false}"#
             ),
+            ConnectorState::Camera {
+                is_streaming: false,
+                is_recording: false,
+                stream_status: "Idle".to_string()
+            }
+        );
+        assert_eq!(
+            decode(r#"{"type":"connector.state","connector":"vmix","isStreaming":true}"#),
             ConnectorState::Other
+        );
+    }
+
+    #[test]
+    fn device_alert_commands_match_the_server_wire_names() {
+        assert_eq!(
+            serde_json::to_value(DeviceAlertCommand::Create {
+                connector_type: "obs".to_string(),
+                category: "audio_input".to_string(),
+                device_item_value: "mic-1".to_string(),
+                device_item_name: "Mic".to_string(),
+                friendly_name: "Pulpit mic".to_string(),
+            })
+            .unwrap(),
+            serde_json::json!({"type": "obs.listeners.create", "connector_type": "obs",
+                               "category": "audio_input", "device_item_value": "mic-1",
+                               "device_item_name": "Mic", "friendly_name": "Pulpit mic"})
+        );
+        assert_eq!(
+            serde_json::to_value(ProductionCommand::CameraPushYoutube).unwrap(),
+            serde_json::json!({"type": "blackmagic-camera.stream.push_youtube"})
         );
     }
 

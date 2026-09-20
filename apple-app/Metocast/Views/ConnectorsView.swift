@@ -29,6 +29,7 @@ struct ConnectorsView: View {
 /// One connector's settings, built from the fields the bridge says it has. Secrets can be
 /// replaced or forgotten, never read back.
 struct ConnectorFormView: View {
+    @Environment(AppModel.self) private var model
     let session: MetocastSession
     let connector: String
     let name: String
@@ -105,6 +106,15 @@ struct ConnectorFormView: View {
                     }
                 }
             }
+            #if os(macOS)
+            if model.mode == .server, fields.contains(where: { $0.kind == .secret }) {
+                Section {
+                    Button("Show Stored Secrets", systemImage: "eye") { Task { await reveal() } }
+                } footer: {
+                    Text("Only this Mac can read back what it stored.")
+                }
+            }
+            #endif
             if signsIn {
                 Section {
                     Button("Sign In…", systemImage: "person.badge.key") {
@@ -217,6 +227,21 @@ struct ConnectorFormView: View {
             failure = error.metocastMessage
         }
     }
+
+    #if os(macOS)
+    /// Fills the secret fields in with what the server stored, which needs this run's admin
+    /// token and a request from this Mac itself.
+    private func reveal() async {
+        do {
+            for field in try await session.connectorSecrets(connector, adminToken: model.server.adminToken) {
+                values[field.key] = field.value
+            }
+            failure = nil
+        } catch {
+            failure = error.metocastMessage
+        }
+    }
+    #endif
 
     private func signIn() async {
         do {

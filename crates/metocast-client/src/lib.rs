@@ -8,6 +8,10 @@ use metocast_core::{
     events::{
         BiblePassage, CreateEvent, Event, EventSummary, SlideFolder, TitleTemplate, UpdateEvent,
     },
+    operations::{
+        ApplicationLog, BibleSuggestion, BroadlinkCommand, CronJob, CronJobDraft, QueueJob,
+        QueueSummary, UntrackedRecording,
+    },
     protocol::ServerEvent,
     recordings::{FlagUpload, FlagUploadItem, Recording},
     slides::{CreateSongSlides, EventSlides, PptEnvelope, PptFile, PptFolder, SongSlides},
@@ -247,6 +251,25 @@ impl MetocastClient {
         .await
     }
 
+    /// Reads a connector's stored secrets back. Only the machine running the server can: it
+    /// needs the run's admin token and a request from loopback.
+    pub async fn connector_secrets(
+        &self,
+        connector: &str,
+        admin_token: &str,
+    ) -> Result<serde_json::Value, ClientError> {
+        self.send_json(
+            self.http
+                .get(
+                    self.config
+                        .endpoint(&format!("api/connectors/{connector}/config/secrets"))?,
+                )
+                .header("X-Admin-Token", admin_token)
+                .timeout(Duration::from_secs(10)),
+        )
+        .await
+    }
+
     /// Saves a connector's configuration and applies it: the server reconnects it, or stops it
     /// when it is no longer enabled.
     pub async fn save_connector_config(
@@ -315,14 +338,7 @@ impl MetocastClient {
     }
 
     pub async fn delete_event(&self, id: Uuid) -> Result<(), ClientError> {
-        let url = self.config.endpoint(&format!("api/events/{id}"))?;
-        self.response(
-            self.http
-                .delete(url)
-                .bearer_auth(self.config.token.expose()),
-        )
-        .await?;
-        Ok(())
+        self.delete(&format!("api/events/{id}")).await
     }
 
     pub async fn title_template(&self) -> Result<TitleTemplate, ClientError> {
@@ -388,6 +404,116 @@ impl MetocastClient {
             .append_pair("reference", reference)
             .append_pair("translation", translation);
         self.send_json(self.http.get(url)).await
+    }
+
+    // ── Housekeeping ─────────────────────────────────────────────────────────
+
+    pub async fn cron_jobs(&self) -> Result<Vec<CronJob>, ClientError> {
+        self.get_json("api/cron-jobs").await
+    }
+
+    pub async fn create_cron_job(&self, job: &CronJobDraft) -> Result<CronJob, ClientError> {
+        let url = self.config.endpoint("api/cron-jobs")?;
+        self.send_json(self.http.post(url).json(job)).await
+    }
+
+    pub async fn update_cron_job(
+        &self,
+        id: Uuid,
+        job: &CronJobDraft,
+    ) -> Result<CronJob, ClientError> {
+        let url = self.config.endpoint(&format!("api/cron-jobs/{id}"))?;
+        self.send_json(self.http.put(url).json(job)).await
+    }
+
+    pub async fn delete_cron_job(&self, id: Uuid) -> Result<(), ClientError> {
+        self.delete(&format!("api/cron-jobs/{id}")).await
+    }
+
+    pub async fn queues(&self) -> Result<Vec<QueueSummary>, ClientError> {
+        self.get_json("api/queues").await
+    }
+
+    pub async fn queue_jobs(&self, queue: &str) -> Result<Vec<QueueJob>, ClientError> {
+        self.get_json(&format!("api/queues/{queue}/jobs")).await
+    }
+
+    pub async fn retry_job(&self, id: Uuid) -> Result<(), ClientError> {
+        let url = self.config.endpoint(&format!("api/jobs/{id}/retry"))?;
+        self.response(self.http.post(url).bearer_auth(self.config.token.expose()))
+            .await?;
+        Ok(())
+    }
+
+    pub async fn purge_job(&self, id: Uuid) -> Result<(), ClientError> {
+        self.delete(&format!("api/jobs/{id}")).await
+    }
+
+    /// Runs the upload cycle now instead of waiting for the scheduler.
+    pub async fn trigger_uploads(&self) -> Result<(), ClientError> {
+        let url = self.config.endpoint("api/uploads/trigger")?;
+        self.response(self.http.post(url).bearer_auth(self.config.token.expose()))
+            .await?;
+        Ok(())
+    }
+
+    pub async fn broadlink_commands(&self) -> Result<Vec<BroadlinkCommand>, ClientError> {
+        self.get_json("api/connectors/broadlink/commands").await
+    }
+
+    pub async fn send_broadlink_command(&self, id: Uuid) -> Result<(), ClientError> {
+        let url = self
+            .config
+            .endpoint(&format!("api/connectors/broadlink/commands/{id}/send"))?;
+        self.response(self.http.post(url).bearer_auth(self.config.token.expose()))
+            .await?;
+        Ok(())
+    }
+
+    pub async fn untracked_recordings(&self) -> Result<Vec<UntrackedRecording>, ClientError> {
+        self.get_json("api/recordings/untracked").await
+    }
+
+    /// Moves a stray recording onto an event.
+    pub async fn assign_untracked(&self, id: Uuid, event_id: Uuid) -> Result<(), ClientError> {
+        let url = self
+            .config
+            .endpoint(&format!("api/recordings/untracked/{id}/assign"))?;
+        self.response(
+            self.http
+                .post(url)
+                .bearer_auth(self.config.token.expose())
+                .json(&serde_json::json!({ "event_id": event_id })),
+        )
+        .await?;
+        Ok(())
+    }
+
+    pub async fn delete_untracked(&self, id: Uuid) -> Result<(), ClientError> {
+        self.delete(&format!("api/recordings/untracked/{id}")).await
+    }
+
+    /// Book and chapter autocomplete for the event editor.
+    pub async fn bible_suggestions(&self, term: &str) -> Result<Vec<BibleSuggestion>, ClientError> {
+        let mut url = self.config.endpoint("api/bible/suggest")?;
+        url.query_pairs_mut().append_pair("term", term);
+        self.send_json(self.http.get(url)).await
+    }
+
+    /// The core's own log. Only a core running inside the desktop app has one.
+    pub async fn application_log(&self) -> Result<ApplicationLog, ClientError> {
+        self.get_json("api/logs").await
+    }
+
+    async fn delete(&self, path: &str) -> Result<(), ClientError> {
+        let url = self.config.endpoint(path)?;
+        self.response(
+            self.http
+                .delete(url)
+                .bearer_auth(self.config.token.expose()),
+        )
+        .await?;
+        Ok(())
     }
 
     /// The files recorded for one event, newest first.

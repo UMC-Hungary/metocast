@@ -14,6 +14,8 @@ struct EventEditorView: View {
     @State private var speaker: String
     @State private var textus: String
     @State private var leckio: String
+    /// Book hints per field, keyed by its label.
+    @State private var suggestions: [String: [String]] = [:]
     /// Verses by the reference they were looked up for; empty when the core found none. Keyed by
     /// reference so a slow lookup for a half-typed one can never be saved with the finished one.
     @State private var lookups: [String: [BibleVerseRecord]] = [:]
@@ -144,9 +146,30 @@ struct EventEditorView: View {
         .task { template = await model.session?.titleTemplate() ?? template }
         .task(id: textus) { await lookUp(textus) }
         .task(id: leckio) { await lookUp(leckio) }
+        .task(id: textus) { await suggest("Textus", text: textus) }
+        .task(id: leckio) { await suggest("Lekció", text: leckio) }
     }
 
     private func referenceField(_ label: String, text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            referenceRow(label, text: text)
+            // The book list comes from the core; a tap fills the field in, chapter and all.
+            if let hits = suggestions[label], !hits.isEmpty {
+                ScrollView(.horizontal) {
+                    HStack(spacing: 8) {
+                        ForEach(hits, id: \.self) { hit in
+                            Button(hit) { text.wrappedValue = hit }
+                                .buttonStyle(.bordered)
+                                .font(.subheadline)
+                        }
+                    }
+                }
+                .scrollIndicators(.hidden)
+            }
+        }
+    }
+
+    private func referenceRow(_ label: String, text: Binding<String>) -> some View {
         LabeledContent {
             HStack {
                 TextField(label, text: text, prompt: Text("Jn 3,16-21"))
@@ -168,6 +191,23 @@ struct EventEditorView: View {
         } label: {
             Text(label)
         }
+    }
+
+    /// Book and chapter hints while the reference is still being typed. A newer edit cancels
+    /// this task, so the core is asked once the typing pauses.
+    private func suggest(_ label: String, text: String) async {
+        let term = text.trimmingCharacters(in: .whitespaces)
+        guard term.count >= 2, !lookups.keys.contains(term) else {
+            suggestions[label] = []
+            return
+        }
+        do {
+            try await Task.sleep(for: .milliseconds(300))
+        } catch {
+            return
+        }
+        let hits = (try? await model.session?.bibleSuggestions(term)) ?? []
+        suggestions[label] = hits.prefix(6).map(\.label)
     }
 
     /// Waits for typing to pause (a newer edit cancels this task), then asks the core.

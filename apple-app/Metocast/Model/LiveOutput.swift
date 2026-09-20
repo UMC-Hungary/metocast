@@ -39,6 +39,10 @@ extension MetocastSession {
         if let recording = atem?.recording {
             outputs.append(LiveOutput(connector: "atem", kind: .recording, state: LiveOutput.State(recording)) { .atemRecording(on: $0) })
         }
+        if let camera {
+            outputs.append(LiveOutput(connector: "blackmagic-camera", kind: .stream, state: camera.streaming ? .on : .off) { .cameraStreaming(on: $0) })
+            outputs.append(LiveOutput(connector: "blackmagic-camera", kind: .recording, state: camera.recording ? .on : .off) { .cameraRecording(on: $0) })
+        }
         if let recording = middlecontrol?.recording {
             outputs.append(LiveOutput(connector: "middlecontrol", kind: .recording, state: recording ? .on : .off) { .middlecontrolRecordingAll(on: $0) })
         }

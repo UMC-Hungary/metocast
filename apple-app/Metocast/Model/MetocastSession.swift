@@ -29,6 +29,9 @@ final class MetocastSession {
     private(set) var middlecontrol: MiddlecontrolState?
     private(set) var rodecaster: RodecasterProfile?
     private(set) var recorder: RecorderStateRecord?
+    private(set) var camera: CameraState?
+    /// The OBS sources the server warns about.
+    private(set) var deviceAlerts: [DeviceListenerRecord] = []
     // Slides. The server decides whether a presentation opens in the web presenter or Keynote.
     private(set) var usesWebPresenter = true
     private(set) var presenterTheme: PresenterTheme = .classic
@@ -112,6 +115,63 @@ final class MetocastSession {
             throw DiscoveryFailure(message: "The device scan timed out. Check the connector and try again.")
         }
         return DiscoverySnapshot(devices: devices)
+    }
+
+    // ── Server tools ─────────────────────────────────────────────────────────
+
+    /// Manages the OBS sources the server watches; the list arrives as an event.
+    func alerts(_ command: DeviceAlertControl) {
+        Task { try? await client.deviceAlertControl(command: command) }
+    }
+
+    func cronJobs() async throws -> [CronJobRecord] { try await client.cronJobs() }
+
+    @discardableResult
+    func saveCronJob(id: String, job: CronJobRecord) async throws -> CronJobRecord {
+        try await client.saveCronJob(id: id, job: job)
+    }
+
+    func deleteCronJob(id: String) async throws { try await client.deleteCronJob(id: id) }
+
+    func queues() async throws -> [QueueSummaryRecord] { try await client.queues() }
+
+    func queueJobs(_ queue: String) async throws -> [QueueJobRecord] {
+        try await client.queueJobs(queue: queue)
+    }
+
+    func retryJob(id: String) async throws { try await client.retryJob(id: id) }
+    func purgeJob(id: String) async throws { try await client.purgeJob(id: id) }
+    func triggerUploads() async throws { try await client.triggerUploads() }
+
+    func broadlinkCommands() async throws -> [BroadlinkCommandRecord] {
+        try await client.broadlinkCommands()
+    }
+
+    func sendBroadlinkCommand(id: String) async throws {
+        try await client.sendBroadlinkCommand(id: id)
+    }
+
+    func untrackedRecordings() async throws -> [UntrackedRecordingRecord] {
+        try await client.untrackedRecordings()
+    }
+
+    func assignUntracked(id: String, eventId: String) async throws {
+        try await client.assignUntracked(id: id, eventId: eventId)
+    }
+
+    func deleteUntracked(id: String) async throws { try await client.deleteUntracked(id: id) }
+
+    /// Book and chapter autocomplete for a Bible reference.
+    func bibleSuggestions(_ term: String) async throws -> [BibleSuggestionRecord] {
+        try await client.bibleSuggestions(term: term)
+    }
+
+    /// The core's own log; only a core inside the desktop app has one.
+    func applicationLog() async throws -> String { try await client.applicationLog() }
+
+    /// The stored secrets of one connector. Only the Mac hosting the server can read them.
+    func connectorSecrets(_ connector: String, adminToken: String) async throws -> [ConfigFieldRecord] {
+        try await client.connectorSecrets(connector: connector, adminToken: adminToken)
     }
 
     /// The files recorded for one event, newest first.
@@ -292,6 +352,10 @@ final class MetocastSession {
             }
         case .event(.rodecasterRecorder(let state)):
             recorder = state
+        case .event(.cameraState(let streaming, let recording, let status)):
+            camera = CameraState(streaming: streaming, recording: recording, streamStatus: status)
+        case .event(.deviceAlerts(let listeners)):
+            deviceAlerts = listeners
         case .event(.presentationSettings(let useWebPresenter, let theme)):
             usesWebPresenter = useWebPresenter
             presenterTheme = theme
@@ -354,6 +418,7 @@ final class MetocastSession {
             case "atem": atem = nil
             case "middlecontrol": middlecontrol = nil
             case "rodecaster": rodecaster = nil
+            case "blackmagic-camera": camera = nil
             default: break
             }
         }
@@ -379,6 +444,13 @@ final class MetocastSession {
 struct OBSOutputs: Equatable {
     var streaming: Bool
     var recording: Bool
+}
+
+/// The camera reports its own word for streaming as well as the two flags.
+struct CameraState: Equatable {
+    var streaming: Bool
+    var recording: Bool
+    var streamStatus: String
 }
 
 /// What the Rust event stream reports, carried from its threads to the main actor.

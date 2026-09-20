@@ -127,6 +127,9 @@ final class ServerHost {
         }
     }
 
+    /// Lets this Mac read back a credential it stored. Regenerated every launch, never saved.
+    let adminToken = UUID().uuidString
+
     /// A new token locks out every device that had the old one. The helper reads the token at
     /// launch, so a running server restarts.
     func regenerateToken() async {
@@ -155,6 +158,9 @@ final class ServerHost {
             !key.hasPrefix("DYLD_") && !key.hasPrefix("__XPC_DYLD_")
         }
         environment["METOCAST_AUTH_TOKEN"] = token
+        // Reading a stored secret back needs this as well as loopback, so it only ever lives
+        // in this app and its helper, and only for one run.
+        environment["METOCAST_ADMIN_TOKEN"] = adminToken
         environment["METOCAST_PORT"] = String(Self.port)
         environment["METOCAST_DATA_DIR"] = dataDirectory.path
         environment["METOCAST_EXIT_ON_STDIN_EOF"] = "1"

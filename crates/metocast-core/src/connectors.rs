@@ -71,9 +71,19 @@ pub enum ConnectorState {
     },
     #[serde(rename = "atem")]
     Atem { state: Option<AtemState> },
+    #[serde(rename = "blackmagic-camera", rename_all = "camelCase")]
+    Camera {
+        #[serde(default)]
+        is_streaming: bool,
+        #[serde(default)]
+        is_recording: bool,
+        /// The camera's own word, such as `Idle`, `Connecting` or `Streaming`.
+        #[serde(default)]
+        stream_status: String,
+    },
     #[serde(rename = "middlecontrol")]
     Middlecontrol { state: Option<MiddlecontrolState> },
-    /// Connectors this crate doesn't model yet, such as `blackmagic-camera`.
+    /// Connectors this crate doesn't model yet.
     #[serde(other)]
     Other,
 }

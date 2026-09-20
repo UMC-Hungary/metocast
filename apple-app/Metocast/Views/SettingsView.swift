@@ -11,6 +11,7 @@ struct SettingsView: View {
     @State private var isConfirmingReset = false
     @State private var isShowingDevices = false
     @State private var isShowingConnectors = false
+    @State private var isShowingTools = false
 
     var body: some View {
         Form {
@@ -39,8 +40,14 @@ struct SettingsView: View {
                     if let session = model.session { ConnectorsView(session: session) }
                 }
                 .disabled(model.session == nil)
+                NavigationLink("Server Tools") {
+                    if let session = model.session { ServerToolsView(session: session) }
+                }
+                .disabled(model.session == nil)
                 #else
                 Button("Connectors…", systemImage: "puzzlepiece.extension") { isShowingConnectors = true }
+                    .disabled(model.session == nil)
+                Button("Server Tools…", systemImage: "wrench.and.screwdriver") { isShowingTools = true }
                     .disabled(model.session == nil)
                 Button("Discover Devices…", systemImage: "network") { isShowingDevices = true }
                     .disabled(model.session == nil)
@@ -108,6 +115,19 @@ struct SettingsView: View {
         #if os(macOS)
         .sheet(isPresented: $isShowingDevices) {
             if let session = model.session { DevicesView(session: session) }
+        }
+        .sheet(isPresented: $isShowingTools) {
+            if let session = model.session {
+                NavigationStack {
+                    ServerToolsView(session: session)
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Done") { isShowingTools = false }
+                            }
+                        }
+                }
+                .frame(minWidth: 560, minHeight: 460)
+            }
         }
         // The Mac's settings live in an inspector, which has no navigation stack of its own.
         .sheet(isPresented: $isShowingConnectors) {
