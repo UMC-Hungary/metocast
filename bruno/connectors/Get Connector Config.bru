@@ -1,0 +1,29 @@
+meta {
+  name: Get Connector Config
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{baseUrl}}/api/connectors/obs/config
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  Connector name is one of: obs, blackmagic-camera, middlecontrol, rodecaster, vmix, atem, broadlink, youtube, facebook, discord, szentiras.
+  Returns the connector's defaults when nothing has been saved yet.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("response has enabled", function() {
+    expect(res.body).to.have.property('enabled');
+  });
+}

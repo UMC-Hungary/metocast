@@ -1,0 +1,335 @@
+<!--
+  Assumptions: This is an approval-only comparison sheet, not production UI. The live
+  localhost preview is the fidelity target; system serif and mono stacks stand in for
+  Cormorant Garamond and Geist Mono so the file remains self-contained and offline.
+  Both frames use the same projection-safe visual system; only their editorial grid
+  changes to suit lyric and scripture content.
+-->
+<!doctype html>
+<html lang="hu">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>A — Faithful editorial · Metocast presenter themes</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --paper: #ddd7ca;
+        --paper-ink: #26231e;
+        --paper-rule: rgba(38, 35, 30, 0.18);
+        --surface: #11100e;
+        --ivory: #f4efe3;
+        --gold: #cfab69;
+        --serif: "Iowan Old Style", "Baskerville", "Times New Roman", serif;
+        --mono: "SFMono-Regular", "SF Mono", "Roboto Mono", "Courier New", monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+        margin: 0;
+      }
+
+      body {
+        display: grid;
+        place-items: center;
+        background:
+          linear-gradient(110deg, rgba(255, 255, 255, 0.14), transparent 34%),
+          var(--paper);
+        color: var(--paper-ink);
+        font-family: var(--mono);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .comparison {
+        width: min(100%, 1440px);
+        padding: 48px 46px 56px;
+      }
+
+      .sheet-header {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        margin-bottom: 24px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid var(--paper-rule);
+      }
+
+      .direction {
+        margin: 0;
+        font: 500 12px/1 var(--mono);
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+      }
+
+      .series {
+        margin: 0;
+        color: rgba(38, 35, 30, 0.56);
+        font: 500 9px/1 var(--mono);
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+      }
+
+      .frames {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 26px;
+      }
+
+      figure {
+        min-width: 0;
+        margin: 0;
+      }
+
+      .slide {
+        position: relative;
+        isolation: isolate;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        overflow: hidden;
+        background: var(--surface);
+        box-shadow:
+          0 20px 40px rgba(51, 44, 32, 0.16),
+          0 3px 8px rgba(51, 44, 32, 0.12);
+        color: var(--ivory);
+        container-type: inline-size;
+      }
+
+      .slide::before {
+        position: absolute;
+        z-index: -2;
+        inset: 0;
+        background:
+          radial-gradient(circle at 86% 8%, rgba(207, 171, 105, 0.105), transparent 27%),
+          radial-gradient(circle at 54% 56%, rgba(255, 246, 224, 0.024), transparent 48%);
+        content: "";
+      }
+
+      .slide::after {
+        position: absolute;
+        z-index: -1;
+        top: -70%;
+        right: -8%;
+        width: 54%;
+        height: 235%;
+        transform: rotate(28deg);
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(240, 222, 184, 0.022) 44%,
+          rgba(240, 222, 184, 0.052) 50%,
+          rgba(240, 222, 184, 0.016) 57%,
+          transparent
+        );
+        content: "";
+        pointer-events: none;
+      }
+
+      .eyebrow,
+      .section,
+      .mark {
+        color: var(--gold);
+        font-family: var(--mono);
+        font-weight: 500;
+        text-transform: uppercase;
+      }
+
+      .mark {
+        position: absolute;
+        right: 4.8%;
+        bottom: 5.2%;
+        margin: 0;
+        opacity: 0.82;
+        font-size: clamp(5px, 1.05cqi, 8px);
+        letter-spacing: 0.27em;
+      }
+
+      .song {
+        display: grid;
+        place-items: center;
+        padding: 8.4% 7.8% 7%;
+        text-align: center;
+      }
+
+      .song-content {
+        width: 100%;
+        transform: translateY(-2%);
+      }
+
+      .song .eyebrow {
+        margin: 0 0 4.3%;
+        opacity: 0.9;
+        font-size: clamp(6px, 1.18cqi, 9px);
+        letter-spacing: 0.36em;
+      }
+
+      .lyrics {
+        margin: 0 auto;
+        font-family: var(--serif);
+        font-size: clamp(22px, 4.55cqi, 36px);
+        font-weight: 400;
+        line-height: 1.22;
+        letter-spacing: -0.018em;
+        text-wrap: balance;
+        text-shadow: 0 1px 16px rgba(244, 239, 227, 0.035);
+      }
+
+      .lyrics span {
+        display: block;
+      }
+
+      .song .section {
+        margin: 5.1% 0 0;
+        opacity: 0.82;
+        font-size: clamp(6px, 1.08cqi, 8px);
+        letter-spacing: 0.31em;
+      }
+
+      .bible {
+        display: grid;
+        grid-template-columns: 19% 1fr;
+        align-items: center;
+        column-gap: 7.2%;
+        padding: 7.7% 8.3% 8.2% 7.4%;
+      }
+
+      .verse-number {
+        align-self: center;
+        margin: 0;
+        color: var(--gold);
+        font-family: var(--serif);
+        font-size: clamp(68px, 16.8cqi, 124px);
+        font-weight: 400;
+        line-height: 0.76;
+        text-align: right;
+        font-variant-numeric: oldstyle-nums;
+      }
+
+      .verse-content {
+        align-self: center;
+        min-width: 0;
+      }
+
+      .bible .eyebrow {
+        margin: 0 0 5.8%;
+        opacity: 0.94;
+        font-size: clamp(6px, 1.25cqi, 9px);
+        letter-spacing: 0.31em;
+      }
+
+      .verse-text {
+        max-width: 19ch;
+        margin: 0;
+        font-family: var(--serif);
+        font-size: clamp(22px, 4.45cqi, 34px);
+        font-weight: 400;
+        line-height: 1.18;
+        letter-spacing: -0.018em;
+        text-wrap: pretty;
+      }
+
+      figcaption {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 13px;
+        color: rgba(38, 35, 30, 0.66);
+        font: 500 9px/1 var(--mono);
+        letter-spacing: 0.21em;
+        text-transform: uppercase;
+      }
+
+      figcaption::before {
+        width: 18px;
+        height: 1px;
+        background: var(--paper-ink);
+        content: "";
+        opacity: 0.52;
+      }
+
+      @media (max-width: 850px) {
+        body {
+          display: block;
+        }
+
+        .comparison {
+          padding: 32px 24px 44px;
+        }
+
+        .frames {
+          grid-template-columns: 1fr;
+          gap: 30px;
+        }
+      }
+
+      @media (max-width: 520px) {
+        .sheet-header {
+          align-items: start;
+          gap: 12px;
+          flex-direction: column;
+        }
+
+        .lyrics,
+        .verse-text {
+          font-size: clamp(15px, 4.45cqi, 22px);
+        }
+
+        .verse-number {
+          font-size: clamp(46px, 16cqi, 78px);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="comparison">
+      <header class="sheet-header">
+        <h1 class="direction">A — Faithful editorial</h1>
+        <p class="series">Metocast · Presenter themes</p>
+      </header>
+
+      <section class="frames" aria-label="Song and Bible presenter comparison">
+        <figure>
+          <div
+            class="slide song"
+            role="img"
+            aria-label="Song slide: Kegyelemből, first verse"
+          >
+            <div class="song-content">
+              <p class="eyebrow">ÉNEK · KEGYELEMBŐL</p>
+              <p class="lyrics">
+                <span>Kegyelemből léphetünk be, szent jelenlétedbe,</span>
+                <span>nem saját érdemeinkből, csak Jézus vérével.</span>
+              </p>
+              <p class="section">1. VERSZAK</p>
+            </div>
+            <p class="mark">METOCAST</p>
+          </div>
+          <figcaption>Song</figcaption>
+        </figure>
+
+        <figure>
+          <div
+            class="slide bible"
+            role="img"
+            aria-label="Bible slide: Romans chapter 8, verse 1, RÚF translation"
+          >
+            <p class="verse-number" aria-hidden="true">1</p>
+            <div class="verse-content">
+              <p class="eyebrow">RÓMA 8:1 · RÚF</p>
+              <p class="verse-text">
+                Nincs tehát most már semmiféle kárhoztató ítélet azok ellen, akik Krisztus
+                Jézusban vannak.
+              </p>
+            </div>
+            <p class="mark">METOCAST</p>
+          </div>
+          <figcaption>Bible</figcaption>
+        </figure>
+      </section>
+    </main>
+  </body>
+</html>

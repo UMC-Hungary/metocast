@@ -1,0 +1,1750 @@
+{
+  "$description": "Which measurement each component's tokens came from. scripts/check-fidelity.mjs resolves every token to a literal and diffs it against the cited declaration in measurements.json, so a value that drifts from its source fails the build instead of waiting for someone to notice. `index` picks a part out of a shorthand; `breakpoint` defaults to `base`. A difference is only allowed when `deviations` gives a reason.",
+  "components": {
+    "Dot": {
+      "source": "src/components/primitives/Dot.svelte",
+      "tokens": {
+        "c-dot-pulse-inset": {
+          "selector": ".pulse",
+          "property": "inset"
+        },
+        "c-dot-pulse-border": {
+          "selector": ".pulse",
+          "property": "border"
+        },
+        "motion-pulse": {
+          "selector": ".pulse",
+          "property": "animation",
+          "index": 0
+        }
+      }
+    },
+    "StatusDot": {
+      "source": "src/components/primitives/OverviewCell.svelte",
+      "tokens": {
+        "c-status-dot-gap": {
+          "selector": "p",
+          "property": "gap"
+        },
+        "type-label-sm-size": {
+          "selector": "span",
+          "property": "font-size"
+        },
+        "type-label-sm-track": {
+          "selector": "span",
+          "property": "letter-spacing"
+        }
+      },
+      "deviations": {
+        "type-label-sm-track": "The reference writes the dot-and-word pairing four times, at 1.2px, 1.4px, 1.5px and 1.6px tracking. One component cannot carry four; the shared label-sm role at 1.2px is the value the pairing carries at its smallest and most frequent size."
+      }
+    },
+    "SectionLabel": {
+      "source": "src/components/primitives/SectionLabel.svelte",
+      "tokens": {
+        "c-section-label-padding-top": {
+          "selector": ".label",
+          "property": "padding",
+          "index": 0
+        },
+        "ui-gutter": {
+          "selector": ".label",
+          "property": "padding",
+          "index": 1
+        },
+        "c-section-label-padding-bottom": {
+          "selector": ".label",
+          "property": "padding",
+          "index": 2
+        },
+        "type-label-size": {
+          "selector": "div, span",
+          "property": "font-size"
+        },
+        "type-label-track": {
+          "selector": "div, span",
+          "property": "letter-spacing"
+        },
+        "type-label-weight": {
+          "selector": "div, span",
+          "property": "font-weight"
+        },
+        "c-section-label-hint-track": {
+          "selector": "span",
+          "property": "letter-spacing"
+        }
+      }
+    },
+    "List": {
+      "source": "src/components/primitives/List.svelte",
+      "tokens": {
+        "ui-border-hairline": {
+          "selector": "div",
+          "property": "border-top",
+          "index": 0
+        },
+        "c-list-flush-gap": {
+          "selector": ".flush",
+          "property": "margin-top"
+        }
+      }
+    },
+    "Row": {
+      "source": "src/components/primitives/Row.svelte",
+      "tokens": {
+        "c-row-padding-block": {
+          "selector": "div, button",
+          "property": "padding",
+          "index": 0
+        },
+        "ui-gutter": {
+          "selector": "div, button",
+          "property": "padding",
+          "index": 1
+        },
+        "c-row-min-height": {
+          "selector": "div, button",
+          "property": "min-height"
+        },
+        "ui-stack-loose": {
+          "selector": "div, button",
+          "property": "gap"
+        },
+        "motion-fast": {
+          "selector": "div, button",
+          "property": "transition",
+          "index": 0
+        },
+        "type-body-size": {
+          "selector": ".title",
+          "property": "font-size"
+        },
+        "type-body-track": {
+          "selector": ".title",
+          "property": "letter-spacing"
+        },
+        "type-body-weight": {
+          "selector": ".title",
+          "property": "font-weight"
+        },
+        "type-body-leading": {
+          "selector": ".title",
+          "property": "line-height"
+        },
+        "type-caption-size": {
+          "selector": ".meta",
+          "property": "font-size"
+        },
+        "c-row-meta-gap": {
+          "selector": ".meta",
+          "property": "margin-top"
+        },
+        "type-body-sm-size": {
+          "selector": ".detail",
+          "property": "font-size"
+        },
+        "c-row-detail-gap": {
+          "selector": ".detail",
+          "property": "margin-top"
+        }
+      }
+    },
+    "PageHeader": {
+      "source": "src/components/primitives/PageHeader.svelte",
+      "tokens": {
+        "ui-gutter": {
+          "selector": "header",
+          "property": "padding",
+          "index": 0
+        },
+        "c-page-header-padding-bottom": {
+          "selector": "header",
+          "property": "padding",
+          "index": 2
+        },
+        "c-page-header-top-min-height": {
+          "selector": ".top",
+          "property": "min-height"
+        },
+        "c-page-header-top-gap": {
+          "selector": ".top",
+          "property": "margin-bottom"
+        },
+        "ui-stack": {
+          "selector": ".actions",
+          "property": "gap"
+        },
+        "type-label-size": {
+          "selector": ".eyebrow, .back",
+          "property": "font-size"
+        },
+        "type-label-track": {
+          "selector": ".eyebrow, .back",
+          "property": "letter-spacing"
+        },
+        "c-page-header-back-gap": {
+          "selector": ".back",
+          "property": "gap"
+        },
+        "type-body-sm-size": {
+          "selector": ".back",
+          "property": "font-size"
+        },
+        "ui-track-none": {
+          "selector": ".back",
+          "property": "letter-spacing"
+        },
+        "type-display-size": {
+          "selector": "h1",
+          "property": "font-size"
+        },
+        "type-display-leading": {
+          "selector": "h1",
+          "property": "line-height"
+        },
+        "type-display-weight": {
+          "selector": "h1",
+          "property": "font-weight"
+        },
+        "type-display-track": {
+          "selector": "h1",
+          "property": "letter-spacing"
+        },
+        "c-page-header-title-gap": {
+          "selector": ".title-row",
+          "property": "gap"
+        }
+      }
+    },
+    "TextIcon": {
+      "source": "src/components/primitives/TextIcon.svelte",
+      "tokens": {
+        "c-text-icon-size": {
+          "selector": "span",
+          "property": "width"
+        },
+        "c-text-icon-font-size": {
+          "selector": "span",
+          "property": "font-size"
+        }
+      }
+    },
+    "DateBlock": {
+      "source": "src/components/primitives/DateBlock.svelte",
+      "tokens": {
+        "c-date-block-width": {
+          "selector": "div",
+          "property": "width"
+        },
+        "ui-gutter-inset": {
+          "selector": "div",
+          "property": "padding-right"
+        },
+        "c-date-block-overlap": {
+          "selector": "div",
+          "property": "margin-right"
+        },
+        "type-label-sm-size": {
+          "selector": "span",
+          "property": "font-size"
+        },
+        "type-label-sm-track": {
+          "selector": "span",
+          "property": "letter-spacing"
+        },
+        "type-numeral-size": {
+          "selector": "strong",
+          "property": "font-size"
+        },
+        "type-numeral-leading": {
+          "selector": "strong",
+          "property": "line-height"
+        },
+        "type-numeral-weight": {
+          "selector": "strong",
+          "property": "font-weight"
+        },
+        "c-date-block-gap": {
+          "selector": "strong",
+          "property": "margin-top"
+        }
+      }
+    },
+    "Glyph": {
+      "source": "src/components/primitives/Glyph.svelte",
+      "tokens": {
+        "ui-radius-mark": {
+          "selector": ".glyph",
+          "property": "border-radius"
+        },
+        "ui-border-hairline": {
+          "selector": ".glyph",
+          "property": "border",
+          "index": 0
+        }
+      }
+    },
+    "Lockup": {
+      "source": "src/components/primitives/Lockup.svelte",
+      "tokens": {
+        "ui-stack": {
+          "selector": ".lockup",
+          "property": "gap"
+        },
+        "type-heading-weight": {
+          "selector": "span span",
+          "property": "font-weight"
+        },
+        "type-numeral-leading": {
+          "selector": "span span",
+          "property": "line-height"
+        }
+      }
+    },
+    "Toggle": {
+      "source": "src/components/primitives/Toggle.svelte",
+      "tokens": {
+        "c-toggle-width": {
+          "selector": "button",
+          "property": "width"
+        },
+        "c-toggle-height": {
+          "selector": "button",
+          "property": "height"
+        },
+        "ui-radius-pill": {
+          "selector": "button",
+          "property": "border-radius"
+        },
+        "motion-base": {
+          "selector": "button",
+          "property": "transition",
+          "index": 0
+        },
+        "c-toggle-thumb-inset": {
+          "selector": "span",
+          "property": "top"
+        },
+        "c-toggle-thumb-size": {
+          "selector": "span",
+          "property": "width"
+        },
+        "ui-radius-circle": {
+          "selector": "span",
+          "property": "border-radius"
+        },
+        "motion-slide": {
+          "selector": "span",
+          "property": "transition",
+          "index": 0
+        },
+        "c-toggle-thumb-travel": {
+          "selector": ".checked span",
+          "property": "left"
+        }
+      }
+    },
+    "Stat": {
+      "source": "src/components/primitives/Stat.svelte",
+      "tokens": {
+        "type-label-size": {
+          "selector": ".label",
+          "property": "font-size"
+        },
+        "c-stat-label-track": {
+          "selector": ".label",
+          "property": "letter-spacing"
+        },
+        "c-stat-label-gap": {
+          "selector": ".label",
+          "property": "margin-bottom"
+        },
+        "c-stat-unit-gap": {
+          "selector": ".value",
+          "property": "gap"
+        },
+        "type-figure-size": {
+          "selector": "span",
+          "property": "font-size"
+        },
+        "type-figure-weight": {
+          "selector": "span",
+          "property": "font-weight"
+        },
+        "type-figure-track": {
+          "selector": "span",
+          "property": "letter-spacing"
+        },
+        "type-figure-leading": {
+          "selector": "span",
+          "property": "line-height"
+        }
+      }
+    },
+    "OverviewCell": {
+      "source": "src/components/primitives/OverviewCell.svelte",
+      "tokens": {
+        "c-overview-cell-padding-block": {
+          "selector": "div",
+          "property": "padding",
+          "index": 0
+        },
+        "ui-gutter-inset": {
+          "selector": "div",
+          "property": "padding",
+          "index": 1
+        },
+        "c-overview-cell-gap": {
+          "selector": "p",
+          "property": "margin",
+          "index": 2
+        },
+        "c-status-dot-gap": {
+          "selector": "p",
+          "property": "gap"
+        },
+        "type-label-sm-size": {
+          "selector": "span",
+          "property": "font-size"
+        },
+        "c-overview-cell-label-track": {
+          "selector": "span",
+          "property": "letter-spacing"
+        },
+        "type-title-size": {
+          "selector": "strong",
+          "property": "font-size"
+        },
+        "type-title-leading": {
+          "selector": "strong",
+          "property": "line-height"
+        },
+        "type-title-weight": {
+          "selector": "strong",
+          "property": "font-weight"
+        },
+        "type-title-track": {
+          "selector": "strong",
+          "property": "letter-spacing"
+        }
+      }
+    },
+    "Segmented": {
+      "source": "src/components/primitives/Segmented.svelte",
+      "tokens": {
+        "ui-border-hairline": {
+          "selector": ".seg",
+          "property": "border",
+          "index": 0
+        },
+        "c-segmented-padding-block": {
+          "selector": "button",
+          "property": "padding",
+          "index": 0
+        },
+        "ui-stack": {
+          "selector": "button",
+          "property": "padding",
+          "index": 1
+        },
+        "c-segmented-gap": {
+          "selector": "button",
+          "property": "gap"
+        },
+        "c-segmented-glyph-size": {
+          "selector": "span",
+          "property": "font-size"
+        },
+        "type-numeral-leading": {
+          "selector": "span",
+          "property": "line-height"
+        },
+        "type-label-size": {
+          "selector": "strong",
+          "property": "font-size"
+        },
+        "c-segmented-label-track": {
+          "selector": "strong",
+          "property": "letter-spacing"
+        },
+        "type-label-weight": {
+          "selector": "strong",
+          "property": "font-weight"
+        }
+      }
+    },
+    "Field": {
+      "source": "src/components/primitives/Field.svelte",
+      "tokens": {
+        "c-field-padding-block": {
+          "selector": "label",
+          "property": "padding",
+          "index": 0
+        },
+        "type-label-sm-size": {
+          "selector": "span",
+          "property": "font-size"
+        },
+        "c-field-label-track": {
+          "selector": "span",
+          "property": "letter-spacing"
+        },
+        "type-label-sm-weight": {
+          "selector": "span",
+          "property": "font-weight"
+        },
+        "c-field-input-padding-top": {
+          "selector": "input",
+          "property": "padding",
+          "index": 0
+        },
+        "c-field-input-padding-bottom": {
+          "selector": "input",
+          "property": "padding",
+          "index": 2
+        },
+        "c-field-input-gap": {
+          "selector": "input",
+          "property": "margin-top"
+        },
+        "type-body-size": {
+          "selector": "input",
+          "property": "font-size"
+        },
+        "type-body-track": {
+          "selector": "input",
+          "property": "letter-spacing"
+        },
+        "c-field-hint-track": {
+          "selector": "small",
+          "property": "letter-spacing"
+        },
+        "c-field-hint-gap": {
+          "selector": "small",
+          "property": "margin-top"
+        }
+      }
+    },
+    "IconButton": {
+      "source": "src/components/settings/SettingsIconButton.svelte",
+      "tokens": {
+        "c-icon-button-circle-size": {
+          "selector": "button",
+          "property": "width"
+        },
+        "ui-radius-pill": {
+          "selector": "button",
+          "property": "border-radius"
+        },
+        "ui-border-hairline": {
+          "selector": "button",
+          "property": "border",
+          "index": 0
+        }
+      }
+    },
+    "FormSection": {
+      "source": "src/components/forms/ChamberSection.svelte",
+      "tokens": {
+        "c-form-section-padding-block": {
+          "selector": "section",
+          "property": "padding",
+          "index": 0
+        },
+        "c-form-section-header-margin": {
+          "selector": "header",
+          "property": "margin-bottom"
+        },
+        "c-form-section-header-gap": {
+          "selector": "div",
+          "property": "gap"
+        },
+        "type-label-sm-size": {
+          "selector": "span",
+          "property": "font-size"
+        },
+        "c-form-section-number-track": {
+          "selector": "span",
+          "property": "letter-spacing"
+        },
+        "type-label-sm-weight": {
+          "selector": "span",
+          "property": "font-weight"
+        },
+        "c-form-section-number-padding-block": {
+          "selector": "span",
+          "property": "padding",
+          "index": 0
+        },
+        "c-form-section-number-padding-inline": {
+          "selector": "span",
+          "property": "padding",
+          "index": 1
+        },
+        "ui-radius-chip": {
+          "selector": "span",
+          "property": "border-radius"
+        },
+        "type-heading-size": {
+          "selector": "strong",
+          "property": "font-size"
+        },
+        "type-heading-track": {
+          "selector": "strong",
+          "property": "letter-spacing"
+        },
+        "type-heading-weight": {
+          "selector": "strong",
+          "property": "font-weight"
+        },
+        "c-form-section-hint-track": {
+          "selector": "em",
+          "property": "letter-spacing"
+        },
+        "ui-stack": {
+          "selector": ".body",
+          "property": "gap"
+        }
+      }
+    },
+    "LabelledInput": {
+      "source": "src/components/forms/Chamber.svelte",
+      "tokens": {
+        "c-labelled-input-padding-top": {
+          "selector": "label",
+          "property": "padding",
+          "index": 0
+        },
+        "ui-gutter-inset": {
+          "selector": "label",
+          "property": "padding",
+          "index": 1
+        },
+        "c-labelled-input-padding-bottom": {
+          "selector": "label",
+          "property": "padding",
+          "index": 2
+        },
+        "motion-fast": {
+          "selector": "label",
+          "property": "transition",
+          "index": 0
+        },
+        "type-label-xs-size": {
+          "selector": "span",
+          "property": "font-size"
+        },
+        "type-label-xs-track": {
+          "selector": "span",
+          "property": "letter-spacing"
+        },
+        "type-label-xs-weight": {
+          "selector": "span",
+          "property": "font-weight"
+        },
+        "c-labelled-input-label-gap": {
+          "selector": "span",
+          "property": "margin-bottom"
+        },
+        "type-body-strong-size": {
+          "selector": ":global(.chamber-input)",
+          "property": "font-size"
+        },
+        "type-body-strong-track": {
+          "selector": ":global(.chamber-input)",
+          "property": "letter-spacing"
+        },
+        "type-body-strong-weight": {
+          "selector": ":global(.chamber-input)",
+          "property": "font-weight"
+        },
+        "type-body-strong-leading": {
+          "selector": ":global(.chamber-input)",
+          "property": "line-height"
+        }
+      },
+      "deviations": {
+        "ui-border-hairline": "The reference leaves the resting border transparent, so the field has no visible boundary until it is focused."
+      }
+    },
+    "NativeDateInput": {
+      "source": "src/components/forms/ChamberNative.svelte",
+      "tokens": {
+        "ui-stack": {
+          "selector": "label",
+          "property": "gap"
+        },
+        "type-body-strong-size": {
+          "selector": "span",
+          "property": "font-size"
+        },
+        "type-body-strong-weight": {
+          "selector": "span",
+          "property": "font-weight"
+        },
+        "type-body-strong-track": {
+          "selector": "span",
+          "property": "letter-spacing"
+        }
+      }
+    },
+    "ToggleRow": {
+      "source": "src/components/forms/ToggleRow.svelte",
+      "tokens": {
+        "c-toggle-row-padding-block": {
+          "selector": "div",
+          "property": "padding",
+          "index": 0
+        },
+        "ui-gutter-inset": {
+          "selector": "div",
+          "property": "padding",
+          "index": 1
+        },
+        "c-toggle-row-gap": {
+          "selector": "div",
+          "property": "gap"
+        },
+        "type-body-sm-size": {
+          "selector": "strong",
+          "property": "font-size"
+        },
+        "type-body-sm-weight": {
+          "selector": "strong",
+          "property": "font-weight"
+        },
+        "type-body-sm-track": {
+          "selector": "strong",
+          "property": "letter-spacing"
+        },
+        "type-caption-size": {
+          "selector": "span",
+          "property": "font-size"
+        },
+        "c-toggle-row-sub-gap": {
+          "selector": "span",
+          "property": "margin-top"
+        },
+        "type-body-sm-leading": {
+          "selector": "span",
+          "property": "line-height"
+        }
+      }
+    },
+    "ReferenceInput": {
+      "source": "src/components/forms/RefField.svelte",
+      "tokens": {
+        "c-reference-input-padding-top": {
+          "selector": "section",
+          "property": "padding",
+          "index": 0
+        },
+        "ui-gutter-inset": {
+          "selector": "section",
+          "property": "padding",
+          "index": 1
+        },
+        "c-reference-input-padding-bottom": {
+          "selector": "section",
+          "property": "padding",
+          "index": 2
+        },
+        "c-reference-input-header-gap": {
+          "selector": "header",
+          "property": "margin-bottom"
+        },
+        "ui-stack": {
+          "selector": "header p",
+          "property": "gap"
+        },
+        "type-label-xs-size": {
+          "selector": "span, em, strong",
+          "property": "font-size"
+        },
+        "c-reference-input-label-track": {
+          "selector": "span, em, strong",
+          "property": "letter-spacing"
+        },
+        "c-reference-input-status-gap": {
+          "selector": "strong",
+          "property": "gap"
+        },
+        "type-body-strong-size": {
+          "selector": "input",
+          "property": "font-size"
+        },
+        "type-body-strong-weight": {
+          "selector": "input",
+          "property": "font-weight"
+        },
+        "c-reference-input-block-gap": {
+          "selector": ".error",
+          "property": "margin-top"
+        },
+        "c-reference-input-quote-padding-block": {
+          "selector": ".error",
+          "property": "padding",
+          "index": 0
+        },
+        "c-reference-input-quote-padding-inline": {
+          "selector": ".error",
+          "property": "padding",
+          "index": 1
+        },
+        "ui-border-emphasis": {
+          "selector": ".error",
+          "property": "border-left",
+          "index": 0
+        },
+        "type-quote-size": {
+          "selector": ".error",
+          "property": "font-size"
+        },
+        "c-reference-input-verse-size": {
+          "selector": ".verses p",
+          "property": "font-size"
+        },
+        "type-quote-leading": {
+          "selector": ".verses p",
+          "property": "line-height"
+        },
+        "c-reference-input-verse-number-width": {
+          "selector": "code",
+          "property": "min-width"
+        },
+        "type-label-sm-size": {
+          "selector": "code",
+          "property": "font-size"
+        }
+      }
+    },
+    "Sheet": {
+      "source": "src/components/settings/SettingsSheet.svelte",
+      "tokens": {
+        "c-sheet-padding-bottom": {
+          "selector": "section",
+          "property": "padding-bottom"
+        },
+        "motion-base": {
+          "selector": "section",
+          "property": "transition",
+          "index": 0
+        },
+        "motion-enter": {
+          "selector": "section",
+          "property": "animation",
+          "index": 0
+        },
+        "motion-slide": {
+          "selector": ".shade",
+          "property": "animation",
+          "index": 0
+        },
+        "ui-radius-sheet": {
+          "selector": ".rounded",
+          "property": "border-top-left-radius"
+        },
+        "c-sheet-grabber-hit-height": {
+          "selector": ".grabber-hit",
+          "property": "height"
+        },
+        "c-sheet-grabber-padding-top": {
+          "selector": ".grabber-hit",
+          "property": "padding",
+          "index": 0
+        },
+        "c-sheet-grabber-padding-bottom": {
+          "selector": ".grabber-hit",
+          "property": "padding",
+          "index": 2
+        },
+        "c-sheet-grabber-width": {
+          "selector": ".grabber",
+          "property": "width"
+        },
+        "c-sheet-grabber-height": {
+          "selector": ".grabber",
+          "property": "height"
+        },
+        "c-sheet-grabber-radius": {
+          "selector": ".grabber",
+          "property": "border-radius"
+        },
+        "ui-stack-loose": {
+          "selector": "header",
+          "property": "gap"
+        },
+        "c-sheet-header-padding-top": {
+          "selector": "header",
+          "property": "padding",
+          "index": 0
+        },
+        "ui-gutter": {
+          "selector": "header",
+          "property": "padding",
+          "index": 1
+        },
+        "c-sheet-header-padding-bottom": {
+          "selector": "header",
+          "property": "padding",
+          "index": 2
+        },
+        "type-label-size": {
+          "selector": "small",
+          "property": "font-size"
+        },
+        "type-label-track": {
+          "selector": "small",
+          "property": "letter-spacing"
+        },
+        "c-sheet-title-gap": {
+          "selector": "h2",
+          "property": "margin",
+          "index": 0
+        },
+        "c-sheet-title-size": {
+          "selector": "h2",
+          "property": "font-size"
+        },
+        "type-display-weight": {
+          "selector": "h2",
+          "property": "font-weight"
+        },
+        "c-sheet-title-leading": {
+          "selector": "h2",
+          "property": "line-height"
+        }
+      }
+    },
+    "Toast": {
+      "source": "src/components/notifications/ToastCard.svelte",
+      "tokens": {
+        "ui-border-hairline": {
+          "selector": "article",
+          "property": "border",
+          "index": 0
+        },
+        "c-toast-padding-block": {
+          "selector": "article > div",
+          "property": "padding",
+          "index": 0
+        },
+        "ui-gutter-inset": {
+          "selector": "article > div",
+          "property": "padding",
+          "index": 1
+        },
+        "c-toast-header-gap": {
+          "selector": "header",
+          "property": "gap"
+        },
+        "c-toast-header-margin": {
+          "selector": "header",
+          "property": "margin-bottom"
+        },
+        "type-label-xs-size": {
+          "selector": "small",
+          "property": "font-size"
+        },
+        "type-label-xs-track": {
+          "selector": "small",
+          "property": "letter-spacing"
+        },
+        "c-toast-source-size": {
+          "selector": "strong",
+          "property": "font-size"
+        },
+        "type-body-sm-weight": {
+          "selector": "strong",
+          "property": "font-weight"
+        },
+        "c-toast-state-gap": {
+          "selector": "header span",
+          "property": "gap"
+        },
+        "c-toast-state-padding-block": {
+          "selector": "header span",
+          "property": "padding",
+          "index": 0
+        },
+        "c-toast-state-padding-inline": {
+          "selector": "header span",
+          "property": "padding",
+          "index": 1
+        },
+        "c-toast-state-track": {
+          "selector": "header span",
+          "property": "letter-spacing"
+        },
+        "type-heading-size": {
+          "selector": "h3",
+          "property": "font-size"
+        },
+        "type-heading-weight": {
+          "selector": "h3",
+          "property": "font-weight"
+        },
+        "type-heading-leading": {
+          "selector": "h3",
+          "property": "line-height"
+        },
+        "c-toast-body-gap": {
+          "selector": "p:not(header p)",
+          "property": "margin",
+          "index": 0
+        },
+        "type-caption-size": {
+          "selector": "p:not(header p)",
+          "property": "font-size"
+        },
+        "type-caption-leading": {
+          "selector": "p:not(header p)",
+          "property": "line-height"
+        },
+        "c-toast-mono-size": {
+          "selector": ".mono",
+          "property": "font-size"
+        },
+        "c-toast-footer-gap": {
+          "selector": "footer",
+          "property": "gap"
+        },
+        "c-toast-footer-margin": {
+          "selector": "footer",
+          "property": "margin-top"
+        },
+        "c-toast-action-size": {
+          "selector": "footer button",
+          "property": "font-size"
+        },
+        "c-toast-action-track": {
+          "selector": "footer button",
+          "property": "letter-spacing"
+        },
+        "c-toast-action-padding": {
+          "selector": "footer button",
+          "property": "padding",
+          "index": 1
+        }
+      }
+    },
+    "ToastOverlay": {
+      "source": "src/components/notifications/ToastOverlay.svelte",
+      "tokens": {
+        "c-toast-overlay-top": {
+          "selector": ".overlay",
+          "property": "top"
+        },
+        "c-toast-overlay-inset": {
+          "selector": ".overlay",
+          "property": "left"
+        },
+        "ui-stack": {
+          "selector": ".overlay",
+          "property": "gap"
+        },
+        "motion-enter": {
+          "selector": ".toast",
+          "property": "animation",
+          "index": 0
+        },
+        "c-toast-overlay-shadow-blur": {
+          "selector": ".toast",
+          "property": "box-shadow",
+          "index": 2
+        }
+      }
+    },
+    "NotificationBell": {
+      "source": "src/components/notifications/NotifBell.svelte",
+      "tokens": {
+        "c-icon-button-padding": {
+          "selector": "button",
+          "property": "padding"
+        },
+        "c-bell-mark-offset": {
+          "selector": ".dot",
+          "property": "top"
+        },
+        "c-bell-mark-size": {
+          "selector": ".dot",
+          "property": "width"
+        },
+        "ui-radius-circle": {
+          "selector": ".dot",
+          "property": "border-radius"
+        },
+        "ui-border-emphasis": {
+          "selector": ".dot",
+          "property": "border",
+          "index": 0
+        },
+        "c-bell-count-top": {
+          "selector": "em",
+          "property": "top"
+        },
+        "c-bell-count-right": {
+          "selector": "em",
+          "property": "right"
+        },
+        "c-bell-count-size": {
+          "selector": "em",
+          "property": "font-size"
+        },
+        "c-bell-count-padding-block": {
+          "selector": "em",
+          "property": "padding",
+          "index": 0
+        },
+        "c-bell-count-padding-inline": {
+          "selector": "em",
+          "property": "padding",
+          "index": 1
+        },
+        "c-bell-count-min-width": {
+          "selector": "em",
+          "property": "min-width"
+        },
+        "type-label-leading": {
+          "selector": "em",
+          "property": "line-height"
+        },
+        "c-bell-count-border": {
+          "selector": "em",
+          "property": "border",
+          "index": 0
+        }
+      }
+    },
+    "NotificationCentre": {
+      "source": "src/components/notifications/NotificationCenter.svelte",
+      "tokens": {
+        "c-notification-centre-padding": {
+          "selector": ".list",
+          "property": "padding"
+        },
+        "c-notification-centre-gap": {
+          "selector": ".list",
+          "property": "gap"
+        }
+      }
+    },
+    "EmptyState": {
+      "source": "src/components/notifications/NotificationCenter.svelte",
+      "tokens": {
+        "c-empty-state-padding-top": {
+          "selector": ".empty",
+          "property": "padding",
+          "index": 0
+        },
+        "ui-gutter": {
+          "selector": ".empty",
+          "property": "padding",
+          "index": 1
+        },
+        "c-empty-state-padding-bottom": {
+          "selector": ".empty",
+          "property": "padding",
+          "index": 2
+        },
+        "c-empty-state-title-size": {
+          "selector": ".empty",
+          "property": "font-size"
+        },
+        "c-empty-state-hint-size": {
+          "selector": ".empty span",
+          "property": "font-size"
+        },
+        "c-empty-state-hint-track": {
+          "selector": ".empty span",
+          "property": "letter-spacing"
+        },
+        "c-empty-state-hint-gap": {
+          "selector": ".empty span",
+          "property": "margin-top"
+        }
+      }
+    },
+    "StickyActionBar": {
+      "source": "src/components/layout/StickyActionBar.svelte",
+      "tokens": {
+        "ui-stack": {
+          "selector": ".bar",
+          "property": "gap"
+        },
+        "c-action-bar-padding-block": {
+          "selector": ".bar",
+          "property": "padding",
+          "index": 0
+        },
+        "c-action-bar-padding-inline": {
+          "selector": ".bar",
+          "property": "padding",
+          "index": 1
+        },
+        "ui-border-hairline": {
+          "selector": ".bar",
+          "property": "border-top",
+          "index": 0
+        },
+        "c-action-bar-button-height": {
+          "selector": "button",
+          "property": "min-height"
+        },
+        "c-action-bar-button-padding": {
+          "selector": "button",
+          "property": "padding",
+          "index": 1
+        },
+        "type-body-sm-weight": {
+          "selector": "button",
+          "property": "font-weight"
+        },
+        "c-action-bar-track": {
+          "selector": "button",
+          "property": "letter-spacing"
+        }
+      }
+    },
+    "NavigationBar": {
+      "source": "src/components/layout/TabBar.svelte",
+      "tokens": {
+        "c-nav-padding-top": {
+          "selector": "nav",
+          "property": "padding",
+          "index": 0
+        },
+        "c-nav-padding-inline": {
+          "selector": "nav",
+          "property": "padding",
+          "index": 1
+        },
+        "c-nav-padding-bottom": {
+          "selector": "nav",
+          "property": "padding",
+          "index": 2
+        },
+        "c-nav-item-gap": {
+          "selector": "button",
+          "property": "gap"
+        },
+        "c-nav-item-padding": {
+          "selector": "button",
+          "property": "padding"
+        },
+        "type-label-sm-size": {
+          "selector": "span",
+          "property": "font-size"
+        },
+        "type-label-sm-track": {
+          "selector": "span",
+          "property": "letter-spacing"
+        },
+        "ui-weight-regular": {
+          "selector": "span",
+          "property": "font-weight"
+        },
+        "type-label-sm-weight": {
+          "selector": ".active span",
+          "property": "font-weight"
+        },
+        "c-nav-rail-width": {
+          "selector": ":global(.plain-phone) nav",
+          "property": "width",
+          "index": 0,
+          "breakpoint": "lg"
+        },
+        "c-nav-rail-gap": {
+          "selector": ":global(.plain-phone) nav",
+          "property": "gap",
+          "index": 0,
+          "breakpoint": "lg"
+        },
+        "c-nav-rail-padding-block": {
+          "selector": ":global(.plain-phone) nav",
+          "property": "padding",
+          "index": 0,
+          "breakpoint": "lg"
+        },
+        "ui-gutter-inset": {
+          "selector": ":global(.plain-phone) nav",
+          "property": "padding",
+          "index": 1,
+          "breakpoint": "lg"
+        },
+        "c-nav-brand-padding-top": {
+          "selector": ":global(.plain-phone) .brand",
+          "property": "padding",
+          "index": 0,
+          "breakpoint": "lg"
+        },
+        "ui-stack": {
+          "selector": ":global(.plain-phone) .brand",
+          "property": "padding",
+          "index": 1,
+          "breakpoint": "lg"
+        },
+        "c-nav-brand-padding-bottom": {
+          "selector": ":global(.plain-phone) .brand",
+          "property": "padding",
+          "index": 2,
+          "breakpoint": "lg"
+        },
+        "c-nav-brand-gap": {
+          "selector": ":global(.plain-phone) .brand",
+          "property": "margin-bottom",
+          "index": 0,
+          "breakpoint": "lg"
+        },
+        "ui-target-min": {
+          "selector": ":global(.plain-phone) button",
+          "property": "min-height",
+          "index": 0,
+          "breakpoint": "lg"
+        },
+        "c-nav-rail-item-gap": {
+          "selector": ":global(.plain-phone) button",
+          "property": "gap",
+          "index": 0,
+          "breakpoint": "lg"
+        },
+        "c-nav-rail-item-padding-block": {
+          "selector": ":global(.plain-phone) button",
+          "property": "padding",
+          "index": 0,
+          "breakpoint": "lg"
+        },
+        "c-nav-rail-item-padding-inline": {
+          "selector": ":global(.plain-phone) button",
+          "property": "padding",
+          "index": 1,
+          "breakpoint": "lg"
+        },
+        "ui-border-emphasis": {
+          "selector": ":global(.plain-phone) button",
+          "property": "border-left",
+          "index": 0,
+          "breakpoint": "lg"
+        },
+        "type-label-size": {
+          "selector": ":global(.plain-phone) span",
+          "property": "font-size",
+          "index": 0,
+          "breakpoint": "lg"
+        },
+        "c-nav-rail-track": {
+          "selector": ":global(.plain-phone) span",
+          "property": "letter-spacing",
+          "index": 0,
+          "breakpoint": "lg"
+        },
+        "c-nav-rail-width-wide": {
+          "selector": ":global(.plain-phone) nav",
+          "property": "width",
+          "index": 0,
+          "breakpoint": "xl"
+        }
+      }
+    },
+    "TransportDock": {
+      "source": "src/components/presentations/SlideRemoteDock.svelte",
+      "tokens": {
+        "c-dock-margin-bottom": {
+          "selector": ".dock",
+          "property": "margin-bottom"
+        },
+        "c-dock-padding-top": {
+          "selector": ".dock",
+          "property": "padding",
+          "index": 0
+        },
+        "c-dock-padding-inline": {
+          "selector": ".dock",
+          "property": "padding",
+          "index": 1
+        },
+        "c-dock-padding-bottom": {
+          "selector": ".dock",
+          "property": "padding",
+          "index": 2
+        },
+        "c-dock-status-row-gap": {
+          "selector": ".status",
+          "property": "gap",
+          "index": 0
+        },
+        "c-dock-status-column-gap": {
+          "selector": ".status",
+          "property": "gap",
+          "index": 1
+        },
+        "c-dock-status-margin": {
+          "selector": ".status",
+          "property": "margin-bottom"
+        },
+        "ui-stack": {
+          "selector": ".status span",
+          "property": "gap"
+        },
+        "type-label-sm-size": {
+          "selector": ".status span",
+          "property": "font-size"
+        },
+        "c-dock-status-track": {
+          "selector": ".status span",
+          "property": "letter-spacing"
+        },
+        "type-title-size": {
+          "selector": "strong",
+          "property": "font-size"
+        },
+        "type-title-leading": {
+          "selector": "strong",
+          "property": "line-height"
+        },
+        "type-title-weight": {
+          "selector": "strong",
+          "property": "font-weight"
+        },
+        "type-body-sm-size": {
+          "selector": "em",
+          "property": "font-size"
+        },
+        "c-dock-controls-gap": {
+          "selector": ".controls",
+          "property": "gap"
+        },
+        "c-dock-button-height": {
+          "selector": "button",
+          "property": "min-height"
+        },
+        "c-dock-button-gap": {
+          "selector": "button",
+          "property": "gap"
+        },
+        "ui-border-hairline": {
+          "selector": "button",
+          "property": "border",
+          "index": 0
+        },
+        "c-dock-button-label-size": {
+          "selector": "button span",
+          "property": "font-size"
+        },
+        "c-dock-button-label-track": {
+          "selector": "button span",
+          "property": "letter-spacing"
+        },
+        "c-dock-sticky-offset": {
+          "selector": ".dock",
+          "property": "top",
+          "index": 0,
+          "breakpoint": "md"
+        },
+        "ui-gutter-inset": {
+          "selector": ".dock",
+          "property": "padding",
+          "index": 0,
+          "breakpoint": "md"
+        }
+      }
+    },
+    "SlideQueue": {
+      "source": "src/components/presentations/SlideQueue.svelte",
+      "tokens": {
+        "c-queue-header-padding": {
+          "selector": "header",
+          "property": "padding-bottom"
+        },
+        "type-label-sm-size": {
+          "selector": "header span, header em, code",
+          "property": "font-size"
+        },
+        "c-queue-label-track": {
+          "selector": "header span, header em, code",
+          "property": "letter-spacing"
+        },
+        "c-queue-gap": {
+          "selector": ".items",
+          "property": "gap"
+        },
+        "c-queue-padding-top": {
+          "selector": ".items",
+          "property": "padding-top"
+        },
+        "ui-border-hairline": {
+          "selector": ".items div",
+          "property": "border",
+          "index": 0
+        },
+        "c-queue-item-gap": {
+          "selector": ".open",
+          "property": "gap"
+        },
+        "c-queue-item-padding-block": {
+          "selector": ".open",
+          "property": "padding",
+          "index": 0
+        },
+        "ui-gutter-tight": {
+          "selector": ".open",
+          "property": "padding",
+          "index": 1
+        },
+        "ui-target-min": {
+          "selector": ".clear",
+          "property": "width"
+        },
+        "c-queue-clear-size": {
+          "selector": ".clear",
+          "property": "font-size"
+        }
+      },
+      "deviations": {
+        "ui-target-min": "The reference makes the clear control 38px wide, below the 44px minimum this system holds every touch target to."
+      }
+    },
+    "SlideSearch": {
+      "source": "src/components/presentations/SlideSearch.svelte",
+      "tokens": {
+        "ui-gutter-tight": {
+          "selector": ".trigger",
+          "property": "gap"
+        },
+        "ui-gutter-inset": {
+          "selector": ".trigger",
+          "property": "padding"
+        },
+        "ui-border-hairline": {
+          "selector": ".trigger",
+          "property": "border",
+          "index": 0
+        },
+        "type-label-sm-size": {
+          "selector": "small, .trigger em, .open code, .open em, .queue",
+          "property": "font-size"
+        },
+        "c-search-label-track": {
+          "selector": "small, .trigger em, .open code, .open em, .queue",
+          "property": "letter-spacing"
+        },
+        "c-search-title-gap": {
+          "selector": "strong",
+          "property": "margin-top"
+        },
+        "type-body-size": {
+          "selector": "strong",
+          "property": "font-size"
+        },
+        "type-body-strong-weight": {
+          "selector": "strong",
+          "property": "font-weight"
+        },
+        "c-search-item-row-gap": {
+          "selector": ".open",
+          "property": "gap",
+          "index": 0
+        },
+        "c-search-item-column-gap": {
+          "selector": ".open",
+          "property": "gap",
+          "index": 1
+        },
+        "c-search-item-padding-block": {
+          "selector": ".open",
+          "property": "padding",
+          "index": 0
+        },
+        "c-search-empty-padding-block": {
+          "selector": "p",
+          "property": "padding",
+          "index": 0
+        }
+      }
+    },
+    "PresenterPanel": {
+      "source": "src/components/presentations/PresenterSupport.svelte",
+      "tokens": {
+        "ui-stack-loose": {
+          "selector": ".support",
+          "property": "gap"
+        },
+        "ui-border-hairline": {
+          "selector": ".url",
+          "property": "border",
+          "index": 0
+        },
+        "c-presenter-url-padding-block": {
+          "selector": ".url span",
+          "property": "padding",
+          "index": 0
+        },
+        "ui-gutter-tight": {
+          "selector": ".url span",
+          "property": "padding",
+          "index": 1
+        },
+        "c-presenter-url-size": {
+          "selector": ".url span",
+          "property": "font-size"
+        },
+        "ui-gutter-inset": {
+          "selector": ".url button",
+          "property": "padding",
+          "index": 1
+        },
+        "type-label-sm-size": {
+          "selector": ".url button",
+          "property": "font-size"
+        },
+        "c-presenter-button-track": {
+          "selector": ".url button",
+          "property": "letter-spacing"
+        },
+        "c-presenter-row-padding-block": {
+          "selector": ".clients header, article",
+          "property": "padding",
+          "index": 0
+        },
+        "c-presenter-header-track": {
+          "selector": ".clients header",
+          "property": "letter-spacing"
+        },
+        "type-body-sm-size": {
+          "selector": "article strong",
+          "property": "font-size"
+        },
+        "c-toggle-row-sub-gap": {
+          "selector": "article span, article em",
+          "property": "margin-top"
+        },
+        "c-presenter-detail-size": {
+          "selector": "article span, article em",
+          "property": "font-size"
+        }
+      }
+    },
+    "DiscoveryPanel": {
+      "source": "src/components/connectors/BroadlinkDiscovery.svelte",
+      "tokens": {
+        "ui-gutter-inset": {
+          "selector": ".panel",
+          "property": "padding"
+        },
+        "ui-border-hairline": {
+          "selector": ".panel",
+          "property": "border",
+          "index": 0
+        },
+        "ui-gutter-tight": {
+          "selector": "header",
+          "property": "gap"
+        },
+        "c-discovery-header-gap": {
+          "selector": "header",
+          "property": "margin-bottom"
+        },
+        "c-discovery-title-size": {
+          "selector": "strong",
+          "property": "font-size"
+        },
+        "c-discovery-title-track": {
+          "selector": "strong",
+          "property": "letter-spacing"
+        },
+        "c-row-meta-gap": {
+          "selector": "header span, .empty",
+          "property": "margin-top"
+        },
+        "type-quote-size": {
+          "selector": "header span, .empty",
+          "property": "font-size"
+        },
+        "type-body-sm-leading": {
+          "selector": "header span, .empty",
+          "property": "line-height"
+        },
+        "c-discovery-button-padding": {
+          "selector": "header button, article button",
+          "property": "padding",
+          "index": 1
+        },
+        "c-discovery-button-track": {
+          "selector": "header button, article button",
+          "property": "letter-spacing"
+        },
+        "c-discovery-body-padding": {
+          "selector": ".body",
+          "property": "padding-top"
+        },
+        "ui-stack": {
+          "selector": ".status",
+          "property": "gap"
+        },
+        "c-discovery-status-padding": {
+          "selector": ".status",
+          "property": "padding",
+          "index": 0
+        },
+        "type-label-size": {
+          "selector": ".status",
+          "property": "font-size"
+        },
+        "c-field-hint-track": {
+          "selector": ".status",
+          "property": "letter-spacing"
+        }
+      }
+    },
+    "DeviceList": {
+      "source": "src/components/connectors/BroadlinkDiscovery.svelte",
+      "tokens": {
+        "c-device-row-gap": {
+          "selector": "article",
+          "property": "gap",
+          "index": 0
+        },
+        "c-device-column-gap": {
+          "selector": "article",
+          "property": "gap",
+          "index": 1
+        },
+        "c-device-padding-block": {
+          "selector": "article",
+          "property": "padding",
+          "index": 0
+        },
+        "c-device-name-size": {
+          "selector": "article span",
+          "property": "font-size"
+        },
+        "type-body-sm-weight": {
+          "selector": "article span",
+          "property": "font-weight"
+        },
+        "type-label-sm-size": {
+          "selector": "code, em",
+          "property": "font-size"
+        },
+        "c-device-address-track": {
+          "selector": "code, em",
+          "property": "letter-spacing"
+        },
+        "c-device-kind-size": {
+          "selector": "em",
+          "property": "font-size"
+        },
+        "ui-track-none": {
+          "selector": "em",
+          "property": "letter-spacing"
+        },
+        "ui-stack": {
+          "selector": "article button",
+          "property": "margin-top",
+          "index": 0,
+          "breakpoint": "narrow"
+        }
+      }
+    }
+  }
+}

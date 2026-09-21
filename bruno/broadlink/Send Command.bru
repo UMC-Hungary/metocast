@@ -1,0 +1,21 @@
+meta {
+  name: Send Broadlink Command
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/api/connectors/broadlink/commands/{{commandId}}/send
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 204", function() {
+    expect(res.status).to.equal(204);
+  });
+}

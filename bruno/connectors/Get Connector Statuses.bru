@@ -1,0 +1,24 @@
+meta {
+  name: Get Connector Statuses
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/connectors/status
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("response has obs", function() {
+    expect(res.body).to.have.property('obs');
+  });
+}

@@ -1,0 +1,21 @@
+meta {
+  name: Keynote Close All
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/keynote/close_all
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 204", function() {
+    expect(res.status).to.equal(204);
+  });
+}

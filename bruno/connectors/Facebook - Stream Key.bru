@@ -1,0 +1,24 @@
+meta {
+  name: Facebook - Stream Key
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{baseUrl}}/api/connectors/facebook/stream-key
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("response has rtmpUrl", function() {
+    expect(res.body).to.have.property('rtmpUrl');
+  });
+}

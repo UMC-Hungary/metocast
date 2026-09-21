@@ -1,0 +1,38 @@
+meta {
+  name: Blackmagic Camera - Get Settings
+  type: http
+  seq: 21
+}
+
+get {
+  url: {{baseUrl}}/api/connectors/blackmagic-camera/settings
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  Reads the camera's storage, record format and livestream settings in one pass:
+  `/system/format` and `/system/supportedFormats`, `/media/slots`, `/media/workingset`
+  and `/media/active`, plus the livestream status, availability, platform list, active
+  platform and that platform's servers and quality profiles.
+
+  Payloads are the camera's own, forwarded unchanged. Only the active platform's
+  profile list is fetched — the others cost a round trip each.
+
+  409 when no camera is connected, 502 when the camera rejects a request.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("carries record, storage and stream", function() {
+    expect(res.body).to.have.property('record');
+    expect(res.body).to.have.property('storage');
+    expect(res.body).to.have.property('stream');
+  });
+}

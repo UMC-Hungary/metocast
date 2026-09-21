@@ -1,0 +1,21 @@
+meta {
+  name: Set Song Slide Folder
+  type: http
+  seq: 91
+}
+
+put {
+  url: {{baseUrl}}/api/settings/song-slide-folder
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "path": "/Users/me/Documents/Song Slides"
+  }
+}

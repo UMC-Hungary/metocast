@@ -1,0 +1,63 @@
+{
+  "$description": "The token pairings the contrast check measures, and the hue-separation rule for the interactive accent. A pairing absent from this list is not checked, so anything that carries meaning belongs here.",
+  "levels": {
+    "text": "4.5:1 — body text at any size the design actually uses; the smallest is 8.5px, so nothing qualifies for the large-text allowance",
+    "large": "3:1 — text at 24px or above, or 18.5px bold",
+    "ui": "3:1 — interface component boundaries, focus indicators and meaningful graphics"
+  },
+  "unchecked": {
+    "border-hairline": "Decorative separation between rows and sections. It never identifies a control or conveys state, so WCAG 1.4.11 does not apply; controls use border-control instead.",
+    "border-strong": "As border-hairline, emphasised. Control boundaries use border-control."
+  },
+  "pairings": [
+    { "fg": "text-primary", "bg": "surface-base", "level": "text" },
+    { "fg": "text-primary", "bg": "surface-raised", "level": "text" },
+    { "fg": "text-primary", "bg": "surface-sunken", "level": "text" },
+    { "fg": "text-primary", "bg": "surface-outside", "level": "text" },
+    { "fg": "text-primary", "bg": "surface-hover", "level": "text" },
+    { "fg": "text-secondary", "bg": "surface-base", "level": "text" },
+    { "fg": "text-secondary", "bg": "surface-raised", "level": "text" },
+    { "fg": "text-secondary", "bg": "surface-sunken", "level": "text" },
+    { "fg": "text-muted", "bg": "surface-base", "level": "text" },
+    { "fg": "text-muted", "bg": "surface-raised", "level": "text" },
+    { "fg": "text-muted", "bg": "surface-sunken", "level": "text" },
+    { "fg": "text-faint", "bg": "surface-base", "level": "text" },
+    { "fg": "text-faint", "bg": "surface-raised", "level": "text" },
+    { "fg": "text-faint", "bg": "surface-sunken", "level": "text" },
+    { "fg": "text-inverse", "bg": "surface-inverse", "level": "text" },
+    { "fg": "text-inverse-muted", "bg": "surface-inverse", "level": "text" },
+    { "fg": "accent-contrast", "bg": "accent", "level": "text" },
+    { "fg": "accent", "bg": "surface-base", "level": "text" },
+    { "fg": "accent", "bg": "surface-raised", "level": "text" },
+    { "fg": "accent", "bg": "surface-sunken", "level": "text" },
+    { "fg": "status-live", "bg": "surface-base", "level": "text" },
+    { "fg": "status-live", "bg": "surface-raised", "level": "text" },
+    { "fg": "status-live", "bg": "surface-sunken", "level": "text" },
+    { "fg": "status-ok", "bg": "surface-base", "level": "text" },
+    { "fg": "status-ok", "bg": "surface-raised", "level": "text" },
+    { "fg": "status-ok", "bg": "surface-sunken", "level": "text" },
+    { "fg": "status-warn", "bg": "surface-base", "level": "text" },
+    { "fg": "status-warn", "bg": "surface-raised", "level": "text" },
+    { "fg": "status-warn", "bg": "surface-sunken", "level": "text" },
+    { "fg": "status-error", "bg": "surface-base", "level": "text" },
+    { "fg": "status-error", "bg": "surface-raised", "level": "text" },
+    { "fg": "status-error", "bg": "surface-sunken", "level": "text" },
+    { "fg": "status-off", "bg": "surface-base", "level": "text" },
+    { "fg": "status-off", "bg": "surface-raised", "level": "text" },
+    { "fg": "status-off", "bg": "surface-sunken", "level": "text" },
+    { "fg": "border-control", "bg": "surface-base", "level": "ui" },
+    { "fg": "border-control", "bg": "surface-raised", "level": "ui" },
+    { "fg": "border-control", "bg": "surface-sunken", "level": "ui" },
+    { "fg": "surface-raised", "bg": "status-live", "level": "text" },
+    { "fg": "surface-raised", "bg": "status-ok", "level": "text" },
+    { "fg": "surface-raised", "bg": "status-warn", "level": "text" },
+    { "fg": "surface-raised", "bg": "status-error", "level": "text" },
+    { "fg": "text-inverse", "bg": "status-ok", "level": "text" }
+  ],
+  "hueSeparation": {
+    "accent": "accent",
+    "minDegrees": 60,
+    "against": ["status-error", "status-live"],
+    "distinguishFrom": ["status-live", "status-ok", "status-warn", "status-error"]
+  }
+}

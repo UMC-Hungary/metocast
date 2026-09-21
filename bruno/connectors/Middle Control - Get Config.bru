@@ -1,0 +1,26 @@
+meta {
+  name: Middle Control - Get Config
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/api/connectors/middlecontrol/config
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("response has Middle Control config", function() {
+    expect(res.body).to.have.property('enabled');
+    expect(res.body).to.have.property('host');
+    expect(res.body).to.have.property('port');
+  });
+}

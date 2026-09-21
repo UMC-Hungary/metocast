@@ -1,0 +1,29 @@
+[package]
+name = "rodecaster"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+description = "RØDECaster Pro II over USB HID — channel profile, live mute changes, mute control"
+
+[lib]
+name = "rodecaster"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rcast"
+path = "src/bin/rcast.rs"
+
+[dependencies]
+# Upstream is used unmodified. Its `HidTransport::open_pair` opens the device
+# twice, which macOS refuses (HID access is exclusive) — but `Transport` is a
+# public trait, so `SharedHid` below supplies both directions from one handle
+# and no fork is needed.
+rcp2-protocol = { git = "https://github.com/x1h0/rcp2-cli", rev = "998177ff68bf2df278942f03d89b04c3b1427078" }
+rcp2-core = { git = "https://github.com/x1h0/rcp2-cli", rev = "998177ff68bf2df278942f03d89b04c3b1427078" }
+hidapi = "2.6"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+
+[lints]
+workspace = true

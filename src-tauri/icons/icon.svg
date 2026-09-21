@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="-216.5 -211.5 1690 1690" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>Metocast Retro TV App Icon</title>
+  <desc>A cropped app icon version of the retro television logo with color bars, control dials, and speaker lines.</desc>
+
+  <!-- Rounded app icon field -->
+  <rect x="-51.5" y="-46.5" width="1360" height="1360" rx="306" fill="#070817"/>
+
+  <!-- TV outer body -->
+  <path d="M295 300H960C1024 300 1076 352 1076 416V825C1076 886 1027 936 966 936H954C954 955 941 967 923 967H911C893 967 881 954 881 936H377C377 954 365 967 347 967H334C316 967 303 955 303 936H291C230 936 181 886 181 825V414C181 351 232 300 295 300Z" fill="#F8F7F2"/>
+
+  <!-- Inner screen cavity -->
+  <rect x="223" y="340" width="639" height="558" rx="72" fill="#050616"/>
+
+  <!-- Color screen clipped shape -->
+  <defs>
+    <clipPath id="screenClip">
+      <path d="M281 405C281 386 288 375 306 371C363 358 738 359 783 372C805 379 816 397 816 426V729C816 753 803 767 779 771C706 784 369 783 306 771C287 767 281 754 281 731V405Z"/>
+    </clipPath>
+    <clipPath id="lowerClip">
+      <path d="M285 771C351 786 737 787 810 770C804 809 782 836 744 844C658 861 422 860 333 844C306 839 291 813 285 771Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- Main color bars -->
+  <g clip-path="url(#screenClip)">
+    <rect x="281" y="360" width="136" height="430" fill="#FFD91A"/>
+    <rect x="417" y="360" width="128" height="430" fill="#55C845"/>
+    <rect x="545" y="360" width="127" height="430" fill="#16BEE5"/>
+    <rect x="672" y="360" width="144" height="430" fill="#F82A2A"/>
+  </g>
+
+  <!-- Dark separator shadow -->
+  <path d="M279 758C348 773 736 775 814 757L807 790C728 807 356 807 285 790L279 758Z" fill="#040511"/>
+
+  <!-- Lower grayscale reflection strip -->
+  <g clip-path="url(#lowerClip)">
+    <rect x="281" y="765" width="136" height="95" fill="#F4F4F0"/>
+    <rect x="417" y="765" width="128" height="95" fill="#77777A"/>
+    <rect x="545" y="765" width="127" height="95" fill="#333337"/>
+    <rect x="672" y="765" width="144" height="95" fill="#202124"/>
+  </g>
+
+  <!-- Right control dials -->
+  <circle cx="965" cy="424" r="61" fill="#050616"/>
+  <rect x="974" y="389" width="20" height="58" rx="10" transform="rotate(45 974 389)" fill="#F8F7F2"/>
+
+  <circle cx="965" cy="578" r="61" fill="#050616"/>
+  <rect x="974" y="543" width="20" height="58" rx="10" transform="rotate(45 974 543)" fill="#F8F7F2"/>
+
+  <!-- Speaker / vent slits -->
+  <rect x="899" y="697" width="132" height="24" rx="12" fill="#050616"/>
+  <rect x="899" y="752" width="132" height="24" rx="12" fill="#050616"/>
+  <rect x="899" y="807" width="132" height="24" rx="12" fill="#050616"/>
+
+  <!-- Subtle highlights -->
+  <path d="M300 300H951C1011 300 1063 347 1074 405C1057 354 1012 319 960 319H295C237 319 201 354 187 407C194 348 241 300 300 300Z" fill="white" opacity="0.18"/>
+  <path d="M306 371C363 358 738 359 783 372C805 379 816 397 816 426V446C805 417 792 405 765 400C687 386 390 386 321 399C294 404 284 417 281 446V405C281 386 288 375 306 371Z" fill="white" opacity="0.12"/>
+</svg>

@@ -1,0 +1,15 @@
+meta {
+  name: Get Song Slide Folder
+  type: http
+  seq: 90
+}
+
+get {
+  url: {{baseUrl}}/api/settings/song-slide-folder
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}

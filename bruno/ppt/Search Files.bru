@@ -1,0 +1,21 @@
+meta {
+  name: Search PPT Files
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/ppt/files?filter=service
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+}

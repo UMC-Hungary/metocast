@@ -1,0 +1,21 @@
+meta {
+  name: Remove Broadlink Command
+  type: http
+  seq: 9
+}
+
+delete {
+  url: {{baseUrl}}/api/connectors/broadlink/commands/{{commandId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 204", function() {
+    expect(res.status).to.equal(204);
+  });
+}

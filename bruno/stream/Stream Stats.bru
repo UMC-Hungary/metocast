@@ -1,0 +1,24 @@
+meta {
+  name: Stream Stats
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/stream/stats
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("response has ready", function() {
+    expect(res.body).to.have.property('ready');
+  });
+}

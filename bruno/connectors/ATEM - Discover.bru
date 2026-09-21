@@ -1,0 +1,30 @@
+meta {
+  name: ATEM - Discover
+  type: http
+  seq: 24
+}
+
+post {
+  url: {{baseUrl}}/api/connectors/atem/discover
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  Browses mDNS for `_switcher_ctrl._udp` for three seconds. Finds switchers on the
+  LAN and switchers plugged into the server by USB; USB results carry `usb: true`.
+  Saves nothing — put the returned host and port in the `atem` connector config.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("response has a devices array", function() {
+    expect(res.body.devices).to.be.an('array');
+  });
+}

@@ -1,0 +1,37 @@
+meta {
+  name: Blackmagic Camera - Discover
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/api/connectors/blackmagic-camera/discover
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  mDNS scan for Blackmagic cameras (5s). Also pushed to every WebSocket client as
+  `blackmagic-camera.discovered`.
+
+  When no camera is configured yet, the first one found is saved to the
+  blackmagic-camera config and connected. A camera that is already configured is
+  never repointed.
+
+  An empty list is normal: mDNS does not cross VLANs, macOS gates it behind Local
+  Network permission, and a camera only answers once Web Media Manager is enabled
+  in Blackmagic Camera Setup.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("response has cameras", function() {
+    expect(res.body).to.have.property('cameras');
+  });
+}

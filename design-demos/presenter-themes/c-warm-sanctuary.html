@@ -1,0 +1,342 @@
+<!doctype html>
+<!--
+  Assumptions: this direction is judged as a static 1440×900 comparison page; both
+  slides share one projection-safe theme; system serif/mono fallbacks stand in for
+  the eventual bundled fonts; the amber architecture is CSS-only and intentionally
+  subtle so live text remains the primary visual object.
+-->
+<html lang="hu">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Warm Sanctuary — Presenter Theme</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --page: #d8d1c4;
+        --page-ink: #302d28;
+        --surface: #11100e;
+        --surface-deep: #0d0c0b;
+        --ivory: #f4efe3;
+        --ivory-soft: #ddd5c7;
+        --gold: #cfab69;
+        --gold-bright: #e1c387;
+        --gold-dim: rgba(207, 171, 105, 0.34);
+        --serif: "Iowan Old Style", "Baskerville", "Times New Roman", serif;
+        --mono: "SFMono-Regular", "Cascadia Mono", "Liberation Mono", "Courier New", monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+        margin: 0;
+      }
+
+      body {
+        display: grid;
+        place-items: center;
+        background:
+          linear-gradient(115deg, rgba(255, 255, 255, 0.2), transparent 37%),
+          var(--page);
+        color: var(--page-ink);
+        font-family: var(--mono);
+      }
+
+      .comparison {
+        width: min(1360px, calc(100vw - 64px));
+        padding: 36px 0 44px;
+      }
+
+      .comparison__header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        margin: 0 0 18px;
+        border-bottom: 1px solid rgba(48, 45, 40, 0.2);
+        padding: 0 0 13px;
+      }
+
+      .comparison__header h1,
+      .comparison__header p {
+        margin: 0;
+        text-transform: uppercase;
+      }
+
+      .comparison__header h1 {
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.18em;
+      }
+
+      .comparison__header p {
+        color: rgba(48, 45, 40, 0.62);
+        font-size: 10px;
+        letter-spacing: 0.14em;
+      }
+
+      .slides {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 28px;
+      }
+
+      .study {
+        min-width: 0;
+        margin: 0;
+      }
+
+      .study figcaption {
+        margin-top: 12px;
+        color: rgba(48, 45, 40, 0.68);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      .slide {
+        position: relative;
+        isolation: isolate;
+        aspect-ratio: 16 / 9;
+        width: 100%;
+        overflow: hidden;
+        container-type: inline-size;
+        background:
+          radial-gradient(circle at 92% 4%, rgba(207, 171, 105, 0.17), transparent 34%),
+          linear-gradient(112deg, transparent 0 58%, rgba(244, 239, 227, 0.024) 58.2% 70%, transparent 70.2%),
+          var(--surface);
+        box-shadow:
+          0 24px 48px rgba(43, 36, 27, 0.18),
+          0 3px 10px rgba(43, 36, 27, 0.12);
+        color: var(--ivory);
+      }
+
+      .slide::before {
+        position: absolute;
+        z-index: -1;
+        top: -10%;
+        right: 5.8%;
+        width: 15.5%;
+        height: 69%;
+        border-right: 1px solid rgba(225, 195, 135, 0.13);
+        border-left: 1px solid rgba(225, 195, 135, 0.05);
+        background: linear-gradient(180deg, rgba(225, 195, 135, 0.045), transparent 86%);
+        content: "";
+        transform: skewX(-9deg);
+        transform-origin: top;
+      }
+
+      .slide::after {
+        position: absolute;
+        z-index: -1;
+        top: 0;
+        right: 0;
+        width: 42%;
+        height: 100%;
+        background: linear-gradient(132deg, transparent 23%, rgba(207, 171, 105, 0.023) 23.3% 48%, transparent 48.3%);
+        content: "";
+        pointer-events: none;
+      }
+
+      .eyebrow,
+      .section,
+      .mark {
+        font-family: var(--mono);
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .eyebrow {
+        color: var(--gold-bright);
+        font-size: 1.55cqi;
+        font-weight: 500;
+        letter-spacing: 0.19em;
+      }
+
+      .mark {
+        position: absolute;
+        right: 6.2%;
+        bottom: 6.7%;
+        color: rgba(244, 239, 227, 0.64);
+        font-size: 1.32cqi;
+        font-weight: 600;
+        letter-spacing: 0.24em;
+      }
+
+      .mark::before {
+        display: inline-block;
+        width: 2.6cqi;
+        height: 1px;
+        margin: 0 1.3cqi 0.34cqi 0;
+        background: var(--gold-dim);
+        content: "";
+      }
+
+      .song {
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        padding: 7.2% 8.2% 6.7%;
+      }
+
+      .song .eyebrow {
+        justify-self: center;
+      }
+
+      .song__body {
+        display: grid;
+        place-content: center;
+        width: 91%;
+        margin: 0 auto 1%;
+        text-align: center;
+      }
+
+      .song__body::before {
+        width: 6.2cqi;
+        height: 1px;
+        margin: 0 auto 5.8cqi;
+        background: linear-gradient(90deg, transparent, var(--gold), transparent);
+        content: "";
+        opacity: 0.74;
+      }
+
+      .song__lyrics {
+        margin: 0;
+        font-family: var(--serif);
+        font-size: clamp(24px, 4.75cqi, 64px);
+        font-weight: 400;
+        letter-spacing: -0.018em;
+        line-height: 1.16;
+        text-wrap: balance;
+      }
+
+      .song__lyrics span {
+        display: block;
+      }
+
+      .song .section {
+        position: absolute;
+        bottom: 6.7%;
+        left: 6.2%;
+        color: var(--gold);
+        font-size: 1.32cqi;
+        font-weight: 500;
+        letter-spacing: 0.2em;
+      }
+
+      .bible {
+        display: grid;
+        grid-template-columns: 16% 1fr;
+        grid-template-rows: auto 1fr;
+        gap: 0 4.8%;
+        padding: 7.2% 7% 6.7% 6.2%;
+      }
+
+      .bible .eyebrow {
+        grid-column: 2;
+        align-self: start;
+      }
+
+      .bible__number {
+        grid-column: 1;
+        grid-row: 2;
+        align-self: start;
+        margin-top: 11.2cqi;
+        color: var(--gold);
+        font-family: var(--serif);
+        font-size: 12.4cqi;
+        font-weight: 400;
+        font-variant-numeric: lining-nums;
+        letter-spacing: -0.06em;
+        line-height: 0.72;
+      }
+
+      .bible__number::after {
+        display: block;
+        width: 5.8cqi;
+        height: 1px;
+        margin-top: 5.2cqi;
+        background: var(--gold-dim);
+        content: "";
+      }
+
+      .bible__text {
+        grid-column: 2;
+        grid-row: 2;
+        align-self: center;
+        max-width: 96%;
+        margin: 0 0 1.5%;
+        font-family: var(--serif);
+        font-size: clamp(23px, 4.85cqi, 62px);
+        font-weight: 400;
+        letter-spacing: -0.022em;
+        line-height: 1.12;
+        text-wrap: pretty;
+      }
+
+      .bible__text::first-letter {
+        color: #fffaf0;
+      }
+
+      @media (max-width: 900px) {
+        .comparison {
+          width: min(680px, calc(100vw - 32px));
+          padding-top: 24px;
+        }
+
+        .slides {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 520px) {
+        .comparison__header p {
+          display: none;
+        }
+
+        .song__lyrics,
+        .bible__text {
+          font-size: 4.75cqi;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="comparison" aria-labelledby="direction-title">
+      <header class="comparison__header">
+        <h1 id="direction-title">C — Warm Sanctuary</h1>
+        <p>Presenter theme study · 16:9</p>
+      </header>
+
+      <section class="slides" aria-label="Song and Bible presenter comparison">
+        <figure class="study">
+          <article class="slide song" aria-label="Song slide">
+            <div class="eyebrow">ÉNEK · KEGYELEMBŐL</div>
+            <div class="song__body">
+              <p class="song__lyrics">
+                <span>Kegyelemből léphetünk be, szent jelenlétedbe,</span>
+                <span>nem saját érdemeinkből, csak Jézus vérével.</span>
+              </p>
+            </div>
+            <div class="section">1. VERSZAK</div>
+            <div class="mark">METOCAST</div>
+          </article>
+          <figcaption>Song</figcaption>
+        </figure>
+
+        <figure class="study">
+          <article class="slide bible" aria-label="Bible slide">
+            <div class="eyebrow">RÓMA 8:1 · RÚF</div>
+            <div class="bible__number">1</div>
+            <p class="bible__text">Nincs tehát most már semmiféle kárhoztató ítélet azok ellen, akik Krisztus Jézusban vannak.</p>
+            <div class="mark">METOCAST</div>
+          </article>
+          <figcaption>Bible</figcaption>
+        </figure>
+      </section>
+    </main>
+  </body>
+</html>

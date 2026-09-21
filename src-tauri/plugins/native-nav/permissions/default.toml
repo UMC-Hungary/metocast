@@ -1,0 +1,5 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = "Allows the app to install and update the native navigation bar."
+permissions = ["allow-install", "allow-set-active"]

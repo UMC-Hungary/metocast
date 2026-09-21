@@ -1,0 +1,27 @@
+meta {
+  name: Keynote Go To Slide
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/keynote/goto
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "slide": 5
+  }
+}
+
+tests {
+  test("status is 204", function() {
+    expect(res.status).to.equal(204);
+  });
+}

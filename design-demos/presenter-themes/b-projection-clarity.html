@@ -1,0 +1,283 @@
+<!doctype html>
+<!--
+  Assumptions:
+  - This is an approval-gate comparison artifact, not production presenter code.
+  - The two 16:9 canvases preview the same theme at equal scale in a 1440x900 viewport.
+  - System serif and mono stacks stand in for the reference fonts so the file stays offline and portable.
+  - Projection clarity takes priority: restrained light effects, generous safe areas, and slightly larger type.
+-->
+<html lang="hu">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Metocast presenter theme — Projection clarity</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --page: #262521;
+        --page-ink: #d8d4ca;
+        --surface: #11100e;
+        --ivory: #f4efe3;
+        --gold: #cfab69;
+        --rule: rgba(207, 171, 105, 0.42);
+        --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Baskerville,
+          "Times New Roman", serif;
+        --mono: "SFMono-Regular", "Cascadia Mono", "Roboto Mono", Consolas,
+          monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+      }
+
+      body {
+        margin: 0;
+        background: var(--page);
+        color: var(--page-ink);
+        font-family: var(--mono);
+      }
+
+      main {
+        width: min(100%, 1440px);
+        margin: 0 auto;
+        padding: clamp(24px, 3.25vw, 46px);
+      }
+
+      header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 22px;
+      }
+
+      h1,
+      header p,
+      figure,
+      figcaption,
+      .eyebrow,
+      .section,
+      .mark,
+      .lyric,
+      .verse-number,
+      .verse-text {
+        margin: 0;
+      }
+
+      h1 {
+        color: #f1eee6;
+        font: 600 12px/1.2 var(--mono);
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+      }
+
+      header p {
+        color: #918e86;
+        font-size: 10px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .comparison {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: clamp(18px, 2vw, 28px);
+      }
+
+      figure {
+        min-width: 0;
+      }
+
+      figcaption {
+        padding-top: 12px;
+        color: #aaa69d;
+        font-size: 10px;
+        letter-spacing: 0.17em;
+        text-transform: uppercase;
+      }
+
+      .slide {
+        position: relative;
+        isolation: isolate;
+        overflow: hidden;
+        aspect-ratio: 16 / 9;
+        container-type: inline-size;
+        background:
+          radial-gradient(
+            circle at 88% 8%,
+            rgba(207, 171, 105, 0.075),
+            transparent 29%
+          ),
+          linear-gradient(
+            132deg,
+            transparent 0 58%,
+            rgba(244, 239, 227, 0.018) 70%,
+            transparent 83%
+          ),
+          var(--surface);
+        box-shadow:
+          0 20px 44px rgba(0, 0, 0, 0.25),
+          0 0 0 1px rgba(244, 239, 227, 0.07);
+      }
+
+      .slide::after {
+        position: absolute;
+        inset: 5.9cqw 6.7cqw;
+        z-index: -1;
+        border-top: 1px solid var(--rule);
+        content: "";
+        opacity: 0.72;
+      }
+
+      .eyebrow,
+      .section,
+      .mark {
+        font-family: var(--mono);
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+
+      .eyebrow {
+        color: var(--gold);
+        font-size: 1.55cqw;
+        line-height: 1;
+        letter-spacing: 0.19em;
+      }
+
+      .mark {
+        position: absolute;
+        right: 6.7cqw;
+        bottom: 5.3cqw;
+        color: rgba(244, 239, 227, 0.66);
+        font-size: 1.32cqw;
+        line-height: 1;
+        letter-spacing: 0.22em;
+      }
+
+      .song {
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        padding: 9cqw 8.2cqw 5.2cqw;
+      }
+
+      .song .eyebrow {
+        justify-self: center;
+      }
+
+      .lyrics {
+        align-self: center;
+        margin-top: -1cqw;
+        text-align: center;
+      }
+
+      .lyric {
+        color: var(--ivory);
+        font-family: var(--serif);
+        font-size: 5.45cqw;
+        font-weight: 500;
+        line-height: 1.23;
+        letter-spacing: -0.02em;
+        text-wrap: balance;
+      }
+
+      .section {
+        align-self: end;
+        justify-self: start;
+        color: var(--gold);
+        font-size: 1.32cqw;
+        line-height: 1;
+        letter-spacing: 0.2em;
+      }
+
+      .bible {
+        display: grid;
+        grid-template-columns: 12.5cqw minmax(0, 1fr);
+        grid-template-rows: auto 1fr;
+        column-gap: 4.6cqw;
+        padding: 9cqw 7.2cqw 5.2cqw 8.2cqw;
+      }
+
+      .bible .eyebrow {
+        grid-column: 2;
+      }
+
+      .verse-number {
+        grid-column: 1;
+        grid-row: 2;
+        align-self: start;
+        padding-top: 5.1cqw;
+        color: var(--gold);
+        font-family: var(--serif);
+        font-size: 10.7cqw;
+        font-weight: 400;
+        line-height: 0.8;
+        text-align: right;
+      }
+
+      .verse-text {
+        grid-column: 2;
+        grid-row: 2;
+        align-self: center;
+        max-width: 65cqw;
+        color: var(--ivory);
+        font-family: var(--serif);
+        font-size: 4.75cqw;
+        font-weight: 500;
+        line-height: 1.18;
+        letter-spacing: -0.018em;
+        text-wrap: pretty;
+      }
+
+      @media (max-width: 820px) {
+        .comparison {
+          grid-template-columns: 1fr;
+        }
+
+        header p {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>B — Projection clarity</h1>
+        <p>Metocast presenter theme study</p>
+      </header>
+
+      <section class="comparison" aria-label="Song and Bible slide comparison">
+        <figure>
+          <article class="slide song" aria-label="Song slide preview">
+            <p class="eyebrow">ÉNEK · KEGYELEMBŐL</p>
+            <div class="lyrics">
+              <p class="lyric">Kegyelemből léphetünk be, szent jelenlétedbe,</p>
+              <p class="lyric">nem saját érdemeinkből, csak Jézus vérével.</p>
+            </div>
+            <p class="section">1. VERSZAK</p>
+            <p class="mark">METOCAST</p>
+          </article>
+          <figcaption>Song</figcaption>
+        </figure>
+
+        <figure>
+          <article class="slide bible" aria-label="Bible slide preview">
+            <p class="eyebrow">RÓMA 8:1 · RÚF</p>
+            <p class="verse-number">1</p>
+            <p class="verse-text">
+              Nincs tehát most már semmiféle kárhoztató ítélet azok ellen, akik
+              Krisztus Jézusban vannak.
+            </p>
+            <p class="mark">METOCAST</p>
+          </article>
+          <figcaption>Bible</figcaption>
+        </figure>
+      </section>
+    </main>
+  </body>
+</html>

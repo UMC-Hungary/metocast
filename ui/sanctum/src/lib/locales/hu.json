@@ -1,0 +1,850 @@
+{
+  "nav": {
+    "dashboard": "Vezérlőpult",
+    "events": "Események",
+    "slides": "Diák",
+    "settings": "Beállítások"
+  },
+  "connection": {
+    "connecting": "Kapcsolódás a maghoz…",
+    "lost": "Megszakadt a kapcsolat a maggal – újrapróbálkozás…"
+  },
+  "screens": {
+    "dashboard": {
+      "title": "Vezérlőpult",
+      "note": "Adásállapot, élő telemetria és a következő ütemezett esemény."
+    },
+    "events": {
+      "title": "Események",
+      "note": "Szűrhető, kereshető eseménylista részletekkel.",
+      "new": "Új esemény"
+    },
+    "editor": {
+      "title": "Eseményszerkesztő",
+      "note": "Igekereső, automatikus cím, láthatóság és felvételi beállítások."
+    },
+    "presentations": {
+      "title": "Prezentációk",
+      "note": "Vezérlés, diasor és megjelenítő kliensek."
+    },
+    "settings": {
+      "title": "Beállítások",
+      "note": "Nyelv, mód, fiókok, ütemezett feladatok és frissítések."
+    },
+    "connectors": {
+      "title": "Csatlakozók",
+      "note": "Kategóriacsoportok, csatlakozónkénti beállítások, állapot és hibaelhárítás."
+    },
+    "eventSettings": {
+      "title": "Esemény beállítások",
+      "note": "Közzétételi cím sablon és a generált diasorok helye."
+    }
+  },
+  "common": {
+    "errorTitle": "Nem sikerült betölteni",
+    "errorBody": "A mag nem válaszolt. Ellenőrizd a kapcsolatot, és próbáld újra.",
+    "retry": "Újra"
+  },
+  "dash": {
+    "greetingMorning": "Jó reggelt.",
+    "greetingEarly": "Korán keltél, te kis pacsirta.",
+    "greetingNight": "Még fent, éjjeli bagoly?",
+    "greetingAfternoon": "Jó napot.",
+    "greetingEvening": "Jó estét.",
+    "onAir": "Adásban",
+    "offAir": "Nincs adás",
+    "activeTitle": "Élő közvetítés",
+    "activeContext": "Közvetítés folyamatban",
+    "noBroadcast": "Nincs aktív közvetítés",
+    "idleHint": "Ütemezz vagy indíts azonnali adást",
+    "viewers": "Nézők",
+    "bitrate": "Bitráta",
+    "dropped": "Kiesett",
+    "upNext": "Következő",
+    "noneScheduled": "Nincs ütemezve",
+    "noneScheduledHint": "Az új események itt jelennek meg",
+    "noSpeaker": "Nincs előadó",
+    "quickActions": "Gyors műveletek",
+    "newEvent": "Új esemény",
+    "newEventMeta": "Adás ütemezése",
+    "presentations": "Prezentációk",
+    "presentationsMeta": "Diák és dalszövegek",
+    "connectors": "Csatlakozók",
+    "connectorsMeta": "{n} csatlakoztatva",
+    "audioRecording": "RØDECaster hang",
+    "recReady": "Készenlét",
+    "recActive": "Felvétel",
+    "noRecordEvent": "Nincs esemény a felvételhez",
+    "noRecordEventHint": "Ütemezz eseményt, és a felvétel ahhoz kerül",
+    "outputMode": {
+      "mainMix": "Fő mix",
+      "separate": "Külön sávok",
+      "combinedStereo": "Összevont sztereó",
+      "multichannelFlac": "Többcsatornás FLAC"
+    },
+    "recordAudio": "Hangfelvétel",
+    "stopAudio": "Felvétel leállítása",
+    "connectMixer": "Felvétel előtt csatlakoztasd a RØDECastert a maghoz.",
+    "lastRecording": "Legutóbbi felvétel"
+  },
+  "events": {
+    "eyebrow": "{n} megjelenítve",
+    "title": "Események",
+    "new": "Új esemény",
+    "search": "Események keresése",
+    "searchPlaceholder": "Események, előadók keresése…",
+    "filtersLabel": "Események szűrése",
+    "filter": {
+      "upcoming": "Közelgő",
+      "live": "Élő",
+      "past": "Korábbi"
+    },
+    "noMatch": "Nincs találat",
+    "noMatchHint": "Próbálj más keresést vagy szűrőt",
+    "emptyTitle": "Még nincs esemény",
+    "emptyHint": "Az ütemezett közvetítések itt jelennek meg",
+    "noSpeaker": "Nincs előadó",
+    "liveNow": "Most élő",
+    "preview": "Előnézet",
+    "selected": "Kiválasztva",
+    "open": "Esemény megnyitása",
+    "noSelection": "Nincs kiválasztva",
+    "status": {
+      "live": "Élő",
+      "past": "Korábbi",
+      "scheduled": "Ütemezve"
+    }
+  },
+  "editor": {
+    "back": "Események",
+    "newTitle": "Esemény ütemezése",
+    "editTitle": "Esemény szerkesztése",
+    "defaultTitle": "(Vasárnapi) istentisztelet",
+    "loadFailed": "Nem sikerült betölteni az eseményt",
+    "saveFailed": "Nem sikerült menteni — a bevitt adatok megmaradtak",
+    "details": "Részletek",
+    "eventTitle": "Esemény címe",
+    "titlePlaceholder": "Vasárnapi istentisztelet",
+    "date": "Dátum",
+    "time": "Időpont",
+    "pickDate": "Válassz dátumot",
+    "pickTime": "Válassz időpontot",
+    "speaker": "Előadó",
+    "speakerPlaceholder": "Kovács Mária lelkész",
+    "speakerAccept": "elfogadás",
+    "scripture": "Igék",
+    "scriptureHint": "A keresés lekéri a versek szövegét",
+    "textus": "Textus",
+    "leckio": "Leckió",
+    "primary": "Elsődleges",
+    "secondary": "Másodlagos",
+    "textusPlaceholder": "János 3:16–21",
+    "leckioPlaceholder": "Zsoltárok 23",
+    "refNotFound": "Az ige nem ismerhető fel",
+    "verseCount": "{n} vers · {t}",
+    "description": "Leírás",
+    "descriptionHint": "A YouTube-leíráshoz",
+    "descriptionPlaceholder": "Oszd meg a heti üzenetet, linkeket és minden fontosat a gyülekezetnek…",
+    "previewLabel": "YouTube-előnézet",
+    "previewEmpty": "Adj meg dátumot és igét az előnézethez",
+    "tag": {
+      "date": "dátum",
+      "textus": "textus",
+      "title": "cím",
+      "speaker": "előadó"
+    },
+    "privacyLabel": "YouTube-láthatóság",
+    "privacy": {
+      "public": "Nyilvános",
+      "publicHint": "Bárki megnézheti",
+      "unlisted": "Nem listázott",
+      "unlistedHint": "Csak linkkel",
+      "private": "Privát",
+      "privateHint": "Csak te"
+    },
+    "recording": "Felvétel",
+    "autoUpload": "Automatikus feltöltés az esemény után",
+    "autoUploadHint": "A helyi felvétel YouTube-ra töltése, amikor az adás véget ér",
+    "saveNew": "Esemény ütemezése →",
+    "saveEdit": "Módosítások mentése →",
+    "cancel": "Mégse",
+    "footNote": "Az események mentés után átütemezhetők vagy törölhetők a részleteknél.",
+    "platform": {
+      "label": "Platformok",
+      "open": "Megnyitás",
+      "connector": {
+        "connected": "Kapcsolat él",
+        "connecting": "Kapcsolódás",
+        "error": "Kapcsolati hiba",
+        "disconnected": "Kapcsolat kikapcsolva"
+      },
+      "status": {
+        "not_scheduled": "Nincs ütemezve",
+        "scheduled": "Ütemezve",
+        "created": "Létrehozva",
+        "ready": "Kész",
+        "testing": "Teszt",
+        "live": "Élő",
+        "liveStarting": "Indul az élő adás",
+        "complete": "Véget ért",
+        "revoked": "Visszavonva",
+        "failed": "Sikertelen"
+      },
+      "sync": {
+        "synced": "Szinkronban a YouTube-bal",
+        "syncing": "Szinkronizálás a YouTube-ra…",
+        "parked": "Várakozás a YouTube bejelentkezésre",
+        "failed": "A szinkronizálás nem sikerült",
+        "notScheduled": "Még nincs fenn a YouTube-on"
+      }
+    },
+    "slides": {
+      "create": "Diasor készítése",
+      "creating": "Készítés…",
+      "created": "Diasorok elkészültek",
+      "failed": "Nem sikerült diasort készíteni"
+    }
+  },
+  "presentations": {
+    "title": "Diák",
+    "modeLabel": "Megjelenítő mód",
+    "mode": {
+      "web": "Webes megjelenítő",
+      "keynote": "Keynote híd"
+    },
+    "themeLabel": "Vetítési megjelenés",
+    "fontsTitle": "PowerPoint betűtípusok",
+    "fontsNames": "Cormorant Garamond + Geist Mono",
+    "fontsRequired": "Az Editorial PowerPointokhoz szükséges — telepítsd a Betűtárban",
+    "fontsInstall": "Betűtár megnyitása",
+    "fontsInstalled": "Telepítve",
+    "fontsFontBook": "A Betűtárban kattints mindkét betűtípus Telepítés gombjára, majd térj vissza ide",
+    "fontsRestart": "Telepítve — indítsd újra a Keynote-ot vagy a PowerPointot",
+    "theme": {
+      "classic": "Klasszikus",
+      "editorial": "Editorial"
+    },
+    "presenting": "Vetítés",
+    "standby": "Készenlét",
+    "transport": "Diavezérlés",
+    "first": "Első dia",
+    "prev": "Előző dia",
+    "next": "Következő dia",
+    "last": "Utolsó dia",
+    "start": "Indítás",
+    "stop": "Leállítás",
+    "unload": "Diasor bezárása",
+    "noDeck": "Nincs betöltött diasor",
+    "search": "Diasor keresése",
+    "searchPlaceholder": "Diasorok, mappák keresése…",
+    "loadedDeck": "Betöltött diasor",
+    "tapToSearch": "Koppints a kereséshez",
+    "noMatch": "Nincs találat",
+    "open": "Megnyitás",
+    "queue": "Sorba",
+    "queueLabel": "Diasor",
+    "queueSummary": "{n} / {total} kitöltve",
+    "clear": "Törlés",
+    "emptySlot": "Üres hely",
+    "preview": "Aktuális dia",
+    "previewWaiting": "Nincs semmi a képernyőn.",
+    "previewWaitingHint": "Tölts be egy diasort az előnézethez",
+    "presenterSupport": "Megjelenítő támogatás",
+    "clients": "Csatlakozott kliensek",
+    "clientsSummary": "{n} csatlakozva",
+    "noClients": "Még nem csatlakozott megjelenítő.",
+    "copy": "Másolás",
+    "copied": "Másolva",
+    "folders": "Prezentációs mappák",
+    "foldersHint": "{n} beállítva",
+    "folderPath": "Mappa útvonala a szerver gépen",
+    "folderPathPlaceholder": "/Users/nev/Prezentaciok",
+    "addFolder": "Mappa hozzáadása",
+    "removeFolder": "Mappa eltávolítása",
+    "newSong": "Ének PPT készítése",
+    "songKind": "Énekdiák",
+    "songTitle": "Ének címe",
+    "songTitlePlaceholder": "Kegyelemből léphetünk be",
+    "songLyrics": "Dalszöveg",
+    "songLyricsHint": "A diák között hagyj két üres sort",
+    "songLyricsPlaceholder": "Illeszd be a versszakokat és a refrént…",
+    "songStructureHint": "A cím- és az utolsó üres dia automatikusan elkészül. A beírt sorok egyben maradnak.",
+    "outputFolder": "Ének PPT-k célmappája",
+    "outputFolderHint": "Ide mentjük az elkészült ének PowerPointokat",
+    "outputFolderNone": "Nincs beállítva",
+    "outputFolderChoose": "Mappa kiválasztása",
+    "outputFolderChange": "Mappa módosítása",
+    "outputFolderSave": "Mappa mentése",
+    "searchFolders": "Prezentációk keresési mappái",
+    "songRequired": "Add meg az ének címét és szövegét.",
+    "createSong": "PowerPoint készítése",
+    "creatingSong": "PowerPoint készítése…",
+    "songCreated": "PowerPoint elkészült · {n} dia",
+    "songFailed": "Nem sikerült elkészíteni a PowerPointot"
+  },
+  "notif": {
+    "bell": "Értesítések, {n} olvasatlan",
+    "bellIssue": "Értesítések, 1 fennálló hiba, {n} olvasatlan",
+    "bellIssues": "Értesítések, {issues} fennálló hiba, {n} olvasatlan",
+    "eyebrow": "Értesítések",
+    "count": "{n} tétel",
+    "activeCountOne": "1 fennálló hiba",
+    "activeCount": "{n} fennálló hiba",
+    "activeIssues": "Fennálló hibák",
+    "recentNotifications": "Legutóbbi értesítések",
+    "allClear": "Minden rendben",
+    "emptyTitle": "Nincs várakozó.",
+    "emptyHint": "A csatlakozók itt jeleznek",
+    "clearAll": "Összes törlése",
+    "clearHistory": "Előzmények törlése",
+    "showSteps": "Lépések mutatása",
+    "hideSteps": "Lépések elrejtése",
+    "kind": {
+      "encoder": "Kódoló",
+      "streaming": "Streamelés",
+      "camera": "Kamera",
+      "cameraControl": "Kameravezérlés",
+      "switcher": "Képkeverő",
+      "mixer": "Keverő",
+      "webhooks": "Webhookok",
+      "connector": "Csatlakozó",
+      "system": "Rendszer"
+    },
+    "action": {
+      "edit": "Szerkesztés",
+      "reconnect": "Újracsatlakozás",
+      "relogin": "Újra bejelentkezés"
+    },
+    "remediation": {
+      "open": "Nyisd meg a Beállítások → Csatlakozók oldalt",
+      "check": "Ellenőrizd a(z) {name} beállításait",
+      "enable": "Kapcsold be újra a csatlakozót"
+    },
+    "mute": {
+      "remoteMuted": "{label}: távoli mikrofon némítva",
+      "remoteUnmuted": "{label}: távoli mikrofon némítás feloldva",
+      "muted": "{label} némítva",
+      "unmuted": "{label} némítás feloldva"
+    },
+    "conn": {
+      "disconnected": "{name} lekapcsolódott",
+      "reconnected": "{name} újracsatlakozott",
+      "reconnecting": "újracsatlakozás"
+    },
+    "core": {
+      "source": "Core",
+      "commandFailed": "A parancs nem sikerült"
+    }
+  },
+  "settings": {
+    "eyebrow": "Vezérlőfelület",
+    "overview": {
+      "mode": "Mód",
+      "accounts": "Fiókok",
+      "jobs": "Feladatok"
+    },
+    "appearance": "Megjelenés",
+    "language": "Nyelv",
+    "languageRow": {
+      "title": "Felület nyelve",
+      "meta": "Helyben tárolva, a Tauri settings.json fájlba tükrözve"
+    },
+    "scheme": {
+      "light": "Világos",
+      "dark": "Sötét",
+      "auto": "Automatikus"
+    },
+    "modeSection": "Alkalmazás mód",
+    "mode": {
+      "title": "Jelenlegi mód · {mode}",
+      "meta": "A visszaállítás a beállításhoz tér vissza. A beágyazott adatbázis újraindításig fut.",
+      "clientMeta": "Törli az eszközön tárolt szerver címet és tokent. Visszatérsz a beállításhoz.",
+      "change": "Módosítás",
+      "removeAccess": "Hozzáférés eltávolítása",
+      "switchTitle": "Váltás kliens módra",
+      "switchBody": "Kliens módra váltáskor a szerver összes adata törlődik — felvételek, beállítások és csatlakozók. Ez nem vonható vissza.",
+      "switchConfirm": "Váltás és szerveradatok törlése",
+      "switchConfirmDialog": "Ez véglegesen törli a szerver összes adatát. Folytatod?",
+      "switchConfirmFinal": "Igen, törlöm mindent és váltok"
+    },
+    "accountsSection": "Bejelentkezési fiókok",
+    "account": {
+      "login": "Bejelentkezés",
+      "manage": "Fiók",
+      "ready": "Kész a bejelentkezésre",
+      "needsKey": "API-kulcs szükséges",
+      "signedCount": "{n}/2 bejelentkezve"
+    },
+    "connectors": "Csatlakozók",
+    "connectorsRow": {
+      "title": "Kapcsolatkezelő",
+      "meta": "OBS, YouTube, Facebook, VMix, ATEM, Broadlink, Discord",
+      "open": "Megnyitás"
+    },
+    "presentations": "Prezentációk",
+    "webPresenter": {
+      "title": "Webes megjelenítő használata",
+      "meta": "A presentation.set_use_web_presenter parancsot küldi WebSocketen"
+    },
+    "cron": {
+      "section": "Ütemezett feladatok",
+      "configured": "{n} beállítva",
+      "name": "Név",
+      "namePlaceholder": "pl. YouTube lekérdezés",
+      "expr": "Cron kifejezés",
+      "exprPlaceholder": "0 */5 * * * *",
+      "save": "Mentés",
+      "pullYoutube": "YouTube élő események lekérése",
+      "autoUpload": "Megjelölt felvételek automatikus feltöltése",
+      "tagYoutube": "YouTube lekérés",
+      "tagUpload": "Automatikus feltöltés",
+      "tagCustom": "Egyéni feladat"
+    },
+    "app": "Alkalmazás",
+    "version": {
+      "title": "Alkalmazás verziója",
+      "check": "Ellenőrzés",
+      "download": "Letöltés",
+      "available": "{v} elérhető"
+    },
+    "back": "Beállítások",
+    "connect": {
+      "section": "Eszköz csatlakoztatása",
+      "hint": "Olvasd be Metocasttal iPhone-on",
+      "loading": "Generálás…",
+      "unavailable": "Indítsd el a szervert a csatlakozási kód generálásához"
+    },
+    "template": {
+      "section": "Esemény cím sablon",
+      "hint": "A YouTube-hoz használjuk",
+      "field": "Sablon",
+      "optional": "elhagyható",
+      "save": "Sablon mentése",
+      "reset": "Alapértelmezett visszaállítása",
+      "sampleTitle": "(Vasárnapi) istentisztelet",
+      "sampleSpeaker": "Prókai Árpád"
+    },
+    "eventsRow": {
+      "title": "Esemény beállítások",
+      "meta": "Cím sablon, bibliai diasor mappa"
+    }
+  },
+  "logs": {
+    "title": "Alkalmazásnaplók",
+    "rowMeta": "A mag naplójának olvasása, szűrése és törlése",
+    "fileSection": "Naplófájl",
+    "file": "Naplófájl",
+    "loading": "Naplók betöltése…",
+    "refresh": "Frissítés",
+    "download": "Letöltés",
+    "open": "Megnyitás",
+    "copyPath": "Útvonal másolása",
+    "remove": "Napló törlése",
+    "removing": "Törlés…",
+    "removeConfirm": "Törli az aktuális alkalmazásnapló tartalmát? A művelet nem vonható vissza.",
+    "cancel": "Mégse",
+    "empty": "A napló csendes.",
+    "emptyHint": "A sorok a mag működése közben jelennek meg",
+    "noMatches": "Nincs a szűrőnek megfelelő sor.",
+    "unavailable": "A naplók nem érhetők el",
+    "noToken": "Ezen az eszközön nincs token a maghoz, így a napló nem olvasható.",
+    "retry": "Újra",
+    "filters": {
+      "label": "Naplószint szűrő",
+      "all": "Összes",
+      "info": "Infó",
+      "warn": "Figyelmeztetések",
+      "error": "Hibák"
+    },
+    "toasts": {
+      "removed": "Alkalmazásnapló törölve",
+      "removeFailed": "Az alkalmazásnapló törlése sikertelen",
+      "pathCopied": "Napló útvonala másolva",
+      "copyFailed": "A napló útvonalának másolása sikertelen",
+      "openFailed": "Az alkalmazásnapló megnyitása sikertelen"
+    }
+  },
+  "toast": {
+    "region": "Értesítések",
+    "dismiss": "Bezárás",
+    "minimize": "Értesítés kicsinyítése",
+    "connector": "Csatlakozó"
+  },
+  "conn": {
+    "back": "Vissza",
+    "toast": {
+      "connectFail": "Nem sikerült csatlakozni",
+      "disconnectFail": "Nem sikerült lecsatlakozni",
+      "saveFail": "Nem sikerült menteni",
+      "scanFail": "A keresés meghiúsult",
+      "toggleFail": "Nem sikerült frissíteni"
+    },
+    "eyebrow": "{n} / {total} bekapcsolva",
+    "cat": {
+      "broadcast": "Közvetítés",
+      "streaming": "Streamelés",
+      "devices": "Eszközök",
+      "future": "Jövőbeli"
+    },
+    "summary": {
+      "live": "Élő",
+      "ready": "Kész",
+      "future": "Jövőbeli"
+    },
+    "enabledHint": "{n}/{total} bekapcsolva",
+    "disabled": "Csatlakozó kikapcsolva",
+    "descriptor": {
+      "youtube": "Data API v3 · közvetítések és stream kulcsok",
+      "facebook": "Pages API · streamelési cél",
+      "broadlink": "Projektor, vászon és AV parancsok",
+      "vmix": "Konfiguráció eltárolva későbbi támogatáshoz",
+      "atem": "UDP protokoll · program, előnézet, felvétel és adás",
+      "discord": "Webhook támogatás hamarosan",
+      "blackmagic-camera": "REST API · felvétel- és élő adás vezérlés",
+      "middlecontrol": "TCP API · kamera-, felvétel- és presetvezérlés",
+      "rodecaster": "USB HID · csatornaprofil és némítás"
+    },
+    "lockedNote": "Ez a csatlakozó még nincs megvalósítva. A Metocast készen tartja a konfigurációt egy jövőbeli verzióhoz.",
+    "note": "A csatlakozó beállításai először helyben mentődnek, majd Tauri parancsokon vagy a szerver API-n keresztül egyeztetődnek.",
+    "save": "Mentés",
+    "saved": "Mentve",
+    "saveFailed": "Nem sikerült menteni — {error}",
+    "secretKept": "Hagyd üresen a megtartáshoz",
+    "login": "Bejelentkezés",
+    "account": "Fiók",
+    "encoder": {
+      "connect": "Csatlakozás",
+      "disconnect": "Lecsatlakozás",
+      "reconnect": "Mentés és újracsatlakozás",
+      "rtmp": "{dest} RTMP URL"
+    },
+    "discovery": {
+      "title": "Eszközkeresés",
+      "description": "RF/IR adók keresése a helyi hálózaton",
+      "scan": "Hálózat keresése",
+      "scanAgain": "Keresés újra",
+      "scanning": "Keresés",
+      "empty": "Indíts keresést a Broadlink RM eszközök felfedezéséhez a hálózaton."
+    },
+    "ops": {
+      "kicker": "Kezelői összegzés",
+      "route": "{dest} útvonal",
+      "obsReady": "Az OBS készen áll az élő kimenetre.",
+      "obsAttention": "Az OBS figyelmet igényel az élő kimenethez.",
+      "enabled": "Bekapcsolva",
+      "ready": "Kész",
+      "rtmp": "RTMP cél",
+      "deviceLayer": "Eszközréteg",
+      "devicesFound": "{n} Broadlink eszköz felfedezve",
+      "awaitingScan": "Hálózati keresésre vár",
+      "authState": "Hitelesítés állapota",
+      "ytLinked": "YouTube fiók összekapcsolva",
+      "ytNeedsLogin": "YouTube bejelentkezés szükséges"
+    },
+    "field": {
+      "host": "Gazdagép",
+      "port": "Port",
+      "password": "Jelszó",
+      "clientId": "Kliens azonosító",
+      "clientSecret": "Kliens titok",
+      "appId": "Alkalmazás azonosító",
+      "appSecret": "Alkalmazás titok",
+      "pageId": "Oldal azonosító",
+      "webhookUrl": "Webhook URL",
+      "apiKey": "API kulcs",
+      "username": "Felhasználónév",
+      "fingerprint": "Tanúsítvány ujjlenyomat",
+      "notifyOnMute": "Értesítés némításkor"
+    },
+    "cameraDiscovery": {
+      "title": "Kamerák keresése",
+      "description": "Végigpásztázza a helyi hálózatot. Ha még nincs kamera beállítva, az első megtalált automatikusan csatlakozik.",
+      "empty": "Egy kamera sem válaszolt. A kamerák csak akkor jelennek meg, ha a Blackmagic Camera Setup-ban be van kapcsolva a Web Media Manager; a hosztot kézzel is megadhatod.",
+      "firmware": "Firmware {version}"
+    },
+    "camera": {
+      "pushYoutube": "YouTube beállítások küldése",
+      "rtmp": "YouTube RTMP URL a kamerán",
+      "control": "Kameravezérlés",
+      "controlMeta": "Vezérlés, tárhely, felvételi és adásminőség",
+      "open": "Megnyitás"
+    },
+    "fieldHint": {
+      "notifyOnMute": "Értesítés, ha egy csatornát a pulton némítanak vagy feloldanak."
+    },
+    "rodecaster": {
+      "exclusive": "Az USB-kábelnek a magot futtató géphez kell érnie, és a pult egyszerre csak egy klienst enged — a RØDE Central és a RØDE Connect nem lehet nyitva, amíg ez a csatlakozó tartja.",
+      "mixer": "Keverő",
+      "mixerMeta": "Csatornaprofil és némítás"
+    },
+    "middlecontrol": {
+      "help": "A Middle Controlnak futnia kell. Ha a Metocast szervergépén fut, használd a localhost címet — nincs szükség IP-címre. A jelenlegi macOS-verziók a 11584-es portot használják; a megfigyelt 3.2.0-s macOS build a 11581-est; Windows alatt a port 11580.",
+      "sdk": "Külső SDK / API",
+      "devicesTitle": "Middle Control eszközök",
+      "devicesSummary": "{cameras} kamera · {ptz} APC-R/PTZ",
+      "devicesDisconnected": "Csatlakoztasd a Middle Controlt a kamerák és APC-R PTZ egységek megjelenítéséhez.",
+      "devicesWaiting": "Várakozás a Middle Control első visszajelzésére…",
+      "devicesEmpty": "A Middle Control nem jelez csatlakoztatott kamerát vagy APC-R PTZ egységet.",
+      "camera": "{id}. kamera",
+      "connected": "Csatlakoztatva",
+      "cameraOffline": "A kamera nem elérhető",
+      "selected": "Kiválasztva",
+      "recording": "Felvétel",
+      "ptz": "APC-R · PTZ",
+      "useLocal": "Ennek a gépnek a használata",
+      "useEndpoint": "{address} használata",
+      "discoveryTitle": "Middle Control keresése",
+      "discoveryDescription": "Ellenőrzi ezt a gépet és a Metocast szerver helyi hálózatát az ismert Middle Control portokon. Csak érvényes visszajelzési adatfolyamot fogad el.",
+      "discoveryReady": "Indíts keresést, miközben a Middle Control fut.",
+      "discoveryEmpty": "Egy Middle Control példány sem válaszolt. Győződj meg róla, hogy fut, majd keress újra. Kézi megadáshoz Macen nyisd meg a Rendszerbeállítások → Hálózat lapot, Windowson a Beállítások → Hálózat és internet → Tulajdonságok lapot, majd másold a gép IPv4-címét a fenti Gazdagép mezőbe."
+    },
+    "status": {
+      "login_required": "Bejelentkezés szükséges",
+      "relogin_required": "Újbóli bejelentkezés szükséges",
+      "credentials_required": "Hiányzó belépési adatok",
+      "atem_no_response": "A képkeverő nem válaszol",
+      "atem_timeout": "A képkeverő nem válaszol tovább",
+      "atem_no_ack": "A képkeverő nem igazolta vissza a parancsot",
+      "atem_not_connected": "A képkeverő nincs csatlakoztatva",
+      "atem_unknown_input": "A képkeverőnek nincs ilyen bemenete",
+      "atem_recording_unsupported": "Ez a képkeverő nem tud felvenni",
+      "atem_streaming_unsupported": "Ez a képkeverő nem tud adást küldeni"
+    },
+    "atem": {
+      "destination": "Adás célja a képkeverőn",
+      "control": "Képkeverő vezérlés",
+      "controlMeta": "Program, előnézet, vágás, felvétel és adás",
+      "discoveryTitle": "Képkeverő keresése",
+      "discoveryDescription": "Megkeresi a Metocast szerverhez USB-n vagy a helyi hálózaton csatlakozó ATEM képkeverőket.",
+      "discoveryReady": "Indíts keresést bekapcsolt, USB-n vagy Etherneten csatlakoztatott képkeverővel.",
+      "discoveryEmpty": "Nem válaszolt képkeverő. Ellenőrizd az USB- vagy hálózati kábelt, majd keress újra. Kézi megadáshoz nézd meg az IP-címét az ATEM Setupban, és írd be fent a Host mezőbe.",
+      "use": "Használat",
+      "usb": "USB",
+      "network": "Hálózat"
+    }
+  },
+  "setup": {
+    "eyebrow": "Üdvözlünk",
+    "title": "Válassz üzemmódot",
+    "lede": "Hogyan fusson a Metocast ezen az eszközön?",
+    "modeLabel": "Alkalmazás mód",
+    "server": "Szerver",
+    "client": "Kliens",
+    "serverHint": "A háttérrendszer ezen a gépen fut. Bekapcsolva kell maradnia, hogy más eszközöket kiszolgáljon.",
+    "clientHint": "Csatlakozás egy máshol futó Metocast szerverhez. Az URL-t és a tokent a szerver Csatlakozás oldaláról szerezd be.",
+    "urlLabel": "Szerver URL",
+    "tokenLabel": "Hitelesítő token",
+    "tokenPlaceholder": "Illeszd be a hitelesítő tokent",
+    "missing": "A szerver URL és a hitelesítő token is kötelező.",
+    "unreachable": "A szerver nem elérhető — ellenőrizd az URL-t és próbáld újra.",
+    "unauthorized": "Hibás hitelesítő token — ellenőrizd és próbáld újra.",
+    "unexpected": "Váratlan válasz a szervertől ({status}).",
+    "confirm": "Megerősítés",
+    "working": "Beállítás…",
+    "scanQr": "QR-kód beolvasása",
+    "scanning": "Irányítsd a kamerát a szerveren lévő QR-kódra",
+    "scanCancel": "Mégse",
+    "scanError": "A kamera nem érhető el – add meg az URL-t és tokent kézzel",
+    "override": {
+      "eyebrow": "Csatlakozás",
+      "title": "Lecseréled az eszköz szerverét?",
+      "body": "Ez az eszköz már be van állítva. A folytatás átállítja erre: {url}, és eldobja a jelenlegi kapcsolatot.",
+      "keep": "Marad a jelenlegi",
+      "replace": "Csere"
+    }
+  },
+  "ui": {
+    "activeInterface": "Aktív felület",
+    "current": "Jelenlegi"
+  },
+  "login": {
+    "signIn": "Bejelentkezés",
+    "credentials": "API-hitelesítők",
+    "scope": {
+      "youtube": "Feltöltés, ütemezés és élő adás a csatornádon. A Metocast átirányít a YouTube-ra az engedélyek megerősítéséhez.",
+      "facebook": "Közzététel az általad kezelt oldalakon. A Metocast átirányít a Facebookra az engedélyek megerősítéséhez."
+    },
+    "clientId": "Kliensazonosító",
+    "noCreds": "Még nincsenek kliens-hitelesítők",
+    "add": "Hozzáadás",
+    "edit": "Szerkesztés",
+    "account": "Fiók",
+    "email": "E-mail vagy felhasználónév",
+    "password": "Jelszó",
+    "passwordHint": "A szolgáltató oldalán erősíted meg",
+    "continue": "Folytatás a(z) {provider} szolgáltatással",
+    "connecting": "Kapcsolódás…",
+    "credsIntro": "Illeszd be a(z) {provider} fejlesztői konzoljából származó hitelesítőket. Ezek ezen az eszközön maradnak.",
+    "field": {
+      "clientId": "Kliensazonosító",
+      "clientSecret": "Kliens titkos kulcs",
+      "appId": "Alkalmazásazonosító",
+      "appSecret": "Alkalmazás titkos kulcs",
+      "pageId": "Oldalazonosító"
+    },
+    "redirectUri": "Átirányítási URI",
+    "redirectHint": "Másold be a fejlesztői konzolodba.",
+    "cancel": "Mégse",
+    "saveCreds": "Hitelesítők mentése",
+    "show": "Megjelenítés",
+    "hide": "Elrejtés"
+  },
+  "camera": {
+    "title": "Kameravezérlés",
+    "back": "Összekötők",
+    "loading": "Kamera beolvasása",
+    "unavailable": "A kamera beállításai nem érhetők el",
+    "notConnected": "A Blackmagic kamera összekötő nincs csatlakoztatva. Kapcsold be az Összekötőknél, és keresd meg a kamerát.",
+    "retry": "Újra",
+    "transport": "Kamera vezérlés",
+    "startRecord": "Felvétel",
+    "record": {
+      "label": "Felvétel",
+      "sensor": "Szenzor",
+      "resolution": "Felbontás",
+      "frameRate": "Képsebesség",
+      "fps": "{r} fps",
+      "codec": "Kodek",
+      "remaining": "Hátralévő felvételi idő"
+    },
+    "stopRecord": "Felvétel leállítása",
+    "goLive": "Élő adás",
+    "stopStream": "Adás leállítása",
+    "apply": "Küldés a kamerára",
+    "applying": "Küldés",
+    "revert": "Visszaállítás",
+    "applyFailed": "A beállítások nem menthetők",
+    "note": "A beállítások itt előkészülnek, és küldéskor kerülnek a kamerára. A futó felvétel és adás a kamera addigi beállításaival megy tovább.",
+    "state": {
+      "standby": "Készenlét",
+      "recording": "Felvétel",
+      "live": "Élő",
+      "both": "Felvétel · Élő",
+      "rec": "Felv",
+      "ready": "Kész"
+    },
+    "overview": {
+      "stream": "Adás",
+      "record": "Felvétel",
+      "free": "Szabad"
+    },
+    "storage": {
+      "label": "Tárhely",
+      "slots": "{n} hely",
+      "empty": "Üres hely",
+      "meta": "{type} · {clips} klip · {free} szabad / {total}",
+      "noCard": "{type} · nincs kártya",
+      "used": "{volume} használt",
+      "freeOf": "{free} szabad / {total}"
+    },
+    "stream": {
+      "label": "Adás",
+      "server": "Szerver",
+      "quality": "Minőségi profil",
+      "noTable": "{profile} — nincs formátumtábla",
+      "noTableNote": "Ehhez a profilhoz a kamera nem ad formátumtáblát, a bitrátát maga választja. A Streaming profilokhoz tartozik tábla.",
+      "rung": "{resolution} · {fps} fps",
+      "mbps": "{rate} Mbit/s",
+      "output": "Kamera kimenet",
+      "ready": "Kész"
+    }
+  },
+  "eventSettings": {
+    "templateSaved": "Sablon mentve",
+    "folderSaved": "Bibliai diasor mappa mentve",
+    "saveFailed": "Nem sikerült menteni",
+    "slides": {
+      "section": "Diasorok",
+      "hint": "Textus és Lekció PowerPointok",
+      "title": "Bibliai PPT-k célmappája",
+      "none": "Nincs beállítva — bibliai diasor nem generálható",
+      "choose": "Mappa választása",
+      "clear": "Törlés",
+      "field": "Mappa a kiszolgáló gépén",
+      "placeholder": "/Users/te/Documents/Diak",
+      "save": "Mappa mentése"
+    },
+    "copied": "{token} vágólapra másolva",
+    "copyFailed": "Nem sikerült másolni",
+    "copyHint": "Másolás a vágólapra"
+  },
+  "rodecaster": {
+    "title": "RØDECaster Pro II",
+    "back": "Csatlakozók",
+    "unavailable": "A keverő nem érhető el",
+    "notConnected": "A RØDECaster nincs csatlakoztatva. Csatlakoztasd a magot futtató géphez, engedélyezd a csatlakozót, és győződj meg róla, hogy más alkalmazás nem tartja az eszközt.",
+    "retry": "Újra",
+    "channels": "Csatornák",
+    "readOnlyHint": "A némításon kívül csak olvasható",
+    "channelMeta": "Szint {level}% · {blocks} feldolgozó blokk bekapcsolva",
+    "remoteMicMuted": "Távoli mikrofon némítva",
+    "level": "Fader szint",
+    "cue": "A cue be van kapcsolva ezen a csatornán.",
+    "noSettings": "Az eszköz nem jelent további tulajdonságot ehhez a csatornához.",
+    "note": "Minden érték a pultról érkezik. Az alkalmazás csak a némítást írja.",
+    "recording": {
+      "title": "Hangfelvétel",
+      "description": "A hangot a Metocast Core rögzíti, és FLAC-fájlokba menti. Engedélyezd a felvételt, válassz egy létező mappát a Core-t futtató számítógépen, majd mentsd a beállításokat. Távoli Core használatakor a távoli számítógép abszolút mappaútvonalát add meg.",
+      "enabled": "Mag által végzett felvétel engedélyezése",
+      "enabledHint": "A RØDECaster USB multitrack kimenetének veszteségmentes FLAC rögzítése.",
+      "endpointUnavailable": "A Metocast nem találja a RØDECaster többcsatornás hangbemenetét. Csatlakoztasd a Metocast Core-t futtató számítógépet a keverő USB 1 portjához, kapcsold be az USB 1 Multitrack módot a RØDECasteren, majd keress újra.",
+      "scanAudio": "Hangeszköz újrakeresése",
+      "directory": "A felvételek mentési mappája",
+      "directoryPlaceholder": "/Users/nev/Music/Metocast felvételek",
+      "directoryHint": "Válassz egy létező mappát ezen a számítógépen. A Core-nak írási jogosultságra van szüksége.",
+      "remoteHint": "Add meg a távoli Metocast Core gépén létező, írható mappa abszolút elérési útját.",
+      "chooseDirectory": "Hangfelvételi mappa kiválasztása",
+      "choose": "Kiválasztás",
+      "outputMode": "Kimenet",
+      "processingMode": "Egyedi sávok feldolgozása",
+      "sources": "Fader sávok",
+      "sourcesRequired": "Ehhez a kimeneti módhoz válassz legalább egy fader sávot.",
+      "sourcesUnavailable": "Nem található külön fader sáv. Kapcsold be az USB 1 Multitrack módot a RØDECasteren, majd keress újra.",
+      "save": "Felvételi beállítások mentése",
+      "saved": "Felvételi beállítások mentve",
+      "mode": {
+        "mainMix": "Fő mix — azonnal használható",
+        "separate": "Külön FLAC minden faderhez",
+        "combinedStereo": "Összevont sztereó FLAC",
+        "multichannelFlac": "Egy összegzés nélküli többcsatornás FLAC"
+      },
+      "processing": {
+        "preFader": "Fader előtti, feldolgozott",
+        "preFaderBypass": "Fader előtti, feldolgozás nélkül",
+        "postFader": "Fader utáni, feldolgozott"
+      }
+    },
+    "overview": {
+      "device": "Eszköz",
+      "channels": "Csatornák",
+      "muted": "Némítva"
+    },
+    "toast": {
+      "muteFail": "Nem sikerült a némítás"
+    }
+  },
+  "switcher": {
+    "title": "Képkeverő vezérlés",
+    "back": "Összekötők",
+    "connecting": "Kapcsolódás a képkeverőhöz",
+    "unavailable": "A képkeverő nincs csatlakoztatva",
+    "notConnected": "A Blackmagic ATEM összekötő nincs csatlakoztatva. Kapcsold be az Összekötőknél, és add meg a képkeverő IP-címét.",
+    "transport": "Képkeverő vezérlés",
+    "cut": "Vágás",
+    "auto": "Auto",
+    "program": "Program",
+    "preview": "Előnézet",
+    "stream": "Adás",
+    "record": "Felvétel",
+    "destination": "Adás célja",
+    "unsupported": "Ezen a típuson nincs",
+    "state": {
+      "idle": "Tétlen",
+      "connecting": "Kapcsolódás",
+      "streaming": "Élő",
+      "recording": "Felvétel",
+      "stopping": "Leállítás"
+    },
+    "note": "A program és az előnézet követi a képkeverőt, a pultján vagy az ATEM Software Controlban végzett váltásokat is."
+  }
+}

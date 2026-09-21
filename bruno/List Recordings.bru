@@ -1,0 +1,15 @@
+meta {
+  name: List Recordings
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/events/:id/recordings
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}

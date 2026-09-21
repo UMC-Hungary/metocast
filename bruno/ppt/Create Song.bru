@@ -1,0 +1,22 @@
+meta {
+  name: Create Song
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/ppt/song
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "title": "Kegyelemből léphetünk be",
+    "lyrics": "Kegyelemből léphetünk be, szent jelenlétedbe,\nnem saját érdemeinkből, csak Jézus vérével.\nJelenlétedbe hívsz most, hívsz ó Uram,\nkegyelem által vezérelsz, jövünk Hozzád ó Uram,\njövünk Hozzád Uram.\n\n\nRefr.: Minden törvényszegésünket elvetted,\nA Bárány drága szent vérével mostál meg."
+  }
+}

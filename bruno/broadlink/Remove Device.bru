@@ -1,0 +1,21 @@
+meta {
+  name: Remove Broadlink Device
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{baseUrl}}/api/connectors/broadlink/devices/{{deviceId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 204", function() {
+    expect(res.status).to.equal(204);
+  });
+}

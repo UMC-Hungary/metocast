@@ -1,0 +1,129 @@
+name: Companion Plugin Release
+
+on:
+  push:
+    tags:
+      - 'companion-v*'
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build Companion Plugin
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 'lts/*'
+
+      - name: Setup pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9 --activate
+
+      - name: Get pnpm store directory
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Cache pnpm dependencies
+        uses: actions/cache@v5
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: Linux-companion-pnpm-store-${{ hashFiles('companion/pnpm-lock.yaml') }}
+          restore-keys: Linux-companion-pnpm-store-
+
+      - name: Install dependencies and build
+        working-directory: companion
+        run: |
+          pnpm install
+          pnpm run build
+
+      - name: Verify build output
+        run: test -f companion/dist/main.js
+
+      - name: Update version from tag
+        working-directory: companion
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/companion-v}"
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = '$VERSION';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+          node -e "
+            const fs = require('fs');
+            const manifest = JSON.parse(fs.readFileSync('companion/manifest.json', 'utf8'));
+            manifest.version = '$VERSION';
+            fs.writeFileSync('companion/manifest.json', JSON.stringify(manifest, null, 2) + '\n');
+          "
+
+      - name: Install production dependencies
+        working-directory: companion
+        run: |
+          rm -rf node_modules
+          pnpm install --prod
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: companion-module-metocast
+          path: |
+            companion/dist/
+            companion/companion/
+            companion/package.json
+            companion/node_modules/
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Download artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: companion-module-metocast
+          path: pkg/companion-module-metocast
+
+      - name: Package for release
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/companion-v}"
+          tar -czf "companion-module-metocast-${VERSION}.tar.gz" \
+            -C pkg companion-module-metocast
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v3
+        with:
+          draft: false
+          generate_release_notes: false
+          body: |
+            Bitfocus Companion module for controlling Metocast via WebSocket.
+
+            ## Installation
+
+            1. Download `companion-module-metocast-*.tar.gz`
+            2. Extract to your Companion modules folder
+               (e.g. `~/.config/companion/modules/companion-module-metocast/`)
+            3. Restart Companion
+            4. Add a new connection of type **Metocast**
+
+            ## Configuration
+
+            - **Host**: IP of the machine running Metocast (default `127.0.0.1`)
+            - **Port**: Metocast WebSocket port (default `3737`)
+            - **Auth Token**: Token from Metocast settings
+
+            All communication uses WebSocket — no REST API required.
+          files: |
+            companion-module-metocast-*.tar.gz

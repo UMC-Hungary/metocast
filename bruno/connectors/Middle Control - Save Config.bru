@@ -1,0 +1,29 @@
+meta {
+  name: Middle Control - Save Config
+  type: http
+  seq: 15
+}
+
+put {
+  url: {{baseUrl}}/api/connectors/middlecontrol/config
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "enabled": false,
+    "host": "localhost",
+    "port": 11584
+  }
+}
+
+tests {
+  test("status is 204", function() {
+    expect(res.status).to.equal(204);
+  });
+}

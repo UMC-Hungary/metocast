@@ -1,0 +1,34 @@
+meta {
+  name: Add Broadlink Device
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/connectors/broadlink/devices
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "name": "Living Room TV",
+    "host": "192.168.1.100",
+    "mac": "AA:BB:CC:DD:EE:FF",
+    "device_type": "RM4Pro",
+    "model": "RM4 Pro"
+  }
+}
+
+tests {
+  test("status is 201", function() {
+    expect(res.status).to.equal(201);
+  });
+  test("response has id", function() {
+    expect(res.body).to.have.property('id');
+  });
+}

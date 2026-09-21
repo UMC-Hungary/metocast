@@ -1,0 +1,27 @@
+meta {
+  name: Assign Untracked Recording
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/recordings/untracked/{{untrackedId}}/assign
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "event_id": "{{eventId}}"
+  }
+}
+
+tests {
+  test("status is 201", function() {
+    expect(res.status).to.equal(201);
+  });
+}

@@ -1,0 +1,21 @@
+meta {
+  name: Cancel Broadlink Learn
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/connectors/broadlink/learn/cancel
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 204", function() {
+    expect(res.status).to.equal(204);
+  });
+}

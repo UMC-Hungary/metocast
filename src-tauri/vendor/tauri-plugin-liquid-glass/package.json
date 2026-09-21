@@ -1,0 +1,52 @@
+{
+  "name": "tauri-plugin-liquid-glass-api",
+  "version": "0.1.6",
+  "description": "macOS 26+ Liquid Glass effect support for Tauri",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepublishOnly": "pnpm run build"
+  },
+  "peerDependencies": {
+    "@tauri-apps/api": "^2.0.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/api": "^2.9.1",
+    "prettier": "^3.7.4",
+    "typescript": "^5.9.3"
+  },
+  "keywords": [
+    "tauri",
+    "tauri-plugin",
+    "plugin",
+    "macos",
+    "glass",
+    "liquid-glass",
+    "vibrancy",
+    "blur",
+    "transparency"
+  ],
+  "author": "hkandala",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hkandala/tauri-plugin-liquid-glass"
+  }
+}

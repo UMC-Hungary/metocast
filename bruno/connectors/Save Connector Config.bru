@@ -1,0 +1,35 @@
+meta {
+  name: Save Connector Config
+  type: http
+  seq: 13
+}
+
+put {
+  url: {{baseUrl}}/api/connectors/obs/config
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "enabled": false,
+    "host": "localhost",
+    "port": 4455,
+    "password": null
+  }
+}
+
+docs {
+  Saving applies the config: OBS, blackmagic-camera, and middlecontrol reconnect when enabled and
+  disconnect otherwise, YouTube/Facebook refresh the config shared with the OAuth routes.
+}
+
+tests {
+  test("status is 204", function() {
+    expect(res.status).to.equal(204);
+  });
+}

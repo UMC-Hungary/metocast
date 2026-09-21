@@ -1,0 +1,43 @@
+meta {
+  name: WS - Presenter Settings
+  type: http
+  seq: 4
+}
+
+# WebSocket commands — use a WS client.
+# Connect to: ws://{{host}}/ws?token={{authToken}}
+# Read settings:
+# { "type": "presentation.get_settings" }
+# Select the shared song/Bible text design:
+# { "type": "presentation.set_presenter_theme", "theme": "editorial" }
+
+get {
+  url: {{baseUrl}}/ws
+  body: none
+  auth: none
+}
+
+docs {
+  ## WS: presenter design settings
+
+  **Read current settings:**
+  ```json
+  { "type": "presentation.get_settings" }
+  ```
+
+  **Select the text presenter design:**
+  ```json
+  { "type": "presentation.set_presenter_theme", "theme": "editorial" }
+  ```
+
+  `theme` is `"classic"` or `"editorial"`. The setting is persisted by the core and applies to imported text/song decks and generated Bible slides. SVG mode keeps the source deck's own design.
+
+  **Response and broadcast:**
+  ```json
+  {
+    "type": "presentation.settings",
+    "useWebPresenter": true,
+    "presenterTheme": "editorial"
+  }
+  ```
+}

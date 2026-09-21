@@ -1,0 +1,7 @@
+{
+  "identifier": "mobile",
+  "description": "Capability for the mobile client app (iOS and Android)",
+  "platforms": ["iOS", "android"],
+  "windows": ["main"],
+  "permissions": ["core:default", "store:default", "deep-link:default", "native-nav:default"]
+}

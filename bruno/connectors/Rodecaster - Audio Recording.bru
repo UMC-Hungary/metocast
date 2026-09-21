@@ -1,0 +1,30 @@
+meta {
+  name: RØDECaster - Audio Recording
+  type: http
+  seq: 20
+}
+
+# WebSocket commands — use a WS client connected to:
+# ws://{{host}}/ws?token={{authToken}}
+
+get {
+  url: {{baseUrl}}/ws
+  body: none
+  auth: none
+}
+
+docs {
+  ## RØDECaster audio recording WebSocket commands
+
+  ```json
+  { "type": "rodecaster.audio.discover" }
+  { "type": "rodecaster.audio.record.state" }
+  { "type": "rodecaster.audio.record.start", "event_id": "00000000-0000-0000-0000-000000000000" }
+  { "type": "rodecaster.audio.record.stop" }
+  ```
+
+  Discovery replies with `rodecaster.audio.discovery`. Start, stop, state changes, and new
+  connections receive `rodecaster.audio.record.state`. The supplied event must exist and must not
+  be completed. Recording configuration is stored under the existing authenticated
+  `/api/connectors/rodecaster/config` contract.
+}

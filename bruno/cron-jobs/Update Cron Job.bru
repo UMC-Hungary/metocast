@@ -1,0 +1,31 @@
+meta {
+  name: Update Cron Job
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{baseUrl}}/api/cron-jobs/{{cronJobId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "name": "Weekly sync updated",
+    "cronExpression": "0 10 * * 1",
+    "enabled": true,
+    "pullYoutube": true,
+    "autoUpload": true
+  }
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+}

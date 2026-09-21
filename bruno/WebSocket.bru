@@ -1,0 +1,10 @@
+meta {
+  name: WebSocket
+  type: socket
+  seq: 6
+}
+
+connect {
+  url: ws://localhost:{{serverPort}}/ws?token={{authToken}}
+  auth: none
+}

@@ -1,0 +1,21 @@
+meta {
+  name: Delete Event
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{baseUrl}}/api/events/{{eventId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 204", function() {
+    expect(res.status).to.equal(204);
+  });
+}

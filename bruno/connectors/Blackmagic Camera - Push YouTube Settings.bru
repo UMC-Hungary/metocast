@@ -1,0 +1,36 @@
+meta {
+  name: Blackmagic Camera - Push YouTube Settings
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{baseUrl}}/api/connectors/blackmagic-camera/stream/youtube
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  Copies the channel's RTMP ingestion address and stream key into the camera's
+  livestream settings. Prefers the camera's own YouTube platform entry, which needs
+  only the stream key; falls back to a custom RTMP URL on models that list no
+  YouTube platform.
+
+  Sets the destination only — the camera does not go live. Send
+  `blackmagic-camera.stream.start` over the WebSocket for that.
+
+  409 when no camera is connected, 502 when the camera or the YouTube API rejects it.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("response has rtmpUrl", function() {
+    expect(res.body).to.have.property('rtmpUrl');
+  });
+}

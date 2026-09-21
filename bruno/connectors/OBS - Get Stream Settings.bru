@@ -1,0 +1,19 @@
+meta {
+  name: OBS - Get Stream Settings
+  type: http
+  seq: 16
+}
+
+get {
+  url: {{baseUrl}}/api/connectors/obs/stream-settings
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  Returns 409 when OBS is not connected.
+}

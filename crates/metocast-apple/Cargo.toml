@@ -1,0 +1,26 @@
+[package]
+name = "metocast-apple"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+description = "Apple bridge for the typed Metocast client"
+
+[lib]
+crate-type = ["staticlib", "rlib"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+
+[dependencies]
+metocast-client = { path = "../metocast-client" }
+metocast-core = { path = "../metocast-core" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+uniffi = { version = "=0.32.1", features = ["cli"] }
+uuid.workspace = true
+
+[lints]
+workspace = true

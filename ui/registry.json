@@ -1,0 +1,24 @@
+{
+  "$comment": "Registered rendering UIs. See ui/README.md for how to add one.",
+  "default": "classic",
+  "uis": [
+    {
+      "id": "classic",
+      "displayName": "Metocast (Classic)",
+      "description": "The original control surface. Full feature coverage: events, presentations, connectors, queues, logs, OBS devices, RF/IR, caption, connect and setup.",
+      "buildCommand": "pnpm --filter @metocast/classic build",
+      "buildDir": "ui/classic/build",
+      "appDir": "_classic",
+      "entry": "index.html"
+    },
+    {
+      "id": "sanctum",
+      "displayName": "Sanctum",
+      "description": "The new design. Covers the dashboard, events, event editor, presentations, settings and connectors — not queues, logs, OBS devices, OBS caption, RF/IR, connect or setup.",
+      "buildCommand": "pnpm --filter @metocast/sanctum build",
+      "buildDir": "ui/sanctum/build",
+      "appDir": "_sanctum",
+      "entry": "index.html"
+    }
+  ]
+}

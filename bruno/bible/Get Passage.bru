@@ -1,0 +1,34 @@
+meta {
+  name: Get Passage
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/bible/verses?reference=Jn 3,16&translation=RUF
+  body: none
+  auth: bearer
+}
+
+params:query {
+  reference: Jn 3,16
+  translation: RUF
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  Translations ending in _v2 (UF_v2, RUF_v2) use the V2 API; the rest use the legacy API.
+  The core performs the upstream call, so the response shape is the same either way.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("response has verses", function() {
+    expect(res.body).to.have.property('verses');
+  });
+}

@@ -1,0 +1,21 @@
+meta {
+  name: OBS - Disconnect
+  type: http
+  seq: 15
+}
+
+post {
+  url: {{baseUrl}}/api/connectors/obs/disconnect
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 204", function() {
+    expect(res.status).to.equal(204);
+  });
+}

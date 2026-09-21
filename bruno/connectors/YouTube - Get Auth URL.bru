@@ -1,0 +1,24 @@
+meta {
+  name: YouTube - Get Auth URL
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/auth/youtube/url
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("response has url", function() {
+    expect(res.body).to.have.property('url');
+  });
+}

@@ -1,0 +1,717 @@
+{
+  "$description": "The part of each specification that tooling cannot derive: what the component is for, its anatomy, its variants and states, its keyboard map and its ARIA contract. scripts/build-docs.mjs merges this with the props parsed from the component, the tokens parsed from its styles, and the reference correspondence in tokens/fidelity.json.",
+  "Badge": {
+    "purpose": "A short, outlined chip carrying a state or a count. It labels; it never acts — a chip that does something is a Button.",
+    "anatomy": "An optional leading `Dot`, then the label. The outline and the dot take the tone; the text does not depend on either to be read.",
+    "variants": "`neutral` for a plain count or category; `live`, `ok`, `warn`, `error` and `off` for the five states the design names.",
+    "states": "Static only.",
+    "keyboard": "Not interactive.",
+    "aria": "None. The badge is content, and its text is what is announced. A badge whose meaning depends on its colour has been used wrongly — the word inside it must carry the state.",
+    "criteria": ["The tone is a repetition of the wording, never a substitute for it."]
+  },
+  "Button": {
+    "purpose": "The committing action. Everything that performs an action and is not a row, an icon-only control or a switch is a Button.",
+    "anatomy": "A single label, centred. While loading, a `Spinner` replaces it in place so the button does not change width.",
+    "variants": "`primary` is the ink fill the reference uses for the committing action; `secondary` is its outlined counterpart; `danger` outlines in the error colour; `quiet` is the mono text button the reference uses inside cards and toasts.",
+    "states": "Default, hover, focus-visible, active, disabled, loading.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Moves to and from the button. |\n| `Enter` | Activates. On a link variant, follows the link. |\n| `Space` | Activates the button variant. |",
+    "aria": "A real `<button>` or `<a>`, so role, name and disabled state come from the element. `aria-busy` is set while loading, and the loading label is announced by the `Spinner`'s status region. Passing `href` produces a link, because an action that navigates is a link.",
+    "deviations": [
+      [
+        "A `quiet` variant was added.",
+        "The reference writes the same mono text button in four places — the notification centre's clear-all, a toast's actions, the folder settings action — each with its own markup. One variant replaces all four."
+      ]
+    ]
+  },
+  "Checkbox": {
+    "purpose": "A single binary choice in a form. A binary that takes effect immediately is a `Toggle`; a set of exclusive choices is a `RadioGroup`.",
+    "anatomy": "A native input, visually replaced by a square box carrying a check or a dash, and a label beside it.",
+    "variants": "None.",
+    "states": "Unchecked, checked, indeterminate, disabled, focus-visible.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Moves to and from the checkbox. |\n| `Space` | Toggles it. |",
+    "aria": "A native `<input type=\"checkbox\">` associated with its `<label>` by `for`/`id`, so role, checked state and name are native. `indeterminate` is set as the DOM property, which is the only way to express it. The drawn box is `aria-hidden`.",
+    "noReference": "None. The reference has no checkbox at all; the box is drawn in its idiom — square corners, a hairline boundary at control contrast, the ink fill it uses for an active `Segmented` option."
+  },
+  "DateBlock": {
+    "purpose": "A calendar date reduced to a month abbreviation over a day figure, used as a row's leading mark.",
+    "anatomy": "A fixed-width column: the month in the mono label face, the day in the display face beneath it, closed by a hairline rule on the right.",
+    "variants": "None.",
+    "states": "Static only.",
+    "keyboard": "Not interactive.",
+    "aria": "Given `label`, the block becomes a single `img` with the full date as its name and its two fragments hidden — without it a screen reader hears \"MAR\" and \"14\" as unrelated strings.",
+    "deviations": [
+      [
+        "An accessible name was added.",
+        "The reference exposes the two fragments separately, which reads as two unrelated values."
+      ]
+    ]
+  },
+  "DeviceList": {
+    "purpose": "Devices found on the network, each with its address and an action. Used inside a `DiscoveryPanel`.",
+    "anatomy": "One row per device: name, address in the mono face, optional kind, and the action on the right. Below the narrow threshold the action drops onto its own line.",
+    "variants": "None.",
+    "states": "Populated, empty.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Moves through each device's action in turn. |\n| `Enter`, `Space` | Performs the action. |",
+    "aria": "A list, named by `label`. Each action carries the device's name in its own accessible name, so \"Pair\" is never announced without saying what is being paired."
+  },
+  "Dialog": {
+    "purpose": "A centred modal for a decision that must be made before anything else continues. A panel of settings belongs in a `Sheet`.",
+    "anatomy": "A scrim, then a square-cornered panel: header with optional eyebrow and title, body, and an optional footer of actions.",
+    "variants": "`modalOnly` for a destructive confirmation, which the scrim and `Escape` stop dismissing.",
+    "states": "Open, closed.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab`, `Shift+Tab` | Cycle within the dialog; focus cannot leave it. |\n| `Escape` | Closes it, unless `modalOnly`. |",
+    "aria": "`role=\"dialog\"` with `aria-modal` and `aria-labelledby` pointing at the title. Focus moves in on open and returns to the opener on close, both through the carried-over `focusTrap` action; `dismissable` keeps `Escape` and outside clicks reaching only the topmost layer.",
+    "noReference": "None. The reference's only dialog is its settings sheet, which it also uses for confirmations. A centred dialog is drawn in the same idiom — square corners, a hairline boundary, the same header rhythm as `Sheet`."
+  },
+  "DiscoveryPanel": {
+    "purpose": "A bordered panel that scans for something on the network and shows what it finds.",
+    "anatomy": "A header — mono title, prose description, and the scan action — over a hairline rule, then the body, which shows a `Spinner` while scanning and its children otherwise.",
+    "variants": "None.",
+    "states": "Idle, scanning, populated, empty.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Reaches the scan action, then the body. |\n| `Enter`, `Space` | Starts a scan. |",
+    "aria": "The scan action is disabled while a scan runs; the `Spinner`'s status region announces that it is running, so the wait is never silent."
+  },
+  "Dot": {
+    "purpose": "The smallest status mark in the design: a filled circle, optionally ringed by a slow pulse. It is never the only thing carrying a state — pair it with a word, or use `StatusDot`, which requires one.",
+    "anatomy": "A circle at the given size, with an absolutely positioned ring drawn one pixel outside it when pulsing.",
+    "variants": "None; colour and size are given by the caller as a token reference.",
+    "states": "Static, pulsing.",
+    "keyboard": "Not interactive.",
+    "aria": "None — decorative by construction. Meaning belongs to the text beside it.",
+    "criteria": [
+      "Under reduced motion the ring stops without the dot disappearing, so the state is still shown."
+    ]
+  },
+  "EmptyState": {
+    "purpose": "What a surface shows when there is nothing to show — a line of prose in the display face and a quiet mono note under it.",
+    "anatomy": "Centred: the serif italic title, an optional mono hint, and an optional action.",
+    "variants": "None.",
+    "states": "Static.",
+    "keyboard": "Not interactive, apart from an action passed in.",
+    "aria": "None of its own. When the emptiness is the result of a search or a filter, the surface should announce it through a live region rather than relying on this appearing."
+  },
+  "ErrorState": {
+    "purpose": "What a surface shows when it could not load or could not act. Distinct from a `Toast`, which reports something that happened elsewhere.",
+    "anatomy": "A rule in the error colour down the left, then a mono title with a leading dot, prose explaining what went wrong, and an optional retry.",
+    "variants": "None.",
+    "states": "With and without a retry action.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Reaches the retry action. |\n| `Enter`, `Space` | Retries. |",
+    "aria": "`role=\"alert\"` by default, so a failure that replaces content the user was waiting for is announced. Set `announce` to false when the error is already announced by the surface around it.",
+    "noReference": "None. The reference has no error state; the treatment is taken from its `RefField` error, which is a rule in the live colour beside serif italic prose."
+  },
+  "Field": {
+    "purpose": "The reference's underlined text field: a mono micro-label, a borderless input, and a hairline rule beneath.",
+    "anatomy": "Label row (with an optional trailing slot), input, and an optional note. The rule under the field takes the accent on focus and the error colour when invalid.",
+    "variants": "None. A field on a filled surface is a `LabelledInput`.",
+    "states": "Default, focus-within, readonly, disabled, invalid.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Moves to and from the input. |",
+    "aria": "A native `<input>` associated with its `<label>` by `for`/`id`. The note is joined by `aria-describedby`, and an error sets `aria-invalid` as well as recolouring the rule.",
+    "deviations": [
+      [
+        "A focus indicator was added, and the rule changes colour on focus.",
+        "The reference sets `outline: 0` on the input and puts nothing in its place, which leaves the field unusable by keyboard."
+      ],
+      ["The error state was added.", "The reference has no invalid state for this field at all."]
+    ]
+  },
+  "FlameMark": {
+    "purpose": "The product mark. Artwork, not a themed component — its gradient is fixed in both schemes, because a logo that changes colour is a different logo.",
+    "anatomy": "Two paths: the outer flame carrying a vertical gradient, and the inner flame in the lightest stop.",
+    "variants": "None.",
+    "states": "Static.",
+    "keyboard": "Not interactive.",
+    "aria": "Decorative unless given a `label`. Inside a `Lockup` the wordmark names it, so it stays hidden.",
+    "noReference": "Carried over from `src/components/primitives/FlameMark.svelte` unchanged in geometry and colour. Its stops are stated in the markup rather than as tokens, because they are brand artwork rather than design values."
+  },
+  "FormField": {
+    "purpose": "The label, hint and error that surround a control, and the wiring that associates them with it. It renders no control of its own.",
+    "anatomy": "Label, then the control the caller renders, then the hint and the error beneath.",
+    "variants": "None.",
+    "states": "Default, required, invalid.",
+    "keyboard": "Not interactive. The control it wraps carries the keyboard behaviour.",
+    "aria": "Passes the control an `id` and the `aria-describedby` value joining whichever of the hint and error are present, and tells it whether it is invalid. The error carries `role=\"alert\"`, so it is announced when it appears rather than only when the field is next visited.",
+    "noReference": "None. The reference has no field wrapper — each of its inputs re-implements its own label and note. This is the component that stops that recurring.",
+    "criteria": [
+      "Every control it wraps must apply the `controlId`, `describedby` and `invalid` it is given; a control that ignores them is unlabelled."
+    ]
+  },
+  "FormSection": {
+    "purpose": "A numbered step in a long form, with its own heading and a stack of controls.",
+    "anatomy": "A header — the number in an outlined chip, the label in the display italic, and an optional hint on the right — over the body, which stacks its children.",
+    "variants": "`last` drops the bottom rule.",
+    "states": "Static.",
+    "keyboard": "Not interactive; the controls inside it are.",
+    "aria": "A `<section>` labelled by its heading, so the step appears in the document outline and can be jumped to. The number is decorative and hidden, because it is already in the heading's position.",
+    "deviations": [
+      [
+        "The label became a real heading.",
+        "The reference sets it as a `<strong>`, which puts none of the form's structure into the document outline."
+      ]
+    ]
+  },
+  "Glyph": {
+    "purpose": "A bordered tile carrying a mark for a connector or a kind of thing.",
+    "anatomy": "A rounded square at the given size, with either a caller-supplied mark or a single display-face character centred in it.",
+    "variants": "Mark or character.",
+    "states": "Static.",
+    "keyboard": "Not interactive.",
+    "aria": "Decorative unless given a `label`.",
+    "deviations": [
+      [
+        "Brand marks are supplied by the caller rather than masked in from a CDN.",
+        "The reference loads its logos from `cdn.simpleicons.org`, which an offline desktop application cannot reach. The tile takes a snippet, so the mark is bundled by whoever uses it."
+      ]
+    ]
+  },
+  "Icon": {
+    "purpose": "The line-drawn marks the interface uses. Twenty-four in a single 24×24 stroked style, so a size change never changes the drawing's weight.",
+    "anatomy": "One `<path>` in a 24-unit viewBox, stroked in `currentColor`.",
+    "variants": "One per name; see the `icons` export for the set.",
+    "states": "Static.",
+    "keyboard": "Not interactive.",
+    "aria": "Decorative by default — `aria-hidden` with `role=\"presentation\"`. Given a `label` it becomes an `img` with a title. An icon inside a labelled control must stay decorative, or the control is announced twice.",
+    "noReference": "Carried over from `src/components/primitives/Icon.svelte`. Its sixteen marks are unchanged; eight more — `down`, `up`, `close`, `check`, `minus`, `alert`, `info`, `retry` — are drawn in the same style for the components the reference never had. Four of the carried-over marks were redrawn as single paths so the set has one shape per name.",
+    "deviations": [
+      [
+        "The set is one path per icon.",
+        "The reference draws some marks as a `rect` plus a `path`, which makes a stroke-width change land differently on the two halves."
+      ]
+    ]
+  },
+  "IconButton": {
+    "purpose": "An action with no visible label. Every one of them carries a required `label`, because there is nothing else to announce.",
+    "anatomy": "An `Icon` centred in a target at least 44px square.",
+    "variants": "`bare` is the reference's header icon; `circle` is its outlined settings button.",
+    "states": "Default, hover, focus-visible, disabled.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Moves to and from the control. |\n| `Enter` | Activates; on a link variant, follows the link. |\n| `Space` | Activates the button variant. |",
+    "aria": "`aria-label` is required by the type. The icon inside is decorative, so the label is announced once.",
+    "deviations": [
+      [
+        "The target was grown to 44px.",
+        "The reference's header icon is a 20px mark with 6px of padding, a 32px target — under the minimum this system holds every touch target to. The drawn size is unchanged; only the target grew."
+      ]
+    ]
+  },
+  "LabelledInput": {
+    "purpose": "The reference's filled field: a mono micro-label over a borderless input on the sunken surface.",
+    "anatomy": "A bordered block on the sunken surface, holding the label and the input, with an error beneath when invalid.",
+    "variants": "None. A field on the base surface is a `Field`.",
+    "states": "Default, focus-within, disabled, invalid.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Moves to and from the input. |",
+    "aria": "A native `<input>` associated by `for`/`id`. The error is joined by `aria-describedby` and sets `aria-invalid`.",
+    "deviations": [
+      [
+        "The resting border is visible.",
+        "The reference makes it transparent until focus, so the field has no boundary at rest and cannot be identified as a control."
+      ],
+      [
+        "A focus indicator was added.",
+        "The reference's only focus signal is that transparent border turning to ink, which does not meet the 3:1 an indicator needs."
+      ]
+    ]
+  },
+  "List": {
+    "purpose": "The surface a run of `Row`s sits on: a raised block closed by a hairline rule top and bottom.",
+    "anatomy": "A container. It has no padding of its own — the rows carry the gutter.",
+    "variants": "`flush` nudges it down when it follows another list rather than a section label. `as=\"ul\"` when the rows are a set of like things.",
+    "states": "Static.",
+    "keyboard": "Not interactive.",
+    "aria": "`as=\"ul\"` makes the run a real list, which announces its length. Rows that are each a navigation target should stay unlisted, as they are in the reference, and be wrapped in a `<nav>` by the screen."
+  },
+  "Lockup": {
+    "purpose": "The mark and the wordmark set together.",
+    "anatomy": "A `FlameMark`, then the product name in the display italic at the given size and tracking.",
+    "variants": "Size and tracking vary with where it is used.",
+    "states": "Static.",
+    "keyboard": "Not interactive.",
+    "aria": "The wordmark is real text, so it is announced without help and the mark beside it stays decorative.",
+    "deviations": [
+      [
+        "The product name is a prop.",
+        "The reference hard-codes it, which makes the component unusable for anything else and puts a user-facing string inside the library."
+      ]
+    ]
+  },
+  "NativeDateInput": {
+    "purpose": "A date or time picked with the platform's own control, presented as a row that shows the current value.",
+    "anatomy": "A row showing the formatted value and an icon affordance, with a transparent native input laid over it.",
+    "variants": "`date`, `time`, `datetime-local`.",
+    "states": "Default, focus-visible, disabled.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Moves to and from the input, which becomes visible while focused. |\n| Platform keys | The native picker's own behaviour, unchanged. |",
+    "aria": "The visible value is decorative; `accessibleName` is what names the control, because a formatted date read on its own does not say what it sets.",
+    "deviations": [
+      [
+        "The input becomes visible on focus.",
+        "The reference leaves it at zero opacity always, so a keyboard user focuses something they cannot see."
+      ],
+      [
+        "The affordance text is a prop.",
+        "The reference hard-codes \"Tap ↻\", which cannot be translated and assumes a touch pointer."
+      ],
+      [
+        "The affordance is a stroked icon, not mono text.",
+        "The reference's 9px \"Tap ↻\" label was too small to read as an affordance; a calendar/clock icon at 22px reads at a glance and needs no translation."
+      ]
+    ]
+  },
+  "NavigationBar": {
+    "purpose": "The application's primary navigation: a bar along the bottom on a phone, a rail down the side from the rail threshold up.",
+    "anatomy": "An optional brand block, shown only in the rail, then one button per destination with its icon over its label.",
+    "variants": "Bar and rail, chosen by viewport rather than by prop, exactly as the reference does it.",
+    "states": "Default and active per item.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Moves through the destinations in order. |\n| `Enter`, `Space` | Navigates. |",
+    "aria": "A `<nav>` named by `label`, with `aria-current=\"page\"` on the active destination — the reference marks the active item by colour and weight alone.",
+    "criteria": [
+      "The bar's bottom padding respects `env(safe-area-inset-bottom)`, so the last row of targets is not under the home indicator."
+    ],
+    "deviations": [
+      [
+        "`aria-current` was added.",
+        "The reference signals the active destination with colour and font-weight only."
+      ],
+      [
+        "The bar honours the safe-area inset.",
+        "The reference hard-codes 40px of bottom padding, which is its phone frame's home indicator rather than the device's."
+      ]
+    ]
+  },
+  "NotificationBell": {
+    "purpose": "The control that opens the notification centre, carrying the worst state waiting behind it.",
+    "anatomy": "A bell icon, with a coloured mark for the worst waiting tier and a count for the most urgent ones.",
+    "variants": "One per tier. `off` shows no mark at all.",
+    "states": "Quiet, marked, counted.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Moves to and from the control. |\n| `Enter`, `Space` | Opens the centre. |",
+    "aria": "The whole state goes into `aria-label`, interpolated by the caller — \"Notifications, 3 unread\" — because the mark and the count are both visual only. The count is `aria-hidden`, since it is already in the name.",
+    "deviations": [
+      [
+        "The state is in the accessible name.",
+        "The reference's label is the bare word \"Notifications\", so nothing about the waiting state reaches a screen reader."
+      ],
+      ["The target was grown to 44px.", "As `IconButton`; the drawn size is unchanged."],
+      [
+        "The count replaces the mark instead of sitting on top of it.",
+        "The reference draws both in the same corner, and the count is too narrow to cover the mark, so its edge shows beside the number."
+      ]
+    ]
+  },
+  "NotificationCentre": {
+    "purpose": "The sheet listing everything waiting, with a way to clear it.",
+    "anatomy": "A `Sheet` whose action slot holds the clear-all, and whose body is either an `EmptyState` or a stack of `Toast`s.",
+    "variants": "Populated and empty.",
+    "states": "Open, closed, empty.",
+    "keyboard": "Inherited from `Sheet`: focus is trapped while open, `Escape` closes, focus returns to the bell.",
+    "aria": "Inherited from `Sheet`. The title is the caller's already-interpolated summary — \"3 items\" or \"All clear\" — so the count is announced when the sheet opens."
+  },
+  "OverviewCell": {
+    "purpose": "One figure in a row of figures, with a status dot and a label above it.",
+    "anatomy": "A label line — dot, then mono text — over the figure in the display face. An optional rule divides it from the cell before.",
+    "variants": "`divider` for every cell after the first.",
+    "states": "Static, pulsing.",
+    "keyboard": "Not interactive.",
+    "aria": "The dot is decorative; passing `state` adds the word it stands for as visually hidden text, so the colour is never the only carrier.",
+    "deviations": [
+      [
+        "A hidden state word was added.",
+        "The reference's dot colour is the only thing distinguishing a live cell from an idle one."
+      ]
+    ]
+  },
+  "PageHeader": {
+    "purpose": "The top of a screen: an eyebrow or a back control, trailing actions, and the screen's title in the display face.",
+    "anatomy": "A top row — eyebrow or back on the left, actions on the right — over the title row, which may carry its own trailing slot.",
+    "variants": "Eyebrow, custom eyebrow content, or back. `level` sets whether the title is an `h1` or an `h2`.",
+    "states": "Static.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Reaches the back control, then the trailing actions. |\n| `Enter`, `Space` | Activates the back control. |",
+    "aria": "The title is a real heading. A back control given `href` renders as a link, because going back is navigation.",
+    "deviations": [
+      [
+        "The notification bell is no longer built in.",
+        "The reference reaches into a global store from inside the header, which makes the component unusable without that store. The bell goes in the `trailing` slot."
+      ],
+      ["A focus indicator was added to the back control.", "The reference has none."]
+    ]
+  },
+  "PresenterPanel": {
+    "purpose": "The address presenters connect to, and who is connected.",
+    "anatomy": "The URL beside a copy action, then a bordered list of connected clients with a header count.",
+    "variants": "None.",
+    "states": "Populated, empty.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Reaches the copy action. |\n| `Enter`, `Space` | Copies. |",
+    "aria": "A region named by `label`. The copy action should announce its result through the shared `announce` helper, since nothing visible changes when it succeeds.",
+    "deviations": [
+      [
+        "The projection preview was left out.",
+        "The reference renders a fake 16:9 slide with hard-coded Helvetica and a black fill. That is a screen's content, not a component's, and the `/presenter` surface is out of this package's scope."
+      ]
+    ]
+  },
+  "ProgressBar": {
+    "purpose": "How far along a piece of work is, when that is known — and that it is running, when it is not.",
+    "anatomy": "A label row with an optional figure, over a bordered track carrying the fill.",
+    "variants": "Determinate and indeterminate.",
+    "states": "Both variants; the indeterminate one is stilled under reduced motion.",
+    "keyboard": "Not interactive.",
+    "aria": "`role=\"progressbar\"` with `aria-valuenow`, `aria-valuemin` and `aria-valuemax` when the extent is known, and `aria-valuetext` carrying the caller's wording. An indeterminate bar omits the value attributes, which is how that state is expressed.",
+    "noReference": "None. The reference has no progress indication of any kind. The track takes the sunken surface and the control-contrast boundary its filled fields use, and the fill takes the ink its active states use."
+  },
+  "RadioGroup": {
+    "purpose": "A set of exclusive choices in a form. Choices that are also a filter belong in `Segmented`; choices that switch a view belong in `Tabs`.",
+    "anatomy": "A fieldset with its legend, then one row per option: the mark, the label, and an optional hint.",
+    "variants": "None.",
+    "states": "Unselected, selected, disabled, focus-visible.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Enters and leaves the group as one stop. |\n| `↑`, `↓`, `←`, `→` | Move between options and select as they go. |",
+    "aria": "Native radio inputs sharing a name inside a `<fieldset>` with a `<legend>`, so the group's name, the roving tab order and the arrow behaviour are all native. Hints are joined by `aria-describedby`.",
+    "noReference": "None. The reference has no radio group; the mark is drawn in its idiom, taking the circle from `Dot` and the ink fill from its active states."
+  },
+  "ReferenceInput": {
+    "purpose": "A scripture reference, with the verses it resolves to shown beneath it.",
+    "anatomy": "A header carrying the label, the rank and a status chip, then the input, then either the verses behind a rule or an error behind a rule in the error colour.",
+    "variants": "None.",
+    "states": "Empty, resolved, not found.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Moves to and from the input. |",
+    "aria": "The result region is `role=\"status\"`, so a lookup's outcome is announced without moving focus. A failure sets `aria-invalid` and is described by the same region.",
+    "deviations": [
+      [
+        "The result is announced.",
+        "The reference shows the outcome visually only, so a keyboard user typing a reference gets no signal that it resolved."
+      ],
+      ["A resting border and a focus indicator were added.", "As `LabelledInput`."],
+      [
+        "User-facing strings are props.",
+        "The reference hard-codes \"Not found\" and its spelling advice in English."
+      ]
+    ]
+  },
+  "Row": {
+    "purpose": "The single line of a list: a title, an optional second line, an optional trailing value, and whatever leading mark or trailing control the screen needs. It is the design's most-used component.",
+    "anatomy": "An optional leading slot — a `Dot`, `TextIcon`, `Glyph` or `DateBlock` — then the body carrying title and meta, then an optional detail, an optional trailing control, and the chevron on interactive rows.",
+    "variants": "Static, button, link, danger, last.",
+    "states": "Default, hover, focus-visible, active, disabled, current.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Reaches an interactive row; a static row is not a tab stop. |\n| `Enter` | Activates a link or button row. |\n| `Space` | Activates a button row. |",
+    "aria": "An interactive row is a real `<a>` or `<button>`, so role, name and disabled state come from the element. `aria-current` marks the row for the page or step the user is on. A static row carries no role: it is content, not a control. Anything placed in the trailing slot must name itself.",
+    "criteria": [
+      "At 360px the title wraps and the meta truncates; the row grows rather than clipping."
+    ],
+    "deviations": [
+      [
+        "A focus indicator was added.",
+        "The reference has none, on this component or nearly any other. It is drawn inset so it does not overlap the row above."
+      ],
+      [
+        "`href` produces a link rather than a button.",
+        "The reference makes every clickable row a `<button>`, including the ones that navigate, which loses the middle-click, the context menu and the announced role."
+      ],
+      [
+        "The chevron is hidden on static rows.",
+        "The reference defaults it to shown and renders it on non-clickable rows, promising an affordance that is not there."
+      ]
+    ]
+  },
+  "SectionLabel": {
+    "purpose": "The mono micro-label that introduces a run of rows, with an optional note on the right.",
+    "anatomy": "The label on the left, the hint on the right, both on the same baseline.",
+    "variants": "Plain label, or a real heading at level 2, 3 or 4.",
+    "states": "Static.",
+    "keyboard": "Not interactive.",
+    "aria": "Given `headingLevel` it renders as a heading, so the section joins the document outline and a `List` can point at it with `aria-labelledby`. Left off, it is a plain label — which is right when the rows below are not a section of their own.",
+    "deviations": [
+      [
+        "It can be a heading.",
+        "The reference always renders a `<div>`, so none of a screen's structure reaches the outline."
+      ]
+    ]
+  },
+  "Segmented": {
+    "purpose": "A small set of exclusive choices shown side by side, each with an optional display-face glyph and a hint.",
+    "anatomy": "A bordered grid of equal columns, one button per option, each stacking glyph, label and hint.",
+    "variants": "Two to four options; more belong in a `Select`.",
+    "states": "Unselected, selected, disabled, focus-visible.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Enters and leaves the group as one stop. |\n| `←`, `→` | Move between options and select as they go. |\n| `Home`, `End` | Jump to the first and last option. |",
+    "aria": "`role=\"radiogroup\"` with `role=\"radio\"` children and a roving tabindex, following the WAI-ARIA radio group pattern. The glyph is decorative.",
+    "deviations": [
+      [
+        "It became a radio group.",
+        "The reference renders plain buttons with no role, no group name and no roving tab order, so the choice is not announced as a choice."
+      ],
+      [
+        "The inverse hint uses a colour role instead of `opacity: 0.72`.",
+        "The composite is the same; stating it as a role is what lets it be contrast-checked."
+      ],
+      [
+        "A minimum target height was added.",
+        "The reference's 12px padding leaves options under 44px tall on a phone."
+      ]
+    ]
+  },
+  "Select": {
+    "purpose": "One choice from a list too long to lay out. Fewer than five choices belong in `Segmented` or a `RadioGroup`.",
+    "anatomy": "A trigger showing the current choice and a chevron, and a listbox that opens beneath it.",
+    "variants": "None.",
+    "states": "Closed, open, disabled, invalid, placeholder.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Enter`, `Space`, `↓`, `↑` | Open the list from the trigger. |\n| `↓`, `↑` | Move the active option. |\n| `Home`, `End` | Jump to the first and last option. |\n| `Enter`, `Space` | Commit the active option and return focus to the trigger. |\n| `Escape` | Dismiss without committing, returning focus to the trigger. |\n| `Tab` | Dismiss without committing and move on. |",
+    "aria": "The trigger carries `aria-haspopup=\"listbox\"` and `aria-expanded`. The list is `role=\"listbox\"` with `aria-activedescendant` pointing at the active option, following the WAI-ARIA listbox pattern.",
+    "deviations": [
+      [
+        "It became a real listbox.",
+        "The reference's select is a button and a div with no roles, no keyboard handling and no focus return — it can only be operated with a pointer."
+      ]
+    ]
+  },
+  "Sheet": {
+    "purpose": "A panel that rises from the bottom edge, for settings and for anything with more than a sentence in it. A decision that blocks everything else is a `Dialog`.",
+    "anatomy": "A scrim, then the panel: a drag handle, a header with optional leading slot, eyebrow, title and action, then the body.",
+    "variants": "`rounded` for the reference's radiused top corners; square for a sheet that reaches the top of the window.",
+    "states": "Open, closed, dragging.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab`, `Shift+Tab` | Cycle within the sheet; focus cannot leave it. |\n| `Escape` | Closes it. |\n| `Enter`, `Space` | Closes it from the drag handle. |",
+    "aria": "`role=\"dialog\"` with `aria-modal` and a name. Focus moves in on open and returns to the opener on close through `focusTrap`; `dismissable` keeps `Escape` and outside clicks reaching only the topmost layer. The drag handle is a real button with a name, so the gesture has a keyboard equivalent.",
+    "deviations": [
+      [
+        "Focus is trapped and restored.",
+        "The reference's sheet does neither, so a keyboard user tabs straight out of the open sheet into the page behind it."
+      ],
+      [
+        "The scrim is `position: fixed`.",
+        "The reference uses `absolute`, which only works inside its phone frame."
+      ]
+    ]
+  },
+  "Skeleton": {
+    "purpose": "The shape of content that has not arrived. Used only where the shape is known; where it is not, say so in words instead.",
+    "anatomy": "One or more blocks, the last of a multi-line set shortened, pulsing slowly.",
+    "variants": "`text` matches a body line, `label` a mono micro-label, `block` an arbitrary box.",
+    "states": "Static, pulsing; stilled under reduced motion.",
+    "keyboard": "Not interactive.",
+    "aria": "`aria-hidden`. A screen reader gains nothing from the shape of a wait — the surface announces the wait through its own live region.",
+    "noReference": "None. The reference has no loading state at all. The blocks take the sunken surface its filled fields use."
+  },
+  "SlideQueue": {
+    "purpose": "The slots a presentation's slides are staged into, and which one is on screen.",
+    "anatomy": "A header with the queue's name and a summary, then one row per slot: its number, its title, and a clear action when it is filled.",
+    "variants": "Empty, filled and loaded per slot.",
+    "states": "Empty slot, filled slot, loaded slot.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Moves through each slot's open action, then its clear action. |\n| `Enter`, `Space` | Opens or clears. |",
+    "aria": "A named region containing a real list. Each action's accessible name carries the slot number and title, so \"clear\" is never announced without saying what is being cleared.",
+    "deviations": [
+      [
+        "The loaded state carries a word as well as a colour.",
+        "The reference distinguishes empty, filled and loaded by border style and fill colour alone."
+      ],
+      [
+        "Action names include the slot.",
+        "The reference's clear control is a bare `×` with no name."
+      ]
+    ]
+  },
+  "SlideSearch": {
+    "purpose": "Finding a slide and either showing it or queueing it.",
+    "anatomy": "A trigger showing the current selection, then a list of results, each with an open action and a queue action.",
+    "variants": "None.",
+    "states": "With results, empty.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Moves through the trigger, then each result's two actions. |\n| `Enter`, `Space` | Opens or queues. |",
+    "aria": "A named region containing a real list. Each action's name carries the slide's title.",
+    "deviations": [
+      ["Action names include the slide.", "The reference's queue control is a bare `+`."],
+      [
+        "The digit keypad was left out.",
+        "It is a screen's control surface, not a component — and its meaning depends entirely on the screen around it."
+      ]
+    ]
+  },
+  "Spinner": {
+    "purpose": "That something is happening, when how long it will take is not known. Work whose extent is known belongs in a `ProgressBar`.",
+    "anatomy": "A ring in the control colour with a leading arc in ink, rotating.",
+    "variants": "None.",
+    "states": "Spinning; stilled under reduced motion, where the ring stays drawn and the label keeps announcing.",
+    "keyboard": "Not interactive.",
+    "aria": "`role=\"status\"` with a polite live region carrying the required `label`, so the wait is announced rather than only drawn.",
+    "noReference": "None. The reference has no loading indicator. The ring takes the control-contrast boundary its filled fields use, and the arc takes ink.",
+    "criteria": [
+      "Under reduced motion the ring stops rotating; the status region is what still reports the work."
+    ]
+  },
+  "Stat": {
+    "purpose": "A single measured figure with a mono label above it and an optional unit beside it.",
+    "anatomy": "The label, then the figure in the display face with the unit on its baseline.",
+    "variants": "None.",
+    "states": "Static.",
+    "keyboard": "Not interactive.",
+    "aria": "None of its own. The label and the figure are both real text and are announced in order."
+  },
+  "StatusDot": {
+    "purpose": "A state, said in a word and shown in a colour. The component the design should reach for whenever a `Dot` was about to be used alone.",
+    "anatomy": "A `Dot` in the state's colour, then the word.",
+    "variants": "`live`, `ok`, `warn`, `error`, `off`. `live` pulses.",
+    "states": "Five, one per status.",
+    "keyboard": "Not interactive.",
+    "aria": "The `label` is required, and hiding it visually leaves it available to assistive technology. Colour is never the only carrier.",
+    "noReference": "The reference writes this pairing four times — in its tab bar, its overview cells, its toast headers and its reference field — with three different gaps and four different trackings, and never as a component. This unifies them; the recorded deviation says which value it kept and why."
+  },
+  "StickyActionBar": {
+    "purpose": "The bar that stays with a long form, carrying its commit and its cancel.",
+    "anatomy": "An optional secondary action and the primary action, which fills the remaining width.",
+    "variants": "With and without a secondary action.",
+    "states": "Default, primary disabled.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Reaches the secondary action, then the primary. |\n| `Enter`, `Space` | Activates. |",
+    "aria": "Both actions are real buttons with visible text labels.",
+    "criteria": ["The bar's bottom padding respects `env(safe-area-inset-bottom)`."],
+    "deviations": [
+      ["A focus indicator was added.", "The reference has none."],
+      [
+        "The bar honours the safe-area inset.",
+        "The reference positions itself against its phone frame instead of the device."
+      ]
+    ]
+  },
+  "Table": {
+    "purpose": "Rows of like records with more than two values each. Fewer values, or records that are each a destination, belong in a `List` of `Row`s.",
+    "anatomy": "A caption, a header row, and one row per record. Below the narrow threshold each row becomes a stack of labelled lines.",
+    "variants": "Visible or hidden caption; numeric columns are right-aligned and set in tabular numerals.",
+    "states": "Populated. An empty table should be replaced by an `EmptyState`, not rendered with no rows.",
+    "keyboard": "Not interactive. A table whose rows act is a `List` of `Row`s.",
+    "aria": "A real `<table>` with a `<caption>` and `scope=\"col\"` headers. Below the reflow threshold the header row is hidden visually but each cell repeats its column's name through `::before`, so nothing is lost either way.",
+    "noReference": "None. The reference has no table; the closest it comes is a three-column grid in its folder settings, whose cell rhythm this takes.",
+    "criteria": [
+      "Below the narrow threshold every value stays labelled and every action stays reachable."
+    ]
+  },
+  "Tabs": {
+    "purpose": "Switching between views of the same thing. A choice that changes a value is `Segmented` or a `RadioGroup`.",
+    "anatomy": "A scrollable strip of tabs over a hairline rule, with the selected tab underlined in ink, then the panel.",
+    "variants": "None.",
+    "states": "Unselected, selected, disabled, focus-visible.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Enters the strip as one stop, then moves to the panel. |\n| `←`, `→` | Move between tabs and select as they go. |\n| `Home`, `End` | Jump to the first and last tab. |",
+    "aria": "`role=\"tablist\"` with `role=\"tab\"` children and a roving tabindex, each tab pointing at its panel through `aria-controls`, and the panel back at its tab through `aria-labelledby` — the WAI-ARIA tabs pattern with automatic activation.",
+    "noReference": "None as a component. The reference hand-rolls four separate tab-like treatments — in its events screen, its settings screen, its connectors screen and its presentations screen — each with different markup and none with a role. This replaces all four."
+  },
+  "TextArea": {
+    "purpose": "Multi-line text. Used with a `FormField`, which owns the label and the notes.",
+    "anatomy": "A bordered field on the sunken surface, resizable vertically.",
+    "variants": "None.",
+    "states": "Default, focus-visible, readonly, disabled, invalid.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Moves to and from the field. |",
+    "aria": "A native `<textarea>`. It applies whatever `id`, `describedby` and `invalid` its `FormField` gives it; standing alone it takes an `aria-label`.",
+    "noReference": "None. The reference has no multi-line input; the treatment is `LabelledInput`'s, at body leading."
+  },
+  "TextField": {
+    "purpose": "Single-line text. Used with a `FormField`, which owns the label and the notes.",
+    "anatomy": "A bordered field on the sunken surface.",
+    "variants": "None. The reference's own two field treatments are `Field` and `LabelledInput`.",
+    "states": "Default, focus-visible, suggesting, readonly, disabled, invalid. Suggesting: while focused, the first of `suggestions` that extends the value shows as faint inline text, with a Tab key cap and `acceptHint` on the right. No list opens.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Accepts the inline suggestion when one shows; otherwise moves to and from the field. |\n| `Escape` | Dismisses the inline suggestion until the value changes. |",
+    "aria": "A native `<input>`. It applies whatever `id`, `describedby` and `invalid` its `FormField` gives it; standing alone it takes an `aria-label`. A showing suggestion is added to `aria-describedby`, naming the full completion and the Tab hint; the browser's own autocomplete is turned off when `suggestions` are given.",
+    "noReference": "None as a standalone control. It takes `LabelledInput`'s fill, boundary and type, without the built-in label — which is what lets `FormField` own the labelling for every control alike."
+  },
+  "TextIcon": {
+    "purpose": "A single typographic character standing in for an icon, in the display face, sized to match `Icon`.",
+    "anatomy": "One character centred in a square.",
+    "variants": "One per character.",
+    "states": "Static.",
+    "keyboard": "Not interactive.",
+    "aria": "Decorative unless given a `label`."
+  },
+  "Toast": {
+    "purpose": "Something that happened elsewhere, reported without interrupting. A failure of the surface the user is on is an `ErrorState`.",
+    "anatomy": "A tone-coloured rule down the left, then a header — mark, kind and source, a state chip, a dismiss — over the title, the body, an optional detail block and the actions.",
+    "variants": "`live`, `ok`, `warn`, `error`.",
+    "states": "Default, with state chip, with actions, with detail, dismissible.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Reaches the dismiss, then each action. |\n| `Enter`, `Space` | Activates. |",
+    "aria": "The toast itself carries no live region — `ToastOverlay` owns that, so a stack of toasts is announced once rather than each announcing itself. The dismiss carries a name.",
+    "deviations": [
+      [
+        "The tone is a prop rather than derived from a tier.",
+        "The reference maps notification tiers to colours inside the card, which ties the component to that application's notion of severity."
+      ],
+      [
+        "Every user-facing string is a prop.",
+        "The reference hard-codes \"Offline\", \"Why?\" and \"Hide why\" in English."
+      ]
+    ]
+  },
+  "ToastOverlay": {
+    "purpose": "Where toasts stack, and the live region that announces them.",
+    "anatomy": "A fixed column at the top of the viewport. Its children animate in and cast the design's one shadow.",
+    "variants": "`polite` and `assertive`.",
+    "states": "Empty, one or more toasts.",
+    "keyboard": "Not interactive; the toasts inside it are.",
+    "aria": "A named region with `aria-live` and `aria-relevant=\"additions\"`, so a toast is announced when it appears and its removal is not. `assertive` is for something the user must hear now; everything else is polite.",
+    "deviations": [
+      [
+        "The live region was added.",
+        "The reference's overlay has none, so a toast appears silently for anyone not looking at it."
+      ],
+      [
+        "Position is `fixed`.",
+        "The reference uses `absolute`, which only works inside its phone frame."
+      ]
+    ]
+  },
+  "Toggle": {
+    "purpose": "A binary that takes effect immediately. A binary that is submitted with a form is a `Checkbox`.",
+    "anatomy": "A pill-shaped track with a circular thumb that slides across it.",
+    "variants": "None.",
+    "states": "Off, on, disabled, focus-visible.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Moves to and from the switch. |\n| `Space` | Changes its state. |",
+    "aria": "`role=\"switch\"` with `aria-checked`, and a name from either `label` or `labelledby` — inside a `ToggleRow` the row's own text supplies it.",
+    "deviations": [
+      [
+        "A boundary at control contrast was added.",
+        "The reference's off state is a fill at 1.35:1 against the surface, which cannot identify the control. The fill is unchanged; the boundary is what makes it identifiable."
+      ],
+      ["A focus indicator was added.", "The reference has none."],
+      [
+        "It became a `switch` with a name.",
+        "The reference renders a bare button with no role, no state and no label."
+      ]
+    ]
+  },
+  "ToggleRow": {
+    "purpose": "A `Toggle` with its label and explanation, on the sunken surface, as a form row.",
+    "anatomy": "The label and its optional second line on the left, the switch on the right.",
+    "variants": "With and without the second line.",
+    "states": "Off, on, disabled.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Moves to and from the switch. |\n| `Space` | Changes its state. |",
+    "aria": "The label names the switch through `aria-labelledby` and the second line describes it through `aria-describedby`, so the whole row is announced as one control."
+  },
+  "Tooltip": {
+    "purpose": "A short clarification on hover and focus. Never the only place information lives — anything a user must have belongs on the surface.",
+    "anatomy": "A wrapper around the trigger, with a bubble above or below it.",
+    "variants": "`top`, `bottom`.",
+    "states": "Hidden, shown.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Focusing the trigger shows the bubble. |\n| `Escape` | Dismisses it while the trigger keeps focus. |",
+    "aria": "`role=\"tooltip\"`, joined to the trigger through the `describedby` the snippet is given. It appears on hover and on focus, stays while the pointer is over it, and is dismissible with `Escape` — the three things WCAG 1.4.13 asks.",
+    "noReference": "None. The reference has no tooltip. The bubble takes the inverse surface its active states use.",
+    "criteria": [
+      "The trigger must apply the `describedby` it is given, or the tooltip is announced to nobody."
+    ]
+  },
+  "TransportDock": {
+    "purpose": "The presentation transport: what is on screen, where in the deck it is, and the controls that move it.",
+    "anatomy": "A status line with the slide number set as a display figure, over a grid of labelled controls. It sticks to the top of its scroller, and becomes a bordered card from the tablet threshold up.",
+    "variants": "Per action: `default`, `primary` for the committing control, `stop` for the one that ends the presentation.",
+    "states": "Per action: default, disabled.",
+    "keyboard": "| Key | Behaviour |\n| --- | --- |\n| `Tab` | Moves through the controls in order. |\n| `Enter`, `Space` | Activates. |",
+    "aria": "A named region containing a `toolbar`. Each control carries its own name, and its icon stays decorative.",
+    "deviations": [
+      [
+        "The translucent backdrop was dropped.",
+        "The reference tints the dock with `color-mix` and an 18px backdrop blur, which puts text over an unpredictable backdrop and cannot be contrast-checked. The dock takes the opaque base surface instead."
+      ],
+      [
+        "The control count is not fixed at five.",
+        "The reference hard-codes a five-column grid; the columns now fit whatever actions are passed."
+      ]
+    ]
+  },
+  "LiveRegion": {
+    "purpose": "The two announcement channels the whole application shares, rendered once in the shell. Nothing calls it directly — code calls `announce()`, and this is where the message lands.",
+    "anatomy": "Two visually hidden live regions, one polite and one assertive.",
+    "variants": "None.",
+    "states": "Silent, announcing.",
+    "keyboard": "Not interactive.",
+    "aria": "Two `aria-live` regions with `aria-atomic`, one at each priority. `assertive` interrupts and is for something the user must hear now — a failure, a lost connection; everything else is polite. Rendering them once and writing into them, rather than mounting a region per message, is what makes an announcement reliable.",
+    "noReference": "None. The reference has no live region of any kind, which is why nothing in it is ever announced.",
+    "criteria": [
+      "Mounted exactly once, in the application shell. A second instance means announcements are heard twice or not at all."
+    ]
+  }
+}

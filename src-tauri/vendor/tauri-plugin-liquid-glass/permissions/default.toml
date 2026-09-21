@@ -1,0 +1,6 @@
+[default]
+description = "Default permissions for the liquid-glass plugin"
+permissions = [
+    "allow-is-glass-supported",
+    "allow-set-liquid-glass-effect",
+]

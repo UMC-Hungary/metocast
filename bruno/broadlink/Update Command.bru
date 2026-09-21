@@ -1,0 +1,28 @@
+meta {
+  name: Update Broadlink Command
+  type: http
+  seq: 8
+}
+
+put {
+  url: {{baseUrl}}/api/connectors/broadlink/commands/{{commandId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "name": "Power On (updated)",
+    "category": "power"
+  }
+}
+
+tests {
+  test("status is 204", function() {
+    expect(res.status).to.equal(204);
+  });
+}

@@ -1,0 +1,21 @@
+meta {
+  name: List PPT Folders
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/ppt/folders
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+}

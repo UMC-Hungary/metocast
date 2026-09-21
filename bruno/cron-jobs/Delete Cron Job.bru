@@ -1,0 +1,21 @@
+meta {
+  name: Delete Cron Job
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{baseUrl}}/api/cron-jobs/{{cronJobId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 204", function() {
+    expect(res.status).to.equal(204);
+  });
+}

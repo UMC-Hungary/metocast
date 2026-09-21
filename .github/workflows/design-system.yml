@@ -1,0 +1,100 @@
+name: Design system
+
+# The package is checked on its own, because it is a prerequisite that has to be finishable and
+# reviewable before any UI consumes it.
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'packages/design-system/**'
+      - 'scripts/build-docs.mjs'
+      - 'scripts/build-stories.mjs'
+      - 'scripts/build-tokens.mjs'
+      - 'scripts/check-catalog.mjs'
+      - 'scripts/check-contrast.mjs'
+      - 'scripts/check-fidelity.mjs'
+      - 'scripts/check-tokens.mjs'
+      - 'scripts/extract-reference.mjs'
+      - 'scripts/tokens-lib.mjs'
+      - '.github/workflows/design-system.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'packages/design-system/**'
+      - 'scripts/*tokens*'
+      - 'scripts/check-*.mjs'
+      - 'scripts/build-docs.mjs'
+      - 'scripts/build-stories.mjs'
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    name: Tokens, fidelity and catalog
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # Token drift: the committed stylesheet must match what the source generates.
+      - name: Token build is current
+        run: pnpm -F @metocast/design-system tokens:check
+
+      # Scheme completeness, accent hue separation, and that every value is measured or deviated.
+      - name: Contrast
+        run: pnpm -F @metocast/design-system contrast
+
+      # The check the previous attempt did not have: built values against their measurements.
+      - name: Fidelity
+        run: pnpm -F @metocast/design-system fidelity
+
+      # Specifications and stories are generated from the source, so they cannot drift from it.
+      - name: Specifications and stories are current
+        run: |
+          pnpm -F @metocast/design-system docs:check
+          pnpm -F @metocast/design-system stories:check
+
+      - name: Every export has a specification and stories
+        run: pnpm -F @metocast/design-system catalog:check
+
+      # Re-runnable only where the reference is available; skipped otherwise, and the committed
+      # record is what the checks above read.
+      - name: Measurements are current
+        if: ${{ vars.SANCTUM_REFERENCE != '' }}
+        env:
+          SANCTUM_REFERENCE: ${{ vars.SANCTUM_REFERENCE }}
+        run: pnpm -F @metocast/design-system measure:check
+
+  accessibility:
+    runs-on: ubuntu-latest
+    name: Storybook accessibility
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install the browser the stories run in
+        run: pnpm -F @metocast/design-system exec playwright install --with-deps chromium
+
+      # `a11y: { test: 'error' }` in .storybook/preview.ts makes a violation fail the run.
+      - name: Accessibility checks over every story
+        run: pnpm -F @metocast/design-system test:a11y
+
+      - name: Catalog builds
+        run: pnpm -F @metocast/design-system build-storybook

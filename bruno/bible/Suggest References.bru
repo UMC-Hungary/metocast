@@ -1,0 +1,29 @@
+meta {
+  name: Suggest References
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/bible/suggest?term=Jn
+  body: none
+  auth: bearer
+}
+
+params:query {
+  term: Jn
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  Terms shorter than 2 characters return an empty list without calling upstream.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+}

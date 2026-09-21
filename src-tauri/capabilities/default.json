@@ -1,0 +1,17 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default application capabilities",
+  "windows": ["main"],
+  "platforms": ["macOS", "windows", "linux"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "opener:default",
+    "dialog:allow-open",
+    "store:default",
+    "liquid-glass:default",
+    "native-nav:default",
+    "deep-link:default"
+  ]
+}

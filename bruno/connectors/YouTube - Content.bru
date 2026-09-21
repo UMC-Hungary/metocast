@@ -1,0 +1,21 @@
+meta {
+  name: YouTube - Content
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/connectors/youtube/content
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+}

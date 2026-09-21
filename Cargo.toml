@@ -1,0 +1,43 @@
+[workspace]
+resolver = "3"
+members = [
+  "blackmagic-camera",
+  "crates/metocast-apple",
+  "crates/metocast-client",
+  "crates/metocast-core",
+  "crates/metocast-server",
+  "presenter-receiver",
+  "rodecaster",
+  "src-tauri",
+  "src-tauri/plugins/native-nav",
+]
+exclude = ["src-tauri/vendor/tauri-plugin-liquid-glass"]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.98"
+
+[workspace.dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+futures-util = "0.3"
+reqwest = { version = "0.13.2", default-features = false, features = ["json", "rustls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+uuid = { version = "1", features = ["v4", "serde"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+unused_must_use = "deny"
+
+[workspace.lints.clippy]
+all = "warn"
+
+[patch.crates-io]
+tauri-plugin-liquid-glass = { path = "src-tauri/vendor/tauri-plugin-liquid-glass" }
+
+[profile.release.package.presenter-receiver]
+opt-level = 3
+strip = true

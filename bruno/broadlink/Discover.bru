@@ -1,0 +1,21 @@
+meta {
+  name: Discover Broadlink Devices
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/connectors/broadlink/discover
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 202", function() {
+    expect(res.status).to.equal(202);
+  });
+}

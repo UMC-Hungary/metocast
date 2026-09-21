@@ -1,0 +1,27 @@
+{
+  "name": "@metocast/core-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Framework-agnostic client for the Metocast core — HTTP operations, WebSocket transport, Zod schemas, optional desktop host, and shared translation catalogues.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schemas/*": "./src/schemas/*.ts",
+    "./types/*": "./src/types/*.ts",
+    "./utils/*": "./src/utils/*.ts",
+    "./locales/*": "./locales/*"
+  },
+  "files": [
+    "src",
+    "locales"
+  ],
+  "dependencies": {
+    "@tauri-apps/api": "^2.10.1",
+    "@tauri-apps/plugin-deep-link": "^2.4.9",
+    "@tauri-apps/plugin-dialog": "^2.6.0",
+    "@tauri-apps/plugin-opener": "^2.5.3",
+    "@tauri-apps/plugin-store": "^2.4.2",
+    "tauri-plugin-liquid-glass-api": "^0.1.6",
+    "zod": "^4.3.6"
+  }
+}

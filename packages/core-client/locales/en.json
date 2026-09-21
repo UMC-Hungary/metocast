@@ -1,0 +1,1035 @@
+{
+  "sidebar": {
+    "appTitle": "Church Control",
+    "nav": {
+      "events": "Service Events",
+      "bibleEditor": "Bible Editor",
+      "obsConfig": "OBS Configuration",
+      "settings": "Settings",
+      "remoteControl": "Remote Control",
+      "obsCaption": "OBS Caption"
+    },
+    "systemStatus": {
+      "title": "System Status",
+      "obsRunning": "OBS Running",
+      "rodeInterface": "Rode Interface",
+      "mainDisplay": "Main Display",
+      "secondaryDisplay": "Secondary Display",
+      "youtubeLoggedIn": "YouTube Logged In"
+    },
+    "upcomingEvent": {
+      "title": "Upcoming Event",
+      "textus": "Textus",
+      "leckio": "Leckio",
+      "scheduledDate": "Scheduled",
+      "today": "Today",
+      "edit": "Edit",
+      "noUpcoming": {
+        "title": "No Upcoming Events",
+        "description": "Create an event to see it here"
+      },
+      "youtube": {
+        "scheduled": "Scheduled on YouTube",
+        "notScheduled": "Not scheduled",
+        "schedule": "Schedule on YouTube",
+        "scheduling": "Scheduling...",
+        "loginFirst": "Login to YouTube"
+      },
+      "pptx": {
+        "title": "Generate PPTX",
+        "noVerses": "No verses available for this reference",
+        "noFolder": "Please select an output folder first",
+        "generated": "PPTX file has been generated",
+        "failed": "Failed to generate PPTX file",
+        "changeFolder": "Change output folder"
+      },
+      "recordings": "Recordings",
+      "browserSources": "Browser Sources",
+      "refreshBrowserSource": "Refresh browser source"
+    },
+    "language": "Language",
+    "theme": "Theme",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark"
+  },
+  "obsSettings": {
+    "title": "OBS Settings",
+    "subtitle": "Configure OBS Studio WebSocket connection",
+    "card": {
+      "title": "WebSocket Configuration",
+      "description": "Connect to OBS Studio via WebSocket to control scenes, sources, and stream information"
+    },
+    "form": {
+      "websocketUrl": "WebSocket URL",
+      "websocketUrlHint": "Default OBS WebSocket URL. Change if you have configured a different port.",
+      "websocketPassword": "WebSocket Password",
+      "websocketPasswordPlaceholder": "Enter your OBS WebSocket password",
+      "websocketPasswordHint": "Set in OBS Studio under Tools → WebSocket Server Settings",
+      "testConnection": "Test Connection",
+      "testing": "Testing...",
+      "saveSettings": "Save Settings",
+      "loading": "Loading..."
+    },
+    "status": {
+      "title": "Connection Status",
+      "connected": "Connected",
+      "disconnected": "Disconnected",
+      "lastConnected": "Last connected",
+      "error": "Error"
+    },
+    "instructions": {
+      "title": "Setup Instructions",
+      "step1": "Open OBS Studio",
+      "step2": "Go to Tools → WebSocket Server Settings",
+      "step3": "Enable \"Enable WebSocket server\"",
+      "step4": "Note server port (default: 4455)",
+      "step5": "Set a secure password",
+      "step6": "Click Apply and OK",
+      "step7": "Enter settings above and test connection"
+    }
+  },
+  "errors": {
+    "title": "System Issues Detected",
+    "recheck": "Re-check",
+    "goToObsSettings": "Go to OBS Settings",
+    "reconnect": "Re-Connect",
+    "connecting": "Connecting...",
+    "readMore": "Read More",
+    "close": "Close",
+    "followSteps": "Follow these steps to resolve the issue",
+    "obs": {
+      "title": "OBS Not Running",
+      "description": "OBS Studio is not currently running on your system.",
+      "steps": [
+        "Open OBS Studio application",
+        "Ensure OBS is fully loaded before proceeding",
+        "Check that the WebSocket server is enabled in OBS Tools > WebSocket Server Settings",
+        "Verify that the port and password match your configuration",
+        "Click Recheck to verify the connection"
+      ]
+    },
+    "rodeInterface": {
+      "title": "Rode Audio Interface Not Connected",
+      "description": "The Rode audio interface is not detected.",
+      "steps": [
+        "Check the USB/Thunderbolt connection to your Mac",
+        "Open System Settings > Sound",
+        "Select the Input tab",
+        "Verify your Rode interface appears in the list",
+        "Set it as the default input device if needed",
+        "Try unplugging and reconnecting the interface"
+      ]
+    },
+    "youtubeLogin": {
+      "title": "YouTube Not Logged In",
+      "description": "You need to log in to YouTube to schedule events.",
+      "steps": [
+        "Click the 'Login with Google' button",
+        "Select your church's Google account",
+        "Grant the necessary permissions for YouTube access",
+        "Ensure your account has permission to create live streams",
+        "After successful login, you can schedule YouTube events"
+      ]
+    },
+    "obsDevice": {
+      "notFound": "Not Found",
+      "description": "The required {type} device \"{name}\" is not available in OBS.",
+      "configure": "Configure"
+    }
+  },
+  "toasts": {
+    "success": {
+      "title": "Success"
+    },
+    "obsUpdated": {
+      "title": "OBS Updated",
+      "description": "Service title has been updated in OBS"
+    },
+    "pptGenerated": {
+      "title": "PPT Generated",
+      "descriptionTextus": "PowerPoint for Textus is ready for download",
+      "descriptionLeckio": "PowerPoint for Leckio is ready for download"
+    },
+    "settingsSaved": {
+      "title": "Settings Saved",
+      "description": "OBS WebSocket settings have been updated"
+    },
+    "connectionTest": {
+      "title": "Connection Test",
+      "success": "Successfully connected to OBS WebSocket server",
+      "failed": "Failed to connect to OBS WebSocket server"
+    },
+    "reconnected": {
+      "title": "Reconnected Successfully",
+      "description": "OBS WebSocket connected with new settings"
+    },
+    "eventScheduled": {
+      "title": "Event Scheduled",
+      "description": "YouTube live event has been created successfully"
+    },
+    "loggedIn": {
+      "title": "Logged In",
+      "description": "Successfully logged in with Google"
+    },
+    "error": {
+      "title": "Error",
+      "loadSettings": "Failed to load OBS settings from storage",
+      "saveSettings": "Failed to save OBS settings",
+      "connectionFailed": "Failed to test OBS WebSocket connection",
+      "reconnectFailed": "Failed to reconnect to OBS with new settings"
+    }
+  },
+  "bible": {
+    "title": "Bible Editor",
+    "subtitle": "Search, fetch, and edit scripture texts for your service",
+    "tabs": {
+      "textus": "Textus",
+      "leckio": "Leckio"
+    },
+    "search": {
+      "titleTextus": "Search Textus",
+      "titleLeckio": "Search Leckio",
+      "description": "Enter scripture reference to fetch from Bible API",
+      "label": "Scripture Reference",
+      "translation": "Translation",
+      "placeholderTextus": "e.g., Jn 3,16-21",
+      "placeholderLeckio": "e.g., Rom 8,28-39",
+      "fetch": "Fetch",
+      "v2Hint": "Results will appear as you type"
+    },
+    "translations": {
+      "v2Label": "V2 (Immediate)",
+      "legacyLabel": "Legacy (Select from list)"
+    },
+    "verses": {
+      "title": "Verses",
+      "description": "Click edit to modify verses",
+      "saveAll": "Save All",
+      "clear": "Clear"
+    },
+    "toasts": {
+      "fetching": {
+        "title": "Fetching Scripture",
+        "description": "Loading {reference} from Bible API..."
+      },
+      "fetched": {
+        "title": "Scripture Loaded",
+        "description": "Loaded {count} verses for {reference}"
+      },
+      "saved": {
+        "title": "Changes Saved",
+        "description": "Scripture edits have been saved successfully"
+      },
+      "error": {
+        "title": "Error",
+        "emptyQuery": "Please enter a scripture reference"
+      }
+    }
+  },
+  "events": {
+    "title": "Service Events",
+    "subtitle": "Manage upcoming and past service events",
+    "addEvent": "Add Event",
+    "upcomingTitle": "Upcoming Events",
+    "pastTitle": "Past Events",
+    "confirmDelete": "Are you sure you want to delete this event?",
+    "noTime": "No time set",
+    "noSpeaker": "No speaker set",
+    "textusLabel": "Textus",
+    "leckioLabel": "Leckio",
+    "badges": {
+      "today": "Today",
+      "upcoming": "Upcoming",
+      "past": "Past"
+    },
+    "empty": {
+      "title": "No Events",
+      "description": "Create your first service event to get started"
+    },
+    "noEventToday": {
+      "title": "No Event Scheduled for Today",
+      "description": "There is no service event scheduled for today. Create one to start preparing.",
+      "action": "Create Event"
+    },
+    "form": {
+      "basicInfo": "Basic Information",
+      "defaultTitle": "(Sunday) Worship Service",
+      "title": "Event Title",
+      "titlePlaceholder": "Sunday Service - The Love of God",
+      "date": "Date",
+      "time": "Time",
+      "speaker": "Speaker",
+      "speakerPlaceholder": "Pastor John Smith",
+      "description": "Description",
+      "descriptionPlaceholder": "Event description for YouTube...",
+      "privacy": "YouTube Privacy",
+      "privacyOptions": {
+        "public": "Public",
+        "unlisted": "Unlisted",
+        "private": "Private"
+      },
+      "textus": "Textus (Primary Reading)",
+      "leckio": "Leckio (Secondary Reading)",
+      "bibleReferences": "Bible References",
+      "biblePlaceholder": "e.g., Jn 3,16-21",
+      "calculatedTitle": "YouTube Title",
+      "calculatedTitleEmpty": "Select a date to generate title",
+      "clear": "Clear",
+      "save": "Save Event",
+      "cancel": "Cancel",
+      "fetchError": "Failed to fetch Bible verses",
+      "validation": {
+        "title": "Please enter an event title",
+        "date": "Please select a date"
+      },
+      "recording": {
+        "title": "Recording & Upload",
+        "autoUpload": "Auto-upload recording after event",
+        "uploadVisibility": "Uploaded video visibility",
+        "liveBroadcast": "Live Broadcast",
+        "uploadedRecording": "Recording",
+        "watchBroadcast": "Watch",
+        "watchRecording": "Watch Recording",
+        "studio": "Studio",
+        "status": {
+          "none": "No recording",
+          "pending": "Ready to upload",
+          "uploading": "Uploading",
+          "paused": "Paused",
+          "uploaded": "Uploaded",
+          "failed": "Upload failed"
+        },
+        "actions": {
+          "startUpload": "Start Upload",
+          "pause": "Pause",
+          "resume": "Resume"
+        }
+      }
+    },
+    "toasts": {
+      "created": {
+        "title": "Event Created",
+        "description": "Service event has been created successfully"
+      },
+      "updated": {
+        "title": "Event Updated",
+        "description": "Service event has been updated successfully"
+      },
+      "deleted": {
+        "title": "Event Deleted",
+        "description": "Service event has been removed"
+      },
+      "error": {
+        "title": "Error",
+        "description": "An error occurred while saving the event"
+      }
+    }
+  },
+  "youtube": {
+    "modal": {
+      "title": "YouTube Login",
+      "description": "Log in with your Google account to schedule YouTube live events.",
+      "configRequired": "API Configuration Required",
+      "configDescription": "Enter your YouTube Data API v3 credentials from the Google Cloud Console.",
+      "clientId": "Client ID",
+      "clientIdPlaceholder": "Your OAuth 2.0 Client ID",
+      "clientSecret": "Client Secret",
+      "clientSecretPlaceholder": "Your OAuth 2.0 Client Secret",
+      "redirectUri": "Redirect URI",
+      "saveConfig": "Save Configuration",
+      "configureCredentials": "Configure API Credentials",
+      "loginButton": "Login with Google",
+      "waitingForLogin": "Waiting for login...",
+      "configSaved": "Settings Saved",
+      "configSavedDescription": "YouTube API credentials have been saved",
+      "error": "Error",
+      "enterBoth": "Please enter both Client ID and Client Secret",
+      "loginFailed": "Failed to start login",
+      "loginSuccess": "Login successful"
+    },
+    "scheduling": {
+      "title": "YouTube Scheduling",
+      "notScheduled": "Schedule this event as a YouTube live broadcast.",
+      "scheduleButton": "Schedule in YouTube",
+      "scheduling": "Scheduling...",
+      "scheduled": "YouTube Event Scheduled",
+      "scheduledDescription": "The YouTube live event has been created successfully",
+      "viewInStudio": "View in YouTube Studio",
+      "failed": "Failed to schedule YouTube event",
+      "updateFailed": "Failed to update YouTube event"
+    }
+  },
+  "streaming": {
+    "stream": "Stream",
+    "record": "Record",
+    "obsNotConnected": "Connect to OBS to enable controls",
+    "errors": {
+      "streamFailed": "Failed to toggle stream",
+      "recordFailed": "Failed to toggle recording"
+    },
+    "youtube": {
+      "goLive": "Go Live",
+      "goingLive": "Going live...",
+      "liveSuccess": "Now Live!",
+      "liveSuccessDescription": "Your YouTube broadcast is now live",
+      "liveFailed": "Failed to go live on YouTube",
+      "status": {
+        "created": "Created",
+        "ready": "Ready",
+        "testing": "Testing",
+        "live": "Live",
+        "complete": "Ended",
+        "unknown": "Unknown"
+      }
+    }
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "edit": "Edit",
+    "delete": "Delete",
+    "loading": "Loading...",
+    "error": "Error",
+    "latest": "Latest",
+    "public": "Public",
+    "unlisted": "Unlisted",
+    "private": "Private",
+    "comingSoon": "Coming soon"
+  },
+  "eventSession": {
+    "title": "Session",
+    "states": {
+      "idle": "Idle",
+      "preparing": "Preparing",
+      "active": "Active",
+      "finalizing": "Finalizing",
+      "completed": "Completed",
+      "paused": "Paused"
+    },
+    "automation": {
+      "uploadingRecording": "Uploading recording...",
+      "uploadingTo": "Uploading to {platform}...",
+      "publishingVideo": "Publishing video...",
+      "endingBroadcast": "Ending live broadcast...",
+      "completed": "Post-event automation completed",
+      "failed": "Automation failed: {error}",
+      "triggerManually": "Start Post-Event Processing"
+    },
+    "finishSession": "Finish Session",
+    "activity": {
+      "title": "Session Activity",
+      "SESSION_STARTED": "Session started",
+      "OBS_CONNECTED": "OBS connected",
+      "OBS_DISCONNECTED": "OBS disconnected",
+      "STREAM_STARTED": "Stream started",
+      "STREAM_STOPPED": "Stream stopped",
+      "RECORD_STARTED": "Recording started",
+      "RECORD_STOPPED": "Recording stopped",
+      "YOUTUBE_LIVE": "YouTube went live",
+      "SESSION_FINALIZING": "Post-event processing",
+      "SESSION_COMPLETED": "Session completed",
+      "SESSION_ERROR": "Error",
+      "SESSION_ENDED": "Session ended",
+      "RECORDING_SCAN_STARTED": "Recording scan started",
+      "RECORDING_SCAN_COMPLETED": "Recording scan completed",
+      "RECORDING_MANUALLY_ADDED": "Recording manually added",
+      "RECORDING_SELECTED_FOR_UPLOAD": "Recording selected for upload",
+      "RECORDING_DESELECTED_FROM_UPLOAD": "Recording deselected from upload",
+      "SESSION_FINALIZED": "Session finalized"
+    },
+    "connection": {
+      "lost": "Connection Lost",
+      "reconnecting": "Reconnecting...",
+      "resumed": "Connection restored"
+    },
+    "youtube": {
+      "notConnected": "YouTube Not Connected",
+      "connectToUpload": "Connect to YouTube to upload the recording."
+    }
+  },
+  "recordings": {
+    "noRecordings": "No recordings yet",
+    "viewOnYoutube": "View on YouTube",
+    "includeInUpload": "Include in upload",
+    "customTitle": "Custom title (optional)",
+    "noneReady": "No recordings ready for upload",
+    "oneReady": "1 recording ready for upload",
+    "multipleReady": "{count} recordings ready for upload",
+    "table": {
+      "title": "Recordings",
+      "recording": "Recording",
+      "duration": "Duration",
+      "event": "Event",
+      "date": "Date",
+      "speaker": "Speaker",
+      "status": "Status",
+      "youtube": "YouTube",
+      "actions": "Actions",
+      "editEvent": "Edit Event",
+      "upload": "Upload",
+      "uploading": "Uploading...",
+      "uploadSuccess": "Recording uploaded successfully",
+      "uploadFailed": "Upload failed"
+    }
+  },
+  "recording": {
+    "selectFile": {
+      "title": "Select Recording",
+      "description": "Multiple recordings found ({count}). Please select the correct one to upload.",
+      "useLatest": "Use Latest",
+      "useLongest": "Use Longest",
+      "autoSelected": "Recording auto-selected: {filename}",
+      "noRecordingFound": "No suitable recording found",
+      "multipleLongVideos": "Multiple long recordings found, please select one"
+    }
+  },
+  "obsConfig": {
+    "title": "OBS Configuration",
+    "subtitle": "Configure OBS connection and device mappings"
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Configure application settings and manage data",
+    "tabs": {
+      "connection": "Connection",
+      "devices": "Devices",
+      "content": "Content",
+      "system": "System"
+    },
+    "importExport": {
+      "title": "Data Management",
+      "description": "Export your settings to a file or import from a backup",
+      "export": "Export Settings",
+      "import": "Import Settings",
+      "includeYoutubeTokens": "Include YouTube credentials",
+      "warning": "Importing will overwrite all current settings",
+      "exportSuccess": "Settings exported successfully",
+      "importSuccess": "Settings imported successfully",
+      "importError": "Failed to import settings"
+    },
+    "update": {
+      "title": "Application Updates",
+      "description": "Check for new versions of the application",
+      "currentVersion": "Current version",
+      "checkForUpdates": "Check for Updates",
+      "checking": "Checking...",
+      "upToDate": "You are running the latest version",
+      "devMode": "Version info unavailable (development mode)"
+    },
+    "upload": {
+      "title": "Upload Settings",
+      "description": "Configure automatic upload to video platforms after events",
+      "saved": "Upload settings saved",
+      "global": "Global Settings",
+      "minDuration": "Minimum duration (minutes)",
+      "minDurationHint": "Events shorter than this won't trigger auto-upload",
+      "shortThreshold": "Short video threshold (minutes)",
+      "shortThresholdHint": "Videos shorter than this are ignored when selecting",
+      "retryAttempts": "Retry attempts",
+      "chunkSize": "Chunk size (MB)",
+      "youtube": {
+        "title": "YouTube",
+        "autoUpload": "Auto-upload recording after event",
+        "autoPublish": "Publish video automatically when ready",
+        "defaultPrivacy": "Default privacy",
+        "useEventPrivacy": "Use event-specific privacy setting",
+        "saved": "YouTube upload settings saved"
+      },
+      "facebook": {
+        "title": "Facebook",
+        "autoUpload": "Auto-upload to Facebook Page",
+        "selectPage": "Select Page",
+        "crosspost": "Also post to timeline"
+      }
+    }
+  },
+  "upload": {
+    "section": {
+      "title": "Upload Status"
+    },
+    "pending": {
+      "title": "Pending Uploads",
+      "justNow": "just now",
+      "ago": "ago",
+      "resumed": "Upload resumed",
+      "resumeFailed": "Failed to resume upload",
+      "cancelled": "Upload cancelled",
+      "cancelFailed": "Failed to cancel upload",
+      "allResumed": "All uploads resumed",
+      "resumeAllFailed": "Failed to resume uploads",
+      "resumeAll": "Resume All"
+    },
+    "reauth": {
+      "title": "Re-login Required",
+      "description": "YouTube session expired",
+      "action": "Re-login to YouTube"
+    },
+    "status": {
+      "pending": "Pending",
+      "uploading": "Uploading",
+      "paused": "Paused",
+      "processing": "Processing",
+      "completed": "Completed",
+      "failed": "Failed"
+    }
+  },
+  "videoUploader": {
+    "title": "Video Uploader",
+    "youtubeNotConnected": "YouTube Not Connected",
+    "connectToUpload": "Connect to YouTube to upload recordings.",
+    "sessionManaged": "This upload is managed by the current session",
+    "resumed": "Upload resumed",
+    "resumeFailed": "Failed to resume upload",
+    "cancelled": "Upload cancelled",
+    "cancelFailed": "Failed to cancel upload",
+    "allResumed": "All uploads resumed",
+    "resumeAllFailed": "Failed to resume uploads",
+    "resumeAll": "Resume All",
+    "resume": "Resume",
+    "cancel": "Cancel",
+    "status": {
+      "pending": "Pending",
+      "uploading": "Uploading",
+      "paused": "Paused",
+      "processing": "Processing",
+      "failed": "Failed"
+    }
+  },
+  "finalize": {
+    "title": "Finalize Event",
+    "button": "Finalize Event",
+    "submit": "Finalize",
+    "scan": {
+      "title": "Scan for Recordings",
+      "scanning": "Scanning...",
+      "noDirectory": "No recording directory set for this event.",
+      "found": "{count} recording(s) found",
+      "noneFound": "No new recordings found",
+      "addToEvent": "Add",
+      "startScan": "Scan Directory"
+    },
+    "manual": {
+      "title": "Add Files Manually",
+      "selectFiles": "Select Files"
+    },
+    "recordings": {
+      "title": "Recordings"
+    },
+    "toast": {
+      "finalized": "Event Finalized",
+      "finalizedDescription": "The event has been finalized successfully"
+    }
+  },
+  "obsDevices": {
+    "title": "OBS Devices",
+    "subtitle": "Configure displays, audio devices, and browser sources for OBS",
+    "refreshFromObs": "Refresh from OBS",
+    "loadingObs": "Loading...",
+    "recheckAll": "Re-check All",
+    "checking": "Checking...",
+    "required": "Required",
+    "source": "Source",
+    "goToObsSettings": "Go to OBS Settings",
+    "displays": {
+      "title": "Displays",
+      "description": "Configure display capture sources in OBS",
+      "add": "Add Display"
+    },
+    "audio": {
+      "title": "Audio Devices",
+      "description": "Configure audio capture sources in OBS",
+      "add": "Add Audio Device"
+    },
+    "browser": {
+      "title": "Browser Sources",
+      "description": "Configure browser sources with dynamic URL templates",
+      "add": "Add Browser Source"
+    },
+    "form": {
+      "name": "Name",
+      "namePlaceholder": "Display name for this device",
+      "obsSource": "OBS Source",
+      "selectSource": "Select OBS source...",
+      "device": "Device",
+      "selectDevice": "Select device...",
+      "markRequired": "Mark as required (show error if not available)",
+      "urlTemplate": "URL Template",
+      "urlTemplateHint": "Available variables: ${textus}, ${lekcio}",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "toasts": {
+      "dataLoaded": "OBS Data Loaded",
+      "dataLoadedDescription": "Available devices and sources have been refreshed",
+      "deviceAdded": "Device Added",
+      "deviceRemoved": "Device Removed",
+      "browserAdded": "Browser Source Added",
+      "browserRemoved": "Browser Source Removed"
+    },
+    "errors": {
+      "obsNotConnected": "OBS is not connected. Please connect to OBS first.",
+      "fillAllFields": "Please fill in all required fields"
+    },
+    "availableDevices": "Available Devices",
+    "listeners": "Device Listeners",
+    "scanNow": "Scan Now",
+    "addListener": "Add Listener",
+    "connectorPlaceholder": "OBS Studio",
+    "notConnected": "Connect OBS to scan devices",
+    "categories": {
+      "display": "Display",
+      "audioInput": "Audio Input",
+      "audioOutput": "Audio Output",
+      "videoInput": "Video Input",
+      "captureCard": "Capture Card"
+    },
+    "listenerForm": {
+      "category": "Category",
+      "device": "Device",
+      "name": "Friendly Name",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "status": {
+      "available": "Available",
+      "unavailable": "Unavailable"
+    },
+    "manageDeviceMonitors": "Manage Device Monitors →"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "events": "Events",
+    "connect": "Connect",
+    "settings": "Settings",
+    "liveEvents": "Live Events & Videos",
+    "presentations": "Presentations",
+    "obsCaption": "OBS Caption",
+    "obsDevices": "Device Monitor",
+    "queues": "Queues",
+    "logs": "Logs"
+  },
+  "queuesPage": {
+    "title": "Queues",
+    "refresh": "Refresh",
+    "available": "Available",
+    "inFlight": "In flight",
+    "dlq": "Dead-letter",
+    "headAge": "Head age",
+    "noQueues": "No queues yet",
+    "noJobs": "No jobs match this filter",
+    "redrive": "Redrive",
+    "redriven": "Job re-queued",
+    "purge": "Delete job",
+    "loadFailed": "Could not load queue data",
+    "actionFailed": "Queue action failed",
+    "filters": {
+      "all": "All",
+      "pending": "Pending",
+      "processing": "In flight",
+      "succeeded": "Succeeded",
+      "dead": "Dead-letter"
+    },
+    "columns": {
+      "type": "Type",
+      "status": "Status",
+      "attempts": "Attempts",
+      "nextRetry": "Next retry",
+      "payload": "Payload",
+      "lastError": "Last error"
+    }
+  },
+  "presentations": {
+    "title": "Presentations",
+    "folders": {
+      "title": "Presentation Folders",
+      "add": "Add Folder",
+      "remove": "Remove folder"
+    },
+    "search": {
+      "title": "File Search"
+    },
+    "results": {
+      "title": "Results"
+    },
+    "status": {
+      "title": "Keynote Status",
+      "slideshow": "Slideshow",
+      "slide": "Slide",
+      "document": "Document",
+      "on": "ON",
+      "off": "OFF"
+    },
+    "controls": {
+      "title": "Controls",
+      "first": "First Slide",
+      "prev": "Previous Slide",
+      "next": "Next Slide",
+      "last": "Last Slide",
+      "play": "Play",
+      "stop": "Stop",
+      "closeAll": "Close All"
+    }
+  },
+  "liveEvents": {
+    "title": "Live Events & Videos",
+    "platform": {
+      "youtube": "YouTube"
+    },
+    "loading": "Loading…",
+    "error": "Failed to load content",
+    "sessionExpired": "YouTube session expired — please re-login",
+    "reLogin": "Re-login with YouTube",
+    "retry": "Retry",
+    "notConnected": "Not connected",
+    "connectFirst": "Connect your YouTube account in Settings to view your channel content.",
+    "broadcasts": "Live Broadcasts",
+    "videos": "Uploaded Videos",
+    "noContent": "No content found",
+    "views": "{count} views",
+    "live": "LIVE",
+    "upcoming": "UPCOMING"
+  },
+  "appSettings": {
+    "title": "Settings",
+    "language": "Language",
+    "presentationFonts": {
+      "title": "PowerPoint fonts",
+      "names": "Cormorant Garamond and Geist Mono",
+      "install": "Open Font Book",
+      "installing": "Opening…",
+      "required": "Install through Font Book to make the fonts available to Keynote.",
+      "fontBook": "In Font Book, click Install for both fonts, then return here.",
+      "restart": "Installed — restart Keynote or PowerPoint"
+    },
+    "presentationFolders": {
+      "title": "PowerPoint output folders",
+      "song": "Song PPT folder",
+      "bible": "Bible PPT folder (Textus and Lekció)",
+      "save": "Save",
+      "saving": "Saving…"
+    },
+    "appMode": {
+      "title": "App Mode",
+      "current": "Current mode",
+      "changeMode": "Change mode",
+      "changing": "Resetting…",
+      "note": "Changing the mode will re-show the setup screen. If this device is running as a server, the embedded database will continue until you restart the app."
+    },
+    "activeUi": {
+      "title": "Rendering UI",
+      "description": "This build bundles more than one interface. Pick the one this window should open.",
+      "appliesOnRestart": "Applies the next time the app starts."
+    },
+    "connectors": {
+      "title": "Connectors",
+      "saved": "{connector} settings saved",
+      "saveFailed": "Could not save {connector} settings",
+      "secretStored": "A value is stored. Leave blank to keep it, or type a new one to replace it — the server never sends it back.",
+      "clearSecret": "Clear",
+      "showSecret": "Show",
+      "revealFailed": "Could not read the stored value",
+      "obs": {
+        "title": "OBS Studio",
+        "subtitle": "Connect to OBS Studio via WebSocket (v5)",
+        "host": "Host",
+        "port": "Port",
+        "password": "Password",
+        "passwordPlaceholder": "OBS WebSocket password",
+        "enabled": "Enable OBS connector",
+        "save": "Save & Reconnect",
+        "saving": "Saving…",
+        "connect": "Connect",
+        "disconnect": "Disconnect",
+        "status": "Status"
+      },
+      "vmix": {
+        "title": "VMix",
+        "subtitle": "VMix support coming soon",
+        "host": "Host",
+        "port": "Port",
+        "enabled": "Enable VMix connector",
+        "save": "Save",
+        "saving": "Saving…",
+        "comingSoon": "VMix integration is not yet implemented. Configuration is saved for future use."
+      },
+      "middlecontrol": {
+        "title": "Middle Control",
+        "subtitle": "Camera, recording, and preset control through Middle Control",
+        "host": "Host",
+        "port": "Port",
+        "enabled": "Enable Middle Control connector",
+        "save": "Save & Reconnect",
+        "saving": "Saving…",
+        "help": "Middle Control must remain running. If it runs on the Metocast server computer, use localhost — no IP address is needed. Current macOS versions use port 11584; the observed 3.2.0 macOS build uses 11581; Windows uses 11580.",
+        "sdk": "External SDK / API",
+        "devicesTitle": "Middle Control devices",
+        "devicesSummary": "{cameras} cameras · {ptz} APC-R/PTZ",
+        "devicesDisconnected": "Connect Middle Control to see its cameras and APC-R PTZ units.",
+        "devicesEmpty": "Middle Control reports no connected cameras or APC-R PTZ units.",
+        "camera": "Camera {id}",
+        "connected": "Connected",
+        "cameraOffline": "Camera offline",
+        "selected": "Selected",
+        "recording": "Recording",
+        "ptz": "APC-R · PTZ",
+        "useLocal": "Use this computer",
+        "scan": "Scan network",
+        "scanAgain": "Scan again",
+        "scanning": "Scanning…",
+        "useEndpoint": "Use {address}",
+        "discoveryDescription": "Checks this computer and the Metocast server's local network on the known Middle Control ports. Only a valid feedback stream is accepted.",
+        "discoveryEmpty": "No Middle Control instance answered. Make sure it is running, then scan again. For manual entry, on its Mac open System Settings → Network and select the active connection; on Windows open Settings → Network & internet → Properties. Copy the IPv4 address into Host above."
+      },
+      "youtube": {
+        "title": "YouTube",
+        "subtitle": "Schedule live broadcasts via YouTube Data API v3",
+        "clientId": "Client ID",
+        "clientSecret": "Client Secret",
+        "enabled": "Enable YouTube connector",
+        "save": "Save",
+        "saving": "Saving…",
+        "login": "Login with YouTube",
+        "logout": "Logout",
+        "loggingIn": "Opening browser…"
+      },
+      "facebook": {
+        "title": "Facebook",
+        "subtitle": "Create Facebook Page events and live streams",
+        "appId": "App ID",
+        "appSecret": "App Secret",
+        "pageId": "Page ID",
+        "enabled": "Enable Facebook connector",
+        "save": "Save",
+        "saving": "Saving…",
+        "login": "Login with Facebook",
+        "logout": "Logout",
+        "loggingIn": "Opening browser…"
+      },
+      "atem": {
+        "title": "Blackmagic ATEM",
+        "subtitle": "Control program, preview, recording, and streaming",
+        "host": "Host / IP",
+        "port": "Port",
+        "enabled": "Enable ATEM connector",
+        "save": "Save",
+        "saving": "Saving…"
+      },
+      "broadlink": {
+        "title": "Broadlink RF/IR",
+        "subtitle": "Control projectors, screens, and AV equipment via IR and RF",
+        "enabled": "Enable Broadlink connector",
+        "save": "Save",
+        "saving": "Saving…"
+      },
+      "discord": {
+        "title": "Discord",
+        "subtitle": "Discord webhook support coming soon",
+        "webhookUrl": "Webhook URL",
+        "enabled": "Enable Discord connector",
+        "save": "Save",
+        "saving": "Saving…",
+        "comingSoon": "Discord integration is not yet implemented. Configuration is saved for future use."
+      },
+      "statusLabels": {
+        "connected": "Connected",
+        "connecting": "Connecting…",
+        "disconnected": "Disconnected",
+        "error": "Error"
+      },
+      "szentiras": {
+        "title": "Szentírás.eu",
+        "subtitle": "Bible text provider for the classic Hungarian translations (RUF, KG, KNB, SZIT, BD, STL).",
+        "enabled": "Enabled",
+        "apiKey": "API key",
+        "apiKeyHint": "Every lookup needs a free API key. Create one at",
+        "save": "Save",
+        "saving": "Saving…"
+      }
+    },
+    "updater": {
+      "title": "Application Version",
+      "currentVersion": "Current Version",
+      "checkForUpdates": "Check for Updates",
+      "checking": "Checking…",
+      "upToDate": "You're up to date",
+      "updateAvailable": "Update available: v{version}",
+      "download": "Download",
+      "install": "Install & Restart",
+      "installing": "Installing update…",
+      "installed": "Update installed. Restarting…",
+      "installFailed": "Failed to install update",
+      "lastChecked": "Last checked",
+      "errorChecking": "Failed to check for updates",
+      "toast": {
+        "title": "Update Available",
+        "description": "Version {version} is available"
+      }
+    },
+    "cronJobs": {
+      "title": "Cron Jobs",
+      "colName": "Name",
+      "colExpression": "Expression",
+      "colEnabled": "Enabled",
+      "colPullYoutube": "Pull YouTube",
+      "colActions": "Actions",
+      "noneConfigured": "No cron jobs configured yet.",
+      "editTitle": "Edit Cron Job",
+      "addTitle": "Add Cron Job",
+      "namePlaceholder": "e.g. YouTube poll",
+      "expressionLabel": "Cron Expression",
+      "expressionPlaceholder": "e.g. 0 */5 * * * * (every 5 min)",
+      "enabledLabel": "Enabled",
+      "pullYoutubeLabel": "Pull YouTube Live Events",
+      "saving": "Saving…",
+      "save": "Save",
+      "cancel": "Cancel",
+      "editButton": "Edit",
+      "deleteButton": "Delete"
+    }
+  },
+  "logsPage": {
+    "title": "Application Logs",
+    "loading": "Loading logs…",
+    "refresh": "Refresh",
+    "openLog": "Open Application Log",
+    "copyPath": "Copy Path",
+    "downloadLog": "Download Log",
+    "downloading": "Downloading…",
+    "removeLog": "Remove Log",
+    "removing": "Removing…",
+    "removeConfirm": "Remove the current application log contents?",
+    "logFileFilter": "Log File",
+    "empty": "No application logs yet",
+    "noMatches": "No log lines match this filter",
+    "desktopOnly": "Application logs are available in the desktop app.",
+    "filters": {
+      "label": "Log level filter",
+      "all": "All",
+      "info": "Info",
+      "warn": "Warnings",
+      "error": "Errors"
+    },
+    "toasts": {
+      "opened": "Application log opened",
+      "openFailed": "Failed to open application log",
+      "downloaded": "Application log downloaded",
+      "downloadFailed": "Failed to download application log",
+      "removed": "Application log removed",
+      "removeFailed": "Failed to remove application log",
+      "pathCopied": "Log path copied",
+      "copyFailed": "Failed to copy log path",
+      "clipboardUnavailable": "Clipboard is unavailable"
+    }
+  },
+  "errorsPage": {
+    "title": "Connector Errors",
+    "noErrors": "No connector errors",
+    "recheck": "Re-check",
+    "fix": "Fix",
+    "info": "Info",
+    "closeInfo": "Close Info",
+    "rechecking": "Checking…"
+  }
+}

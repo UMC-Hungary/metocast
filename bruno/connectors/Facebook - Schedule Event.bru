@@ -1,0 +1,21 @@
+meta {
+  name: Facebook - Schedule Event
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/connectors/facebook/schedule/{{eventId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+}

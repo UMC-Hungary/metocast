@@ -1,0 +1,27 @@
+meta {
+  name: Start Broadlink Learn
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/connectors/broadlink/devices/{{deviceId}}/learn
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "signal_type": "ir"
+  }
+}
+
+tests {
+  test("status is 202", function() {
+    expect(res.status).to.equal(202);
+  });
+}

@@ -1,0 +1,26 @@
+meta {
+  name: OBS - Set Stream Settings
+  type: http
+  seq: 17
+}
+
+put {
+  url: {{baseUrl}}/api/connectors/obs/stream-settings
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "server": "rtmp://a.rtmp.youtube.com/live2",
+    "key": "your-stream-key"
+  }
+}
+
+docs {
+  Applies a custom RTMP destination. Returns 409 when OBS is not connected.
+}

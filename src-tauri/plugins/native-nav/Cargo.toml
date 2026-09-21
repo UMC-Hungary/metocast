@@ -1,0 +1,28 @@
+[package]
+name = "tauri-plugin-native-nav"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+description = "Native liquid-glass navigation for Metocast on Apple platforms"
+links = "tauri-plugin-native-nav"
+
+[dependencies]
+tauri = "2"
+serde = { version = "1", features = ["derive"] }
+tracing = "0.1"
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["NSString", "NSArray", "NSObject"] }
+objc2-app-kit = { version = "0.3", features = [
+  "NSImage",
+  "NSResponder",
+  "NSToolbar",
+  "NSToolbarItem",
+  "NSToolbarItemGroup",
+  "NSView",
+  "NSWindow",
+] }

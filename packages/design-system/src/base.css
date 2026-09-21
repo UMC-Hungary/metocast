@@ -1,0 +1,33 @@
+/*
+ * The minimum the components assume of the document. Import it once, alongside tokens.css and
+ * fonts.css. The reference sets all of this in its global stylesheet; a package cannot, so it
+ * states it here instead of each component defending itself.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* measured: global.css body */
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  background: var(--surface-outside);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* measured: global.css — form controls inherit the document face rather than the platform's */
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  color: inherit;
+}

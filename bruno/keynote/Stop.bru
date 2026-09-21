@@ -1,0 +1,21 @@
+meta {
+  name: Keynote Stop Slideshow
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/keynote/stop
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 204", function() {
+    expect(res.status).to.equal(204);
+  });
+}

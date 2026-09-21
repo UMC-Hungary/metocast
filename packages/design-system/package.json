@@ -1,0 +1,59 @@
+{
+  "name": "@metocast/design-system",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Sanctum design system — tokens and accessible components measured from the design reference",
+  "sideEffects": [
+    "*.css"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./tokens.css": "./tokens/generated/tokens.css",
+    "./fonts.css": "./static/fonts/fonts.css",
+    "./base.css": "./src/base.css"
+  },
+  "files": [
+    "src",
+    "tokens",
+    "static",
+    "docs"
+  ],
+  "scripts": {
+    "measure": "node ../../scripts/extract-reference.mjs",
+    "measure:check": "node ../../scripts/extract-reference.mjs --check",
+    "tokens:build": "node ../../scripts/build-tokens.mjs",
+    "tokens:check": "node ../../scripts/build-tokens.mjs --check && node ../../scripts/check-tokens.mjs",
+    "contrast": "node ../../scripts/check-contrast.mjs",
+    "fidelity": "node ../../scripts/check-fidelity.mjs",
+    "docs": "node ../../scripts/build-docs.mjs",
+    "docs:check": "node ../../scripts/build-docs.mjs --check",
+    "stories": "node ../../scripts/build-stories.mjs",
+    "stories:check": "node ../../scripts/build-stories.mjs --check",
+    "catalog:check": "node ../../scripts/check-catalog.mjs",
+    "fonts": "node ../../scripts/fetch-fonts.mjs",
+    "verify": "pnpm tokens:check && pnpm contrast && pnpm fidelity && pnpm docs:check && pnpm stories:check && pnpm catalog:check",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build",
+    "test:a11y": "vitest run --project storybook"
+  },
+  "peerDependencies": {
+    "svelte": "^5.0.0"
+  },
+  "devDependencies": {
+    "@storybook/addon-a11y": "^10.5.7",
+    "@storybook/addon-docs": "^10.5.7",
+    "@storybook/addon-mcp": "^0.7.0",
+    "@storybook/addon-vitest": "^10.5.7",
+    "@storybook/svelte-vite": "^10.5.7",
+    "@sveltejs/vite-plugin-svelte": "^7.3.0",
+    "@vitest/browser": "^4.1.0",
+    "@vitest/browser-playwright": "^4.1.10",
+    "@vitest/coverage-v8": "^4.1.0",
+    "playwright": "^1.50.0",
+    "storybook": "^10.5.7",
+    "svelte": "^5.56.8",
+    "vite": "^8.2.1",
+    "vitest": "^4.1.10"
+  }
+}

@@ -1,0 +1,24 @@
+meta {
+  name: Middle Control - Discover
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{baseUrl}}/api/connectors/middlecontrol/discover
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("response has a devices array", function() {
+    expect(res.body.devices).to.be.an('array');
+  });
+}

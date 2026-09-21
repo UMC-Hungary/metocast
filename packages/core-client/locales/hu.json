@@ -1,0 +1,1039 @@
+{
+  "sidebar": {
+    "appTitle": "Gyülekezeti Vezérlő",
+    "nav": {
+      "events": "Istentiszteleti Események",
+      "bibleEditor": "Biblia Szerkesztő",
+      "obsConfig": "OBS Konfiguráció",
+      "settings": "Beállítások",
+      "remoteControl": "Távvezérlő",
+      "obsCaption": "OBS Felirat"
+    },
+    "systemStatus": {
+      "title": "Rendszer Állapot",
+      "obsRunning": "OBS Fut",
+      "rodeInterface": "Rode Interfész",
+      "mainDisplay": "Fő Kijelző",
+      "secondaryDisplay": "Másodlagos Kijelző",
+      "youtubeLoggedIn": "YouTube Bejelentkezve"
+    },
+    "upcomingEvent": {
+      "title": "Közelgő Esemény",
+      "textus": "Textus",
+      "leckio": "Leckio",
+      "scheduledDate": "Ütemezve",
+      "today": "Ma",
+      "edit": "Szerkesztés",
+      "noUpcoming": {
+        "title": "Nincs Közelgő Esemény",
+        "description": "Hozzon létre egy eseményt, hogy itt megjelenjen"
+      },
+      "youtube": {
+        "scheduled": "Ütemezve YouTube-on",
+        "notScheduled": "Nincs ütemezve",
+        "schedule": "Ütemezés YouTube-on",
+        "scheduling": "Ütemezés...",
+        "loginFirst": "Bejelentkezés YouTube-ra"
+      },
+      "pptx": {
+        "title": "PPTX Generálása",
+        "noVerses": "Nincsenek elérhető versek ehhez a hivatkozáshoz",
+        "noFolder": "Kérjük, először válasszon ki egy kimeneti mappát",
+        "generated": "A PPTX fájl elkészült",
+        "failed": "Nem sikerült létrehozni a PPTX fájlt",
+        "changeFolder": "Kimeneti mappa módosítása"
+      },
+      "recordings": "Felvételek",
+      "browserSources": "Böngésző Források",
+      "refreshBrowserSource": "Böngésző forrás frissítése"
+    },
+    "language": "Nyelv",
+    "theme": "Téma",
+    "themeSystem": "Rendszer",
+    "themeLight": "Világos",
+    "themeDark": "Sötét"
+  },
+  "obsSettings": {
+    "title": "OBS Beállítások",
+    "subtitle": "OBS Studio WebSocket kapcsolat konfigurálása",
+    "card": {
+      "title": "WebSocket Konfiguráció",
+      "description": "Csatlakozás az OBS Studiohoz WebSocket-en keresztül a jelenetek, források és közvetítési információk vezérléséhez"
+    },
+    "form": {
+      "websocketUrl": "WebSocket URL",
+      "websocketUrlHint": "Alapértelmezett OBS WebSocket URL. Módosítsa, ha más portot állított be.",
+      "websocketPassword": "WebSocket Jelszó",
+      "websocketPasswordPlaceholder": "Adja meg az OBS WebSocket jelszavát",
+      "websocketPasswordHint": "Beállítható az OBS Studio Eszközök → WebSocket Szerver Beállítások menüpontjában",
+      "testConnection": "Kapcsolat Tesztelése",
+      "testing": "Tesztelés...",
+      "saveSettings": "Beállítások Mentése",
+      "loading": "Betöltés..."
+    },
+    "status": {
+      "title": "Kapcsolat Állapota",
+      "connected": "Csatlakoztatva",
+      "disconnected": "Nincs kapcsolat",
+      "lastConnected": "Utoljára csatlakozva",
+      "error": "Hiba"
+    },
+    "instructions": {
+      "title": "Beállítási Útmutató",
+      "step1": "Nyissa meg az OBS Studio-t",
+      "step2": "Menjen az Eszközök → WebSocket Szerver Beállítások menübe",
+      "step3": "Engedélyezze a \"WebSocket szerver engedélyezése\" opciót",
+      "step4": "Jegyezze fel a szerver portját (alapértelmezett: 4455)",
+      "step5": "Állítson be egy biztonságos jelszót",
+      "step6": "Kattintson az Alkalmaz és OK gombokra",
+      "step7": "Adja meg a fenti beállításokat és tesztelje a kapcsolatot"
+    }
+  },
+  "errors": {
+    "title": "Rendszerhibák Észlelve",
+    "recheck": "Újraellenőrzés",
+    "goToObsSettings": "OBS Beállításokhoz",
+    "reconnect": "Újracsatlakozás",
+    "connecting": "Csatlakozás...",
+    "readMore": "Részletek",
+    "close": "Bezárás",
+    "followSteps": "Kövesse ezeket a lépéseket a probléma megoldásához",
+    "obs": {
+      "title": "OBS Nem Fut",
+      "description": "Az OBS Studio jelenleg nem fut a rendszeren.",
+      "steps": [
+        "Nyissa meg az OBS Studio alkalmazást",
+        "Győződjön meg róla, hogy az OBS teljesen betöltődött mielőtt folytatná",
+        "Ellenőrizze, hogy a WebSocket szerver engedélyezve van az OBS Eszközök > WebSocket Szerver Beállítások menüben",
+        "Ellenőrizze, hogy a port és a jelszó megegyezik a konfigurációval",
+        "Kattintson az Újraellenőrzés gombra a kapcsolat ellenőrzéséhez"
+      ]
+    },
+    "rodeInterface": {
+      "title": "Rode Audio Interfész Nincs Csatlakoztatva",
+      "description": "A Rode audio interfész nem észlelhető.",
+      "steps": [
+        "Ellenőrizze az USB/Thunderbolt kapcsolatot a Mac-hez",
+        "Nyissa meg a Rendszerbeállítások > Hang menüt",
+        "Válassza a Bemenet fület",
+        "Ellenőrizze, hogy a Rode interfész megjelenik a listában",
+        "Állítsa be alapértelmezett bemeneti eszközként, ha szükséges",
+        "Próbálja meg kihúzni és újra csatlakoztatni az interfészt"
+      ]
+    },
+    "youtubeLogin": {
+      "title": "YouTube Nincs Bejelentkezve",
+      "description": "Be kell jelentkeznie a YouTube-ra események ütemezéséhez.",
+      "steps": [
+        "Kattintson a 'Bejelentkezés Google-lel' gombra",
+        "Válassza ki a gyülekezet Google fiókját",
+        "Adja meg a szükséges engedélyeket a YouTube hozzáféréshez",
+        "Győződjön meg róla, hogy a fióknak van jogosultsága élő közvetítések létrehozásához",
+        "Sikeres bejelentkezés után ütemezhet YouTube eseményeket"
+      ]
+    },
+    "obsDevice": {
+      "notFound": "Nem Található",
+      "description": "A szükséges {type} eszköz \"{name}\" nem elérhető az OBS-ben.",
+      "configure": "Beállítás"
+    }
+  },
+  "toasts": {
+    "success": {
+      "title": "Sikeres"
+    },
+    "obsUpdated": {
+      "title": "OBS Frissítve",
+      "description": "A prédikáció címe frissítve lett az OBS-ben"
+    },
+    "pptGenerated": {
+      "title": "PPT Létrehozva",
+      "descriptionTextus": "A Textus PowerPoint készen áll a letöltésre",
+      "descriptionLeckio": "A Leckio PowerPoint készen áll a letöltésre"
+    },
+    "settingsSaved": {
+      "title": "Beállítások Mentve",
+      "description": "Az OBS WebSocket beállítások frissítve lettek"
+    },
+    "connectionTest": {
+      "title": "Kapcsolat Teszt",
+      "success": "Sikeresen csatlakozott az OBS WebSocket szerverhez",
+      "failed": "Nem sikerült csatlakozni az OBS WebSocket szerverhez"
+    },
+    "reconnected": {
+      "title": "Sikeresen Újracsatlakozva",
+      "description": "OBS WebSocket csatlakoztatva az új beállításokkal"
+    },
+    "eventScheduled": {
+      "title": "Esemény Ütemezve",
+      "description": "YouTube élő esemény sikeresen létrehozva"
+    },
+    "loggedIn": {
+      "title": "Bejelentkezve",
+      "description": "Sikeresen bejelentkezve Google fiókkal"
+    },
+    "error": {
+      "title": "Hiba",
+      "loadSettings": "Nem sikerült betölteni az OBS beállításokat a tárolóból",
+      "saveSettings": "Nem sikerült menteni az OBS beállításokat",
+      "connectionFailed": "Nem sikerült tesztelni az OBS WebSocket kapcsolatot",
+      "reconnectFailed": "Nem sikerült újracsatlakozni az OBS-hez az új beállításokkal"
+    }
+  },
+  "bible": {
+    "title": "Biblia Szerkesztő",
+    "subtitle": "Szentírás szövegek keresése, lekérése és szerkesztése prédikációhoz",
+    "tabs": {
+      "textus": "Textus",
+      "leckio": "Leckio"
+    },
+    "search": {
+      "titleTextus": "Textus Keresése",
+      "titleLeckio": "Leckio Keresése",
+      "description": "Adja meg a szentírás hivatkozást a Biblia API-ból történő lekéréshez",
+      "label": "Szentírás Hivatkozás",
+      "translation": "Fordítás",
+      "placeholderTextus": "pl. Jn 3,16-21",
+      "placeholderLeckio": "pl. Róm 8,28-39",
+      "fetch": "Lekérés",
+      "v2Hint": "Az eredmények gépelés közben megjelennek"
+    },
+    "translations": {
+      "v2Label": "V2 (Azonnali)",
+      "legacyLabel": "Hagyományos (Listából választás)"
+    },
+    "verses": {
+      "title": "Versek",
+      "description": "Kattintson a szerkesztésre a versek módosításához",
+      "saveAll": "Összes Mentése",
+      "clear": "Törlés"
+    },
+    "toasts": {
+      "fetching": {
+        "title": "Szentírás Lekérése",
+        "description": "{reference} betöltése a Biblia API-ból..."
+      },
+      "fetched": {
+        "title": "Szentírás Betöltve",
+        "description": "{count} vers betöltve ehhez: {reference}"
+      },
+      "saved": {
+        "title": "Változtatások Mentve",
+        "description": "A szentírás szerkesztések sikeresen mentve"
+      },
+      "error": {
+        "title": "Hiba",
+        "emptyQuery": "Kérjük, adjon meg egy szentírás hivatkozást"
+      }
+    }
+  },
+  "events": {
+    "title": "Istentiszteleti Események",
+    "subtitle": "Közelgő és elmúlt istentiszteleti események kezelése",
+    "addEvent": "Esemény Hozzáadása",
+    "upcomingTitle": "Közelgő Események",
+    "pastTitle": "Elmúlt Események",
+    "confirmDelete": "Biztosan törölni szeretné ezt az eseményt?",
+    "noTime": "Nincs időpont megadva",
+    "noSpeaker": "Nincs beszélő megadva",
+    "textusLabel": "Textus",
+    "leckioLabel": "Leckio",
+    "badges": {
+      "today": "Ma",
+      "upcoming": "Közelgő",
+      "past": "Elmúlt"
+    },
+    "empty": {
+      "title": "Nincsenek Események",
+      "description": "Hozza létre az első istentiszteleti eseményt a kezdéshez"
+    },
+    "noEventToday": {
+      "title": "Nincs Mai Esemény Ütemezve",
+      "description": "Nincs mai istentiszteleti esemény ütemezve. Hozzon létre egyet az előkészületekhez.",
+      "action": "Esemény Létrehozása"
+    },
+    "form": {
+      "basicInfo": "Alapadatok",
+      "defaultTitle": "(Vasárnapi) istentisztelet",
+      "title": "Esemény Címe",
+      "titlePlaceholder": "Vasárnapi Istentisztelet - Isten Szeretete",
+      "date": "Dátum",
+      "time": "Idő",
+      "speaker": "Beszélő",
+      "speakerPlaceholder": "Prédikátor John Smith",
+      "description": "Leírás",
+      "descriptionPlaceholder": "Esemény leírása a YouTube-hoz...",
+      "privacy": "YouTube Láthatóság",
+      "privacyOptions": {
+        "public": "Nyilvános",
+        "unlisted": "Nem listázott",
+        "private": "Privát"
+      },
+      "textus": "Textus (Elsődleges Felolvasás)",
+      "leckio": "Leckio (Másodlagos Felolvasás)",
+      "bibleReferences": "Bibliai Hivatkozások",
+      "biblePlaceholder": "pl. Jn 3,16-21",
+      "calculatedTitle": "YouTube Cím",
+      "calculatedTitleEmpty": "Válassz dátumot a cím generálásához",
+      "clear": "Törlés",
+      "save": "Esemény Mentése",
+      "cancel": "Mégse",
+      "fetchError": "Nem sikerült lekérni a Biblia verseket",
+      "validation": {
+        "title": "Kérjük, adjon meg egy esemény címet",
+        "date": "Kérjük, válasszon egy dátumot"
+      },
+      "recording": {
+        "title": "Felvétel és Feltöltés",
+        "autoUpload": "Felvétel automatikus feltöltése esemény után",
+        "uploadVisibility": "Feltöltött videó láthatósága",
+        "liveBroadcast": "Élő Közvetítés",
+        "uploadedRecording": "Felvétel",
+        "watchBroadcast": "Megtekintés",
+        "watchRecording": "Felvétel megtekintése",
+        "studio": "Studio",
+        "status": {
+          "none": "Nincs felvétel",
+          "pending": "Feltöltésre kész",
+          "uploading": "Feltöltés",
+          "paused": "Szünetel",
+          "uploaded": "Feltöltve",
+          "failed": "Feltöltés sikertelen"
+        },
+        "actions": {
+          "startUpload": "Feltöltés Indítása",
+          "pause": "Szünet",
+          "resume": "Folytatás"
+        }
+      }
+    },
+    "toasts": {
+      "created": {
+        "title": "Esemény Létrehozva",
+        "description": "Istentiszteleti esemény sikeresen létrehozva"
+      },
+      "updated": {
+        "title": "Esemény Frissítve",
+        "description": "Istentiszteleti esemény sikeresen frissítve"
+      },
+      "deleted": {
+        "title": "Esemény Törölve",
+        "description": "Istentiszteleti esemény eltávolítva"
+      },
+      "error": {
+        "title": "Hiba",
+        "description": "Hiba történt az esemény mentése közben"
+      }
+    }
+  },
+  "youtube": {
+    "modal": {
+      "title": "YouTube Bejelentkezés",
+      "description": "Jelentkezzen be Google fiókjával YouTube élő események ütemezéséhez.",
+      "configRequired": "API Konfiguráció Szükséges",
+      "configDescription": "Adja meg a YouTube Data API v3 hitelesítő adatait a Google Cloud Console-ból.",
+      "clientId": "Client ID",
+      "clientIdPlaceholder": "Az OAuth 2.0 Client ID-ja",
+      "clientSecret": "Client Secret",
+      "clientSecretPlaceholder": "Az OAuth 2.0 Client Secret-je",
+      "redirectUri": "Átirányítási URI",
+      "saveConfig": "Konfiguráció Mentése",
+      "configureCredentials": "API Hitelesítők Beállítása",
+      "loginButton": "Bejelentkezés Google-lel",
+      "waitingForLogin": "Várakozás a bejelentkezésre...",
+      "configSaved": "Beállítások Mentve",
+      "configSavedDescription": "YouTube API hitelesítő adatok mentve",
+      "error": "Hiba",
+      "enterBoth": "Kérjük, adja meg a Client ID-t és a Client Secret-et is",
+      "loginFailed": "Nem sikerült elindítani a bejelentkezést",
+      "loginSuccess": "Sikeres bejelentkezés"
+    },
+    "scheduling": {
+      "title": "YouTube Ütemezés",
+      "notScheduled": "Ütemezze ezt az eseményt YouTube élő közvetítésként.",
+      "scheduleButton": "Ütemezés YouTube-on",
+      "scheduling": "Ütemezés...",
+      "scheduled": "YouTube Esemény Ütemezve",
+      "scheduledDescription": "A YouTube élő esemény sikeresen létrehozva",
+      "viewInStudio": "Megtekintés a YouTube Studio-ban",
+      "failed": "Nem sikerült ütemezni a YouTube eseményt",
+      "updateFailed": "Nem sikerült frissíteni a YouTube eseményt"
+    }
+  },
+  "streaming": {
+    "stream": "Közvetítés",
+    "record": "Felvétel",
+    "obsNotConnected": "Csatlakozz az OBS-hez a vezérléshez",
+    "errors": {
+      "streamFailed": "Nem sikerült váltani a közvetítést",
+      "recordFailed": "Nem sikerült váltani a felvételt"
+    },
+    "youtube": {
+      "goLive": "Élő adás",
+      "goingLive": "Indítás...",
+      "liveSuccess": "Élő adásban!",
+      "liveSuccessDescription": "A YouTube közvetítés most élő",
+      "liveFailed": "Nem sikerült elindítani az élő adást",
+      "status": {
+        "created": "Létrehozva",
+        "ready": "Kész",
+        "testing": "Tesztelés",
+        "live": "Élő",
+        "complete": "Befejezve",
+        "unknown": "Ismeretlen"
+      }
+    }
+  },
+  "common": {
+    "save": "Mentés",
+    "cancel": "Mégse",
+    "close": "Bezárás",
+    "edit": "Szerkesztés",
+    "delete": "Törlés",
+    "loading": "Betöltés...",
+    "error": "Hiba",
+    "latest": "Legújabb",
+    "public": "Nyilvános",
+    "unlisted": "Nem listázott",
+    "private": "Privát",
+    "comingSoon": "Hamarosan"
+  },
+  "eventSession": {
+    "title": "Munkamenet",
+    "states": {
+      "idle": "Várakozás",
+      "preparing": "Előkészítés",
+      "active": "Aktív",
+      "finalizing": "Befejezés",
+      "completed": "Kész",
+      "paused": "Szünetel"
+    },
+    "automation": {
+      "uploadingRecording": "Felvétel feltöltése...",
+      "uploadingTo": "Feltöltés ide: {platform}...",
+      "publishingVideo": "Videó közzététele...",
+      "endingBroadcast": "Élő közvetítés befejezése...",
+      "completed": "Automatikus feldolgozás kész",
+      "failed": "Automatikus feldolgozás sikertelen: {error}",
+      "triggerManually": "Utófeldolgozás Indítása"
+    },
+    "finishSession": "Munkamenet befejezése",
+    "activity": {
+      "title": "Munkamenet Napló",
+      "SESSION_STARTED": "Munkamenet elindult",
+      "OBS_CONNECTED": "OBS csatlakozva",
+      "OBS_DISCONNECTED": "OBS lecsatlakozva",
+      "STREAM_STARTED": "Közvetítés elindult",
+      "STREAM_STOPPED": "Közvetítés leállt",
+      "RECORD_STARTED": "Felvétel elindult",
+      "RECORD_STOPPED": "Felvétel leállt",
+      "YOUTUBE_LIVE": "YouTube élő adásban",
+      "SESSION_FINALIZING": "Utófeldolgozás",
+      "SESSION_COMPLETED": "Munkamenet kész",
+      "SESSION_ERROR": "Hiba",
+      "SESSION_ENDED": "Munkamenet befejezve",
+      "RECORDING_SCAN_STARTED": "Felvétel keresés elindult",
+      "RECORDING_SCAN_COMPLETED": "Felvétel keresés kész",
+      "RECORDING_MANUALLY_ADDED": "Felvétel kézzel hozzáadva",
+      "RECORDING_SELECTED_FOR_UPLOAD": "Felvétel kiválasztva feltöltésre",
+      "RECORDING_DESELECTED_FROM_UPLOAD": "Felvétel eltávolítva a feltöltésből",
+      "SESSION_FINALIZED": "Munkamenet véglegesítve"
+    },
+    "connection": {
+      "lost": "Kapcsolat Elveszett",
+      "reconnecting": "Újracsatlakozás...",
+      "resumed": "Kapcsolat helyreállt"
+    },
+    "youtube": {
+      "notConnected": "YouTube Nincs Csatlakoztatva",
+      "connectToUpload": "Csatlakozz a YouTube-hoz a felvétel feltöltéséhez."
+    }
+  },
+  "recordings": {
+    "noRecordings": "Még nincsenek felvételek",
+    "viewOnYoutube": "Megtekintés YouTube-on",
+    "includeInUpload": "Feltöltésbe belefoglalás",
+    "customTitle": "Egyéni cím (opcionális)",
+    "noneReady": "Nincs feltöltésre kész felvétel",
+    "oneReady": "1 felvétel feltöltésre kész",
+    "multipleReady": "{count} felvétel feltöltésre kész",
+    "table": {
+      "title": "Felvételek",
+      "recording": "Felvétel",
+      "duration": "Időtartam",
+      "event": "Esemény",
+      "date": "Dátum",
+      "speaker": "Beszélő",
+      "status": "Állapot",
+      "youtube": "YouTube",
+      "actions": "Műveletek",
+      "editEvent": "Szerkesztés",
+      "upload": "Feltöltés",
+      "uploading": "Feltöltés...",
+      "uploadSuccess": "Felvétel sikeresen feltöltve",
+      "uploadFailed": "Feltöltés sikertelen"
+    }
+  },
+  "recording": {
+    "selectFile": {
+      "title": "Felvétel Kiválasztása",
+      "description": "Több felvétel található ({count}). Kérjük, válassza ki a megfelelőt feltöltéshez.",
+      "useLatest": "Legújabb Használata",
+      "useLongest": "Leghosszabb Használata",
+      "autoSelected": "Felvétel automatikusan kiválasztva: {filename}",
+      "noRecordingFound": "Nem található megfelelő felvétel",
+      "multipleLongVideos": "Több hosszú felvétel található, kérjük válasszon"
+    }
+  },
+  "obsConfig": {
+    "title": "OBS Konfiguráció",
+    "subtitle": "OBS kapcsolat és eszköz hozzárendelések konfigurálása"
+  },
+  "settings": {
+    "title": "Beállítások",
+    "subtitle": "Alkalmazás beállítások és adatkezelés",
+    "tabs": {
+      "connection": "Kapcsolat",
+      "devices": "Eszközök",
+      "content": "Tartalom",
+      "system": "Rendszer"
+    },
+    "importExport": {
+      "title": "Adatkezelés",
+      "description": "Exportálja beállításait fájlba vagy importáljon biztonsági mentésből",
+      "export": "Beállítások Exportálása",
+      "import": "Beállítások Importálása",
+      "includeYoutubeTokens": "YouTube hitelesítő adatok belefoglalása",
+      "warning": "Az importálás felülírja az összes jelenlegi beállítást",
+      "exportSuccess": "Beállítások sikeresen exportálva",
+      "importSuccess": "Beállítások sikeresen importálva",
+      "importError": "Nem sikerült importálni a beállításokat"
+    },
+    "update": {
+      "title": "Alkalmazás Frissítések",
+      "description": "Az alkalmazás új verzióinak ellenőrzése",
+      "currentVersion": "Jelenlegi verzió",
+      "checkForUpdates": "Frissítések Keresése",
+      "checking": "Ellenőrzés...",
+      "upToDate": "A legújabb verziót futtatja",
+      "devMode": "Verzióinformáció nem elérhető (fejlesztői mód)"
+    },
+    "upload": {
+      "title": "Feltöltési Beállítások",
+      "description": "Automatikus feltöltés konfigurálása videó platformokra események után",
+      "saved": "Feltöltési beállítások mentve",
+      "global": "Általános Beállítások",
+      "minDuration": "Minimum időtartam (perc)",
+      "minDurationHint": "Az ennél rövidebb események nem indítanak automatikus feltöltést",
+      "shortThreshold": "Rövid videó küszöb (perc)",
+      "shortThresholdHint": "Az ennél rövidebb videók figyelmen kívül maradnak kiválasztáskor",
+      "retryAttempts": "Újrapróbálkozások száma",
+      "chunkSize": "Darabméret (MB)",
+      "youtube": {
+        "title": "YouTube",
+        "autoUpload": "Felvétel automatikus feltöltése esemény után",
+        "autoPublish": "Videó automatikus közzététele amikor kész",
+        "defaultPrivacy": "Alapértelmezett láthatóság",
+        "useEventPrivacy": "Esemény-specifikus láthatóság használata",
+        "saved": "YouTube feltöltési beállítások mentve"
+      },
+      "facebook": {
+        "title": "Facebook",
+        "autoUpload": "Automatikus feltöltés Facebook oldalra",
+        "selectPage": "Oldal Kiválasztása",
+        "crosspost": "Megosztás idővonalon is"
+      }
+    }
+  },
+  "upload": {
+    "section": {
+      "title": "Feltöltési Állapot"
+    },
+    "pending": {
+      "title": "Függőben Lévő Feltöltések",
+      "justNow": "épp most",
+      "ago": "ezelőtt",
+      "resumed": "Feltöltés folytatva",
+      "resumeFailed": "Nem sikerült folytatni a feltöltést",
+      "cancelled": "Feltöltés megszakítva",
+      "cancelFailed": "Nem sikerült megszakítani a feltöltést",
+      "allResumed": "Összes feltöltés folytatva",
+      "resumeAllFailed": "Nem sikerült folytatni a feltöltéseket",
+      "resumeAll": "Összes Folytatása"
+    },
+    "reauth": {
+      "title": "Újra Bejelentkezés Szükséges",
+      "description": "YouTube munkamenet lejárt",
+      "action": "Újra Bejelentkezés YouTube-ra"
+    },
+    "status": {
+      "pending": "Függőben",
+      "uploading": "Feltöltés",
+      "paused": "Szünetel",
+      "processing": "Feldolgozás",
+      "completed": "Kész",
+      "failed": "Sikertelen"
+    }
+  },
+  "videoUploader": {
+    "title": "Videó Feltöltő",
+    "youtubeNotConnected": "YouTube Nincs Csatlakoztatva",
+    "connectToUpload": "Csatlakozz a YouTube-hoz a felvételek feltöltéséhez.",
+    "sessionManaged": "Ezt a feltöltést az aktuális munkamenet kezeli",
+    "resumed": "Feltöltés folytatva",
+    "resumeFailed": "Nem sikerült folytatni a feltöltést",
+    "cancelled": "Feltöltés megszakítva",
+    "cancelFailed": "Nem sikerült megszakítani a feltöltést",
+    "allResumed": "Összes feltöltés folytatva",
+    "resumeAllFailed": "Nem sikerült folytatni a feltöltéseket",
+    "resumeAll": "Összes Folytatása",
+    "resume": "Folytatás",
+    "cancel": "Megszakítás",
+    "status": {
+      "pending": "Függőben",
+      "uploading": "Feltöltés",
+      "paused": "Szünetel",
+      "processing": "Feldolgozás",
+      "failed": "Sikertelen"
+    }
+  },
+  "finalize": {
+    "title": "Esemény Véglegesítése",
+    "button": "Esemény Véglegesítése",
+    "submit": "Véglegesítés",
+    "scan": {
+      "title": "Felvételek Keresése",
+      "scanning": "Keresés...",
+      "noDirectory": "Nincs felvételi mappa beállítva ehhez az eseményhez.",
+      "found": "{count} felvétel találva",
+      "noneFound": "Nem találhatók új felvételek",
+      "addToEvent": "Hozzáadás",
+      "startScan": "Mappa Átvizsgálása"
+    },
+    "manual": {
+      "title": "Fájlok Kézi Hozzáadása",
+      "selectFiles": "Fájlok Kiválasztása"
+    },
+    "recordings": {
+      "title": "Felvételek"
+    },
+    "toast": {
+      "finalized": "Esemény Véglegesítve",
+      "finalizedDescription": "Az esemény sikeresen véglegesítve"
+    }
+  },
+  "obsDevices": {
+    "title": "OBS Eszközök",
+    "subtitle": "Kijelzők, audio eszközök és böngésző források konfigurálása az OBS-hez",
+    "refreshFromObs": "Frissítés OBS-ből",
+    "loadingObs": "Betöltés...",
+    "recheckAll": "Összes Újraellenőrzése",
+    "checking": "Ellenőrzés...",
+    "required": "Szükséges",
+    "source": "Forrás",
+    "goToObsSettings": "OBS Beállításokhoz",
+    "displays": {
+      "title": "Kijelzők",
+      "description": "Kijelző rögzítő források konfigurálása az OBS-ben",
+      "add": "Kijelző Hozzáadása"
+    },
+    "audio": {
+      "title": "Audio Eszközök",
+      "description": "Audio rögzítő források konfigurálása az OBS-ben",
+      "add": "Audio Eszköz Hozzáadása"
+    },
+    "browser": {
+      "title": "Böngésző Források",
+      "description": "Böngésző források konfigurálása dinamikus URL sablonokkal",
+      "add": "Böngésző Forrás Hozzáadása"
+    },
+    "form": {
+      "name": "Név",
+      "namePlaceholder": "Megjelenítési név ehhez az eszközhöz",
+      "obsSource": "OBS Forrás",
+      "selectSource": "OBS forrás kiválasztása...",
+      "device": "Eszköz",
+      "selectDevice": "Eszköz kiválasztása...",
+      "markRequired": "Jelölés szükségesként (hiba megjelenítése, ha nem elérhető)",
+      "urlTemplate": "URL Sablon",
+      "urlTemplateHint": "Elérhető változók: ${textus}, ${lekcio}",
+      "save": "Mentés",
+      "cancel": "Mégse"
+    },
+    "toasts": {
+      "dataLoaded": "OBS Adatok Betöltve",
+      "dataLoadedDescription": "Az elérhető eszközök és források frissítve",
+      "deviceAdded": "Eszköz Hozzáadva",
+      "deviceRemoved": "Eszköz Eltávolítva",
+      "browserAdded": "Böngésző Forrás Hozzáadva",
+      "browserRemoved": "Böngésző Forrás Eltávolítva"
+    },
+    "errors": {
+      "obsNotConnected": "Az OBS nincs csatlakoztatva. Kérjük, először csatlakozzon az OBS-hez.",
+      "fillAllFields": "Kérjük, töltse ki az összes kötelező mezőt"
+    },
+    "availableDevices": "Elérhető Eszközök",
+    "listeners": "Eszközfigyelők",
+    "scanNow": "Szkennelés Most",
+    "addListener": "Figyelő Hozzáadása",
+    "connectorPlaceholder": "OBS Studio",
+    "notConnected": "Csatlakoztassa az OBS-t az eszközök szkenneléséhez",
+    "categories": {
+      "display": "Kijelző",
+      "audioInput": "Audio Bemenet",
+      "audioOutput": "Audio Kimenet",
+      "videoInput": "Video Bemenet",
+      "captureCard": "Rögzítő Kártya"
+    },
+    "listenerForm": {
+      "category": "Kategória",
+      "device": "Eszköz",
+      "name": "Barátságos Név",
+      "save": "Mentés",
+      "cancel": "Mégse"
+    },
+    "status": {
+      "available": "Elérhető",
+      "unavailable": "Nem elérhető"
+    },
+    "manageDeviceMonitors": "Eszközfigyelők Kezelése →"
+  },
+  "nav": {
+    "dashboard": "Főoldal",
+    "events": "Események",
+    "connect": "Kapcsolódás",
+    "settings": "Beállítások",
+    "liveEvents": "Élő Közvetítések & Videók",
+    "presentations": "Prezentációk",
+    "obsCaption": "OBS Felirat",
+    "obsDevices": "Eszközfigyelő",
+    "queues": "Várólisták",
+    "logs": "Naplók"
+  },
+  "queuesPage": {
+    "title": "Várólisták",
+    "refresh": "Frissítés",
+    "available": "Elérhető",
+    "inFlight": "Folyamatban",
+    "dlq": "Sikertelen",
+    "headAge": "Legrégebbi",
+    "noQueues": "Még nincs várólista",
+    "noJobs": "Nincs a szűrőnek megfelelő feladat",
+    "redrive": "Újraindítás",
+    "redriven": "A feladat visszakerült a sorba",
+    "purge": "Feladat törlése",
+    "loadFailed": "A várólista adatai nem tölthetők be",
+    "actionFailed": "A művelet nem sikerült",
+    "filters": {
+      "all": "Összes",
+      "pending": "Várakozó",
+      "processing": "Folyamatban",
+      "succeeded": "Sikeres",
+      "dead": "Sikertelen"
+    },
+    "columns": {
+      "type": "Típus",
+      "status": "Állapot",
+      "attempts": "Próbálkozás",
+      "nextRetry": "Következő próba",
+      "payload": "Adat",
+      "lastError": "Utolsó hiba"
+    }
+  },
+  "presentations": {
+    "title": "Prezentációk",
+    "folders": {
+      "title": "Prezentáció Mappák",
+      "add": "Mappa Hozzáadása",
+      "remove": "Mappa eltávolítása"
+    },
+    "search": {
+      "title": "Fájl Keresés"
+    },
+    "results": {
+      "title": "Eredmények"
+    },
+    "status": {
+      "title": "Keynote Állapot",
+      "slideshow": "Diavetítés",
+      "slide": "Dia",
+      "document": "Dokumentum",
+      "on": "BE",
+      "off": "KI"
+    },
+    "controls": {
+      "title": "Vezérlők",
+      "first": "Első Dia",
+      "prev": "Előző Dia",
+      "next": "Következő Dia",
+      "last": "Utolsó Dia",
+      "play": "Lejátszás",
+      "stop": "Megállítás",
+      "closeAll": "Összes Bezárása"
+    }
+  },
+  "liveEvents": {
+    "title": "Élő Közvetítések & Videók",
+    "platform": {
+      "youtube": "YouTube"
+    },
+    "loading": "Betöltés…",
+    "error": "A tartalom betöltése sikertelen",
+    "sessionExpired": "A YouTube munkamenet lejárt — kérjük, jelentkezzen be újra",
+    "reLogin": "Újra bejelentkezés YouTube-ra",
+    "retry": "Újra",
+    "notConnected": "Nincs kapcsolat",
+    "connectFirst": "Csatlakoztassa YouTube-fiókját a Beállításokban a csatorna tartalmának megtekintéséhez.",
+    "broadcasts": "Élő Közvetítések",
+    "videos": "Feltöltött Videók",
+    "noContent": "Nem található tartalom",
+    "views": "{count} megtekintés",
+    "live": "ÉLŐ",
+    "upcoming": "HAMAROSAN"
+  },
+  "appSettings": {
+    "title": "Beállítások",
+    "language": "Nyelv",
+    "presentationFonts": {
+      "title": "PowerPoint betűtípusok",
+      "names": "Cormorant Garamond és Geist Mono",
+      "install": "Betűtár megnyitása",
+      "installing": "Megnyitás…",
+      "required": "Telepítsd a Betűtárban, hogy a Keynote is elérje a betűtípusokat.",
+      "fontBook": "A Betűtárban kattints mindkét betűtípus Telepítés gombjára, majd térj vissza ide.",
+      "restart": "Telepítve — indítsd újra a Keynote-ot vagy a PowerPointot"
+    },
+    "presentationFolders": {
+      "title": "PowerPoint célmappák",
+      "song": "Ének PPT-k mappája",
+      "bible": "Bibliai PPT-k mappája (Textus és Lekció)",
+      "save": "Mentés",
+      "saving": "Mentés…"
+    },
+    "appMode": {
+      "title": "App Mód",
+      "current": "Jelenlegi mód",
+      "changeMode": "Mód módosítása",
+      "changing": "Visszaállítás…",
+      "note": "A mód módosítása visszahozza a telepítési képernyőt. Ha ez az eszköz szerverként fut, a beágyazott adatbázis tovább fut, amíg újra nem indítja az alkalmazást."
+    },
+    "activeUi": {
+      "title": "Megjelenítő felület",
+      "description": "Ez a build több felületet tartalmaz. Válaszd ki, melyiket nyissa meg ez az ablak.",
+      "appliesOnRestart": "A következő indításkor lép érvénybe."
+    },
+    "connectors": {
+      "title": "Csatlakozók",
+      "saved": "A(z) {connector} beállításai mentve",
+      "saveFailed": "A(z) {connector} beállításait nem sikerült menteni",
+      "secretStored": "Van mentett érték. Hagyd üresen a megtartásához, vagy írj be újat a cseréjéhez — a szerver soha nem küldi vissza.",
+      "clearSecret": "Törlés",
+      "showSecret": "Megmutat",
+      "revealFailed": "A mentett érték nem olvasható",
+      "obs": {
+        "title": "OBS Studio",
+        "subtitle": "Csatlakozás az OBS Studiohoz WebSocket-en (v5)",
+        "host": "Gazdagép",
+        "port": "Port",
+        "password": "Jelszó",
+        "passwordPlaceholder": "OBS WebSocket jelszó",
+        "enabled": "OBS csatlakozó engedélyezése",
+        "save": "Mentés és újracsatlakozás",
+        "saving": "Mentés…",
+        "connect": "Csatlakozás",
+        "disconnect": "Lecsatlakozás",
+        "status": "Állapot"
+      },
+      "vmix": {
+        "title": "VMix",
+        "subtitle": "VMix támogatás hamarosan",
+        "host": "Gazdagép",
+        "port": "Port",
+        "enabled": "VMix csatlakozó engedélyezése",
+        "save": "Mentés",
+        "saving": "Mentés…",
+        "comingSoon": "A VMix integráció még nem érhető el. A konfiguráció mentésre kerül a jövőbeli használathoz."
+      },
+      "middlecontrol": {
+        "title": "Middle Control",
+        "subtitle": "Kamera-, felvétel- és presetvezérlés a Middle Controlon keresztül",
+        "host": "Gazdagép",
+        "port": "Port",
+        "enabled": "Middle Control csatlakozó engedélyezése",
+        "save": "Mentés és újracsatlakozás",
+        "saving": "Mentés…",
+        "help": "A Middle Controlnak futnia kell. Ha a Metocast szervergépén fut, használd a localhost címet — nincs szükség IP-címre. A jelenlegi macOS-verziók a 11584-es portot használják; a megfigyelt 3.2.0-s macOS build a 11581-est; Windows alatt a port 11580.",
+        "sdk": "Külső SDK / API",
+        "devicesTitle": "Middle Control eszközök",
+        "devicesSummary": "{cameras} kamera · {ptz} APC-R/PTZ",
+        "devicesDisconnected": "Csatlakoztasd a Middle Controlt a kamerák és APC-R PTZ egységek megjelenítéséhez.",
+        "devicesEmpty": "A Middle Control nem jelez csatlakoztatott kamerát vagy APC-R PTZ egységet.",
+        "camera": "{id}. kamera",
+        "connected": "Csatlakoztatva",
+        "cameraOffline": "A kamera nem elérhető",
+        "selected": "Kiválasztva",
+        "recording": "Felvétel",
+        "ptz": "APC-R · PTZ",
+        "useLocal": "Ennek a gépnek a használata",
+        "scan": "Hálózat keresése",
+        "scanAgain": "Keresés újra",
+        "scanning": "Keresés…",
+        "useEndpoint": "{address} használata",
+        "discoveryDescription": "Ellenőrzi ezt a gépet és a Metocast szerver helyi hálózatát az ismert Middle Control portokon. Csak érvényes visszajelzési adatfolyamot fogad el.",
+        "discoveryEmpty": "Egy Middle Control példány sem válaszolt. Győződj meg róla, hogy fut, majd keress újra. Kézi megadáshoz Macen nyisd meg a Rendszerbeállítások → Hálózat lapot, Windowson a Beállítások → Hálózat és internet → Tulajdonságok lapot, majd másold a gép IPv4-címét a fenti Gazdagép mezőbe."
+      },
+      "youtube": {
+        "title": "YouTube",
+        "subtitle": "Élő közvetítések ütemezése YouTube Data API v3 segítségével",
+        "clientId": "Ügyfél-azonosító",
+        "clientSecret": "Ügyfél-titok",
+        "enabled": "YouTube csatlakozó engedélyezése",
+        "save": "Mentés",
+        "saving": "Mentés…",
+        "login": "Bejelentkezés YouTube-ra",
+        "logout": "Kijelentkezés",
+        "loggingIn": "Böngésző megnyitása…"
+      },
+      "facebook": {
+        "title": "Facebook",
+        "subtitle": "Facebook oldal-esemény és élő közvetítés létrehozása",
+        "appId": "Alkalmazás-azonosító",
+        "appSecret": "Alkalmazás-titok",
+        "pageId": "Oldal-azonosító",
+        "enabled": "Facebook csatlakozó engedélyezése",
+        "save": "Mentés",
+        "saving": "Mentés…",
+        "login": "Bejelentkezés Facebook-ra",
+        "logout": "Kijelentkezés",
+        "loggingIn": "Böngésző megnyitása…"
+      },
+      "atem": {
+        "title": "Blackmagic ATEM",
+        "subtitle": "Program, előnézet, felvétel és közvetítés vezérlése",
+        "host": "Gazdagép / IP",
+        "port": "Port",
+        "enabled": "ATEM csatlakozó engedélyezése",
+        "save": "Mentés",
+        "saving": "Mentés…"
+      },
+      "broadlink": {
+        "title": "Broadlink RF/IR",
+        "subtitle": "Vetítők, kijelzők és AV eszközök vezérlése IR és RF jelekkel",
+        "enabled": "Broadlink csatlakozó engedélyezése",
+        "save": "Mentés",
+        "saving": "Mentés…"
+      },
+      "discord": {
+        "title": "Discord",
+        "subtitle": "Discord webhook támogatás hamarosan",
+        "webhookUrl": "Webhook URL",
+        "enabled": "Discord csatlakozó engedélyezése",
+        "save": "Mentés",
+        "saving": "Mentés…",
+        "comingSoon": "A Discord integráció még nem elérhető. A konfiguráció mentésre kerül a jövőbeli használathoz."
+      },
+      "statusLabels": {
+        "connected": "Csatlakozva",
+        "connecting": "Csatlakozás…",
+        "disconnected": "Nincs kapcsolat",
+        "error": "Hiba"
+      },
+      "szentiras": {
+        "title": "Szentírás.eu",
+        "subtitle": "A klasszikus magyar fordítások (RUF, KG, KNB, SZIT, BD, STL) bibliai szövegének forrása.",
+        "enabled": "Engedélyezve",
+        "apiKey": "API kulcs",
+        "apiKeyHint": "Minden lekérdezéshez ingyenes API kulcs szükséges. Igényelhető itt:",
+        "save": "Mentés",
+        "saving": "Mentés…"
+      }
+    },
+    "dependencies": {
+      "title": "Függőségek",
+      "note": "Opcionális csomagok a stream előnézethez és a multi-stream relayhez."
+    },
+    "updater": {
+      "title": "Alkalmazás verziója",
+      "currentVersion": "Jelenlegi verzió",
+      "checkForUpdates": "Frissítések keresése",
+      "checking": "Keresés…",
+      "upToDate": "Az alkalmazás naprakész",
+      "updateAvailable": "Elérhető frissítés: v{version}",
+      "download": "Letöltés",
+      "install": "Telepítés és újraindítás",
+      "installing": "Frissítés telepítése…",
+      "installed": "Frissítés telepítve. Újraindítás…",
+      "installFailed": "Nem sikerült telepíteni a frissítést",
+      "lastChecked": "Utoljára ellenőrizve",
+      "errorChecking": "Nem sikerült ellenőrizni a frissítéseket",
+      "toast": {
+        "title": "Frissítés elérhető",
+        "description": "A {version} verzió letölthető"
+      }
+    },
+    "cronJobs": {
+      "title": "Időzített feladatok",
+      "colName": "Név",
+      "colExpression": "Kifejezés",
+      "colEnabled": "Engedélyezve",
+      "colPullYoutube": "YouTube húzás",
+      "colActions": "Műveletek",
+      "noneConfigured": "Még nincsenek időzített feladatok beállítva.",
+      "editTitle": "Időzített feladat szerkesztése",
+      "addTitle": "Időzített feladat hozzáadása",
+      "namePlaceholder": "pl. YouTube lekérdezés",
+      "expressionLabel": "Cron kifejezés",
+      "expressionPlaceholder": "pl. 0 */5 * * * * (minden 5 percben)",
+      "enabledLabel": "Engedélyezve",
+      "pullYoutubeLabel": "YouTube élő események lekérése",
+      "saving": "Mentés…",
+      "save": "Mentés",
+      "cancel": "Mégse",
+      "editButton": "Szerkesztés",
+      "deleteButton": "Törlés"
+    }
+  },
+  "logsPage": {
+    "title": "Alkalmazásnaplók",
+    "loading": "Naplók betöltése…",
+    "refresh": "Frissítés",
+    "openLog": "Alkalmazásnapló megnyitása",
+    "copyPath": "Útvonal másolása",
+    "downloadLog": "Napló letöltése",
+    "downloading": "Letöltés…",
+    "removeLog": "Napló eltávolítása",
+    "removing": "Eltávolítás…",
+    "removeConfirm": "Eltávolítja az aktuális alkalmazásnapló tartalmát?",
+    "logFileFilter": "Naplófájl",
+    "empty": "Még nincsenek alkalmazásnaplók",
+    "noMatches": "Nincs a szűrőnek megfelelő naplósor",
+    "desktopOnly": "Az alkalmazásnaplók az asztali alkalmazásban érhetők el.",
+    "filters": {
+      "label": "Naplószint szűrő",
+      "all": "Összes",
+      "info": "Infó",
+      "warn": "Figyelmeztetések",
+      "error": "Hibák"
+    },
+    "toasts": {
+      "opened": "Alkalmazásnapló megnyitva",
+      "openFailed": "Az alkalmazásnapló megnyitása sikertelen",
+      "downloaded": "Alkalmazásnapló letöltve",
+      "downloadFailed": "Az alkalmazásnapló letöltése sikertelen",
+      "removed": "Alkalmazásnapló eltávolítva",
+      "removeFailed": "Az alkalmazásnapló eltávolítása sikertelen",
+      "pathCopied": "Napló útvonala másolva",
+      "copyFailed": "A napló útvonalának másolása sikertelen",
+      "clipboardUnavailable": "A vágólap nem érhető el"
+    }
+  },
+  "errorsPage": {
+    "title": "Csatlakozó hibák",
+    "noErrors": "Nincsenek csatlakozó hibák",
+    "recheck": "Újraellenőrzés",
+    "fix": "Javítás",
+    "info": "Info",
+    "closeInfo": "Info bezárása",
+    "rechecking": "Ellenőrzés…"
+  }
+}

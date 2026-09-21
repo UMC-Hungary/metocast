@@ -1,0 +1,46 @@
+meta {
+  name: WS - Navigate Slides
+  type: http
+  seq: 3
+}
+
+# WebSocket commands — use a WS client.
+# Connect to: ws://{{host}}/ws?token={{authToken}}
+# All navigation commands broadcast presenter.slide_changed to all clients.
+
+get {
+  url: {{baseUrl}}/ws
+  body: none
+  auth: none
+}
+
+docs {
+  ## WS: slide navigation commands
+
+  All commands broadcast `presenter.slide_changed` to every connected client.
+
+  | Command | Extra fields | Description |
+  |---|---|---|
+  | `presenter.next`  | —            | Advance one slide |
+  | `presenter.prev`  | —            | Go back one slide |
+  | `presenter.first` | —            | Jump to slide 1 |
+  | `presenter.last`  | —            | Jump to last slide |
+  | `presenter.goto`  | `slide: N`   | Jump to slide N |
+  | `presenter.unload`| —            | Clear the presentation |
+  | `presenter.status`| —            | Reply to sender with `presenter.state` |
+
+  **Broadcast response for next/prev/first/last/goto:**
+  ```json
+  { "type": "presenter.slide_changed", "currentSlide": 3, "totalSlides": 12 }
+  ```
+
+  **Response for unload / load (sent to all clients):**
+  ```json
+  { "type": "presenter.state", "state": { "loaded": false, ... } }
+  ```
+
+  **Example — jump to slide 5:**
+  ```json
+  { "type": "presenter.goto", "slide": 5 }
+  ```
+}

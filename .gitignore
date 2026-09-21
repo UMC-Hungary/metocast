@@ -1,0 +1,80 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Node.js
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# SvelteKit
+/build
+ui/*/build
+storybook-static
+/.svelte-kit
+/package
+.svelte-kit
+
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+dist
+dist-ssr
+
+# Environment
+.env
+.env.*
+!.env.example
+!.env.test
+
+# Tauri
+/target
+/src-tauri/gen/schemas
+
+# Generated Apple package artifacts
+/apple/MetocastFFI.xcframework
+/apple/Sources/Metocast/Metocast.swift
+
+# IDE
+.vscode/
+.agents/
+.idea
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+.loadpath
+
+# Logs
+/logs/
+*.log
+
+# Testing
+coverage
+.nyc_output
+
+# Temporary files
+*.tmp
+*.temp
+tmp.*
+presenter-receiver/tmp.*
+
+# Local test server state
+test-server-data/
+
+# Claude AI
+.claude
+gemini.md
+
+# Intermediate output of scripts/build-ui.mjs
+.ui-staging/
+
+# OpenSpec (local planning only, not tracked)
+/openspec/
+
+# Local planning notes (kept on disk, not tracked)
+/plans/

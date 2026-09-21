@@ -1,0 +1,33 @@
+meta {
+  name: Parse Presentation
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/presenter/parse
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "filePath": "/Users/admin/Presentations/sunday-service.pptx"
+  }
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("success is true", function() {
+    expect(res.body.success).to.equal(true);
+  });
+  test("data has slides array", function() {
+    expect(Array.isArray(res.body.data.slides)).to.equal(true);
+  });
+}

@@ -1,0 +1,1020 @@
+name: Build and Release
+
+on:
+  # Run tests on every pull request targeting main
+  pull_request:
+    branches:
+      - main
+  # Build and release on push to main or app version tags (vX.Y.Z only)
+  # companion-v* and presenter-receiver-v* tags have their own workflows
+  push:
+    branches:
+      - main
+    tags:
+      - 'v[0-9]*'
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+  # Manual trigger
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  # Bundle both rendering UIs; the first one listed is what a fresh install opens
+  # and the settings selector switches between them (see ui/README.md).
+  METOCAST_UI: sanctum,classic
+  TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+  TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+jobs:
+  # ──────────────────────────────────────────────
+  # E2E tests — must pass before any build starts
+  # Runs on Linux only; builds the headless metocast-server binary,
+  # starts it, runs pnpm test:e2e, then shuts it down.
+  # ──────────────────────────────────────────────
+  test:
+    runs-on: ubuntu-22.04
+    name: E2E Tests
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            libasound2-dev \
+            libudev-dev
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 'lts/*'
+
+      - name: Setup pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9 --activate
+
+      - name: Get pnpm store directory
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Cache pnpm dependencies
+        uses: actions/cache@v5
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: Linux-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: Linux-pnpm-store-
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.98.1
+
+      - name: Cache Rust dependencies
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+          shared-key: test-server
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Build headless server
+        run: pnpm build:server
+
+      - name: Cache embedded PostgreSQL binary
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/postgresql-embedded
+          key: postgresql-embedded-${{ runner.os }}-v1
+
+      - name: Cache test server data directory
+        uses: actions/cache@v5
+        with:
+          path: test-server-data
+          key: test-server-data-${{ runner.os }}-v1
+
+      - name: Run E2E tests
+        # TAURI_TEST_TOKEN comes from .env.test (loaded by vitest.config.ts via dotenv).
+        # Both the server (started in globalSetup) and test workers use the same
+        # hardcoded test token from .env.test — no CI secret needed here.
+        run: pnpm test:e2e
+
+  # ──────────────────────────────────────────────
+  # Desktop builds (macOS, Windows, Linux)
+  # ──────────────────────────────────────────────
+  build:
+    needs: test
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Windows
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundles: nsis msi
+            name: Windows-x64
+
+          # macOS ARM (M1/M2/M3)
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            bundles: dmg app
+            name: macOS-ARM64
+
+          # macOS Intel (cross-compile from ARM runner)
+          - platform: macos-14
+            target: x86_64-apple-darwin
+            bundles: dmg app
+            name: macOS-Intel
+
+          # Linux
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            bundles: deb rpm appimage
+            name: Linux-x64
+
+    runs-on: ${{ matrix.platform }}
+    name: Build (${{ matrix.name }})
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      # Linux dependencies
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            libasound2-dev \
+            libudev-dev
+
+      # Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 'lts/*'
+
+      # Setup pnpm
+      - name: Setup pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9 --activate
+
+      # Get pnpm store directory for caching
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      # Cache pnpm dependencies
+      - name: Cache pnpm dependencies
+        uses: actions/cache@v5
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      # Setup Rust
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.98.1
+        with:
+          targets: ${{ matrix.target }}
+
+      # Cache Rust dependencies
+      - name: Cache Rust dependencies
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+          shared-key: ${{ matrix.target }}
+
+      # Update version from git tag
+      - name: Update version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "Updating version to: $VERSION"
+
+          # Update package.json using node
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = '$VERSION';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+
+          # Update tauri.conf.json using node
+          node -e "
+            const fs = require('fs');
+            const conf = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
+            conf.version = '$VERSION';
+            fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
+          "
+
+          # Update Cargo.toml (use sed with cross-platform approach)
+          if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' 's/^version = ".*"/version = "'"$VERSION"'"/' src-tauri/Cargo.toml
+          else
+            sed -i 's/^version = ".*"/version = "'"$VERSION"'"/' src-tauri/Cargo.toml
+          fi
+
+          echo "Updated versions:"
+          grep '"version"' package.json
+          grep '"version"' src-tauri/tauri.conf.json
+          grep '^version' src-tauri/Cargo.toml
+
+      # Install frontend dependencies
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      # Build the app
+      - name: Build Tauri app
+        run: pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+
+      - name: Verify macOS app has no Homebrew runtime links
+        if: runner.os == 'macOS'
+        run: |
+          APP_PATH=$(find target/${{ matrix.target }}/release/bundle -name "*.app" -type d | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "No app bundle found"
+            exit 1
+          fi
+
+          echo "Checking Mach-O dependencies in: $APP_PATH"
+          FAILED=0
+          while IFS= read -r file; do
+            if file "$file" | grep -q "Mach-O"; then
+              echo "Inspecting: $file"
+              if otool -L "$file" | grep -E "/opt/homebrew|/usr/local"; then
+                echo "::error file=$file::macOS app links to a Homebrew library"
+                FAILED=1
+              fi
+            fi
+          done < <(find "$APP_PATH/Contents" -type f)
+
+          exit "$FAILED"
+
+      - name: Sign macOS app
+        if: runner.os == 'macOS'
+        run: |
+          APP_PATH=$(find target/${{ matrix.target }}/release/bundle -name "*.app" -type d | head -1)
+          if [ -n "$APP_PATH" ]; then
+            echo "Signing: $APP_PATH"
+            codesign --force --deep --sign - "$APP_PATH"
+            echo "Signed successfully"
+          fi
+
+      # Rename macOS tarballs to include architecture
+      - name: Rename macOS tarballs with architecture
+        if: runner.os == 'macOS'
+        run: |
+          MACOS_DIR="target/${{ matrix.target }}/release/bundle/macos"
+          if [ -d "$MACOS_DIR" ]; then
+            # Determine architecture suffix
+            if [ "${{ matrix.target }}" = "aarch64-apple-darwin" ]; then
+              ARCH="aarch64"
+            else
+              ARCH="x64"
+            fi
+
+            # Rename .app.tar.gz files
+            for f in "$MACOS_DIR"/*.app.tar.gz; do
+              if [ -f "$f" ]; then
+                BASENAME=$(basename "$f" .app.tar.gz)
+                NEW_NAME="${BASENAME}_${ARCH}.app.tar.gz"
+                mv "$f" "$MACOS_DIR/$NEW_NAME"
+                echo "Renamed: $f -> $MACOS_DIR/$NEW_NAME"
+              fi
+            done
+
+            # Rename .app.tar.gz.sig files
+            for f in "$MACOS_DIR"/*.app.tar.gz.sig; do
+              if [ -f "$f" ]; then
+                BASENAME=$(basename "$f" .app.tar.gz.sig)
+                NEW_NAME="${BASENAME}_${ARCH}.app.tar.gz.sig"
+                mv "$f" "$MACOS_DIR/$NEW_NAME"
+                echo "Renamed: $f -> $MACOS_DIR/$NEW_NAME"
+              fi
+            done
+
+            ls -la "$MACOS_DIR"
+          fi
+
+      # Upload artifacts (for non-tag builds)
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            target/${{ matrix.target }}/release/bundle/**/*.exe
+            target/${{ matrix.target }}/release/bundle/**/*.exe.sig
+            target/${{ matrix.target }}/release/bundle/**/*.nsis.zip
+            target/${{ matrix.target }}/release/bundle/**/*.nsis.zip.sig
+            target/${{ matrix.target }}/release/bundle/**/*.msi
+            target/${{ matrix.target }}/release/bundle/**/*.msi.sig
+            target/${{ matrix.target }}/release/bundle/**/*.msi.zip
+            target/${{ matrix.target }}/release/bundle/**/*.msi.zip.sig
+            target/${{ matrix.target }}/release/bundle/**/*.dmg
+            target/${{ matrix.target }}/release/bundle/**/*.app.tar.gz
+            target/${{ matrix.target }}/release/bundle/**/*.app.tar.gz.sig
+            target/${{ matrix.target }}/release/bundle/**/*.deb
+            target/${{ matrix.target }}/release/bundle/**/*.deb.sig
+            target/${{ matrix.target }}/release/bundle/**/*.rpm
+            target/${{ matrix.target }}/release/bundle/**/*.rpm.sig
+            target/${{ matrix.target }}/release/bundle/**/*.AppImage
+            target/${{ matrix.target }}/release/bundle/**/*.AppImage.sig
+            target/${{ matrix.target }}/release/bundle/**/*.AppImage.tar.gz
+            target/${{ matrix.target }}/release/bundle/**/*.AppImage.tar.gz.sig
+          if-no-files-found: error
+
+  # ──────────────────────────────────────────────
+  # iOS build (client-only, no embedded server)
+  # Requires: APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD,
+  #           APPLE_PROVISIONING_PROFILE secrets for signed builds.
+  # Without those secrets an unsigned simulator/device build is produced.
+  #
+  # One-time setup: run `pnpm tauri ios init` locally and commit
+  # src-tauri/gen/apple/ to the repository.
+  # ──────────────────────────────────────────────
+  build-ios:
+    if: github.event_name != 'pull_request'
+    runs-on: macos-latest
+    name: Build (iOS)
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 'lts/*'
+
+      - name: Setup pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9 --activate
+
+      - name: Get pnpm store directory
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Cache pnpm dependencies
+        uses: actions/cache@v5
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: macOS-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: macOS-pnpm-store-
+
+      - name: Setup Rust with iOS targets
+        uses: dtolnay/rust-toolchain@1.98.1
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+
+      - name: Cache Rust dependencies
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+          shared-key: ios
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Update version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = '$VERSION';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+          node -e "
+            const fs = require('fs');
+            const conf = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
+            conf.version = '$VERSION';
+            fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
+          "
+          sed -i '' 's/^version = ".*"/version = "'"$VERSION"'"/' src-tauri/Cargo.toml
+
+      # Initialize iOS project if it hasn't been committed to the repo yet.
+      # Best practice: run `pnpm tauri ios init` locally and commit the result.
+      - name: Initialize iOS project (if needed)
+        run: |
+          if [ ! -d "src-tauri/gen/apple" ]; then
+            echo "iOS project not found — running tauri ios init"
+            pnpm tauri ios init
+          else
+            echo "iOS project already present"
+          fi
+
+      # Import Apple signing certificate when the secret is configured.
+      - name: Import Apple signing certificate
+        if: env.APPLE_CERTIFICATE != ''
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+          security create-keychain -p "" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "" $KEYCHAIN_PATH
+          echo "$APPLE_CERTIFICATE" | base64 --decode > $RUNNER_TEMP/cert.p12
+          security import $RUNNER_TEMP/cert.p12 \
+            -k $KEYCHAIN_PATH \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign
+          security list-keychain -d user -s $KEYCHAIN_PATH
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -k "" $KEYCHAIN_PATH
+
+      # Install provisioning profile when configured.
+      - name: Install provisioning profile
+        if: env.APPLE_PROVISIONING_PROFILE != ''
+        env:
+          APPLE_PROVISIONING_PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
+        run: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$APPLE_PROVISIONING_PROFILE" | base64 --decode \
+            > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+
+      # iOS requires a real Apple Developer signing identity — xcodebuild cannot
+      # produce a device build without one. This step runs only when the signing
+      # secrets are configured; without them the job skips the build but still
+      # succeeds (the Android debug build covers unsigned mobile compilation).
+      - name: Build iOS app
+        id: build-ios-app
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_PROVISIONING_PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$APPLE_CERTIFICATE" ] || [ -z "$APPLE_PROVISIONING_PROFILE" ]; then
+            echo "Skipping iOS build — APPLE_CERTIFICATE / APPLE_PROVISIONING_PROFILE secrets not configured."
+            echo "Add them to enable signed iOS builds."
+            echo "artifact_available=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          pnpm tauri ios build --export-method ad-hoc
+          echo "artifact_available=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload iOS artifact
+        if: steps.build-ios-app.outputs.artifact_available == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: iOS
+          path: |
+            src-tauri/gen/apple/build/**/*.ipa
+            src-tauri/gen/apple/build/**/*.app
+          if-no-files-found: error
+
+  # ──────────────────────────────────────────────
+  # Android build (client-only, no embedded server)
+  # Requires: ANDROID_KEYSTORE, ANDROID_KEYSTORE_PASSWORD,
+  #           ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD secrets
+  #           for signed release builds.
+  #
+  # One-time setup: run `pnpm tauri android init` locally and commit
+  # src-tauri/gen/android/ to the repository.
+  # ──────────────────────────────────────────────
+  build-android:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    name: Build (Android)
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 'lts/*'
+
+      - name: Setup pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9 --activate
+
+      - name: Get pnpm store directory
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Cache pnpm dependencies
+        uses: actions/cache@v5
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: Linux-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: Linux-pnpm-store-
+
+      - name: Setup Java (JDK 17)
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        shell: bash
+        run: |
+          ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-$RUNNER_TEMP/android-sdk}"
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+
+          if [ ! -x "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" ]; then
+            curl -fsSL \
+              "https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip" \
+              -o "$RUNNER_TEMP/android-commandlinetools.zip"
+            unzip -q "$RUNNER_TEMP/android-commandlinetools.zip" -d "$RUNNER_TEMP/android-commandlinetools"
+            rm -rf "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+            mv "$RUNNER_TEMP/android-commandlinetools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          fi
+
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
+          echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --version
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
+      - name: Install Android NDK
+        run: |
+          sdkmanager "ndk;27.0.12077973"
+          echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973" >> $GITHUB_ENV
+
+      - name: Setup Rust with Android targets
+        uses: dtolnay/rust-toolchain@1.98.1
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - name: Cache Rust dependencies
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+          shared-key: android
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Update version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = '$VERSION';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+          node -e "
+            const fs = require('fs');
+            const conf = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
+            conf.version = '$VERSION';
+            fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
+          "
+          sed -i 's/^version = ".*"/version = "'"$VERSION"'"/' src-tauri/Cargo.toml
+
+      # Initialize Android project if not committed to the repo.
+      # Best practice: run `pnpm tauri android init` locally and commit the result.
+      - name: Initialize Android project (if needed)
+        run: |
+          if [ ! -d "src-tauri/gen/android" ]; then
+            echo "Android project not found — running tauri android init"
+            pnpm tauri android init
+          else
+            echo "Android project already present"
+          fi
+
+      # Decode keystore for signed release builds.
+      - name: Setup Android keystore
+        if: env.ANDROID_KEYSTORE != ''
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+        run: |
+          echo "$ANDROID_KEYSTORE" | base64 --decode > $RUNNER_TEMP/release.keystore
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.keystore" >> $GITHUB_ENV
+
+      # Signed release build when keystore is available.
+      - name: Build Android app (signed release)
+        if: env.ANDROID_KEYSTORE != ''
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          pnpm tauri android build \
+            --apk \
+            -- \
+            -Pandroid.injected.signing.store.file="$ANDROID_KEYSTORE_PATH" \
+            -Pandroid.injected.signing.store.password="$ANDROID_KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD"
+
+      # Debug (unsigned) build when keystore is not available.
+      - name: Build Android app (debug)
+        if: env.ANDROID_KEYSTORE == ''
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+        run: pnpm tauri android build --apk --debug
+
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: Android
+          path: |
+            src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+            src-tauri/gen/android/app/build/outputs/bundle/**/*.aab
+          if-no-files-found: warn
+
+  # ──────────────────────────────────────────────
+  # Presenter Receiver — standalone CLI binary
+  # Builds for: macOS arm64, Linux arm64 (RPi), Linux x86_64
+  # No Node/pnpm needed — pure Rust + Cairo/Pango system libs.
+  # Note: linux-arm64 uses GitHub's hosted ubuntu-24.04-arm runner.
+  # ──────────────────────────────────────────────
+  build-receiver:
+    needs: test
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            artifact: presenter-receiver-macos-arm64
+
+          - runner: ubuntu-22.04
+            artifact: presenter-receiver-linux-x86_64
+
+          - runner: ubuntu-24.04-arm
+            artifact: presenter-receiver-linux-arm64
+
+    runs-on: ${{ matrix.runner }}
+    name: Receiver (${{ matrix.artifact }})
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install macOS dependencies (Cairo + Pango via Homebrew)
+        if: runner.os == 'macOS'
+        run: |
+          for pkg in cairo pango harfbuzz pkg-config; do
+            brew list "$pkg" >/dev/null 2>&1 || brew install "$pkg"
+          done
+
+      - name: Get Homebrew library versions for cache key
+        if: runner.os == 'macOS'
+        id: brew-versions
+        run: echo "ver=$(brew list --versions harfbuzz cairo pango glib | tr ' \n' '_')" >> $GITHUB_OUTPUT
+
+      - name: Install Linux dependencies (Cairo + Pango via apt)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcairo2-dev libpango1.0-dev pkg-config
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.98.1
+
+      - name: Cache Rust dependencies
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+          shared-key: ${{ matrix.artifact }}-${{ steps.brew-versions.outputs.ver || 'linux' }}
+
+      - name: Build release binary
+        working-directory: presenter-receiver
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            export PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig:$(brew --prefix cairo)/lib/pkgconfig:$(brew --prefix pango)/lib/pkgconfig"
+          fi
+          cargo build --release
+
+      - name: Rename binary with platform suffix
+        shell: bash
+        run: cp target/release/presenter-receiver ${{ matrix.artifact }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+  # ──────────────────────────────────────────────
+  # Companion Plugin — Bitfocus Companion module
+  # Pure Node.js; single platform build is sufficient.
+  # ──────────────────────────────────────────────
+  build-companion:
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    name: Companion Plugin
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 'lts/*'
+
+      - name: Setup pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9 --activate
+
+      - name: Get pnpm store directory
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Cache pnpm dependencies
+        uses: actions/cache@v5
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: Linux-companion-pnpm-store-${{ hashFiles('companion/pnpm-lock.yaml') }}
+          restore-keys: Linux-companion-pnpm-store-
+
+      - name: Install dependencies and build
+        working-directory: companion
+        run: |
+          pnpm install
+          pnpm run build
+
+      - name: Update version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        working-directory: companion
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = '$VERSION';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+          node -e "
+            const fs = require('fs');
+            const manifest = JSON.parse(fs.readFileSync('companion/manifest.json', 'utf8'));
+            manifest.version = '$VERSION';
+            fs.writeFileSync('companion/manifest.json', JSON.stringify(manifest, null, 2) + '\n');
+          "
+
+      - name: Package companion module
+        run: |
+          VERSION=$(node -e "const p = require('./companion/package.json'); process.stdout.write(p.version)")
+          # Install production-only deps for packaging
+          cd companion
+          rm -rf node_modules
+          pnpm install --prod
+          cd ..
+          tar -czf "companion-module-metocast-${VERSION}.tar.gz" \
+            -C companion \
+            dist companion package.json node_modules
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: companion-plugin
+          path: companion-module-metocast-*.tar.gz
+
+  # ──────────────────────────────────────────────
+  # Release (version tags only)
+  # ──────────────────────────────────────────────
+  release:
+    needs: [build, build-receiver, build-companion]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Generate latest.json manifest
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          REPO="UMC-Hungary/sermon-helper-applications"
+          shopt -s nullglob
+
+          # Read signatures
+          WINDOWS_SIG=""
+          MACOS_ARM_SIG=""
+          MACOS_INTEL_SIG=""
+          LINUX_APPIMAGE_SIG=""
+          LINUX_DEB_SIG=""
+          WINDOWS_ASSET=""
+          LINUX_APPIMAGE_ASSET=""
+
+          # Windows NSIS updater artifact. Newer Tauri bundlers may emit a
+          # zipped installer, while the current CI emits the signed NSIS .exe.
+          WINDOWS_FILES=(artifacts/Windows-x64/nsis/*.nsis.zip)
+          WINDOWS_SIG_FILES=(artifacts/Windows-x64/nsis/*.nsis.zip.sig)
+          if [ ${#WINDOWS_FILES[@]} -eq 0 ] || [ ${#WINDOWS_SIG_FILES[@]} -eq 0 ]; then
+            WINDOWS_FILES=(artifacts/Windows-x64/nsis/*.exe)
+            WINDOWS_SIG_FILES=(artifacts/Windows-x64/nsis/*.exe.sig)
+          fi
+          if [ ${#WINDOWS_FILES[@]} -gt 0 ] && [ ${#WINDOWS_SIG_FILES[@]} -gt 0 ]; then
+            WINDOWS_ASSET=$(basename "${WINDOWS_FILES[0]}")
+            WINDOWS_SIG=$(cat "${WINDOWS_SIG_FILES[0]}")
+          fi
+
+          # macOS ARM signature (from .app.tar.gz bundle, not dmg)
+          if [ -f artifacts/macOS-ARM64/macos/*_aarch64.app.tar.gz.sig ]; then
+            MACOS_ARM_SIG=$(cat artifacts/macOS-ARM64/macos/*_aarch64.app.tar.gz.sig)
+          fi
+
+          # macOS Intel signature (from .app.tar.gz bundle, not dmg)
+          if [ -f artifacts/macOS-Intel/macos/*_x64.app.tar.gz.sig ]; then
+            MACOS_INTEL_SIG=$(cat artifacts/macOS-Intel/macos/*_x64.app.tar.gz.sig)
+          fi
+
+          # Linux AppImage updater artifact. Prefer the archived AppImage when
+          # available, but support the signed raw AppImage emitted by this CI.
+          LINUX_APPIMAGE_FILES=(artifacts/Linux-x64/appimage/*.AppImage.tar.gz)
+          LINUX_APPIMAGE_SIG_FILES=(artifacts/Linux-x64/appimage/*.AppImage.tar.gz.sig)
+          if [ ${#LINUX_APPIMAGE_FILES[@]} -eq 0 ] || [ ${#LINUX_APPIMAGE_SIG_FILES[@]} -eq 0 ]; then
+            LINUX_APPIMAGE_FILES=(artifacts/Linux-x64/appimage/*.AppImage)
+            LINUX_APPIMAGE_SIG_FILES=(artifacts/Linux-x64/appimage/*.AppImage.sig)
+          fi
+          if [ ${#LINUX_APPIMAGE_FILES[@]} -gt 0 ] && [ ${#LINUX_APPIMAGE_SIG_FILES[@]} -gt 0 ]; then
+            LINUX_APPIMAGE_ASSET=$(basename "${LINUX_APPIMAGE_FILES[0]}")
+            LINUX_APPIMAGE_SIG=$(cat "${LINUX_APPIMAGE_SIG_FILES[0]}")
+          fi
+
+          # Linux deb signature
+          if [ -f artifacts/Linux-x64/deb/*.deb.sig ]; then
+            LINUX_DEB_SIG=$(cat artifacts/Linux-x64/deb/*.deb.sig)
+          fi
+
+          # Get actual filenames
+          MACOS_ARM_APP=$(basename artifacts/macOS-ARM64/macos/*_aarch64.app.tar.gz 2>/dev/null | head -1 || echo "")
+          MACOS_INTEL_APP=$(basename artifacts/macOS-Intel/macos/*_x64.app.tar.gz 2>/dev/null | head -1 || echo "")
+
+          MISSING=()
+          [ -n "${WINDOWS_SIG}" ] && [ -n "${WINDOWS_ASSET}" ] || MISSING+=("Windows NSIS updater artifact")
+          [ -n "${MACOS_ARM_SIG}" ] && [ -n "${MACOS_ARM_APP}" ] || MISSING+=("macOS ARM updater artifact")
+          [ -n "${MACOS_INTEL_SIG}" ] && [ -n "${MACOS_INTEL_APP}" ] || MISSING+=("macOS Intel updater artifact")
+          [ -n "${LINUX_APPIMAGE_SIG}" ] && [ -n "${LINUX_APPIMAGE_ASSET}" ] || MISSING+=("Linux AppImage updater artifact")
+
+          if [ ${#MISSING[@]} -gt 0 ]; then
+            printf 'Missing required updater artifacts:\n'
+            printf ' - %s\n' "${MISSING[@]}"
+            exit 1
+          fi
+
+          # Create latest.json
+          cat > latest.json << EOF
+          {
+            "version": "${VERSION}",
+            "notes": "Release v${VERSION}",
+            "pub_date": "${DATE}",
+            "platforms": {
+              "windows-x86_64": {
+                "signature": "${WINDOWS_SIG}",
+                "url": "https://github.com/${REPO}/releases/download/v${VERSION}/${WINDOWS_ASSET}"
+              },
+              "darwin-aarch64": {
+                "signature": "${MACOS_ARM_SIG}",
+                "url": "https://github.com/${REPO}/releases/download/v${VERSION}/${MACOS_ARM_APP}"
+              },
+              "darwin-x86_64": {
+                "signature": "${MACOS_INTEL_SIG}",
+                "url": "https://github.com/${REPO}/releases/download/v${VERSION}/${MACOS_INTEL_APP}"
+              },
+              "linux-x86_64": {
+                "signature": "${LINUX_APPIMAGE_SIG}",
+                "url": "https://github.com/${REPO}/releases/download/v${VERSION}/${LINUX_APPIMAGE_ASSET}"
+              }
+            }
+          }
+          EOF
+
+          cat latest.json
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          generate_release_notes: true
+          body: |
+            ## Installation
+
+            ### Windows
+            Download `.exe` (NSIS installer) or `.msi` (Windows Installer).
+
+            ### macOS
+            Download the `.dmg` for your architecture:
+            - **Apple Silicon (M1/M2/M3)**: `*-aarch64.dmg`
+            - **Intel**: `*-x64.dmg`
+
+            **Note:** If macOS shows "app is damaged", run this in Terminal:
+            ```bash
+            xattr -cr /Applications/metocast.app
+            ```
+
+            ### Linux
+            - `.deb` - Debian/Ubuntu
+            - `.rpm` - Fedora/RHEL
+            - `.AppImage` - Universal (make executable with `chmod +x`)
+
+            ### iOS
+            Install via TestFlight or side-load the `.ipa` (requires ad-hoc provisioning).
+
+            ### Android
+            Install the `.apk` directly (enable "Install from unknown sources").
+
+            ---
+
+            ## Presenter Receiver
+
+            A standalone terminal binary that connects to the Metocast WebSocket
+            and renders the active presentation slide on-screen.
+            - **macOS**: opens a native window (Helvetica Neue, Cairo-rendered)
+            - **Linux / Raspberry Pi**: writes directly to the framebuffer (`/dev/fb0`) — no desktop needed
+
+            ### One-line install (auto-detects platform)
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/UMC-Hungary/sermon-helper-applications/main/presenter-receiver/install.sh | bash -s -- ws://YOUR_SERVER_IP:3737/ws
+            ```
+            Detects macOS (Apple Silicon) and Linux arm64/x86_64 automatically, downloads the right binary, and starts it.
+
+            To install without running:
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/UMC-Hungary/sermon-helper-applications/main/presenter-receiver/install.sh | bash
+            ```
+
+            > **Auto-start on RPi** — add to `/etc/rc.local` or create a systemd service pointing to the installed binary.
+
+            ---
+
+            ## Companion Plugin
+
+            Bitfocus Companion module for controlling Metocast via WebSocket.
+            Download `companion-module-metocast-*.tar.gz` and install via
+            Companion's module developer mode by extracting to your Companion modules folder.
+
+          files: |
+            latest.json
+            artifacts/**/*.exe
+            artifacts/**/*.exe.sig
+            artifacts/**/*.nsis.zip
+            artifacts/**/*.nsis.zip.sig
+            artifacts/**/*.msi
+            artifacts/**/*.msi.sig
+            artifacts/**/*.msi.zip
+            artifacts/**/*.msi.zip.sig
+            artifacts/**/*.dmg
+            artifacts/**/*.app.tar.gz
+            artifacts/**/*.app.tar.gz.sig
+            artifacts/**/*.deb
+            artifacts/**/*.deb.sig
+            artifacts/**/*.rpm
+            artifacts/**/*.rpm.sig
+            artifacts/**/*.AppImage
+            artifacts/**/*.AppImage.sig
+            artifacts/**/*.AppImage.tar.gz
+            artifacts/**/*.AppImage.tar.gz.sig
+            artifacts/**/*.ipa
+            artifacts/**/*.apk
+            artifacts/**/*.aab
+            artifacts/presenter-receiver-macos-arm64/presenter-receiver-macos-arm64
+            artifacts/presenter-receiver-linux-x86_64/presenter-receiver-linux-x86_64
+            artifacts/presenter-receiver-linux-arm64/presenter-receiver-linux-arm64
+            artifacts/companion-plugin/companion-module-metocast-*.tar.gz

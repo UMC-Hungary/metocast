@@ -1,0 +1,33 @@
+meta {
+  name: Flag Upload
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/events/{{eventId}}/recordings/flag-upload
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "recordings": [
+      {
+        "recording_id": "{{recordingId}}",
+        "platforms": ["youtube"],
+        "youtube_visibility": "private"
+      }
+    ]
+  }
+}
+
+tests {
+  test("status is 204", function() {
+    expect(res.status).to.equal(204);
+  });
+}

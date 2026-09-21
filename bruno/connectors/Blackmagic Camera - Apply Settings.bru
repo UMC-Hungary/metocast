@@ -1,0 +1,49 @@
+meta {
+  name: Blackmagic Camera - Apply Settings
+  type: http
+  seq: 22
+}
+
+put {
+  url: {{baseUrl}}/api/connectors/blackmagic-camera/settings
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "stream": {
+      "platform": "YouTube RTMP",
+      "server": "Primary",
+      "quality": "Streaming High"
+    }
+  }
+}
+
+docs {
+  Writes the record format, the livestream platform, or both — send only the half you
+  are changing.
+
+  `record` is the camera's own FormatRequest: `codec`, `frameRate`, `recordResolution`
+  and `sensorResolution` travel together, because the camera validates the combination
+  as a whole. Take the four values from an entry in `record.supported.supportedFormats`.
+
+  `stream` is the whole active-platform entry, so send back the one from GET with the
+  fields you changed — omitting `key` clears the stream key on the camera.
+
+  Answers with the settings read back from the camera. 409 when no camera is connected,
+  502 when the camera rejects the format or platform.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("stream quality applied", function() {
+    expect(res.body.stream.active.quality).to.equal("Streaming High");
+  });
+}

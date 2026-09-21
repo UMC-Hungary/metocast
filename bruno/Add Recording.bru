@@ -1,0 +1,22 @@
+meta {
+  name: Add Recording
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/events/:id/recordings
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "filename": "recording.mp4",
+    "duration_seconds": 3600
+  }
+}

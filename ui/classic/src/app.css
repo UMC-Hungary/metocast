@@ -1,0 +1,155 @@
+/* ── Base reset ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+html,
+body {
+  height: 100%;
+  background: transparent;
+  /* Prevent rubber-band scrolling from revealing transparent edges */
+  overflow: hidden;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+}
+
+/* ── CSS Variables — Light mode (default) ── */
+:root {
+  --sidebar-width: 220px;
+  --titlebar-height: 52px; /* space for traffic lights */
+
+  /* Glass surfaces */
+  --glass-sidebar-bg: rgba(246, 246, 246, 0.72);
+  --glass-sidebar-blur: blur(40px) saturate(1.8);
+  --glass-card-bg: rgba(255, 255, 255, 0.6);
+  --glass-card-blur: blur(20px) saturate(1.6);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-border-light: rgba(255, 255, 255, 0.7);
+
+  /* Content background */
+  --content-bg: rgba(242, 242, 247, 0.85);
+
+  /* Text */
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+
+  /* Interactive */
+  --accent: AccentColor; /* follows macOS accent color */
+  --accent-subtle: color-mix(in srgb, AccentColor 15%, transparent);
+
+  /* Status */
+  --status-ok-bg: #d1fae5;
+  --status-ok-text: #065f46;
+  --status-ok-dot: #10b981;
+  --status-warn-bg: #fef3c7;
+  --status-warn-text: #92400e;
+  --status-warn-dot: #f59e0b;
+  --status-err-bg: #fee2e2;
+  --status-err-text: #991b1b;
+  --status-err-dot: #ef4444;
+
+  /* Borders / dividers */
+  --border: rgba(0, 0, 0, 0.1);
+  --border-strong: rgba(0, 0, 0, 0.18);
+
+  /* Inputs */
+  --input-bg: rgba(255, 255, 255, 0.8);
+  --input-border: rgba(0, 0, 0, 0.15);
+
+  /* Nav sidebar item */
+  --nav-item-hover: rgba(0, 0, 0, 0.05);
+  --nav-item-active-bg: var(--accent-subtle);
+  --nav-item-active-text: var(--accent);
+  --nav-item-text: #374151;
+
+  /* Modal backdrop + card */
+  --modal-backdrop: rgba(0, 0, 0, 0.4);
+  --modal-card-bg: rgb(255, 255, 255);
+}
+
+/* ── Dark mode ── */
+[data-theme='dark'] {
+  --glass-sidebar-bg: rgba(28, 28, 30, 0.72);
+  --glass-card-bg: rgba(44, 44, 46, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-light: rgba(255, 255, 255, 0.12);
+  --content-bg: rgba(18, 18, 20, 0.85);
+  --text-primary: #f2f2f7;
+  --text-secondary: #aeaeb2;
+  --text-tertiary: #636366;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --input-bg: rgba(58, 58, 60, 0.8);
+  --input-border: rgba(255, 255, 255, 0.12);
+  --nav-item-hover: rgba(255, 255, 255, 0.06);
+  --nav-item-text: #ebebf5;
+  --modal-backdrop: rgba(0, 0, 0, 0.5);
+  --modal-card-bg: rgb(44, 44, 46);
+  --status-ok-bg: rgba(16, 185, 129, 0.15);
+  --status-ok-text: #34d399;
+  --status-ok-dot: #34d399;
+  --status-warn-bg: rgba(245, 158, 11, 0.15);
+  --status-warn-text: #fbbf24;
+  --status-warn-dot: #fbbf24;
+  --status-err-bg: rgba(239, 68, 68, 0.15);
+  --status-err-text: #f87171;
+  --status-err-dot: #f87171;
+}
+
+/* ── Non-glass platforms (Windows / Linux) — 5% transparency ── */
+[data-glass='false'] {
+  --titlebar-height: 0px;
+  --glass-sidebar-bg: rgba(246, 246, 246, 0.95);
+  --glass-card-bg: rgba(255, 255, 255, 0.95);
+  --glass-sidebar-blur: none;
+  --glass-card-blur: none;
+  --content-bg: rgba(242, 242, 247, 0.95);
+  background: rgba(242, 242, 247, 0.95);
+}
+[data-glass='false'][data-theme='dark'] {
+  --glass-sidebar-bg: rgba(28, 28, 30, 0.95);
+  --glass-card-bg: rgba(44, 44, 46, 0.95);
+  --content-bg: rgba(18, 18, 20, 0.95);
+  background: rgba(18, 18, 20, 0.95);
+}
+
+/* ── Reduce transparency fallback ── */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass-sidebar-bg: rgb(246, 246, 246);
+    --glass-card-bg: rgb(255, 255, 255);
+    --glass-sidebar-blur: none;
+    --glass-card-blur: none;
+    --content-bg: rgb(242, 242, 247);
+  }
+  [data-theme='dark'] {
+    --glass-sidebar-bg: rgb(28, 28, 30);
+    --glass-card-bg: rgb(44, 44, 46);
+    --content-bg: rgb(18, 18, 20);
+  }
+}
+
+/* ── Utility: glass panel (cards, modals) ── */
+.glass-card {
+  background: var(--glass-card-bg);
+  backdrop-filter: var(--glass-card-blur);
+  -webkit-backdrop-filter: var(--glass-card-blur);
+  border: 1px solid var(--glass-border);
+  border-top-color: var(--glass-border-light);
+  border-radius: 12px;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass-card {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}

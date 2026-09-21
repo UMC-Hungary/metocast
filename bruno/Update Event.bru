@@ -1,0 +1,26 @@
+meta {
+  name: Update Event
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/api/events/:id
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "title": "Sunday Service (Updated)",
+    "date_time": "2026-02-22T21:28:36.985Z",
+    "speaker": "Pastor",
+    "description": "Updated description",
+    "textus": "Jn 3,16-21",
+    "leckio": "Rom 8,28-39"
+  }
+}

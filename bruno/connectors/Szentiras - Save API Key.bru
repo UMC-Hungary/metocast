@@ -1,0 +1,33 @@
+meta {
+  name: Szentiras - Save API Key
+  type: http
+  seq: 18
+}
+
+put {
+  url: {{baseUrl}}/api/connectors/szentiras/config
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "enabled": true,
+    "apiKey": "your-szentiras-api-key"
+  }
+}
+
+docs {
+  The key is sent upstream as X-API-Key on every szentiras.eu passage lookup.
+  Get a free key at https://szentiras.eu/profile/api-keys.
+}
+
+tests {
+  test("status is 204", function() {
+    expect(res.status).to.equal(204);
+  });
+}

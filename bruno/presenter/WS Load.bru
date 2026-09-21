@@ -1,0 +1,77 @@
+meta {
+  name: WS - Load Presentation
+  type: http
+  seq: 2
+}
+
+# WebSocket command — use a WS client (Bruno socket, Hoppscotch, or websocat).
+# Connect to: ws://{{host}}/ws?token={{authToken}}
+# Then send:
+# { "type": "presenter.load", "file_path": "/path/to/file.pptx", "render_mode": "text" }
+# Or ask the backend for presenter event choices:
+# { "type": "events.presenter_list" }
+# Or load event Bible text:
+# { "type": "presenter.load_bible_reference", "event_id": "00000000-0000-0000-0000-000000000000", "reference_type": "textus" }
+# Or omit event_id to use the backend-selected current/next event:
+# { "type": "presenter.load_bible_reference", "reference_type": "leckio" }
+# Response broadcast to all clients:
+# { "type": "presenter.state", "state": { "loaded": true, "filePath": "...", "currentSlide": 1, "totalSlides": N, "renderMode": "text", "slides": [...], "svgSlides": [] } }
+
+get {
+  url: {{baseUrl}}/ws
+  body: none
+  auth: none
+}
+
+docs {
+  ## WS: presenter.load
+
+  **Command (send via WebSocket):**
+  ```json
+  { "type": "presenter.load", "file_path": "/absolute/path/to/file.pptx", "render_mode": "text" }
+  ```
+
+  `render_mode` is optional. `presenter.load` defaults to `"text"` for backwards compatibility. Use `"svg"` to request inline SVG slides.
+
+  **List backend-selected presenter events:**
+  ```json
+  { "type": "events.presenter_list" }
+  ```
+
+  Response:
+  ```json
+  { "type": "events.presenter_list", "events": [], "selectedEventId": null }
+  ```
+
+  **Load event Bible text:**
+  ```json
+  { "type": "presenter.load_bible_reference", "event_id": "00000000-0000-0000-0000-000000000000", "reference_type": "textus" }
+  ```
+
+  `event_id` is optional. If omitted, the backend-selected presenter event from `events.presenter_list.selectedEventId` is used.
+  `reference_type` is `"textus"` or `"leckio"`. The command reads the event's stored verses and broadcasts a text-mode `presenter.state`.
+
+  **Broadcast response (sent to all connected clients):**
+  ```json
+  {
+    "type": "presenter.state",
+    "state": {
+      "loaded": true,
+      "filePath": "/absolute/path/to/file.pptx",
+      "currentSlide": 1,
+      "totalSlides": 12,
+      "renderMode": "text",
+      "slides": [
+        { "index": 1, "paragraphs": [{ "lines": ["Welcome"], "align": "center", "fontSizePt": 44 }] },
+        { "index": 2, "paragraphs": [{ "lines": ["Scripture Reading"], "align": "left", "fontSizePt": 32 }] }
+      ],
+      "svgSlides": []
+    }
+  }
+  ```
+
+  **On error (sent to requesting client only):**
+  ```json
+  { "type": "error", "message": "Cannot open file: ..." }
+  ```
+}

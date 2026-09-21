@@ -1,0 +1,15 @@
+meta {
+  name: List Events
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/events
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}

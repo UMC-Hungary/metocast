@@ -1,0 +1,308 @@
+{
+  "$id": "sanctum",
+  "$description": "The one design. Light and dark schemes, both measured from the reference's .theme-light and .theme-dark blocks. A value that differs from its measurement carries $extensions.sanctum.deviation with the reason; every such deviation is a contrast correction, never a preference.",
+  "light": {
+    "surface-base": {
+      "$value": "#efe9dd",
+      "$description": "measured: --bg"
+    },
+    "surface-raised": {
+      "$value": "#f6f2e8",
+      "$description": "measured: --card"
+    },
+    "surface-sunken": {
+      "$value": "#e4ddcd",
+      "$description": "measured: --card-deep"
+    },
+    "surface-outside": {
+      "$value": "#e4decf",
+      "$description": "measured: --outside"
+    },
+    "surface-inverse": {
+      "$value": "#1c1a16",
+      "$description": "measured: --ink, used as a fill behind inverse text"
+    },
+    "surface-hover": {
+      "$value": "color-mix(in srgb, {text-primary} 3%, transparent)",
+      "$description": "measured: Row .clickable:hover",
+      "$extensions": {
+        "contrast": "#efe9dd"
+      }
+    },
+    "surface-scrim": {
+      "$value": "rgba(20, 18, 15, 0.34)",
+      "$description": "measured: SettingsSheet .shade",
+      "$extensions": {
+        "contrast": "#3c3833"
+      }
+    },
+    "text-primary": {
+      "$value": "#1c1a16",
+      "$description": "measured: --ink"
+    },
+    "text-secondary": {
+      "$value": "#5c574e",
+      "$description": "measured: --ink-soft"
+    },
+    "text-muted": {
+      "$value": "#615e56",
+      "$description": "measured: --ink-muted #8a857b",
+      "$extensions": {
+        "sanctum": {
+          "deviation": "The measured value reaches only 2.71:1 on --card-deep while carrying the mono micro-labels that appear on every screen. Darkened along its own hue to 4.79:1, the least move that clears AA on all three surfaces while staying a visible step lighter than text-secondary."
+        }
+      }
+    },
+    "text-faint": {
+      "$value": "#676051",
+      "$description": "measured: --ink-faint #b8b2a4",
+      "$extensions": {
+        "sanctum": {
+          "deviation": "The measured value is 1.56:1 on --card-deep and carries text — SectionLabel hints, Field hints, ChamberSection hints. Darkened to 4.61:1, the least move that clears AA while remaining distinguishable from text-muted."
+        }
+      }
+    },
+    "text-inverse": {
+      "$value": "#efe9dd",
+      "$description": "measured: --bg, used on --ink fills (Segmented active, primary button)"
+    },
+    "text-inverse-muted": {
+      "$value": "#afaba5",
+      "$description": "measured: Segmented `small` at opacity 0.72 over --ink",
+      "$extensions": {
+        "sanctum": {
+          "deviation": "The reference fades the inverse hint with `opacity: 0.72`, which is what the composite of that opacity looks like. Stating the composite as a role means the pairing can be contrast-checked, which an opacity on arbitrary content cannot be."
+        }
+      }
+    },
+    "border-hairline": {
+      "$value": "rgba(28, 26, 22, 0.1)",
+      "$description": "measured: --hairline. Decorative separation only; never the sole identifier of a control.",
+      "$extensions": {
+        "contrast": "#d8d3c8"
+      }
+    },
+    "border-strong": {
+      "$value": "rgba(28, 26, 22, 0.18)",
+      "$description": "measured: --hairline-strong. Emphasised separation, still decorative.",
+      "$extensions": {
+        "contrast": "#c8c3b8"
+      }
+    },
+    "border-control": {
+      "$value": "#857c68",
+      "$description": "measured: --hairline-strong, corrected",
+      "$extensions": {
+        "sanctum": {
+          "deviation": "The reference bounds controls — Segmented, Glyph, icon buttons, the secondary action — with --hairline-strong, which composites to 1.35:1 and cannot identify a control under WCAG 1.4.11. A separate role at 3.06:1 carries control boundaries so hairlines stay hairline where they only separate."
+        }
+      }
+    },
+    "accent": {
+      "$value": "#5c5c84",
+      "$description": "no counterpart in the reference — see the deviation",
+      "$extensions": {
+        "sanctum": {
+          "deviation": "The reference has no interactive accent — it emphasises with --ink, whose hue sits 29° from --live and therefore cannot satisfy the hue-separation requirement, and it has no focus indicator at all. A dusty indigo at 240° sits 129° from --live, stays distinguishable from every status colour under all three common colour-vision deficiencies, reads as deliberate rather than as a status beside the warm parchment, and carries focus indication and interactive emphasis."
+        }
+      }
+    },
+    "accent-contrast": {
+      "$value": "#efe9dd",
+      "$description": "measured: --bg, reused as the text colour on an accent fill"
+    },
+    "status-live": {
+      "$value": "#b5321c",
+      "$description": "measured: --live #b8331c",
+      "$extensions": {
+        "sanctum": {
+          "deviation": "4.40:1 on --card-deep as text. Darkened by one step to 4.52:1; the change is not perceptible beside the measured value."
+        }
+      }
+    },
+    "status-ok": {
+      "$value": "#386d42",
+      "$description": "measured: --ok #3e7a4a",
+      "$extensions": {
+        "sanctum": {
+          "deviation": "3.80:1 on --card-deep as text. Darkened to 4.52:1."
+        }
+      }
+    },
+    "status-warn": {
+      "$value": "#855611",
+      "$description": "measured: --warn #b27318",
+      "$extensions": {
+        "sanctum": {
+          "deviation": "2.90:1 on --card-deep as text. Darkened to 4.58:1, the largest of the status corrections."
+        }
+      }
+    },
+    "status-error": {
+      "$value": "#b5321c",
+      "$description": "measured: --live — the reference uses it for danger as well as for on-air; kept as one value so the two read identically, as they do there"
+    },
+    "status-off": {
+      "$value": "#67604e",
+      "$description": "measured: --off #b8b2a4",
+      "$extensions": {
+        "sanctum": {
+          "deviation": "1.56:1 on --card-deep. Darkened to 4.62:1: it is a status dot, but Badge also sets 8.5px text in it, so it is held to the text threshold rather than 1.4.11\u2019s 3:1."
+        }
+      }
+    },
+    "shadow-overlay": {
+      "$value": "rgba(40, 30, 10, 0.18)",
+      "$description": "measured: ToastOverlay .toast box-shadow",
+      "$extensions": {
+        "contrast": "#c9c1ae"
+      }
+    }
+  },
+  "dark": {
+    "surface-base": {
+      "$value": "#14120f",
+      "$description": "measured: --bg"
+    },
+    "surface-raised": {
+      "$value": "#1e1b16",
+      "$description": "measured: --card"
+    },
+    "surface-sunken": {
+      "$value": "#23201a",
+      "$description": "measured: --card-deep"
+    },
+    "surface-outside": {
+      "$value": "#0a0907",
+      "$description": "measured: --outside"
+    },
+    "surface-inverse": {
+      "$value": "#ede6d6",
+      "$description": "measured: --ink, used as a fill behind inverse text"
+    },
+    "surface-hover": {
+      "$value": "color-mix(in srgb, {text-primary} 3%, transparent)",
+      "$description": "measured: Row .clickable:hover",
+      "$extensions": {
+        "contrast": "#1a1814"
+      }
+    },
+    "surface-scrim": {
+      "$value": "rgba(20, 18, 15, 0.34)",
+      "$description": "measured: SettingsSheet .shade — the reference uses one scrim in both schemes",
+      "$extensions": {
+        "contrast": "#161411"
+      }
+    },
+    "text-primary": {
+      "$value": "#ede6d6",
+      "$description": "measured: --ink"
+    },
+    "text-secondary": {
+      "$value": "#a8a294",
+      "$description": "measured: --ink-soft"
+    },
+    "text-muted": {
+      "$value": "#918b7e",
+      "$description": "measured: --ink-muted #7a7568",
+      "$extensions": {
+        "sanctum": {
+          "deviation": "3.54:1 on --card-deep while carrying the mono micro-labels. Lightened along its own hue to 4.79:1."
+        }
+      }
+    },
+    "text-faint": {
+      "$value": "#8f8879",
+      "$description": "measured: --ink-faint #4a463e",
+      "$extensions": {
+        "sanctum": {
+          "deviation": "1.73:1 on --card-deep and carries text. Lightened to 4.61:1, the least move that clears AA while remaining distinguishable from text-muted."
+        }
+      }
+    },
+    "text-inverse": {
+      "$value": "#14120f",
+      "$description": "measured: --bg, used on --ink fills"
+    },
+    "text-inverse-muted": {
+      "$value": "#514d47",
+      "$description": "measured: Segmented `small` at opacity 0.72 over --ink",
+      "$extensions": {
+        "sanctum": {
+          "deviation": "As in the light scheme: the composite of the reference's 0.72 opacity, stated as a role so it can be contrast-checked."
+        }
+      }
+    },
+    "border-hairline": {
+      "$value": "rgba(237, 230, 214, 0.09)",
+      "$description": "measured: --hairline. Decorative separation only.",
+      "$extensions": {
+        "contrast": "#2c2924"
+      }
+    },
+    "border-strong": {
+      "$value": "rgba(237, 230, 214, 0.16)",
+      "$description": "measured: --hairline-strong. Emphasised separation, still decorative.",
+      "$extensions": {
+        "contrast": "#3a3730"
+      }
+    },
+    "border-control": {
+      "$value": "#716b5c",
+      "$description": "measured: --hairline-strong, corrected",
+      "$extensions": {
+        "sanctum": {
+          "deviation": "As in the light scheme: the measured hairline cannot identify a control. Lightened to 3.06:1."
+        }
+      }
+    },
+    "accent": {
+      "$value": "#a9a6d6",
+      "$description": "no counterpart in the reference — see the deviation",
+      "$extensions": {
+        "sanctum": {
+          "deviation": "The light scheme's accent hue at 244°, lightened for the dark surfaces; 7.05:1 at its worst."
+        }
+      }
+    },
+    "accent-contrast": {
+      "$value": "#14120f",
+      "$description": "measured: --bg, reused as the text colour on an accent fill"
+    },
+    "status-live": {
+      "$value": "#e66a4f",
+      "$description": "measured: --live"
+    },
+    "status-ok": {
+      "$value": "#6aa876",
+      "$description": "measured: --ok"
+    },
+    "status-warn": {
+      "$value": "#d9a358",
+      "$description": "measured: --warn"
+    },
+    "status-error": {
+      "$value": "#e66a4f",
+      "$description": "measured: --live — the reference uses it for danger as well as for on-air"
+    },
+    "status-off": {
+      "$value": "#8d8779",
+      "$description": "measured: --off #4a463e",
+      "$extensions": {
+        "sanctum": {
+          "deviation": "1.73:1 on --card-deep. Lightened to 4.54:1, held to the text threshold for the same reason as the light scheme."
+        }
+      }
+    },
+    "shadow-overlay": {
+      "$value": "rgba(0, 0, 0, 0.5)",
+      "$description": "measured: ToastOverlay box-shadow rgba(40, 30, 10, 0.18)",
+      "$extensions": {
+        "contrast": "#0a0907",
+        "sanctum": {
+          "deviation": "A warm brown shadow is invisible on a near-black surface. Deepened so the toast still separates from the surface behind it."
+        }
+      }
+    }
+  }
+}

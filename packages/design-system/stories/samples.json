@@ -1,0 +1,1342 @@
+{
+  "$description": "Sample content for the catalog. A value prefixed with `!` is emitted as source rather than as a string, which is how a handler or an expression gets into a story's args. The content is deliberately real — Hungarian where the product is Hungarian, long where truncation matters.",
+  "Badge": {
+    "args": {
+      "children": "!s('Élő')"
+    },
+    "stories": {
+      "Neutral": {
+        "tone": "neutral",
+        "children": "!s('12 elem')"
+      },
+      "Live": {
+        "tone": "live",
+        "dot": true,
+        "children": "!s('Adásban')"
+      },
+      "Ok": {
+        "tone": "ok",
+        "dot": true,
+        "children": "!s('Kapcsolódva')"
+      },
+      "Warn": {
+        "tone": "warn",
+        "dot": true,
+        "children": "!s('Késleltetés')"
+      },
+      "Error": {
+        "tone": "error",
+        "dot": true,
+        "children": "!s('Megszakadt')"
+      },
+      "Off": {
+        "tone": "off",
+        "dot": true,
+        "children": "!s('Készenlét')"
+      }
+    }
+  },
+  "Button": {
+    "args": {
+      "children": "!s('Mentés')"
+    },
+    "stories": {
+      "Primary": {
+        "variant": "primary"
+      },
+      "Secondary": {
+        "variant": "secondary",
+        "children": "!s('Mégse')"
+      },
+      "Danger": {
+        "variant": "danger",
+        "children": "!s('Esemény törlése')"
+      },
+      "Quiet": {
+        "variant": "quiet",
+        "children": "!s('Összes törlése')"
+      },
+      "Block": {
+        "variant": "primary",
+        "block": true
+      },
+      "Disabled": {
+        "variant": "primary",
+        "disabled": true
+      },
+      "Loading": {
+        "variant": "primary",
+        "loading": true,
+        "loadingLabel": "Mentés folyamatban"
+      }
+    }
+  },
+  "Checkbox": {
+    "args": {
+      "label": "Felvétel indítása az adással együtt"
+    },
+    "stories": {
+      "Default": {},
+      "Checked": {
+        "checked": true
+      },
+      "Indeterminate": {
+        "indeterminate": true
+      },
+      "Disabled": {
+        "disabled": true,
+        "checked": true
+      },
+      "WithDescription": {
+        "describedby": "cb-hint",
+        "label": "Automatikus feltöltés"
+      }
+    }
+  },
+  "DateBlock": {
+    "args": {
+      "month": "MÁR",
+      "day": 14,
+      "label": "2026. március 14."
+    },
+    "stories": {
+      "Default": {},
+      "TwoDigitDay": {
+        "day": 30,
+        "label": "2026. március 30."
+      },
+      "Undescribed": {
+        "label": null
+      }
+    }
+  },
+  "DeviceList": {
+    "args": {
+      "label": "Talált eszközök",
+      "actionLabel": "Párosítás",
+      "emptyMessage": "Egy eszköz sem válaszolt.",
+      "devices": [
+        {
+          "id": "a",
+          "name": "Nappali RM4 Pro",
+          "address": "192.168.1.42",
+          "kind": "Broadlink RM4 Pro"
+        },
+        {
+          "id": "b",
+          "name": "Karzat RM Mini",
+          "address": "192.168.1.51",
+          "kind": "Broadlink RM Mini 3"
+        }
+      ]
+    },
+    "stories": {
+      "Default": {},
+      "Empty": {
+        "devices": []
+      }
+    }
+  },
+  "Dialog": {
+    "args": {
+      "open": true,
+      "eyebrow": "Megerősítés",
+      "title": "Törlöd az eseményt?",
+      "children": "!s('Az esemény és minden hozzá tartozó felvétel eltűnik. Ez nem vonható vissza.')"
+    },
+    "stories": {
+      "Default": {},
+      "ModalOnly": {
+        "modalOnly": true
+      },
+      "Closed": {
+        "open": false
+      }
+    }
+  },
+  "DiscoveryPanel": {
+    "args": {
+      "title": "Broadlink eszközök",
+      "description": "A hálózaton található infravörös és rádiós vezérlők.",
+      "scanLabel": "Keresés",
+      "children": "!s('Két eszköz válaszolt.')"
+    },
+    "stories": {
+      "Default": {},
+      "Scanning": {
+        "scanning": true,
+        "scanningLabel": "Keresés folyamatban"
+      }
+    }
+  },
+  "Dot": {
+    "args": {},
+    "stories": {
+      "Default": {},
+      "Live": {
+        "color": "!'var(--status-live)'",
+        "pulse": true
+      },
+      "Ok": {
+        "color": "!'var(--status-ok)'"
+      },
+      "Off": {
+        "color": "!'var(--status-off)'"
+      },
+      "Large": {
+        "size": 12
+      }
+    }
+  },
+  "EmptyState": {
+    "args": {
+      "title": "Csend van a vezérlőben.",
+      "hint": "A csatlakozók itt szólalnak meg"
+    },
+    "stories": {
+      "Default": {},
+      "TitleOnly": {
+        "hint": ""
+      }
+    }
+  },
+  "ErrorState": {
+    "args": {
+      "title": "Nem sikerült betölteni",
+      "body": "A kiszolgáló nem válaszolt időben. Ellenőrizd, hogy fut-e, majd próbáld újra."
+    },
+    "stories": {
+      "Default": {},
+      "WithRetry": {
+        "retryLabel": "Újra",
+        "onretry": "!() => {}"
+      },
+      "TitleOnly": {
+        "body": ""
+      }
+    }
+  },
+  "Field": {
+    "args": {
+      "label": "Esemény neve",
+      "value": "Vasárnapi istentisztelet"
+    },
+    "stories": {
+      "Default": {},
+      "WithHint": {
+        "hint": "Ez jelenik meg a közvetítés címeként"
+      },
+      "Empty": {
+        "value": "",
+        "placeholder": "Add meg a nevet"
+      },
+      "Invalid": {
+        "error": "A név nem lehet üres",
+        "value": ""
+      },
+      "Readonly": {
+        "readonly": true
+      },
+      "Disabled": {
+        "disabled": true
+      }
+    }
+  },
+  "FlameMark": {
+    "args": {},
+    "stories": {
+      "Default": {},
+      "Large": {
+        "size": 64
+      },
+      "Labelled": {
+        "label": "Metocast"
+      }
+    }
+  },
+  "FormSection": {
+    "args": {
+      "number": "01",
+      "label": "Alapadatok",
+      "children": "!s('A szakasz tartalma')"
+    },
+    "stories": {
+      "Default": {},
+      "WithHint": {
+        "hint": "Kötelező"
+      },
+      "Last": {
+        "number": "04",
+        "label": "Közvetítés",
+        "last": true
+      }
+    }
+  },
+  "Glyph": {
+    "args": {
+      "char": "◐",
+      "label": "Twitch"
+    },
+    "stories": {
+      "Default": {},
+      "Decorative": {
+        "label": null
+      },
+      "Small": {
+        "size": 20
+      },
+      "Large": {
+        "size": 44
+      }
+    }
+  },
+  "Icon": {
+    "args": {
+      "name": "gear"
+    },
+    "stories": {
+      "Default": {},
+      "Labelled": {
+        "name": "bell",
+        "label": "Értesítések"
+      },
+      "Large": {
+        "name": "calendar",
+        "size": 44,
+        "stroke": 1.2
+      },
+      "HeavyStroke": {
+        "name": "check",
+        "size": 32,
+        "stroke": 2
+      }
+    }
+  },
+  "IconButton": {
+    "args": {
+      "icon": "gear",
+      "label": "Beállítások"
+    },
+    "stories": {
+      "Bare": {
+        "variant": "bare"
+      },
+      "Circle": {
+        "variant": "circle",
+        "size": 17
+      },
+      "Disabled": {
+        "variant": "circle",
+        "disabled": true
+      },
+      "Link": {
+        "variant": "bare",
+        "icon": "back",
+        "label": "Vissza",
+        "href": "#back"
+      }
+    }
+  },
+  "LabelledInput": {
+    "args": {
+      "label": "Kiszolgáló címe",
+      "value": "http://192.168.1.10:1421"
+    },
+    "stories": {
+      "Default": {},
+      "Empty": {
+        "value": "",
+        "placeholder": "http://"
+      },
+      "Invalid": {
+        "error": "Nem érvényes cím",
+        "value": "192.168"
+      },
+      "Disabled": {
+        "disabled": true
+      }
+    }
+  },
+  "List": {
+    "args": {
+      "children": "!s('A lista tartalma')"
+    },
+    "stories": {
+      "Default": {},
+      "Flush": {
+        "flush": true
+      },
+      "AsList": {
+        "as": "ul",
+        "aria-label": "Források",
+        "children": "!s('<li>A lista tartalma</li>')"
+      }
+    }
+  },
+  "Lockup": {
+    "args": {
+      "name": "Metocast"
+    },
+    "stories": {
+      "Default": {},
+      "Rail": {
+        "markSize": 18,
+        "fontSize": 19,
+        "tracking": 0.75
+      },
+      "Large": {
+        "markSize": 32,
+        "fontSize": 30,
+        "tracking": 1.5
+      }
+    }
+  },
+  "NativeDateInput": {
+    "args": {
+      "label": "2026. március 14.",
+      "icon": "calendar",
+      "accessibleName": "Az esemény dátuma",
+      "value": "2026-03-14"
+    },
+    "stories": {
+      "Date": {},
+      "Time": {
+        "type": "time",
+        "icon": "clock",
+        "label": "09:30",
+        "value": "09:30",
+        "accessibleName": "Kezdés időpontja"
+      },
+      "Disabled": {
+        "disabled": true
+      }
+    }
+  },
+  "NavigationBar": {
+    "args": {
+      "label": "Fő navigáció",
+      "active": "dashboard",
+      "items": [
+        {
+          "value": "dashboard",
+          "label": "Vezérlő",
+          "icon": "home"
+        },
+        {
+          "value": "events",
+          "label": "Események",
+          "icon": "calendar"
+        },
+        {
+          "value": "slides",
+          "label": "Diák",
+          "icon": "slides"
+        },
+        {
+          "value": "settings",
+          "label": "Beállítások",
+          "icon": "gear"
+        }
+      ]
+    },
+    "stories": {
+      "Default": {},
+      "SecondItemActive": {
+        "active": "events"
+      }
+    }
+  },
+  "NotificationBell": {
+    "args": {
+      "label": "Értesítések"
+    },
+    "stories": {
+      "Quiet": {
+        "tier": "off"
+      },
+      "Ok": {
+        "tier": "ok",
+        "label": "Értesítések, 1 új"
+      },
+      "Warning": {
+        "tier": "warn",
+        "label": "Értesítések, 2 új"
+      },
+      "Critical": {
+        "tier": "live",
+        "unread": 3,
+        "label": "Értesítések, 3 sürgős"
+      }
+    }
+  },
+  "NotificationCentre": {
+    "args": {
+      "open": true,
+      "title": "3 elem",
+      "emptyTitle": "Csend van a vezérlőben."
+    },
+    "stories": {
+      "Empty": {
+        "empty": true,
+        "title": "Minden rendben",
+        "emptyHint": "A csatlakozók itt szólalnak meg"
+      },
+      "Populated": {
+        "children": "!s('Az értesítések listája')",
+        "onclear": "!() => {}"
+      },
+      "Closed": {
+        "open": false
+      }
+    }
+  },
+  "OverviewCell": {
+    "args": {
+      "label": "Nézők",
+      "value": "128"
+    },
+    "stories": {
+      "Default": {},
+      "Live": {
+        "label": "Adás",
+        "value": "42:18",
+        "color": "!'var(--status-live)'",
+        "state": "Adásban",
+        "pulse": true
+      },
+      "Divided": {
+        "label": "Feltöltés",
+        "value": "3",
+        "divider": true
+      }
+    }
+  },
+  "PageHeader": {
+    "args": {
+      "title": "Vezérlő",
+      "eyebrow": "Vasárnap"
+    },
+    "stories": {
+      "Default": {},
+      "WithBack": {
+        "title": "Esemény szerkesztése",
+        "back": {
+          "label": "Vissza",
+          "href": "#events"
+        }
+      },
+      "LongTitle": {
+        "title": "Vasárnapi istentisztelet közvetítése",
+        "eyebrow": "2026. március 14."
+      },
+      "AsSubheading": {
+        "level": 2,
+        "title": "Csatlakozók",
+        "eyebrow": "Beállítások"
+      }
+    }
+  },
+  "PresenterPanel": {
+    "args": {
+      "label": "Prezentáló nézet",
+      "url": "http://192.168.1.10:1421/presenter",
+      "copyLabel": "Másolás",
+      "clientsLabel": "Csatlakozott eszközök",
+      "clientsSummary": "2 aktív",
+      "emptyMessage": "Még senki sem csatlakozott.",
+      "clients": [
+        {
+          "id": "a",
+          "name": "Karzat iPad",
+          "address": "192.168.1.77",
+          "detail": "12 perce"
+        },
+        {
+          "id": "b",
+          "name": "Szószék laptop",
+          "address": "192.168.1.32",
+          "detail": "4 perce"
+        }
+      ]
+    },
+    "stories": {
+      "Default": {},
+      "Empty": {
+        "clients": [],
+        "clientsSummary": "0 aktív"
+      }
+    }
+  },
+  "ProgressBar": {
+    "args": {
+      "label": "Feltöltés",
+      "value": 62,
+      "valueText": "62%"
+    },
+    "stories": {
+      "Determinate": {},
+      "Complete": {
+        "value": 100,
+        "valueText": "Kész"
+      },
+      "Indeterminate": {
+        "value": null,
+        "valueText": null,
+        "label": "Kapcsolódás"
+      }
+    }
+  },
+  "RadioGroup": {
+    "args": {
+      "label": "Közvetítés minősége",
+      "value": "high",
+      "options": [
+        {
+          "value": "high",
+          "label": "Magas",
+          "hint": "1080p, 6 Mb/s"
+        },
+        {
+          "value": "medium",
+          "label": "Közepes",
+          "hint": "720p, 3 Mb/s"
+        },
+        {
+          "value": "low",
+          "label": "Alacsony",
+          "hint": "480p, 1 Mb/s"
+        }
+      ]
+    },
+    "stories": {
+      "Default": {},
+      "HiddenLegend": {
+        "labelHidden": true
+      },
+      "WithDisabled": {
+        "options": [
+          {
+            "value": "high",
+            "label": "Magas",
+            "hint": "1080p, 6 Mb/s"
+          },
+          {
+            "value": "medium",
+            "label": "Közepes"
+          },
+          {
+            "value": "low",
+            "label": "Alacsony",
+            "disabled": true,
+            "hint": "Nem érhető el ezen a kapcsolaton"
+          }
+        ]
+      }
+    }
+  },
+  "ReferenceInput": {
+    "args": {
+      "label": "Igehely",
+      "rank": "Első",
+      "value": "Jn 3:16",
+      "errorMessage": "Nézd meg a helyesírást. Próbáld így: Könyv Fejezet:Vers.",
+      "notFoundLabel": "Nincs találat"
+    },
+    "stories": {
+      "Empty": {
+        "value": "",
+        "placeholder": "Jn 3:16"
+      },
+      "Resolved": {
+        "statusMessage": "1 vers · RÚF",
+        "result": {
+          "verses": [
+            {
+              "n": 16,
+              "text": "Mert úgy szerette Isten a világot, hogy egyszülött Fiát adta."
+            }
+          ],
+          "translation": "RÚF"
+        }
+      },
+      "NotFound": {
+        "value": "Jn 99:1",
+        "result": {
+          "invalid": true
+        }
+      }
+    }
+  },
+  "Row": {
+    "args": {
+      "title": "Vasárnapi istentisztelet",
+      "chevron": false
+    },
+    "stories": {
+      "Default": {
+        "meta": "Minden héten · 09:30"
+      },
+      "WithDetail": {
+        "title": "Közvetítés célja",
+        "detail": "YouTube"
+      },
+      "Link": {
+        "title": "Események",
+        "meta": "12 közelgő",
+        "href": "#events",
+        "chevron": true
+      },
+      "Button": {
+        "title": "Kódoló újraindítása",
+        "onclick": "!() => {}",
+        "chevron": true
+      },
+      "Current": {
+        "title": "Vezérlő",
+        "href": "#dashboard",
+        "current": "page",
+        "chevron": true
+      },
+      "Danger": {
+        "title": "Esemény törlése",
+        "danger": true,
+        "onclick": "!() => {}",
+        "chevron": true
+      },
+      "Disabled": {
+        "title": "Adás újraindítása",
+        "onclick": "!() => {}",
+        "disabled": true,
+        "chevron": true
+      },
+      "LongContent": {
+        "title": "Vasárnapi istentisztelet közvetítése a gyülekezeti nagyteremből, tolmácsolással",
+        "meta": "Ez a másodsoros szöveg elég hosszú ahhoz, hogy levágásra kerüljön a sor végén",
+        "href": "#long",
+        "chevron": true
+      }
+    }
+  },
+  "SectionLabel": {
+    "args": {
+      "children": "!s('Források')"
+    },
+    "stories": {
+      "Default": {},
+      "WithHint": {
+        "hint": "3 eszköz"
+      },
+      "AsHeading": {
+        "headingLevel": 2,
+        "hint": "3 eszköz"
+      }
+    }
+  },
+  "Segmented": {
+    "args": {
+      "label": "Nézet",
+      "value": "week",
+      "options": [
+        {
+          "value": "day",
+          "label": "Nap",
+          "glyph": "·"
+        },
+        {
+          "value": "week",
+          "label": "Hét",
+          "glyph": "▤"
+        },
+        {
+          "value": "month",
+          "label": "Hónap",
+          "glyph": "▦"
+        }
+      ]
+    },
+    "stories": {
+      "Default": {},
+      "WithHints": {
+        "options": [
+          {
+            "value": "day",
+            "label": "Nap",
+            "glyph": "·",
+            "hint": "ma"
+          },
+          {
+            "value": "week",
+            "label": "Hét",
+            "glyph": "▤",
+            "hint": "7 nap"
+          },
+          {
+            "value": "month",
+            "label": "Hónap",
+            "glyph": "▦",
+            "hint": "30 nap"
+          }
+        ]
+      },
+      "TwoOptions": {
+        "value": "auto",
+        "options": [
+          {
+            "value": "auto",
+            "label": "Automatikus"
+          },
+          {
+            "value": "manual",
+            "label": "Kézi"
+          }
+        ]
+      },
+      "WithDisabled": {
+        "options": [
+          {
+            "value": "day",
+            "label": "Nap"
+          },
+          {
+            "value": "week",
+            "label": "Hét"
+          },
+          {
+            "value": "month",
+            "label": "Hónap",
+            "disabled": true
+          }
+        ]
+      }
+    }
+  },
+  "Select": {
+    "args": {
+      "label": "Jelenet",
+      "value": "worship",
+      "options": [
+        {
+          "value": "worship",
+          "label": "Dicsőítés"
+        },
+        {
+          "value": "sermon",
+          "label": "Igehirdetés"
+        },
+        {
+          "value": "prayer",
+          "label": "Imádság"
+        },
+        {
+          "value": "announcements",
+          "label": "Hirdetések"
+        },
+        {
+          "value": "offline",
+          "label": "Szünet",
+          "disabled": true
+        }
+      ]
+    },
+    "stories": {
+      "Default": {},
+      "Invalid": {
+        "invalid": true
+      },
+      "Disabled": {
+        "disabled": true
+      }
+    }
+  },
+  "Sheet": {
+    "args": {
+      "open": true,
+      "title": "Beállítások",
+      "eyebrow": "Csatlakozók",
+      "children": "!s('A lap tartalma')"
+    },
+    "stories": {
+      "Default": {},
+      "Square": {
+        "rounded": false
+      },
+      "NoGrabber": {
+        "grabber": false
+      },
+      "Closed": {
+        "open": false
+      }
+    }
+  },
+  "Skeleton": {
+    "args": {},
+    "stories": {
+      "Text": {
+        "shape": "text"
+      },
+      "Paragraph": {
+        "shape": "text",
+        "lines": 3
+      },
+      "Label": {
+        "shape": "label",
+        "width": "120px"
+      },
+      "Block": {
+        "shape": "block"
+      }
+    }
+  },
+  "SlideQueue": {
+    "args": {
+      "label": "Dia sor",
+      "summary": "2 / 4 kitöltve",
+      "openLabel": "Megnyitás",
+      "clearLabel": "Ürítés",
+      "emptyLabel": "Üres hely",
+      "slots": [
+        {
+          "index": 1,
+          "title": "Köszöntés",
+          "loaded": true
+        },
+        {
+          "index": 2,
+          "title": "Jn 3:16"
+        },
+        {
+          "index": 3
+        },
+        {
+          "index": 4
+        }
+      ]
+    },
+    "stories": {
+      "Default": {},
+      "AllEmpty": {
+        "summary": "0 / 4 kitöltve",
+        "slots": [
+          {
+            "index": 1
+          },
+          {
+            "index": 2
+          },
+          {
+            "index": 3
+          },
+          {
+            "index": 4
+          }
+        ]
+      }
+    }
+  },
+  "SlideSearch": {
+    "args": {
+      "label": "Dia keresés",
+      "searchLabel": "Fájl keresése",
+      "placeholder": "Koppints a legutóbbi diák megjelenítéséhez",
+      "filter": "",
+      "openLabel": "Megnyitás",
+      "queueLabel": "Sorba",
+      "emptyMessage": "Nincs találat erre a keresésre.",
+      "results": [
+        {
+          "id": "a",
+          "group": "Vasárnapi diák",
+          "title": "Köszöntés",
+          "position": "01"
+        },
+        {
+          "id": "b",
+          "group": "Vasárnapi diák",
+          "title": "Jn 3:16",
+          "position": "12"
+        },
+        {
+          "id": "c",
+          "group": "Ünnepi diák",
+          "title": "Áldás",
+          "position": "40"
+        }
+      ]
+    },
+    "stories": {
+      "Default": {},
+      "Empty": {
+        "results": []
+      },
+      "QueueDisabled": {
+        "queueDisabled": true
+      }
+    }
+  },
+  "Spinner": {
+    "args": {
+      "label": "Betöltés"
+    },
+    "stories": {
+      "Default": {},
+      "Small": {
+        "size": 14
+      },
+      "Large": {
+        "size": 44
+      }
+    }
+  },
+  "Stat": {
+    "args": {
+      "label": "Nézők",
+      "value": "128"
+    },
+    "stories": {
+      "Default": {},
+      "WithUnit": {
+        "label": "Bitráta",
+        "value": "5.8",
+        "unit": "Mb/s"
+      },
+      "LongValue": {
+        "label": "Adásidő",
+        "value": "1:42:18"
+      }
+    }
+  },
+  "StatusDot": {
+    "args": {
+      "status": "ok",
+      "label": "Kapcsolódva"
+    },
+    "stories": {
+      "Live": {
+        "status": "live",
+        "label": "Adásban"
+      },
+      "Ok": {
+        "status": "ok",
+        "label": "Kapcsolódva"
+      },
+      "Warn": {
+        "status": "warn",
+        "label": "Késleltetés"
+      },
+      "Error": {
+        "status": "error",
+        "label": "Megszakadt"
+      },
+      "Off": {
+        "status": "off",
+        "label": "Készenlét"
+      },
+      "LabelHidden": {
+        "status": "live",
+        "label": "Adásban",
+        "labelHidden": true
+      }
+    }
+  },
+  "StickyActionBar": {
+    "args": {
+      "primary": "Mentés",
+      "secondary": "Mégse"
+    },
+    "stories": {
+      "Default": {},
+      "PrimaryOnly": {
+        "secondary": ""
+      },
+      "PrimaryDisabled": {
+        "primaryDisabled": true
+      }
+    }
+  },
+  "Table": {
+    "args": {
+      "caption": "Feltöltések",
+      "columns": [
+        {
+          "key": "name",
+          "header": "Név",
+          "cell": "!(row) => row.name"
+        },
+        {
+          "key": "target",
+          "header": "Cél",
+          "cell": "!(row) => row.target"
+        },
+        {
+          "key": "size",
+          "header": "Méret",
+          "numeric": true,
+          "cell": "!(row) => row.size"
+        }
+      ],
+      "rows": [
+        {
+          "id": "a",
+          "name": "2026-03-14 istentisztelet",
+          "target": "YouTube",
+          "size": "2.4 GB"
+        },
+        {
+          "id": "b",
+          "name": "2026-03-07 istentisztelet",
+          "target": "YouTube",
+          "size": "2.1 GB"
+        },
+        {
+          "id": "c",
+          "name": "2026-02-28 ifjúsági",
+          "target": "Facebook",
+          "size": "1.6 GB"
+        }
+      ]
+    },
+    "stories": {
+      "Default": {},
+      "VisibleCaption": {
+        "captionVisible": true
+      }
+    }
+  },
+  "TextArea": {
+    "args": {
+      "label": "Megjegyzés",
+      "value": "A tolmács a karzaton ül."
+    },
+    "stories": {
+      "Default": {},
+      "Empty": {
+        "value": "",
+        "placeholder": "Írj megjegyzést"
+      },
+      "Invalid": {
+        "invalid": true
+      },
+      "Disabled": {
+        "disabled": true
+      },
+      "Tall": {
+        "rows": 8
+      }
+    }
+  },
+  "TextField": {
+    "args": {
+      "label": "Kiszolgáló címe",
+      "value": "192.168.1.10"
+    },
+    "stories": {
+      "Default": {},
+      "Empty": {
+        "value": "",
+        "placeholder": "192.168.1.10"
+      },
+      "Invalid": {
+        "invalid": true
+      },
+      "Readonly": {
+        "readonly": true
+      },
+      "Disabled": {
+        "disabled": true
+      },
+      "Suggesting": {
+        "value": "192",
+        "suggestions": ["192.168.1.10", "192.168.1.20"],
+        "acceptHint": "elfogadás"
+      }
+    }
+  },
+  "TextIcon": {
+    "args": {
+      "char": "·"
+    },
+    "stories": {
+      "Default": {},
+      "Labelled": {
+        "char": "⌁",
+        "label": "Broadlink"
+      },
+      "Other": {
+        "char": "▣"
+      }
+    }
+  },
+  "Toast": {
+    "args": {
+      "kind": "Csatlakozó",
+      "source": "YouTube",
+      "title": "A közvetítés elindult",
+      "body": "A stream 09:31-kor kezdődött, 1080p felbontásban."
+    },
+    "stories": {
+      "Ok": {
+        "tone": "ok"
+      },
+      "Warning": {
+        "tone": "warn",
+        "title": "Késleltetés nőtt",
+        "state": "instabil"
+      },
+      "Error": {
+        "tone": "error",
+        "title": "A kapcsolat megszakadt",
+        "state": "újracsatlakozás",
+        "actions": [
+          {
+            "label": "Újra",
+            "primary": true,
+            "onclick": "!() => {}"
+          },
+          {
+            "label": "Miért?",
+            "onclick": "!() => {}"
+          }
+        ]
+      },
+      "Live": {
+        "tone": "live",
+        "title": "Adásban",
+        "state": "élő"
+      },
+      "Mono": {
+        "tone": "ok",
+        "mono": true,
+        "body": "obs-websocket 5.5.4 · rtmp://a.rtmp.youtube.com/live2"
+      },
+      "Dismissible": {
+        "tone": "ok",
+        "dismissLabel": "Elvetés",
+        "ondismiss": "!() => {}"
+      }
+    }
+  },
+  "ToastOverlay": {
+    "args": {
+      "label": "Értesítések",
+      "children": "!s('A toastok itt jelennek meg')"
+    },
+    "stories": {
+      "Polite": {
+        "priority": "polite"
+      },
+      "Assertive": {
+        "priority": "assertive"
+      }
+    }
+  },
+  "Toggle": {
+    "args": {
+      "label": "Automatikus feltöltés"
+    },
+    "stories": {
+      "Off": {
+        "checked": false
+      },
+      "On": {
+        "checked": true
+      },
+      "Disabled": {
+        "checked": false,
+        "disabled": true
+      },
+      "DisabledOn": {
+        "checked": true,
+        "disabled": true
+      }
+    }
+  },
+  "ToggleRow": {
+    "args": {
+      "label": "Automatikus feltöltés",
+      "sub": "A felvétel az adás végén felkerül a YouTube-ra."
+    },
+    "stories": {
+      "Default": {},
+      "On": {
+        "checked": true
+      },
+      "LabelOnly": {
+        "sub": ""
+      },
+      "Disabled": {
+        "disabled": true
+      }
+    }
+  },
+  "TransportDock": {
+    "args": {
+      "label": "Dia vezérlés",
+      "status": "Vetítés",
+      "current": "Jn 3:16 — Mert úgy szerette Isten a világot",
+      "position": "12",
+      "actions": [
+        {
+          "icon": "first",
+          "label": "Első",
+          "onclick": "!() => {}"
+        },
+        {
+          "icon": "prev",
+          "label": "Előző",
+          "onclick": "!() => {}"
+        },
+        {
+          "icon": "play",
+          "label": "Vetítés",
+          "variant": "primary",
+          "onclick": "!() => {}"
+        },
+        {
+          "icon": "next",
+          "label": "Következő",
+          "onclick": "!() => {}"
+        },
+        {
+          "icon": "stop",
+          "label": "Leállítás",
+          "variant": "stop",
+          "onclick": "!() => {}"
+        }
+      ]
+    },
+    "stories": {
+      "Default": {},
+      "Standby": {
+        "status": "Készenlét",
+        "current": "Nincs betöltve dia",
+        "position": "—"
+      },
+      "ThreeControls": {
+        "actions": [
+          {
+            "icon": "prev",
+            "label": "Előző",
+            "onclick": "!() => {}"
+          },
+          {
+            "icon": "play",
+            "label": "Vetítés",
+            "variant": "primary",
+            "onclick": "!() => {}"
+          },
+          {
+            "icon": "next",
+            "label": "Következő",
+            "onclick": "!() => {}"
+          }
+        ]
+      }
+    }
+  },
+  "LiveRegion": {
+    "args": {},
+    "stories": {
+      "Default": {}
+    }
+  }
+}

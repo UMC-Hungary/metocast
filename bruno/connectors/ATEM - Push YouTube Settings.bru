@@ -1,0 +1,35 @@
+meta {
+  name: ATEM - Push YouTube Settings
+  type: http
+  seq: 23
+}
+
+post {
+  url: {{baseUrl}}/api/connectors/atem/stream/youtube
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  Writes the channel's RTMP ingestion address and stream key into the ATEM
+  switcher's streaming service. The key is never returned.
+
+  Sets the destination only — the switcher does not go live. Send
+  `atem.stream.start` over the WebSocket for that.
+
+  409 when no switcher is connected, 502 when the switcher or the YouTube API rejects it.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("response has the service and url", function() {
+    expect(res.body).to.have.property('service');
+    expect(res.body).to.have.property('url');
+  });
+}

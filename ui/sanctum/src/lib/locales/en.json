@@ -1,0 +1,850 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "events": "Events",
+    "slides": "Slides",
+    "settings": "Settings"
+  },
+  "connection": {
+    "connecting": "Connecting to the core…",
+    "lost": "Core connection lost — retrying…"
+  },
+  "screens": {
+    "dashboard": {
+      "title": "Dashboard",
+      "note": "Broadcast state, live telemetry and the next scheduled event."
+    },
+    "events": {
+      "title": "Events",
+      "note": "Filtered, searchable event list with detail.",
+      "new": "New event"
+    },
+    "editor": {
+      "title": "Event editor",
+      "note": "Scripture lookup, auto-title, privacy and recording options."
+    },
+    "presentations": {
+      "title": "Presentations",
+      "note": "Transport, slide queue and presenter clients."
+    },
+    "settings": {
+      "title": "Settings",
+      "note": "Language, mode, accounts, scheduled jobs and updates."
+    },
+    "connectors": {
+      "title": "Connectors",
+      "note": "Category groups, per-connector configuration, status and remediation."
+    },
+    "eventSettings": {
+      "title": "Event settings",
+      "note": "Published title template and where generated slide decks are written."
+    }
+  },
+  "common": {
+    "errorTitle": "Couldn't load",
+    "errorBody": "The core didn't answer. Check the connection and try again.",
+    "retry": "Try again"
+  },
+  "dash": {
+    "greetingMorning": "Good morning.",
+    "greetingEarly": "Up early, early bird.",
+    "greetingNight": "Still up, night owl?",
+    "greetingAfternoon": "Good afternoon.",
+    "greetingEvening": "Good evening.",
+    "onAir": "On air",
+    "offAir": "Off air",
+    "activeTitle": "Live broadcast",
+    "activeContext": "Streaming now",
+    "noBroadcast": "No active broadcast",
+    "idleHint": "Schedule or start an instant stream",
+    "viewers": "Viewers",
+    "bitrate": "Bitrate",
+    "dropped": "Dropped",
+    "upNext": "Up next",
+    "noneScheduled": "Nothing scheduled",
+    "noneScheduledHint": "New events will appear here",
+    "noSpeaker": "No speaker",
+    "quickActions": "Quick actions",
+    "newEvent": "New event",
+    "newEventMeta": "Schedule a stream",
+    "presentations": "Presentations",
+    "presentationsMeta": "Slides & lyrics",
+    "connectors": "Connectors",
+    "connectorsMeta": "{n} linked",
+    "audioRecording": "RØDECaster audio",
+    "recReady": "Ready",
+    "recActive": "Recording",
+    "noRecordEvent": "No event to record into",
+    "noRecordEventHint": "Schedule an event and the recording attaches to it",
+    "outputMode": {
+      "mainMix": "Main mix",
+      "separate": "Separate tracks",
+      "combinedStereo": "Combined stereo",
+      "multichannelFlac": "Multichannel FLAC"
+    },
+    "recordAudio": "Record audio",
+    "stopAudio": "Stop recording",
+    "connectMixer": "Connect the RØDECaster to the core before recording.",
+    "lastRecording": "Last recording"
+  },
+  "events": {
+    "eyebrow": "{n} shown",
+    "title": "Events",
+    "new": "New event",
+    "search": "Search events",
+    "searchPlaceholder": "Search events, speakers…",
+    "filtersLabel": "Filter events",
+    "filter": {
+      "upcoming": "Upcoming",
+      "live": "Live",
+      "past": "Past"
+    },
+    "noMatch": "Nothing matches",
+    "noMatchHint": "Try a different search or filter",
+    "emptyTitle": "No events yet",
+    "emptyHint": "Scheduled broadcasts will appear here",
+    "noSpeaker": "No speaker",
+    "liveNow": "Live now",
+    "preview": "Preview",
+    "selected": "Selected",
+    "open": "Open event",
+    "noSelection": "Nothing selected",
+    "status": {
+      "live": "Live",
+      "past": "Past",
+      "scheduled": "Scheduled"
+    }
+  },
+  "editor": {
+    "back": "Events",
+    "newTitle": "Schedule event",
+    "editTitle": "Edit event",
+    "defaultTitle": "(Sunday) Worship Service",
+    "loadFailed": "Couldn't load this event",
+    "saveFailed": "Couldn't save — your entries are kept",
+    "details": "Details",
+    "eventTitle": "Event title",
+    "titlePlaceholder": "Sunday Worship Service",
+    "date": "Date",
+    "time": "Time",
+    "pickDate": "Pick a date",
+    "pickTime": "Pick a time",
+    "speaker": "Speaker",
+    "speakerPlaceholder": "Pastor Mira Okafor",
+    "speakerAccept": "accept",
+    "scripture": "Scripture",
+    "scriptureHint": "Inline fetch pulls verse text",
+    "textus": "Textus",
+    "leckio": "Leckio",
+    "primary": "Primary",
+    "secondary": "Secondary",
+    "textusPlaceholder": "John 3:16–21",
+    "leckioPlaceholder": "Psalm 23",
+    "refNotFound": "Reference not recognised",
+    "verseCount": "{n} verses · {t}",
+    "description": "Description",
+    "descriptionHint": "Used for the YouTube description",
+    "descriptionPlaceholder": "Share the week's message, links, and anything the congregation should know…",
+    "previewLabel": "YouTube preview",
+    "previewEmpty": "Fill in date and reference to preview",
+    "tag": {
+      "date": "date",
+      "textus": "textus",
+      "title": "title",
+      "speaker": "speaker"
+    },
+    "privacyLabel": "YouTube privacy",
+    "privacy": {
+      "public": "Public",
+      "publicHint": "Anyone can watch",
+      "unlisted": "Unlisted",
+      "unlistedHint": "Link only",
+      "private": "Private",
+      "privateHint": "Only you"
+    },
+    "recording": "Recording",
+    "autoUpload": "Auto-upload after event",
+    "autoUploadHint": "Push the local recording to YouTube when the stream ends",
+    "saveNew": "Schedule event →",
+    "saveEdit": "Save changes →",
+    "cancel": "Cancel",
+    "footNote": "Events can be rescheduled or deleted from the event detail after saving.",
+    "platform": {
+      "label": "Platforms",
+      "open": "Open",
+      "connector": {
+        "connected": "Connector online",
+        "connecting": "Connector connecting",
+        "error": "Connector error",
+        "disconnected": "Connector off"
+      },
+      "status": {
+        "not_scheduled": "Not scheduled",
+        "scheduled": "Scheduled",
+        "created": "Created",
+        "ready": "Ready",
+        "testing": "Testing",
+        "live": "Live",
+        "liveStarting": "Going live",
+        "complete": "Ended",
+        "revoked": "Revoked",
+        "failed": "Failed"
+      },
+      "sync": {
+        "synced": "In sync with YouTube",
+        "syncing": "Syncing to YouTube…",
+        "parked": "Waiting for YouTube sign-in",
+        "failed": "Sync failed",
+        "notScheduled": "Not on YouTube yet"
+      }
+    },
+    "slides": {
+      "create": "Generate slides",
+      "creating": "Generating…",
+      "created": "Slide decks written",
+      "failed": "Could not generate slides"
+    }
+  },
+  "presentations": {
+    "title": "Slides",
+    "modeLabel": "Presenter mode",
+    "mode": {
+      "web": "Web presenter",
+      "keynote": "Keynote bridge"
+    },
+    "themeLabel": "Presenter design",
+    "fontsTitle": "PowerPoint fonts",
+    "fontsNames": "Cormorant Garamond + Geist Mono",
+    "fontsRequired": "Required for Editorial PowerPoints — install through Font Book",
+    "fontsInstall": "Open Font Book",
+    "fontsInstalled": "Installed",
+    "fontsFontBook": "In Font Book, click Install for both fonts, then return here",
+    "fontsRestart": "Installed — restart Keynote or PowerPoint",
+    "theme": {
+      "classic": "Classic",
+      "editorial": "Editorial"
+    },
+    "presenting": "Presenting",
+    "standby": "Standby",
+    "transport": "Slide transport",
+    "first": "First slide",
+    "prev": "Previous slide",
+    "next": "Next slide",
+    "last": "Last slide",
+    "start": "Start",
+    "stop": "Stop",
+    "unload": "Unload deck",
+    "noDeck": "No deck loaded",
+    "search": "Deck search",
+    "searchPlaceholder": "Search decks, folders…",
+    "loadedDeck": "Loaded deck",
+    "tapToSearch": "Tap to search decks",
+    "noMatch": "Nothing matches",
+    "open": "Open",
+    "queue": "Queue",
+    "queueLabel": "Slide queue",
+    "queueSummary": "{n} of {total} filled",
+    "clear": "Clear",
+    "emptySlot": "Empty slot",
+    "preview": "Current slide",
+    "previewWaiting": "Nothing on screen.",
+    "previewWaitingHint": "Load a deck to preview it here",
+    "presenterSupport": "Presenter support",
+    "clients": "Connected clients",
+    "clientsSummary": "{n} connected",
+    "noClients": "No presenters have joined yet.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "folders": "Presentation folders",
+    "foldersHint": "{n} configured",
+    "folderPath": "Folder path on the core machine",
+    "folderPathPlaceholder": "/Users/name/Presentations",
+    "addFolder": "Add folder",
+    "removeFolder": "Remove folder",
+    "newSong": "Create song PPT",
+    "songKind": "Song slides",
+    "songTitle": "Song title",
+    "songTitlePlaceholder": "Kegyelemből léphetünk be",
+    "songLyrics": "Lyrics",
+    "songLyricsHint": "Leave two empty lines between slides",
+    "songLyricsPlaceholder": "Paste the verses and refrain here…",
+    "songStructureHint": "A title slide and final blank slide are added automatically. Entered lines are kept intact.",
+    "outputFolder": "Song PPT output folder",
+    "outputFolderHint": "Generated song PowerPoints are saved here",
+    "outputFolderNone": "Not configured",
+    "outputFolderChoose": "Choose folder",
+    "outputFolderChange": "Change folder",
+    "outputFolderSave": "Save folder",
+    "searchFolders": "Presentation search folders",
+    "songRequired": "Enter a song title and lyrics.",
+    "createSong": "Create PowerPoint",
+    "creatingSong": "Creating PowerPoint…",
+    "songCreated": "PowerPoint created · {n} slides",
+    "songFailed": "Could not create the PowerPoint"
+  },
+  "notif": {
+    "bell": "Notifications, {n} unread",
+    "bellIssue": "Notifications, 1 active issue, {n} unread",
+    "bellIssues": "Notifications, {issues} active issues, {n} unread",
+    "eyebrow": "Notifications",
+    "count": "{n} items",
+    "activeCountOne": "1 active issue",
+    "activeCount": "{n} active issues",
+    "activeIssues": "Active issues",
+    "recentNotifications": "Recent notifications",
+    "allClear": "All clear",
+    "emptyTitle": "Nothing waiting.",
+    "emptyHint": "Connectors will speak up here",
+    "clearAll": "Clear all",
+    "clearHistory": "Clear history",
+    "showSteps": "Show steps",
+    "hideSteps": "Hide steps",
+    "kind": {
+      "encoder": "Encoder",
+      "streaming": "Streaming",
+      "camera": "Camera",
+      "cameraControl": "Camera control",
+      "switcher": "Switcher",
+      "mixer": "Mixer",
+      "webhooks": "Webhooks",
+      "connector": "Connector",
+      "system": "System"
+    },
+    "action": {
+      "edit": "Edit",
+      "reconnect": "Reconnect",
+      "relogin": "Re-login"
+    },
+    "remediation": {
+      "open": "Open Settings → Connectors",
+      "check": "Check the {name} configuration",
+      "enable": "Re-enable the connector"
+    },
+    "mute": {
+      "remoteMuted": "{label}: remote mic muted",
+      "remoteUnmuted": "{label}: remote mic unmuted",
+      "muted": "{label} muted",
+      "unmuted": "{label} unmuted"
+    },
+    "conn": {
+      "disconnected": "{name} disconnected",
+      "reconnected": "{name} reconnected",
+      "reconnecting": "reconnecting"
+    },
+    "core": {
+      "source": "Core",
+      "commandFailed": "Command failed"
+    }
+  },
+  "settings": {
+    "eyebrow": "Control surface",
+    "overview": {
+      "mode": "Mode",
+      "accounts": "Accounts",
+      "jobs": "Jobs"
+    },
+    "appearance": "Appearance",
+    "language": "Language",
+    "languageRow": {
+      "title": "Interface language",
+      "meta": "Stored locally and mirrored to Tauri settings.json"
+    },
+    "scheme": {
+      "light": "Light",
+      "dark": "Dark",
+      "auto": "Auto"
+    },
+    "modeSection": "App mode",
+    "connect": {
+      "section": "Connect a device",
+      "hint": "Scan with Metocast on iPhone",
+      "loading": "Generating…",
+      "unavailable": "Start the server to generate a connect code"
+    },
+    "mode": {
+      "title": "Current mode · {mode}",
+      "meta": "Resetting returns to setup. The embedded database continues until restart.",
+      "clientMeta": "Removes this device's saved server address and token. You'll return to setup.",
+      "change": "Change",
+      "removeAccess": "Remove access",
+      "switchTitle": "Switch to client mode",
+      "switchBody": "Switching to client mode erases this server's data — recordings, settings and connectors. This cannot be undone.",
+      "switchConfirm": "Switch and erase server data",
+      "switchConfirmDialog": "This permanently deletes all data on this server. Continue?",
+      "switchConfirmFinal": "Yes, erase everything and switch"
+    },
+    "accountsSection": "Sign-in accounts",
+    "account": {
+      "login": "Log in",
+      "manage": "Account",
+      "ready": "Ready to sign in",
+      "needsKey": "Needs API key",
+      "signedCount": "{n}/2 signed in"
+    },
+    "connectors": "Connectors",
+    "connectorsRow": {
+      "title": "Connection manager",
+      "meta": "OBS, YouTube, Facebook, VMix, ATEM, Broadlink, Discord",
+      "open": "Open"
+    },
+    "presentations": "Presentations",
+    "webPresenter": {
+      "title": "Use web presenter",
+      "meta": "Sends presentation.set_use_web_presenter over WebSocket"
+    },
+    "cron": {
+      "section": "Cron jobs",
+      "configured": "{n} configured",
+      "name": "Name",
+      "namePlaceholder": "e.g. YouTube poll",
+      "expr": "Cron expression",
+      "exprPlaceholder": "0 */5 * * * *",
+      "save": "Save",
+      "pullYoutube": "Pull YouTube Live Events",
+      "autoUpload": "Auto-upload flagged recordings",
+      "tagYoutube": "YouTube pull",
+      "tagUpload": "Auto upload",
+      "tagCustom": "Custom task"
+    },
+    "app": "App",
+    "version": {
+      "title": "Application version",
+      "check": "Check",
+      "download": "Download",
+      "available": "{v} available"
+    },
+    "back": "Settings",
+    "template": {
+      "section": "Event title template",
+      "hint": "Used for YouTube",
+      "field": "Template",
+      "optional": "optional",
+      "save": "Save template",
+      "reset": "Reset to default",
+      "sampleTitle": "(Sunday) Worship Service",
+      "sampleSpeaker": "Pastor Mira Okafor"
+    },
+    "eventsRow": {
+      "title": "Event settings",
+      "meta": "Title template, Bible slide folder"
+    }
+  },
+  "logs": {
+    "title": "Application logs",
+    "rowMeta": "Read, filter and clear this core's log",
+    "fileSection": "Log file",
+    "file": "Log file",
+    "loading": "Loading logs…",
+    "refresh": "Refresh",
+    "download": "Download",
+    "open": "Open",
+    "copyPath": "Copy path",
+    "remove": "Clear log",
+    "removing": "Clearing…",
+    "removeConfirm": "Clear the current application log contents? This cannot be undone.",
+    "cancel": "Cancel",
+    "empty": "The log is quiet.",
+    "emptyHint": "Lines will appear as the core works",
+    "noMatches": "No lines match this filter.",
+    "unavailable": "Logs unavailable",
+    "noToken": "This device has no token for the core, so it cannot read the log.",
+    "retry": "Try again",
+    "filters": {
+      "label": "Log level filter",
+      "all": "All",
+      "info": "Info",
+      "warn": "Warnings",
+      "error": "Errors"
+    },
+    "toasts": {
+      "removed": "Application log cleared",
+      "removeFailed": "Failed to clear the application log",
+      "pathCopied": "Log path copied",
+      "copyFailed": "Failed to copy the log path",
+      "openFailed": "Failed to open the application log"
+    }
+  },
+  "toast": {
+    "region": "Notifications",
+    "dismiss": "Dismiss",
+    "minimize": "Minimize notification",
+    "connector": "Connector"
+  },
+  "conn": {
+    "back": "Back",
+    "toast": {
+      "connectFail": "Couldn't connect",
+      "disconnectFail": "Couldn't disconnect",
+      "saveFail": "Couldn't save",
+      "scanFail": "Scan failed",
+      "toggleFail": "Couldn't update"
+    },
+    "eyebrow": "{n} of {total} enabled",
+    "cat": {
+      "broadcast": "Broadcast",
+      "streaming": "Streaming",
+      "devices": "Devices",
+      "future": "Future"
+    },
+    "summary": {
+      "live": "Live",
+      "ready": "Ready",
+      "future": "Future"
+    },
+    "enabledHint": "{n}/{total} enabled",
+    "disabled": "Connector disabled",
+    "descriptor": {
+      "youtube": "Data API v3 · broadcasts and stream keys",
+      "facebook": "Pages API · stream destination",
+      "broadlink": "Projector, screen and AV commands",
+      "vmix": "Configuration stored for future support",
+      "atem": "UDP protocol · program, preview, record and stream",
+      "discord": "Webhook support coming soon",
+      "blackmagic-camera": "REST API · record and livestream control",
+      "middlecontrol": "TCP API · camera, recording and preset control",
+      "rodecaster": "USB HID · channel profile and mute control"
+    },
+    "lockedNote": "This connector is not implemented yet. Metocast keeps the configuration ready for a future build.",
+    "note": "Connector settings are saved locally first, then reconciled through Tauri commands or the server API.",
+    "save": "Save",
+    "saved": "Saved",
+    "saveFailed": "Could not save — {error}",
+    "secretKept": "Leave blank to keep",
+    "login": "Login",
+    "account": "Account",
+    "encoder": {
+      "connect": "Connect",
+      "disconnect": "Disconnect",
+      "reconnect": "Save & reconnect",
+      "rtmp": "{dest} RTMP URL"
+    },
+    "discovery": {
+      "title": "Device discovery",
+      "description": "Find RF/IR emitters on the local network",
+      "scan": "Scan network",
+      "scanAgain": "Scan again",
+      "scanning": "Scanning",
+      "empty": "Start a scan to discover Broadlink RM devices near the booth network."
+    },
+    "ops": {
+      "kicker": "Operator summary",
+      "route": "{dest} route",
+      "obsReady": "OBS is ready for live output.",
+      "obsAttention": "OBS needs attention for live output.",
+      "enabled": "Enabled",
+      "ready": "Ready",
+      "rtmp": "RTMP target",
+      "deviceLayer": "Device layer",
+      "devicesFound": "{n} Broadlink devices discovered",
+      "awaitingScan": "Awaiting network scan",
+      "authState": "Auth state",
+      "ytLinked": "YouTube account linked",
+      "ytNeedsLogin": "YouTube needs login"
+    },
+    "field": {
+      "host": "Host",
+      "port": "Port",
+      "password": "Password",
+      "clientId": "Client ID",
+      "clientSecret": "Client Secret",
+      "appId": "App ID",
+      "appSecret": "App Secret",
+      "pageId": "Page ID",
+      "webhookUrl": "Webhook URL",
+      "apiKey": "API key",
+      "username": "Username",
+      "fingerprint": "Certificate fingerprint",
+      "notifyOnMute": "Notify on mute change"
+    },
+    "cameraDiscovery": {
+      "title": "Find cameras",
+      "description": "Scans the local network. The first camera found is connected automatically when none is configured yet.",
+      "empty": "No camera answered. Cameras only appear once Web Media Manager is enabled in Blackmagic Camera Setup; you can also enter the host by hand.",
+      "firmware": "Firmware {version}"
+    },
+    "camera": {
+      "pushYoutube": "Push YouTube settings",
+      "rtmp": "YouTube RTMP URL on the camera",
+      "control": "Camera control",
+      "controlMeta": "Transport, storage, record and stream quality",
+      "open": "Open"
+    },
+    "fieldHint": {
+      "notifyOnMute": "Raise a notification when a channel is muted or unmuted on the desk."
+    },
+    "rodecaster": {
+      "exclusive": "The USB cable must reach the machine running the core, and the desk allows one client at a time — RØDE Central and RØDE Connect cannot be open while this connector holds it.",
+      "mixer": "Mixer",
+      "mixerMeta": "Channel profile and mute control"
+    },
+    "middlecontrol": {
+      "help": "Middle Control must remain running. If it runs on the Metocast server computer, use localhost — no IP address is needed. Current macOS versions use port 11584; the observed 3.2.0 macOS build uses 11581; Windows uses 11580.",
+      "sdk": "External SDK / API",
+      "devicesTitle": "Middle Control devices",
+      "devicesSummary": "{cameras} cameras · {ptz} APC-R/PTZ",
+      "devicesDisconnected": "Connect Middle Control to see its cameras and APC-R PTZ units.",
+      "devicesWaiting": "Waiting for the first Middle Control feedback frame…",
+      "devicesEmpty": "Middle Control reports no connected cameras or APC-R PTZ units.",
+      "camera": "Camera {id}",
+      "connected": "Connected",
+      "cameraOffline": "Camera offline",
+      "selected": "Selected",
+      "recording": "Recording",
+      "ptz": "APC-R · PTZ",
+      "useLocal": "Use this computer",
+      "useEndpoint": "Use {address}",
+      "discoveryTitle": "Find Middle Control",
+      "discoveryDescription": "Checks this computer and the Metocast server's local network on the known Middle Control ports. Only a valid feedback stream is accepted.",
+      "discoveryReady": "Start a scan while Middle Control is running.",
+      "discoveryEmpty": "No Middle Control instance answered. Make sure it is running, then scan again. For manual entry, on its Mac open System Settings → Network and select the active connection; on Windows open Settings → Network & internet → Properties. Copy the IPv4 address into Host above."
+    },
+    "status": {
+      "login_required": "Login required",
+      "relogin_required": "Re-login required",
+      "credentials_required": "Credentials required",
+      "atem_no_response": "The switcher did not answer",
+      "atem_timeout": "The switcher stopped answering",
+      "atem_no_ack": "The switcher did not confirm the command",
+      "atem_not_connected": "The switcher is not connected",
+      "atem_unknown_input": "The switcher has no such input",
+      "atem_recording_unsupported": "This switcher cannot record",
+      "atem_streaming_unsupported": "This switcher cannot stream"
+    },
+    "atem": {
+      "destination": "Stream destination on the switcher",
+      "control": "Switcher control",
+      "controlMeta": "Program, preview, cut, record and stream",
+      "discoveryTitle": "Find the switcher",
+      "discoveryDescription": "Looks for ATEM switchers connected to the Metocast server over USB or on its local network.",
+      "discoveryReady": "Start a scan with the switcher powered on and connected by USB or Ethernet.",
+      "discoveryEmpty": "No switcher answered. Check its USB or network cable, then scan again. For manual entry, find its IP address in ATEM Setup and type it into Host above.",
+      "use": "Use",
+      "usb": "USB",
+      "network": "Network"
+    }
+  },
+  "setup": {
+    "eyebrow": "Welcome",
+    "title": "Choose a mode",
+    "lede": "How should this device run Metocast?",
+    "modeLabel": "App mode",
+    "server": "Server",
+    "client": "Client",
+    "serverHint": "Run the backend on this machine. It must stay on to serve other devices.",
+    "clientHint": "Connect to a Metocast server running elsewhere. Get its URL and token from the server's Connect page.",
+    "urlLabel": "Server URL",
+    "tokenLabel": "Auth token",
+    "tokenPlaceholder": "Paste the auth token",
+    "missing": "Server URL and auth token are both required.",
+    "unreachable": "Server unreachable — check the URL and try again.",
+    "unauthorized": "Wrong auth token — check it and try again.",
+    "unexpected": "Unexpected response from server ({status}).",
+    "confirm": "Confirm",
+    "working": "Setting up…",
+    "scanQr": "Scan QR code",
+    "scanning": "Point the camera at the QR code on the server",
+    "scanCancel": "Cancel",
+    "scanError": "Camera unavailable — enter the URL and token manually",
+    "override": {
+      "eyebrow": "Connect",
+      "title": "Replace this device's server?",
+      "body": "This device is already set up. Continuing switches it to {url} and discards the current connection.",
+      "keep": "Keep current",
+      "replace": "Replace"
+    }
+  },
+  "ui": {
+    "activeInterface": "Active interface",
+    "current": "Current"
+  },
+  "login": {
+    "signIn": "Sign in",
+    "credentials": "API credentials",
+    "scope": {
+      "youtube": "Upload, schedule and go live on your channel. Metocast will redirect to YouTube to confirm permissions.",
+      "facebook": "Publish to Pages you manage. Metocast will redirect to Facebook to confirm permissions."
+    },
+    "clientId": "Client ID",
+    "noCreds": "No client credentials yet",
+    "add": "Add",
+    "edit": "Edit",
+    "account": "Account",
+    "email": "Email or username",
+    "password": "Password",
+    "passwordHint": "You'll confirm on the provider's page",
+    "continue": "Continue with {provider}",
+    "connecting": "Connecting…",
+    "credsIntro": "Paste the credentials from your {provider} developer console. These stay on this device.",
+    "field": {
+      "clientId": "Client ID",
+      "clientSecret": "Client Secret",
+      "appId": "App ID",
+      "appSecret": "App Secret",
+      "pageId": "Page ID"
+    },
+    "redirectUri": "Redirect URI",
+    "redirectHint": "Copy this into your developer console.",
+    "cancel": "Cancel",
+    "saveCreds": "Save credentials",
+    "show": "Show",
+    "hide": "Hide"
+  },
+  "camera": {
+    "title": "Camera control",
+    "back": "Connectors",
+    "loading": "Reading the camera",
+    "unavailable": "Camera settings unavailable",
+    "notConnected": "The Blackmagic camera connector is not connected. Enable it under Connectors and scan for the camera.",
+    "retry": "Try again",
+    "transport": "Camera transport",
+    "startRecord": "Record",
+    "record": {
+      "label": "Recording",
+      "sensor": "Sensor",
+      "resolution": "Resolution",
+      "frameRate": "Frame rate",
+      "fps": "{r} fps",
+      "codec": "Codec",
+      "remaining": "Record time left"
+    },
+    "stopRecord": "Stop record",
+    "goLive": "Go live",
+    "stopStream": "Stop stream",
+    "apply": "Apply to camera",
+    "applying": "Applying",
+    "revert": "Revert",
+    "applyFailed": "Couldn't apply settings",
+    "note": "Settings are staged here and written to the camera when you apply. Recording and streaming keep running on whatever the camera already has.",
+    "state": {
+      "standby": "Standby",
+      "recording": "Recording",
+      "live": "Live",
+      "both": "Recording · Live",
+      "rec": "Rec",
+      "ready": "Ready"
+    },
+    "overview": {
+      "stream": "Stream",
+      "record": "Record",
+      "free": "Free"
+    },
+    "storage": {
+      "label": "Storage",
+      "slots": "{n} slots",
+      "empty": "Empty slot",
+      "meta": "{type} · {clips} clips · {free} free of {total}",
+      "noCard": "{type} · no card",
+      "used": "{volume} used",
+      "freeOf": "{free} free of {total}"
+    },
+    "stream": {
+      "label": "Streaming",
+      "server": "Server",
+      "quality": "Quality profile",
+      "noTable": "{profile} — no format table",
+      "noTableNote": "This profile carries no format table on the camera, so it picks the rate itself. The Streaming profiles list one.",
+      "rung": "{resolution} · {fps} fps",
+      "mbps": "{rate} Mbps",
+      "output": "Camera output",
+      "ready": "Ready"
+    }
+  },
+  "eventSettings": {
+    "templateSaved": "Template saved",
+    "folderSaved": "Bible slide folder saved",
+    "saveFailed": "Could not save",
+    "slides": {
+      "section": "Slide decks",
+      "hint": "Textus and Lekció PowerPoints",
+      "title": "Bible PPT output folder",
+      "none": "Not set — Bible slide decks cannot be generated",
+      "choose": "Choose folder",
+      "clear": "Clear",
+      "field": "Folder on the core’s machine",
+      "placeholder": "/Users/you/Documents/Slides",
+      "save": "Save folder"
+    },
+    "copied": "Copied {token}",
+    "copyFailed": "Could not copy",
+    "copyHint": "Copy to clipboard"
+  },
+  "rodecaster": {
+    "title": "RØDECaster Pro II",
+    "back": "Connectors",
+    "unavailable": "Mixer unavailable",
+    "notConnected": "The RØDECaster is not connected. Attach it to the machine running the core, enable the connector, and make sure no other application holds the device.",
+    "retry": "Try again",
+    "channels": "Channels",
+    "readOnlyHint": "Read-only except mute",
+    "channelMeta": "Level {level}% · {blocks} processing blocks on",
+    "remoteMicMuted": "Remote mic muted",
+    "level": "Fader level",
+    "cue": "Cue is on for this channel.",
+    "noSettings": "The device reports no further properties for this channel.",
+    "note": "Everything here is read from the desk. Mute is the only value this app writes.",
+    "recording": {
+      "title": "Audio recording",
+      "description": "Metocast Core records the audio and writes the FLAC files. Enable recording, choose an existing folder on the computer running the Core, then save these settings. If this app connects to a remote Core, enter an absolute path on that remote computer.",
+      "enabled": "Enable core recording",
+      "enabledHint": "Capture the RØDECaster USB multitrack endpoint as lossless FLAC.",
+      "endpointUnavailable": "Metocast cannot find the RØDECaster multitrack audio input. Connect the computer running Metocast Core to USB 1 on the mixer, enable USB 1 Multitrack on the RØDECaster, then scan again.",
+      "scanAudio": "Scan audio device again",
+      "directory": "Folder where recordings are saved",
+      "directoryPlaceholder": "/Users/name/Music/Metocast Recordings",
+      "directoryHint": "Choose an existing folder on this computer. The Core must be able to write to it.",
+      "remoteHint": "Enter an absolute path to an existing writable folder on the remote computer running Metocast Core.",
+      "chooseDirectory": "Choose audio recording folder",
+      "choose": "Choose",
+      "outputMode": "Output",
+      "processingMode": "Individual-track processing",
+      "sources": "Fader tracks",
+      "sourcesRequired": "Select at least one fader track for this output mode.",
+      "sourcesUnavailable": "No individual fader tracks were discovered. Enable USB 1 Multitrack on the RØDECaster, then scan again.",
+      "save": "Save recording settings",
+      "saved": "Recording settings saved",
+      "mode": {
+        "mainMix": "Main mix — ready to use",
+        "separate": "Separate FLAC per fader",
+        "combinedStereo": "Combined stereo FLAC",
+        "multichannelFlac": "One unsummed multichannel FLAC"
+      },
+      "processing": {
+        "preFader": "Pre-fader, processed",
+        "preFaderBypass": "Pre-fader, processing bypassed",
+        "postFader": "Post-fader, processed"
+      }
+    },
+    "overview": {
+      "device": "Device",
+      "channels": "Channels",
+      "muted": "Muted"
+    },
+    "toast": {
+      "muteFail": "Couldn't set mute"
+    }
+  },
+  "switcher": {
+    "title": "Switcher control",
+    "back": "Connectors",
+    "connecting": "Connecting to the switcher",
+    "unavailable": "Switcher not connected",
+    "notConnected": "The Blackmagic ATEM connector is not connected. Enable it under Connectors and enter the switcher's IP address.",
+    "transport": "Switcher transport",
+    "cut": "Cut",
+    "auto": "Auto",
+    "program": "Program",
+    "preview": "Preview",
+    "stream": "Stream",
+    "record": "Record",
+    "destination": "Stream destination",
+    "unsupported": "Not on this model",
+    "state": {
+      "idle": "Idle",
+      "connecting": "Connecting",
+      "streaming": "Live",
+      "recording": "Recording",
+      "stopping": "Stopping"
+    },
+    "note": "Program and preview follow the switcher, including changes made on its panel or in ATEM Software Control."
+  }
+}

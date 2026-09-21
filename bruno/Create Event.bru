@@ -1,0 +1,23 @@
+meta {
+  name: Create Event
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/events
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "title": "Sunday Service",
+    "date_time": "2026-02-25T00:12:19.843Z",
+    "speaker": "Pastor"
+  }
+}

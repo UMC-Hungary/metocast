@@ -1,0 +1,32 @@
+[package]
+name = "blackmagic-camera"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+description = "Blackmagic Camera Control API client — REST + notification websocket, with self-signed cert pinning"
+
+[lib]
+name = "blackmagic_camera"
+path = "src/lib.rs"
+
+[[bin]]
+name = "bmcam"
+path = "src/bin/bmcam.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls-manual-roots"] }
+rustls = { version = "0.23", default-features = false, features = ["std", "ring", "tls12"] }
+rustls-pki-types = "1"
+# We always supply our own pinned Connector::Rustls, so the bundled root set is unused —
+# this feature is only how tokio-tungstenite compiles in its rustls plumbing.
+tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect", "rustls-tls-webpki-roots"] }
+futures-util = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+mdns-sd = "0.11"
+thiserror = "1"
+
+[lints]
+workspace = true

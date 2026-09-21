@@ -1,0 +1,65 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "metocast",
+  "version": "2.1.0",
+  "identifier": "com.metocast.app",
+  "build": {
+    "beforeDevCommand": "pnpm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm run build",
+    "frontendDist": "../build"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "macOSPrivateApi": true,
+    "windows": [
+      {
+        "title": "Metocast",
+        "width": 1280,
+        "height": 800,
+        "transparent": true,
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "createUpdaterArtifacts": true,
+    "resources": {
+        "resources/fonts/CormorantGaramond-Regular.ttf": "fonts/CormorantGaramond-Regular.ttf",
+        "resources/fonts/GeistMono-Regular.ttf": "fonts/GeistMono-Regular.ttf",
+      "resources/fonts/CormorantGaramond-OFL.txt": "fonts/CormorantGaramond-OFL.txt",
+      "resources/fonts/Geist-OFL.txt": "fonts/Geist-OFL.txt"
+    },
+
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "signingIdentity": "-",
+      "minimumSystemVersion": "10.13"
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "mobile": [{ "scheme": ["metocast"] }],
+      "desktop": { "schemes": ["metocast"] }
+    },
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM4ODE5NzU4NDQ4RDBFN0YKUldSL0RvMUVXSmVCeUVCOFU4YTFMblJRUGtEYmR5VktLUytsUlp4WGZzcVJqY2pLZWZrdWYvOEcK",
+      "endpoints": [
+        "https://github.com/UMC-Hungary/sermon-helper-applications/releases/latest/download/latest.json"
+      ]
+    }
+  }
+}

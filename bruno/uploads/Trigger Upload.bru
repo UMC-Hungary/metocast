@@ -1,0 +1,21 @@
+meta {
+  name: Trigger Upload
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/uploads/trigger
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 204", function() {
+    expect(res.status).to.equal(204);
+  });
+}

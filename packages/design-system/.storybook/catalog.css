@@ -1,0 +1,84 @@
+/* Catalog chrome only. Nothing here is part of the library; components must not depend on it. */
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  color: var(--text-primary);
+  background: var(--surface-base);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body[data-surface='raised'] {
+  background: var(--surface-raised);
+}
+
+body[data-surface='sunken'] {
+  background: var(--surface-sunken);
+}
+
+/*
+ * Breathing room around a story, and a ceiling so a full-width component is seen at a width the
+ * design actually reflows at rather than stretched across the whole window.
+ */
+#storybook-root {
+  padding: var(--space-16);
+  max-width: var(--size-620);
+}
+
+/* Story scaffolding: a labelled column of states, and a measurement panel. */
+.sanctum-states {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+}
+
+.sanctum-state > figcaption {
+  font-family: var(--font-label);
+  font-size: var(--text-9);
+  letter-spacing: var(--track-1-2);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 var(--space-6);
+}
+
+.sanctum-state {
+  margin: 0;
+}
+
+.sanctum-reference {
+  margin-top: var(--space-24);
+  border-top: 1px solid var(--border-hairline);
+  padding-top: var(--space-12);
+  font-family: var(--font-label);
+  font-size: var(--text-9);
+  line-height: var(--leading-1-5);
+  color: var(--text-muted);
+}
+
+.sanctum-reference h3 {
+  margin: 0 0 var(--space-8);
+  font-size: var(--text-9);
+  letter-spacing: var(--track-1-5);
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.sanctum-reference table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.sanctum-reference th,
+.sanctum-reference td {
+  text-align: left;
+  padding: var(--space-2) var(--space-10) var(--space-2) 0;
+  border-bottom: 1px solid var(--border-hairline);
+  font-weight: var(--weight-400);
+  white-space: nowrap;
+}
+
+.sanctum-reference .deviation td {
+  color: var(--status-warn);
+  white-space: normal;
+}

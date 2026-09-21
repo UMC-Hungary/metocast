@@ -1,0 +1,301 @@
+# Presenter Receiver
+
+A standalone binary that connects to the Metocast server over WebSocket and renders presentation slides directly on a display — no browser required. Designed for Raspberry Pi running Raspberry Pi OS Lite (Linux framebuffer) or as a secondary window on macOS.
+
+---
+
+## Supported platforms
+
+| Platform                        | Binary                            |
+| ------------------------------- | --------------------------------- |
+| Linux arm64 (Raspberry Pi 4, 5) | `presenter-receiver-linux-arm64`  |
+| Linux armv7l (Raspberry Pi 3)   | `presenter-receiver-linux-arm64`  |
+| Linux x86_64                    | `presenter-receiver-linux-x86_64` |
+| macOS Apple Silicon             | `presenter-receiver-macos-arm64`  |
+
+---
+
+## How it works
+
+The binary runs as a single process with two concurrent parts:
+
+**WebSocket thread** — connects to the Metocast server, sends a registration message, and listens for slide state updates. When a new slide or state arrives it renders the slide to a pixel frame and sends it to the display thread via a channel. Reconnects automatically every 3 seconds on disconnect.
+
+**Display thread** — owns the output device and polls the channel for new frames every 100 ms. On Linux it writes pixel data directly to `/dev/fb0` (the kernel framebuffer). On macOS it drives a `minifb` window. The display thread also reads the current connection state and composites a status indicator into the top-right corner of every frame before writing to the output.
+
+**Rendering** — slides are rendered with Cairo and Pango. White bold text (Helvetica Neue) is vertically centred on a dark background (`#0D0D14`). Font size is determined by binary search to fit all paragraphs within 80 % of the frame height. A thin accent line is drawn at the top.
+
+**Status indicator** — a small pill in the top-right corner of the display shows the connection state at all times:
+
+| Indicator                  | Meaning                                   |
+| -------------------------- | ----------------------------------------- |
+| Filled green dot + version | Connected to the server                   |
+| Filled orange dot          | Connecting or reconnecting                |
+| Filled red dot             | 5 or more consecutive connection failures |
+
+**Picture mute** — when the server sets the muted state the binary renders a plain black frame instead of slide content. The status indicator remains visible.
+
+---
+
+## Installation
+
+### One-line installer (recommended)
+
+The installer script auto-detects the platform, installs required system libraries (Linux only), downloads the correct binary from the latest GitHub release, and places it in `/usr/local/bin`.
+
+**Install only:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/UMC-Hungary/sermon-helper-applications/main/presenter-receiver/install.sh | bash
+```
+
+**Install and start immediately:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/UMC-Hungary/sermon-helper-applications/main/presenter-receiver/install.sh | bash -s -- ws://YOUR_SERVER_IP:3737/ws
+```
+
+**Install with auto-start on boot** (Linux / systemd only):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/UMC-Hungary/sermon-helper-applications/main/presenter-receiver/install.sh | bash -s -- ws://YOUR_SERVER_IP:3737/ws --service
+```
+
+The install command is also available pre-filled with your server's address on the **Connect** page of the Tauri application.
+
+### What the installer does
+
+1. Detects OS and CPU architecture.
+2. On Linux with `apt`: checks for and installs missing shared libraries (`libcairo2`, `libcairo-gobject2`, `libpango-1.0-0`, `libpangocairo-1.0-0`, `libpangoft2-1.0-0`, `libglib2.0-0`).
+3. Downloads the matching binary from the latest GitHub release.
+4. Installs the binary to `/usr/local/bin/presenter-receiver` (falls back to the current directory if sudo is unavailable).
+5. If `--service` is passed:
+   - Removes any previously installed background service.
+   - Configures getty auto-login on TTY1 so the console logs in automatically on boot (no login prompt).
+   - Creates `~/.local/log/` and writes a restart loop to `~/.bash_profile` that redirects all output to `~/.local/log/presenter-receiver.log`.
+   - Writes `/etc/sysctl.d/99-presenter-console.conf` with `kernel.printk = 1 4 1 3` to prevent kernel messages (undervoltage warnings, hwmon events, etc.) from overwriting the framebuffer display.
+   - Restarts the getty service so the change takes effect immediately.
+
+### Manual download
+
+```bash
+# Replace BINARY with the correct name for your platform (see table above)
+curl -fsSL https://github.com/UMC-Hungary/sermon-helper-applications/releases/latest/download/BINARY -o presenter-receiver
+chmod +x presenter-receiver
+./presenter-receiver ws://YOUR_SERVER_IP:3737/ws
+```
+
+---
+
+## Connecting to the server
+
+### Basic usage
+
+```bash
+presenter-receiver ws://192.168.1.10:3737/ws
+```
+
+### With authentication token
+
+If the Metocast server requires a token (recommended for production), pass it via `--token`:
+
+```bash
+presenter-receiver ws://192.168.1.10:3737/ws --token YOUR_TOKEN
+```
+
+The token is shown on the **Connect** page of the Tauri application under **Auth Token**.
+
+### Local development on macOS
+
+When the Tauri app is running locally, start the receiver from source with:
+
+```bash
+cargo run --manifest-path presenter-receiver/Cargo.toml --bin presenter-receiver -- \
+  ws://127.0.0.1:3737/ws --token YOUR_TOKEN
+```
+
+### Finding your server address
+
+Open the Metocast desktop app and go to **Connect**. The **Network URL** field shows the address other devices on the same network should use. Copy it and replace `http://` with `ws://`, then append `/ws`:
+
+```
+http://192.168.1.10:3737  ->  ws://192.168.1.10:3737/ws
+```
+
+---
+
+## Viewing logs
+
+When installed with `--service`, all output is written to:
+
+```
+~/.local/log/presenter-receiver.log
+```
+
+To stream logs live from another machine:
+
+```bash
+ssh pi@raspberrypi
+tail -f ~/.local/log/presenter-receiver.log
+```
+
+The **Connect** page of the Tauri app has an SSH Access section that generates the SSH command for any saved device and provides the log tail command ready to copy.
+
+---
+
+## Updating
+
+Re-run the same install command used during the original installation. The script always downloads the latest release and overwrites the existing binary. If `--service` was used originally, include it again — the script is idempotent and will update the WebSocket URL in `~/.bash_profile` as well.
+
+After the script completes, reboot the device (or kill the running process — the restart loop will start the new binary within 3 seconds).
+
+---
+
+## Required WebSocket message format
+
+The presenter receiver speaks a subset of the Metocast WebSocket protocol. All messages are JSON text frames.
+
+### Messages sent by the receiver (client to server)
+
+**Registration** — sent immediately after the WebSocket handshake:
+
+```json
+{
+  "type": "presenter.register",
+  "label": "Presenter Receiver",
+  "hostname": "raspberrypi"
+}
+```
+
+`hostname` is obtained by running the system `hostname` command. It is `null` if the command fails.
+
+**State request** — sent immediately after registration to receive the current presenter state:
+
+```json
+{ "type": "presenter.status" }
+```
+
+**Ping reply** — sent in response to every `ping` message from the server:
+
+```json
+{ "type": "pong", "ping_id": 42 }
+```
+
+`ping_id` must be the integer value received in the `ping` message.
+
+---
+
+### Messages consumed by the receiver (server to client)
+
+The receiver ignores all message types it does not recognise. Unknown types do not cause an error or disconnection.
+
+**Presentation settings** — sent on connection and whenever the operator changes the presenter design:
+
+```json
+{
+  "type": "presentation.settings",
+  "useWebPresenter": true,
+  "presenterTheme": "editorial"
+}
+```
+
+`presenterTheme` is `"classic"` or `"editorial"`. For imported decks, Classic displays the source SVG while Editorial renders the extracted song text; generated Bible slides use the matching text design. This lets a design change update the live output without reopening the deck. Older servers that omit the field are treated as Classic.
+
+**Full presenter state** — sent by the server on load, unload, slide change, and mute toggle. Replaces the entire local state:
+
+```json
+{
+  "type": "presenter.state",
+  "state": {
+    "loaded": true,
+    "filePath": "/path/to/file.pptx",
+    "currentSlide": 2,
+    "totalSlides": 10,
+    "renderMode": "text",
+    "muted": false,
+    "slides": [
+      {
+        "index": 1,
+        "paragraphs": [
+          { "text": "Title line", "align": "center" },
+          { "text": "Subtitle", "align": "center" }
+        ]
+      },
+      {
+        "index": 2,
+        "paragraphs": [{ "text": "Second slide", "align": "left" }]
+      }
+    ],
+    "svgSlides": []
+  }
+}
+```
+
+Field notes:
+
+- `loaded` — when `false`, all other fields are at their zero values and the receiver shows a black screen.
+- `currentSlide` — 1-based index into `slides`. `0` means no slide is active.
+- `renderMode` — `"text"` uses the paragraph renderer; `"svg"` uses `svgSlides`.
+- `muted` — when `true`, the receiver renders a black frame regardless of `currentSlide`.
+- `slides` — full array of all slides including their text content. Only the slide at `currentSlide` is rendered.
+- `svgSlides` — full array of self-contained SVG slides when `renderMode` is `"svg"`.
+- `paragraphs[].align` — one of `"left"`, `"center"`, `"right"`, `"justify"`. The receiver maps these to Pango alignment values.
+- `paragraphs[].text` — plain text. Hard line breaks within a paragraph are represented as `\n` characters.
+
+**SVG presenter state** — used when the web presenter opens a normal PPTX in visual mode. The receiver rasterizes the active SVG slide and writes it to the display:
+
+```json
+{
+  "type": "presenter.state",
+  "state": {
+    "loaded": true,
+    "filePath": "/path/to/file.pptx",
+    "currentSlide": 1,
+    "totalSlides": 10,
+    "renderMode": "svg",
+    "muted": false,
+    "slides": [],
+    "svgSlides": [
+      {
+        "index": 1,
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1280 720\">...</svg>",
+        "widthPx": 1280,
+        "heightPx": 720
+      }
+    ]
+  }
+}
+```
+
+**Incremental slide update** — sent when only the active slide number changes (navigation). The receiver updates `currentSlide` and re-renders without replacing the slide content array:
+
+```json
+{
+  "type": "presenter.slide_changed",
+  "currentSlide": 3,
+  "totalSlides": 10
+}
+```
+
+`totalSlides` is present for informational use; the receiver does not use it for rendering.
+
+**Ping** — sent by the server as a keepalive. The receiver must reply with `pong`:
+
+```json
+{ "type": "ping", "pingId": 42 }
+```
+
+---
+
+### Implementing a compatible server
+
+A server is compatible with the receiver if it:
+
+1. Accepts a WebSocket connection at any path (the receiver connects to whatever URL is passed on the command line).
+2. Sends `presentation.settings` on connection, defaulting `presenterTheme` to `"classic"` when no theme setting exists.
+3. Sends `presenter.state` on connection (in response to `presenter.status`) and whenever state changes.
+4. Sends `presenter.slide_changed` on navigation.
+5. Sends periodic `ping` messages and expects `pong` replies.
+6. Accepts `presenter.register` for informational purposes (the receiver sends it but does not require a response).
+
+The active render array must be complete in every `presenter.state` message — partial content updates are not supported. If `loaded` is `false`, `slides` and `svgSlides` should be empty and `currentSlide` should be `0`.

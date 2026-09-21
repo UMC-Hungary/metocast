@@ -1,0 +1,21 @@
+meta {
+  name: Delete Untracked Recording
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{baseUrl}}/api/recordings/untracked/{{untrackedId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 204", function() {
+    expect(res.status).to.equal(204);
+  });
+}

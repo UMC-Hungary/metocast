@@ -1,0 +1,121 @@
+name: Presenter Receiver Release
+
+on:
+  push:
+    tags:
+      - 'presenter-receiver-v*'
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            artifact: presenter-receiver-macos-arm64
+
+          - runner: ubuntu-22.04
+            artifact: presenter-receiver-linux-x86_64
+
+          - runner: ubuntu-24.04-arm
+            artifact: presenter-receiver-linux-arm64
+
+    runs-on: ${{ matrix.runner }}
+    name: Build (${{ matrix.artifact }})
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install macOS dependencies (Cairo + Pango via Homebrew)
+        if: runner.os == 'macOS'
+        run: |
+          for pkg in cairo pango harfbuzz pkg-config; do
+            brew list "$pkg" &>/dev/null || brew install "$pkg"
+          done
+
+      - name: Install Linux dependencies (Cairo + Pango via apt)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcairo2-dev libpango1.0-dev pkg-config
+
+      - name: Get Homebrew library versions for cache key
+        if: runner.os == 'macOS'
+        id: brew-versions
+        run: echo "ver=$(brew list --versions harfbuzz cairo pango glib | tr ' \n' '_')" >> $GITHUB_OUTPUT
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.98.1
+
+      - name: Cache Rust dependencies
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+          shared-key: ${{ matrix.artifact }}-${{ steps.brew-versions.outputs.ver || 'linux' }}
+
+      - name: Build release binary
+        working-directory: presenter-receiver
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            export PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig:$(brew --prefix cairo)/lib/pkgconfig:$(brew --prefix pango)/lib/pkgconfig"
+          fi
+          cargo build --release
+
+      - name: Rename binary with platform suffix
+        shell: bash
+        run: cp target/release/presenter-receiver ${{ matrix.artifact }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v3
+        with:
+          draft: false
+          generate_release_notes: false
+          body: |
+            Standalone terminal binary that connects to the Metocast WebSocket
+            and renders the active presentation slide on-screen.
+
+            - **macOS**: opens a native window (Helvetica Neue, Cairo-rendered)
+            - **Linux / Raspberry Pi**: writes directly to the framebuffer (`/dev/fb0`) — no desktop needed
+
+            ### One-line install (auto-detects platform)
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/UMC-Hungary/sermon-helper-applications/main/presenter-receiver/install.sh | bash -s -- ws://YOUR_SERVER_IP:3737/ws
+            ```
+
+            To install without running immediately:
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/UMC-Hungary/sermon-helper-applications/main/presenter-receiver/install.sh | bash
+            ```
+          files: |
+            artifacts/presenter-receiver-macos-arm64/presenter-receiver-macos-arm64
+            artifacts/presenter-receiver-linux-x86_64/presenter-receiver-linux-x86_64
+            artifacts/presenter-receiver-linux-arm64/presenter-receiver-linux-arm64

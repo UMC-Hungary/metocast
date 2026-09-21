@@ -1,0 +1,21 @@
+meta {
+  name: Keynote First Slide
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/keynote/first
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 204", function() {
+    expect(res.status).to.equal(204);
+  });
+}

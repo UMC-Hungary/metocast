@@ -1,0 +1,21 @@
+meta {
+  name: Remove PPT Folder
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{baseUrl}}/api/ppt/folders/{{folderId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+}

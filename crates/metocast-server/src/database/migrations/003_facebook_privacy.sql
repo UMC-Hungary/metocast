@@ -1,0 +1,1 @@
+ALTER TABLE events ADD COLUMN facebook_privacy_status TEXT NOT NULL DEFAULT 'EVERYONE';
