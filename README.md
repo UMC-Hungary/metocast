@@ -96,7 +96,7 @@ See [presenter-receiver/PRESENTER_RECEIVER.md](presenter-receiver/PRESENTER_RECE
 
 ```bash
 # Install
-curl -fsSL https://raw.githubusercontent.com/UMC-Hungary/sermon-helper-applications/main/presenter-receiver/install.sh | bash -s -- ws://YOUR_SERVER_IP:3737/ws
+curl -fsSL https://raw.githubusercontent.com/UMC-Hungary/metocast/master/presenter-receiver/install.sh | bash -s -- ws://YOUR_SERVER_IP:3737/ws
 
 # Or with authentication token
 presenter-receiver ws://192.168.1.10:3737/ws --token YOUR_TOKEN

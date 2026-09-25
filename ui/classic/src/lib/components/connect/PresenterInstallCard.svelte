@@ -14,7 +14,7 @@
     'linux-arm64': 'presenter-receiver-linux-arm64',
     'macos-arm64': 'presenter-receiver-macos-arm64',
   };
-  const githubRepository = 'UMC-Hungary/sermon-helper-applications';
+  const githubRepository = 'UMC-Hungary/metocast';
 
   let selectedPlatform = $state<Platform>('linux-arm64');
   let autoStart = $state(false);
@@ -24,7 +24,7 @@
   const wsUrl = $derived(($localNetworkUrl || $serverUrl).replace(/^http/, 'ws') + '/ws');
 
   const installCommand = $derived(
-    `curl -fsSL https://raw.githubusercontent.com/${githubRepository}/main/presenter-receiver/install.sh | bash -s -- ${wsUrl}${autoStart ? ' --service' : ''}`,
+    `curl -fsSL https://raw.githubusercontent.com/${githubRepository}/master/presenter-receiver/install.sh | bash -s -- ${wsUrl}${autoStart ? ' --service' : ''}`,
   );
 
   const manualCommand = $derived(

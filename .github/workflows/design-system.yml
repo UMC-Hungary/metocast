@@ -5,7 +5,7 @@ name: Design system
 on:
   pull_request:
     branches:
-      - main
+      - master
     paths:
       - 'packages/design-system/**'
       - 'scripts/build-docs.mjs'
@@ -20,7 +20,7 @@ on:
       - '.github/workflows/design-system.yml'
   push:
     branches:
-      - main
+      - master
     paths:
       - 'packages/design-system/**'
       - 'scripts/*tokens*'
