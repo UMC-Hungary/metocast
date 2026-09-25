@@ -114,3 +114,24 @@ jobs:
             -destination 'platform=macOS' \
             -derivedDataPath target/apple-app-derived \
             CODE_SIGNING_ALLOWED=NO build
+
+      # Ad-hoc signing seals each bundle so it opens once downloaded, until the signed
+      # builds exist. Artifacts drop file modes and symlinks, so ditto zips them first.
+      - name: Package the apps
+        run: |
+          products=target/apple-app-derived/Build/Products
+          mkdir -p target/apple-app-dist
+          for app in "$products/Debug-iphonesimulator/Metocast.app" "$products/Debug/Metocast.app"; do
+            codesign --force --deep --sign - "$app"
+          done
+          ditto -c -k --keepParent "$products/Debug-iphonesimulator/Metocast.app" \
+            target/apple-app-dist/Metocast-iOS-Simulator.zip
+          ditto -c -k --keepParent "$products/Debug/Metocast.app" \
+            target/apple-app-dist/Metocast-macOS.zip
+
+      - name: Upload the apps
+        uses: actions/upload-artifact@v6
+        with:
+          name: metocast-apple-app
+          path: target/apple-app-dist/*.zip
+          if-no-files-found: error
