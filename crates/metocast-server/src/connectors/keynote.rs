@@ -1,6 +1,40 @@
 use serde::{Deserialize, Serialize};
+use std::ffi::OsStr;
+use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::{RwLock, broadcast};
+
+/// Closes whatever Keynote has open, opens the file in `argv`, and plays it.
+const OPEN_AND_PLAY: &str = r#"on run argv
+  set presentationFile to POSIX file (item 1 of argv)
+  tell application "Keynote"
+    close every document saving no
+    open presentationFile
+    delay 1
+    start slideshow of document 1
+  end tell
+end run"#;
+
+/// File types Keynote can open as a presentation.
+const PRESENTATION_EXTENSIONS: [&str; 3] = ["key", "pptx", "ppt"];
+
+/// Accepts an absolute path to an existing presentation. A `.key` document may be a
+/// package directory, so existence is checked rather than "is a regular file".
+fn presentation_path(path: &str) -> Result<&Path, String> {
+    let path = Path::new(path);
+    let is_presentation = path.extension().and_then(OsStr::to_str).is_some_and(|ext| {
+        PRESENTATION_EXTENSIONS
+            .iter()
+            .any(|known| ext.eq_ignore_ascii_case(known))
+    });
+    if !path.is_absolute() || !is_presentation {
+        return Err(format!("Not a presentation file: {}", path.display()));
+    }
+    if !path.exists() {
+        return Err(format!("No such file: {}", path.display()));
+    }
+    Ok(path)
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
@@ -42,9 +76,16 @@ impl KeynoteConnector {
     }
 
     async fn run_applescript(script: &str) -> Result<String, String> {
+        Self::run_applescript_with_args(script, &[]).await
+    }
+
+    /// Runs `script` with `args` passed to its `on run argv` handler. Arguments stay
+    /// data: nothing in them is ever parsed as AppleScript.
+    async fn run_applescript_with_args(script: &str, args: &[&OsStr]) -> Result<String, String> {
         let output = tokio::process::Command::new("osascript")
             .arg("-e")
             .arg(script)
+            .args(args)
             .output()
             .await
             .map_err(|e| e.to_string())?;
@@ -55,16 +96,11 @@ impl KeynoteConnector {
         }
     }
 
+    /// Opens `path` in Keynote and starts the slideshow. The path reaches AppleScript
+    /// as an argument, never as script text, so no file name can run code.
     pub async fn open_file(&self, path: &str) -> Result<(), String> {
-        let script = format!(
-            r#"tell application "Keynote"
-  close every document saving no
-  open POSIX file "{path}"
-  delay 1
-  start slideshow of document 1
-end tell"#
-        );
-        Self::run_applescript(&script).await?;
+        let path = presentation_path(path)?;
+        Self::run_applescript_with_args(OPEN_AND_PLAY, &[path.as_os_str()]).await?;
         let status = self.poll_status().await;
         self.update_status(status).await;
         Ok(())
@@ -211,5 +247,51 @@ end tell"#;
 impl Default for KeynoteConnector {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn presentation_path_accepts_only_existing_presentations() {
+        let deck =
+            std::env::temp_dir().join(format!("metocast-keynote-{}.KEY", std::process::id()));
+        std::fs::write(&deck, b"").unwrap();
+
+        assert_eq!(
+            presentation_path(deck.to_str().unwrap()),
+            Ok(deck.as_path())
+        );
+        assert!(
+            presentation_path("Decks/Song.key").is_err(),
+            "relative path"
+        );
+        assert!(
+            presentation_path("/etc/passwd").is_err(),
+            "not a presentation"
+        );
+        assert!(
+            presentation_path("/no/such/Song.pptx").is_err(),
+            "missing file"
+        );
+
+        std::fs::remove_file(&deck).ok();
+    }
+
+    /// A file name that closes the old string literal and appends a command comes
+    /// back unchanged, so it was never compiled as AppleScript.
+    #[tokio::test]
+    async fn applescript_arguments_are_not_code() {
+        let hostile = "/tmp/Song\" \ndo shell script \"echo injected\"\n--.key";
+        let echoed = KeynoteConnector::run_applescript_with_args(
+            "on run argv\n  return item 1 of argv\nend run",
+            &[OsStr::new(hostile)],
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(echoed, hostile);
     }
 }
