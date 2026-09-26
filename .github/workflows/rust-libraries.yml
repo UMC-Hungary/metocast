@@ -96,7 +96,7 @@ jobs:
           shared-key: apple-libraries
 
       - name: Download the bridge
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: metocast-apple-xcframework
           path: apple
@@ -131,9 +131,32 @@ jobs:
           ditto -c -k --keepParent "$products/Debug/Metocast.app" \
             target/apple-app-dist/Metocast-macOS.zip
 
-      - name: Upload the apps
-        uses: actions/upload-artifact@v6
+      # `archive: false` uploads each zip as-is, so a download is the app's own zip
+      # rather than a zip wrapped around it; the file name becomes the artifact name.
+      - name: Upload the Mac app
+        id: mac-app
+        uses: actions/upload-artifact@v7
         with:
-          name: metocast-apple-app
-          path: target/apple-app-dist/*.zip
+          path: target/apple-app-dist/Metocast-macOS.zip
+          archive: false
           if-no-files-found: error
+
+      - name: Upload the iOS Simulator app
+        id: ios-app
+        uses: actions/upload-artifact@v7
+        with:
+          path: target/apple-app-dist/Metocast-iOS-Simulator.zip
+          archive: false
+          if-no-files-found: error
+
+      # The run page lists artifacts, but the pull request's Checks view doesn't.
+      - name: Link the downloads
+        env:
+          MAC_URL: ${{ steps.mac-app.outputs.artifact-url }}
+          IOS_URL: ${{ steps.ios-app.outputs.artifact-url }}
+        run: |
+          {
+            echo "### Downloads"
+            echo "- [Metocast-macOS.zip]($MAC_URL): unzip and open; allow the first launch under System Settings → Privacy & Security."
+            echo "- [Metocast-iOS-Simulator.zip]($IOS_URL): unzip, then \`xcrun simctl install booted Metocast.app\`."
+          } >> "$GITHUB_STEP_SUMMARY"
