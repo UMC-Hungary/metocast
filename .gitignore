@@ -36,6 +36,11 @@ dist-ssr
 # Generated Apple package artifacts
 /apple/MetocastFFI.xcframework
 /apple/Sources/Metocast/Metocast.swift
+/apple/.build/
+
+# Xcode build and per-user state
+/.derivedData*/
+xcuserdata/
 
 # IDE
 .vscode/

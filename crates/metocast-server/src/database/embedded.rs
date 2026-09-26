@@ -14,6 +14,9 @@ const PG_USER: &str = "postgres";
 const PG_PASS: &str = "metocast_embedded";
 const PG_RELEASES_URL: &str = "https://github.com/zonkyio/embedded-postgres-binaries";
 const POSTGRES_BOOTSTRAP_DB: &str = "postgres";
+/// Limit for each `initdb`/`pg_ctl` run. The library default of 5s is too short for
+/// the first launch of freshly downloaded binaries, which macOS scans before running.
+const PG_COMMAND_TIMEOUT: Duration = Duration::from_secs(60);
 
 pub struct EmbeddedDb {
     pub pg: PostgreSQL,
@@ -36,6 +39,7 @@ impl EmbeddedDb {
             temporary: false,
             username: PG_USER.to_string(),
             password: PG_PASS.to_string(),
+            timeout: Some(PG_COMMAND_TIMEOUT),
             ..Settings::default()
         };
 

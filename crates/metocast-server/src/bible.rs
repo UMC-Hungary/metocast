@@ -19,19 +19,7 @@ fn legacy_api_url() -> String {
         .unwrap_or_else(|_| "https://szentiras.eu".to_string())
 }
 
-/// One verse, normalised across both upstream APIs.
-#[derive(Debug, Serialize, Clone)]
-pub struct BibleVerse {
-    pub chapter: i32,
-    pub verse: i32,
-    pub text: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct BiblePassage {
-    pub label: String,
-    pub verses: Vec<BibleVerse>,
-}
+pub use metocast_core::events::{BiblePassage, BibleVerse};
 
 // V2 API types (nyiregyhazimetodista.hu)
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -10,7 +10,7 @@ use tokio::net::tcp::OwnedWriteHalf;
 use tokio::sync::{Mutex, RwLock, broadcast, oneshot, watch};
 use tokio::time::{Duration, timeout};
 
-use super::{ConnectorConfig, ConnectorStatus, MiddlecontrolConfig};
+use super::{ConnectorConfig, ConnectorStatus, MiddlecontrolConfig, MiddlecontrolState};
 
 const INITIAL_BACKOFF: Duration = Duration::from_secs(5);
 const MAX_BACKOFF: Duration = Duration::from_secs(60);
@@ -23,17 +23,6 @@ const DISCOVERY_FEEDBACK_TIMEOUT: Duration = Duration::from_millis(1200);
 pub struct DiscoveredMiddlecontrol {
     pub host: String,
     pub port: u16,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MiddlecontrolState {
-    pub selected_camera: Option<u8>,
-    pub recording: Option<bool>,
-    pub recording_camera_ids: Option<Vec<u8>>,
-    pub connected_camera_ids: Option<Vec<u8>>,
-    pub connected_apcr_ids: Option<Vec<u8>>,
-    pub preset_move_active: Option<bool>,
 }
 
 pub struct MiddlecontrolConnector {

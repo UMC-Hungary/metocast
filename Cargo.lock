@@ -3612,6 +3612,7 @@ dependencies = [
 name = "metocast-apple"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "metocast-client",
  "metocast-core",
  "serde",
