@@ -101,12 +101,14 @@ jobs:
           name: metocast-apple-xcframework
           path: apple
 
+      # A generic Simulator destination also builds x86_64, which the bridge doesn't ship
+      # (it builds aarch64-apple-ios-sim only), so linking that slice fails.
       - name: Build for iPhone
         run: |
           xcodebuild -project apple-app/Metocast.xcodeproj -scheme Metocast \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath target/apple-app-derived \
-            CODE_SIGNING_ALLOWED=NO build
+            ARCHS=arm64 CODE_SIGNING_ALLOWED=NO build
 
       - name: Build for Mac
         run: |
