@@ -14,7 +14,10 @@ use serde::Serialize;
 use tokio::sync::broadcast;
 use uuid::Uuid;
 
-use super::{RodecasterAudioOutputMode, RodecasterAudioRecordingConfig, RodecasterAudioSource};
+use super::{
+    RecorderStatus, RodecasterAudioOutputMode, RodecasterAudioRecordingConfig,
+    RodecasterAudioSource,
+};
 
 const FLAC_CHANNEL_LIMIT: usize = 8;
 const FLAC_BITS_PER_SAMPLE: u32 = 24;
@@ -58,14 +61,6 @@ pub struct AudioEndpoint {
 pub struct AudioDiscovery {
     pub endpoint: Option<AudioEndpoint>,
     pub unavailable_reason: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub enum RecorderStatus {
-    Idle,
-    Recording,
-    Failed,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]

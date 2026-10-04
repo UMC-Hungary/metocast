@@ -1,4 +1,6 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -7,6 +9,120 @@ pub enum ConnectorStatus {
     Connecting,
     Connected,
     Error { message: String },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AtemInput {
+    pub id: u16,
+    pub name: String,
+    pub short_name: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum StreamStatus {
+    Idle,
+    Connecting,
+    Streaming,
+    Stopping,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RecordStatus {
+    Idle,
+    Recording,
+    Stopping,
+}
+
+/// What the ATEM reports. Models without a streaming or recording engine leave those `None`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AtemState {
+    pub product: String,
+    pub program: Option<u16>,
+    pub preview: Option<u16>,
+    pub inputs: Vec<AtemInput>,
+    pub streaming: Option<StreamStatus>,
+    pub recording: Option<RecordStatus>,
+    pub stream_service: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MiddlecontrolState {
+    pub selected_camera: Option<u8>,
+    pub recording: Option<bool>,
+    pub recording_camera_ids: Option<Vec<u8>>,
+    pub connected_camera_ids: Option<Vec<u8>>,
+    pub connected_apcr_ids: Option<Vec<u8>>,
+    pub preset_move_active: Option<bool>,
+}
+
+/// `connector.state`: one connector's live state, tagged by `connector`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "connector")]
+pub enum ConnectorState {
+    #[serde(rename = "obs", rename_all = "camelCase")]
+    Obs {
+        is_streaming: bool,
+        is_recording: bool,
+    },
+    #[serde(rename = "atem")]
+    Atem { state: Option<AtemState> },
+    #[serde(rename = "blackmagic-camera", rename_all = "camelCase")]
+    Camera {
+        #[serde(default)]
+        is_streaming: bool,
+        #[serde(default)]
+        is_recording: bool,
+        /// The camera's own word, such as `Idle`, `Connecting` or `Streaming`.
+        #[serde(default)]
+        stream_status: String,
+    },
+    #[serde(rename = "middlecontrol")]
+    Middlecontrol { state: Option<MiddlecontrolState> },
+    /// Connectors this crate doesn't model yet.
+    #[serde(other)]
+    Other,
+}
+
+/// One RØDECaster channel from `rodecaster.profile`. The mixer's `mute` is separate from the
+/// Wireless PRO transmitter's `wireless_mute`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RodecasterChannel {
+    pub channel: u32,
+    pub label: String,
+    pub mute: bool,
+    pub wireless_mute: bool,
+}
+
+/// The fields of `rodecaster.profile` a client shows; levels and settings are left out.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RodecasterProfile {
+    pub model: String,
+    pub channels: Vec<RodecasterChannel>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RecorderStatus {
+    Idle,
+    Recording,
+    Failed,
+}
+
+/// The fields of `rodecaster.audio.record.state` a client acts on.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RodecasterRecorderState {
+    pub status: RecorderStatus,
+    pub event_id: Option<Uuid>,
+    pub started_at: Option<DateTime<Utc>>,
+    pub error: Option<String>,
 }
 
 pub trait ConnectorConfig {

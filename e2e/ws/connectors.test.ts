@@ -81,6 +81,16 @@ describe.skipIf(!isLive)('Connectors WebSocket Commands', () => {
     expect(msg['message']).toBe('atem_not_connected');
   });
 
+  it.each([
+    { type: 'obs.stream.start' },
+    { type: 'obs.stream.stop' },
+    { type: 'obs.record.start' },
+    { type: 'obs.record.stop' },
+  ])('$type is refused while OBS is not connected', async (command) => {
+    const msg = await ws.command(command, 'error');
+    expect(msg['message']).toBe('obs_not_connected');
+  });
+
   // No RØDECaster is attached to CI, so these assert the refusal path. Muting a
   // real channel is checked by `rcast` against the desk.
   it('rodecaster.mute.set is refused while the desk is not connected', async () => {

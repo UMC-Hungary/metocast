@@ -8,7 +8,9 @@ on:
       - 'rust-toolchain.toml'
       - 'crates/**'
       - 'apple/**'
+      - 'apple-app/**'
       - 'scripts/build-apple.sh'
+      - 'scripts/embed-apple-server.sh'
       - '.github/workflows/rust-libraries.yml'
   push:
     branches:
@@ -19,7 +21,9 @@ on:
       - 'rust-toolchain.toml'
       - 'crates/**'
       - 'apple/**'
+      - 'apple-app/**'
       - 'scripts/build-apple.sh'
+      - 'scripts/embed-apple-server.sh'
       - '.github/workflows/rust-libraries.yml'
   workflow_dispatch:
 
@@ -58,8 +62,101 @@ jobs:
       - name: Build and test Swift package
         run: ./scripts/build-apple.sh
 
-      - name: Upload XCFramework
+      # Both halves of the bridge: the framework and the Swift it generates. The app job
+      # takes these instead of building four Rust targets again.
+      - name: Upload the bridge
         uses: actions/upload-artifact@v6
         with:
           name: metocast-apple-xcframework
-          path: apple/MetocastFFI.xcframework
+          path: |
+            apple/MetocastFFI.xcframework
+            apple/Sources/Metocast/Metocast.swift
+          if-no-files-found: error
+
+  apple-app:
+    name: Metocast app (iOS and macOS)
+    # Pinned, not `macos-latest`: an image roll must not change the SDK this app is built against.
+    runs-on: macos-26
+    needs: apple-libraries
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      # The Mac app embeds the headless server, which its Xcode build phase compiles.
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.98.1
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Cache Rust dependencies
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+          shared-key: apple-libraries
+
+      - name: Download the bridge
+        uses: actions/download-artifact@v7
+        with:
+          name: metocast-apple-xcframework
+          path: apple
+
+      # A generic Simulator destination also builds x86_64, which the bridge doesn't ship
+      # (it builds aarch64-apple-ios-sim only), so linking that slice fails.
+      - name: Build for iPhone
+        run: |
+          xcodebuild -project apple-app/Metocast.xcodeproj -scheme Metocast \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath target/apple-app-derived \
+            ARCHS=arm64 CODE_SIGNING_ALLOWED=NO build
+
+      - name: Build for Mac
+        run: |
+          xcodebuild -project apple-app/Metocast.xcodeproj -scheme Metocast \
+            -destination 'platform=macOS' \
+            -derivedDataPath target/apple-app-derived \
+            CODE_SIGNING_ALLOWED=NO build
+
+      # Ad-hoc signing seals each bundle so it opens once downloaded, until the signed
+      # builds exist. Artifacts drop file modes and symlinks, so ditto zips them first.
+      - name: Package the apps
+        run: |
+          products=target/apple-app-derived/Build/Products
+          mkdir -p target/apple-app-dist
+          for app in "$products/Debug-iphonesimulator/Metocast.app" "$products/Debug/Metocast.app"; do
+            codesign --force --deep --sign - "$app"
+          done
+          ditto -c -k --keepParent "$products/Debug-iphonesimulator/Metocast.app" \
+            target/apple-app-dist/Metocast-iOS-Simulator.zip
+          ditto -c -k --keepParent "$products/Debug/Metocast.app" \
+            target/apple-app-dist/Metocast-macOS.zip
+
+      # `archive: false` uploads each zip as-is, so a download is the app's own zip
+      # rather than a zip wrapped around it; the file name becomes the artifact name.
+      - name: Upload the Mac app
+        id: mac-app
+        uses: actions/upload-artifact@v7
+        with:
+          path: target/apple-app-dist/Metocast-macOS.zip
+          archive: false
+          if-no-files-found: error
+
+      - name: Upload the iOS Simulator app
+        id: ios-app
+        uses: actions/upload-artifact@v7
+        with:
+          path: target/apple-app-dist/Metocast-iOS-Simulator.zip
+          archive: false
+          if-no-files-found: error
+
+      # The run page lists artifacts, but the pull request's Checks view doesn't.
+      - name: Link the downloads
+        env:
+          MAC_URL: ${{ steps.mac-app.outputs.artifact-url }}
+          IOS_URL: ${{ steps.ios-app.outputs.artifact-url }}
+        run: |
+          {
+            echo "### Downloads"
+            echo "- [Metocast-macOS.zip]($MAC_URL): unzip and open; allow the first launch under System Settings → Privacy & Security."
+            echo "- [Metocast-iOS-Simulator.zip]($IOS_URL): unzip, then \`xcrun simctl install booted Metocast.app\`."
+          } >> "$GITHUB_STEP_SUMMARY"

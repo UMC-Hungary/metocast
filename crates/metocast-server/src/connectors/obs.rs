@@ -125,6 +125,38 @@ impl ObsConnector {
     pub async fn get_status(&self) -> ConnectorStatus {
         self.status.read().await.clone()
     }
+
+    /// Starts or stops OBS's stream. The new state arrives as `connector.state`.
+    pub async fn set_streaming(&self, on: bool) -> Result<(), String> {
+        let client = self.connected_client().await?;
+        let streaming = client.streaming();
+        if on {
+            streaming.start().await
+        } else {
+            streaming.stop().await
+        }
+        .map_err(|e| e.to_string())
+    }
+
+    /// Starts or stops OBS's recording. The new state arrives as `connector.state`.
+    pub async fn set_recording(&self, on: bool) -> Result<(), String> {
+        let client = self.connected_client().await?;
+        let recording = client.recording();
+        if on {
+            recording.start().await
+        } else {
+            recording.stop().await.map(drop)
+        }
+        .map_err(|e| e.to_string())
+    }
+
+    async fn connected_client(&self) -> Result<Arc<obws::Client>, String> {
+        self.client
+            .lock()
+            .await
+            .clone()
+            .ok_or_else(|| "obs_not_connected".to_string())
+    }
 }
 
 impl Default for ObsConnector {

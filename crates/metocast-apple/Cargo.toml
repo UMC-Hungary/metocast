@@ -13,6 +13,7 @@ name = "uniffi-bindgen"
 path = "src/bin/uniffi-bindgen.rs"
 
 [dependencies]
+chrono.workspace = true
 metocast-client = { path = "../metocast-client" }
 metocast-core = { path = "../metocast-core" }
 serde.workspace = true

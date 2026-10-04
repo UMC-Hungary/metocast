@@ -21,6 +21,21 @@ pub struct EventConnection {
     pub extra: Option<serde_json::Value>,
 }
 
+/// One verse, normalised across the upstream Bible APIs.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BibleVerse {
+    pub chapter: i32,
+    pub verse: i32,
+    pub text: String,
+}
+
+/// `GET /api/bible/verses`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BiblePassage {
+    pub label: String,
+    pub verses: Vec<BibleVerse>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BibleReference {

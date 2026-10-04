@@ -1,0 +1,29 @@
+meta {
+  name: OBS - Stream and Record
+  type: http
+  seq: 25
+}
+
+# WebSocket commands — use a WS client connected to:
+# ws://{{host}}/ws?token={{authToken}}
+
+get {
+  url: {{baseUrl}}/ws
+  body: none
+  auth: none
+}
+
+docs {
+  ## OBS output WebSocket commands
+
+  ```json
+  { "type": "obs.stream.start" }
+  { "type": "obs.stream.stop" }
+  { "type": "obs.record.start" }
+  { "type": "obs.record.stop" }
+  ```
+
+  Each replies `{ "type": "ok" }`, or `{ "type": "error", "message": "obs_not_connected" }` while
+  OBS is not connected (other errors carry OBS's own message). The new state is broadcast as
+  `{ "type": "connector.state", "connector": "obs", "isStreaming": …, "isRecording": … }`.
+}

@@ -17,6 +17,9 @@ export function GetActions(instance: ModuleInstance): CompanionActionDefinitions
 	const sendAtem = (type: string, data?: Record<string, unknown>) => {
 		if (!instance.api.sendWsCommand(type, data)) instance.log('error', 'ATEM command failed: WebSocket not connected')
 	}
+	const sendObs = (type: string) => {
+		if (!instance.api.sendWsCommand(type)) instance.log('error', 'OBS command failed: WebSocket not connected')
+	}
 
 	return {
 		execute_command: {
@@ -196,6 +199,46 @@ export function GetActions(instance: ModuleInstance): CompanionActionDefinitions
 			description: 'Copy the configured YouTube stream destination to the ATEM',
 			options: [],
 			callback: () => sendAtem('atem.stream.push_youtube'),
+		},
+
+		obs_record: {
+			name: 'OBS: Recording',
+			description: 'Start or stop recording in OBS',
+			options: [
+				{
+					type: 'dropdown',
+					id: 'operation',
+					label: 'Operation',
+					default: 'start',
+					choices: [
+						{ id: 'start', label: 'Start' },
+						{ id: 'stop', label: 'Stop' },
+					],
+				},
+			],
+			callback: (action: CompanionActionEvent) => {
+				sendObs(`obs.record.${action.options['operation'] === 'stop' ? 'stop' : 'start'}`)
+			},
+		},
+
+		obs_stream: {
+			name: 'OBS: Streaming',
+			description: 'Start or stop streaming from OBS',
+			options: [
+				{
+					type: 'dropdown',
+					id: 'operation',
+					label: 'Operation',
+					default: 'start',
+					choices: [
+						{ id: 'start', label: 'Start' },
+						{ id: 'stop', label: 'Stop' },
+					],
+				},
+			],
+			callback: (action: CompanionActionEvent) => {
+				sendObs(`obs.stream.${action.options['operation'] === 'stop' ? 'stop' : 'start'}`)
+			},
 		},
 
 		// PPT Selector Actions
