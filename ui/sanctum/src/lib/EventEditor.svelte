@@ -31,6 +31,7 @@
     openExternal,
     getTitleTemplate,
     listRecordings,
+    generateRecordingCaptions,
     renderTitle,
     DEFAULT_TITLE_TEMPLATE,
   } from '@metocast/core-client';
@@ -73,6 +74,24 @@
   let existingConnections = $state<Event['connections']>([]);
   let template = $state(DEFAULT_TITLE_TEMPLATE);
   let recordings = $state<Recording[]>([]);
+
+  /** Only video and AAC files can be decoded for captions. */
+  const captionable = (recording: Recording) => /\.(mov|mp4|m4a)$/i.test(recording.filePath);
+
+  async function captionRecording(recording: Recording) {
+    try {
+      await generateRecordingCaptions(recording.id);
+      notify({ tier: 'ok', kind: 'Captions', source: 'Core', title: $_('editor.captionsQueued') });
+    } catch (e) {
+      notify({
+        tier: 'error',
+        kind: 'Captions',
+        source: 'Core',
+        title: $_('editor.captionsFailed'),
+        body: String(e),
+      });
+    }
+  }
   let pastSpeakers = $state<string[]>([]);
 
   const speakers = $derived(
@@ -564,7 +583,19 @@
                 detail={duration(recording.durationSeconds)}
                 chevron={false}
                 last={index === recordings.length - 1}
-              />
+              >
+                {#snippet control()}
+                  {#if captionable(recording)}
+                    <Button
+                      variant="quiet"
+                      compact
+                      onclick={() => void captionRecording(recording)}
+                    >
+                      {$_('editor.captions')}
+                    </Button>
+                  {/if}
+                {/snippet}
+              </Row>
             {/each}
           </List>
         {/if}

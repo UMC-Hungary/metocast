@@ -8,6 +8,7 @@ enum LocalNetwork {
     /// The Bonjour name, e.g. `amacmini.local`, which survives DHCP lease changes;
     /// otherwise the first LAN IPv4 address.
     static var hostName: String? {
+        if Redaction.isOn { return "\(Redaction.host).local" }
         if let name = SCDynamicStoreCopyLocalHostName(nil) as String?, !name.isEmpty {
             return "\(name).local"
         }

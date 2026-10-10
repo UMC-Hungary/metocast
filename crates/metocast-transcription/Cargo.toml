@@ -1,0 +1,25 @@
+[package]
+name = "metocast-transcription"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[[bin]]
+name = "metocast-transcribe"
+path = "src/bin/metocast-transcribe/main.rs"
+
+[dependencies]
+base64 = "0.22.1"
+futures-util.workspace = true
+reqwest = { workspace = true, features = ["multipart"] }
+rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std"] }
+serde.workspace = true
+serde_json.workspace = true
+symphonia = { version = "0.5.4", default-features = false, features = ["isomp4", "aac", "pcm"] }
+thiserror.workspace = true
+tokio.workspace = true
+tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect", "rustls-tls-webpki-roots"] }
+
+[lints]
+workspace = true

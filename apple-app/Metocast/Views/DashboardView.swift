@@ -32,17 +32,55 @@ struct DashboardView: View {
                     }
                     if !session.connectors.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Connectors").font(.title2.bold())
+                            NavigationLink(value: DashboardRoute.connectors) {
+                                HStack(spacing: 6) {
+                                    Text("Connectors")
+                                    Image(systemName: "chevron.forward")
+                                        .font(.title3.weight(.semibold))
+                                        .foregroundStyle(.secondary)
+                                }
+                                .font(.title2.bold())
+                                .contentShape(.rect)
+                            }
+                            .buttonStyle(.plain)
+                            .pointingHand()
+                            .accessibilityAddTraits(.isHeader)
+                            let configurable = Set(session.configurableConnectors.map(\.id))
                             LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 12)], spacing: 12) {
                                 ForEach(ConnectorInfo.sorted(session.connectors), id: \.connector) { status in
-                                    ConnectorCard(status: status)
+                                    // Connectors with no settings of their own (Media) stay plain cards.
+                                    if configurable.contains(status.connector) {
+                                        NavigationLink(value: DashboardRoute.connector(status.connector)) {
+                                            ConnectorCard(status: status)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .pointingHand()
+                                    } else {
+                                        ConnectorCard(status: status)
+                                    }
                                 }
                             }
                         }
                     }
                     section("Presentation") {
+                        VStack(spacing: 0) {
                         PresenterSummary(state: session.presenter)
                             .padding(16)
+                        if let event = EventSchedule.current(in: session.events, now: .now) {
+                            Divider()
+                            // The Live page steps through the event's Order of Service.
+                            Button {
+                                model.pane = .live
+                            } label: {
+                                Label("Run the Order of Service for \(event.title)", systemImage: "list.number")
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(16)
+                                    .contentShape(.rect)
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.tint)
+                        }
+                        }
                     }
                 }
             }
@@ -52,16 +90,32 @@ struct DashboardView: View {
         .background(Color.groupedBackground)
         #endif
         .navigationTitle("Dashboard")
-        .navigationDestination(for: EventSummaryRecord.self) { EventDetailView(summary: $0) }
+        .navigationDestination(for: EventSummaryRecord.self) { EventDetailView(summary: $0).windowActions() }
+        .navigationDestination(for: DashboardRoute.self) { route in
+            if let session = model.session {
+                switch route {
+                case .connectors: ConnectorsView(session: session).windowActions()
+                case .connector(let id):
+                    ConnectorFormView(session: session, connector: id, name: ConnectorInfo(id: id).name)
+                        .windowActions()
+                }
+            }
+        }
         .refreshable { await model.session?.refresh() }
     }
 
     private func section(_ title: String, @ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(title).font(.title2.bold())
+            Text(title).font(.title2.bold()).accessibilityAddTraits(.isHeader)
             content().card()
         }
     }
+}
+
+/// Screens the Dashboard's connector cards open.
+private enum DashboardRoute: Hashable {
+    case connectors
+    case connector(String)
 }
 
 /// Where this device's server is and whether it's reachable, with a retry when it isn't.
@@ -77,11 +131,13 @@ private struct ConnectionHeader: View {
                 .font(.largeTitle.bold())
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
+                .accessibilityAddTraits(.isHeader)
             HStack(spacing: 8) {
                 if status.isBusy {
                     ProgressView().controlSize(.small)
                 } else {
-                    Image(systemName: status.symbol).foregroundStyle(status.color)
+                    // The text says it; a checkmark's own label would be "Selected".
+                    Image(systemName: status.symbol).foregroundStyle(status.color).accessibilityHidden(true)
                 }
                 Text(status.text)
                     .foregroundStyle(.secondary)
@@ -183,7 +239,10 @@ private struct ConnectorCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
+        .contentShape(.rect)
         .card()
+        // "ATEM, Off" as one stop rather than two.
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -240,6 +299,7 @@ private struct PresenterSummary: View {
             Image(systemName: state?.loaded == true ? "play.rectangle.fill" : "play.rectangle")
                 .font(.title2)
                 .foregroundStyle(.tint)
+                .accessibilityHidden(true)
             if let state, state.loaded {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(state.fileName)

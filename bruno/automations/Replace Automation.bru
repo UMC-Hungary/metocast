@@ -1,0 +1,56 @@
+meta {
+  name: Replace Automation
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/api/automations/{{automationId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "name": "Service start",
+    "enabled": false,
+    "triggers": [
+      { "kind": "middlecontrol.preset", "preset": 3, "cameraId": null },
+      {
+        "kind": "rodecaster.channel",
+        "channel": 2,
+        "label": "Wireless 1",
+        "live": true,
+        "source": "either",
+        "holdSeconds": 0
+      }
+    ],
+    "actions": [
+      { "kind": "middlecontrol.preset.recall", "preset": 3, "cameraId": null, "waitForArrival": true },
+      { "kind": "record.start", "target": { "device": "obs" } },
+      { "kind": "record.start", "target": { "device": "atem" } },
+      { "kind": "record.start", "target": { "device": "blackmagic-camera" } },
+      { "kind": "record.start", "target": { "device": "rodecaster" } },
+      { "kind": "record.start", "target": { "device": "rodecaster-audio" } }
+    ],
+    "cooldownSeconds": 5,
+    "requireEvent": false
+  }
+}
+
+docs {
+  Replaces the whole rule. This one disables it.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("rule is disabled", function() {
+    expect(res.body.enabled).to.equal(false);
+  });
+}

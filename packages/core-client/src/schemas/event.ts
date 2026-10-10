@@ -103,3 +103,31 @@ export type CreateEventPayload = z.infer<typeof CreateEventPayloadSchema>;
 
 export const UpdateEventPayloadSchema = CreateEventPayloadSchema;
 export type UpdateEventPayload = CreateEventPayload;
+
+// ── Order of Service ──────────────────────────────────────────────────────────
+
+export const OrderItemKindSchema = z.enum(['song', 'bible', 'block']);
+
+/** One step: a song deck, one of the event's readings, or a block with no slides. */
+export const OrderItemSchema = z.object({
+  /** Absent for a step added in this edit; send it back to keep the step live across edits. */
+  id: z.string().uuid().nullish(),
+  kind: OrderItemKindSchema,
+  title: z.string().default(''),
+  deckPath: z.string().nullish(),
+  bibleType: z.enum(['textus', 'leckio']).nullish(),
+  notes: z.string().default(''),
+});
+
+export const EventOrderSchema = z.object({ items: z.array(OrderItemSchema) });
+
+/** The step on screen, pushed as `order.state`. */
+export const OrderPositionSchema = z.object({
+  eventId: z.string().uuid(),
+  itemId: z.string().uuid(),
+});
+
+export type OrderItemKind = z.infer<typeof OrderItemKindSchema>;
+export type OrderItem = z.infer<typeof OrderItemSchema>;
+export type EventOrder = z.infer<typeof EventOrderSchema>;
+export type OrderPosition = z.infer<typeof OrderPositionSchema>;

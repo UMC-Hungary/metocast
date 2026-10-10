@@ -1,0 +1,62 @@
+meta {
+  name: Automations - WebSocket
+  type: http
+  seq: 9
+}
+
+# WebSocket commands — use a WS client connected to:
+# ws://{{host}}/ws?token={{authToken}}
+
+get {
+  url: {{baseUrl}}/ws
+  body: none
+  auth: none
+}
+
+docs {
+  ## Automations over the WebSocket
+
+  Editing goes over REST (see the other requests in this folder). The WebSocket carries what
+  Companion needs, and what keeps every client in step.
+
+  ### Commands (token required)
+
+  ```json
+  { "type": "automations.list" }
+  { "type": "automations.run", "id": "00000000-0000-0000-0000-000000000000" }
+  { "type": "automations.set_armed", "armed": false }
+  ```
+
+  - `automations.list` is answered by `automations.changed`.
+  - `automations.run` runs the rule now (ignoring its cooldown, event check and the master switch)
+    and answers `{ "type": "ok" }`, or `{ "type": "error", "message": "not_found" }`. The run
+    arrives as `automation.run`.
+  - `automations.set_armed` answers `ok`; `automations.changed` is broadcast.
+
+  ### Broadcasts
+
+  ```json
+  { "type": "automations.changed", "armed": true, "automations": [ { "id": "…", "name": "Service start", … } ] }
+  {
+    "type": "automation.run",
+    "run": {
+      "id": "…", "automationId": "…", "name": "Service start",
+      "cause": "Preset 3 finished on camera 1", "manual": false, "startedAt": "2026-10-07T08:00:00Z",
+      "results": [
+        { "action": "Move camera to preset 3", "outcome": "skipped", "message": "that preset is what fired the rule" },
+        { "action": "Start OBS", "outcome": "done", "message": null },
+        { "action": "Start ATEM", "outcome": "failed", "message": "atem_not_connected" }
+      ]
+    }
+  }
+  ```
+
+  `automations.changed` is also sent when a client with the token connects. A run with a failure
+  also sends `{ "type": "notification", "level": "warn", "message": "…" }`.
+
+  ### Middle Control preset feedback
+
+  `connector.state` for `middlecontrol` now carries `runningPreset` (1–12, or `null` at rest: the
+  preset moving the selected camera) and `lastPreset` (`{ preset, cameraId, at }`: the last move
+  Metocast watched run to its end). `presetMoveActive` is derived from `runningPreset`.
+}

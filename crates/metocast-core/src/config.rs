@@ -3,6 +3,7 @@
 //! The server keeps one JSON blob per connector and never returns a stored secret: it blanks the
 //! field and adds `"<field>Set": true` beside it. A client only needs to know which fields a
 //! connector has, so that knowledge lives here rather than in every app.
+use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
@@ -59,6 +60,9 @@ pub const CONNECTORS: &[(&str, &str)] = &[
     ("facebook", "Facebook"),
     ("discord", "Discord"),
     ("szentiras", "Szentírás"),
+    ("media", "Media Processing"),
+    ("openai", "OpenAI Translation"),
+    ("mcp", "AI Agents (MCP)"),
 ];
 
 /// The fields `connector` stores, or none when it isn't one this crate knows.
@@ -79,9 +83,17 @@ pub fn schema(connector: &str) -> Schema {
             ("password", "Password", Secret),
             ("fingerprint", "Certificate Fingerprint", Text),
         ],
+        // A dotted key is a field of a nested object. Recording needs the main mix by default,
+        // so the two fields below are all it takes to arm Metocast's audio recording.
         "rodecaster" => &[
             ("enabled", "Enabled", Toggle),
             ("notifyOnMute", "Notify on Mute", Toggle),
+            ("audioRecording.enabled", "Record Audio", Toggle),
+            (
+                "audioRecording.directory",
+                "Recording Folder (on the Server's Mac)",
+                Text,
+            ),
         ],
         "broadlink" => &[("enabled", "Enabled", Toggle)],
         "youtube" => &[
@@ -103,6 +115,60 @@ pub fn schema(connector: &str) -> Schema {
             ("enabled", "Enabled", Toggle),
             ("apiKey", "API Key", Secret),
         ],
+        // Blank or 0 keeps what the clip was shot with; see `media::MediaConfig`.
+        "media" => &[
+            ("enabled", "Enabled", Toggle),
+            ("gamma", "Gamma", Text),
+            ("gamut", "Gamut", Text),
+            ("iso", "ISO", Number),
+            ("kelvin", "White Balance (K)", Number),
+            ("tint", "Tint", Text),
+            ("exposure", "Exposure (Stops)", Text),
+            ("highlightRecovery", "Highlight Recovery", Toggle),
+            ("gamutCompression", "Gamut Compression", Toggle),
+            ("lutMode", "LUT (embedded, file, sidecar or none)", Text),
+            ("lutPath", "LUT File", Text),
+            ("sidecarPath", "Resolve Sidecar", Text),
+            ("aspect", "Frame (16:9 or native)", Text),
+            ("cropShiftY", "Crop Shift Down (px)", Text),
+            ("bitrateMbps", "Bitrate (Mbps)", Number),
+            ("audioChannels", "Audio Channels", Text),
+            ("outputFolder", "Output Folder", Text),
+            ("audioTargetLufs", "Audio Loudness (LUFS)", Text),
+            ("audioOutputFolder", "Audio Output Folder", Text),
+            ("ffmpegPath", "ffmpeg Path", Text),
+            ("brawSdkPath", "Blackmagic RAW SDK Folder", Text),
+            ("jiveVocalsPath", "jive-vocals Path", Text),
+        ],
+        // The server's own MCP endpoint, not a device; see `server::mcp::McpConfig`.
+        "mcp" => &[
+            ("enabled", "Enabled", Toggle),
+            (
+                "readOnly",
+                "Read-only (agents can look, not change)",
+                Toggle,
+            ),
+            ("allowLan", "Allow other devices on the network", Toggle),
+        ],
+        // The audio source is edited on the Sanctum settings page.
+        "openai" => &[
+            ("enabled", "Enabled", Toggle),
+            ("apiKey", "API Key", Secret),
+            ("adminKey", "Admin Key (credit balance)", Secret),
+            ("topUps", "Top-ups (2026-10-01 20, …)", Text),
+            ("lagMs", "Translation Lag (ms)", Number),
+            ("youtubeLiveCaptions", "Live YouTube Captions", Toggle),
+            (
+                "captionIngestionUrl",
+                "Caption Ingestion URL (override)",
+                Secret,
+            ),
+            (
+                "autoYoutubeCaptions",
+                "Caption Finished YouTube Uploads",
+                Toggle,
+            ),
+        ],
         _ => &[],
     }
 }
@@ -118,10 +184,11 @@ pub fn form(connector: &str, config: &Value) -> Vec<ConfigField> {
             kind: *kind,
             value: match kind {
                 Secret => String::new(),
-                _ => match config.get(*key) {
+                _ => match lookup(config, key) {
                     Some(Value::String(text)) => text.clone(),
                     Some(Value::Bool(flag)) => flag.to_string(),
                     Some(Value::Number(number)) => number.to_string(),
+                    Some(Value::Array(top_ups)) if *key == "topUps" => top_ups_text(top_ups),
                     _ => String::new(),
                 },
             },
@@ -132,6 +199,29 @@ pub fn form(connector: &str, config: &Value) -> Vec<ConfigField> {
                     .unwrap_or(false),
         })
         .collect()
+}
+
+/// A field's stored value, following a dotted key into nested objects.
+fn lookup<'a>(config: &'a Value, key: &str) -> Option<&'a Value> {
+    key.split('.')
+        .try_fold(config, |value, part| value.get(part))
+}
+
+/// Sets a field in `body`, creating the nested objects a dotted key names.
+fn put(body: &mut Map<String, Value>, key: &str, value: Value) {
+    match key.split_once('.') {
+        Some((head, rest)) => {
+            let child = body
+                .entry(head)
+                .or_insert_with(|| Value::Object(Map::new()));
+            if let Value::Object(child) = child {
+                put(child, rest, value);
+            }
+        }
+        None => {
+            body.insert(key.to_string(), value);
+        }
+    }
 }
 
 /// The body for `PUT /api/connectors/{name}/config`. An untouched secret is left out, which is how
@@ -146,16 +236,22 @@ pub fn body(connector: &str, values: &[ConfigValue]) -> Value {
         let text = entry.value.trim();
         match kind {
             Toggle => {
-                body.insert((*key).to_string(), json!(text == "true"));
+                put(&mut body, key, json!(text == "true"));
             }
             Number => {
-                body.insert((*key).to_string(), json!(text.parse::<u16>().unwrap_or(0)));
+                put(&mut body, key, json!(text.parse::<u16>().unwrap_or(0)));
+            }
+            Text if *key == "topUps" => {
+                // Unreadable text keeps the stored top-ups instead of wiping them.
+                if let Some(top_ups) = parse_top_ups(text) {
+                    put(&mut body, key, top_ups);
+                }
             }
             Text => {
-                body.insert((*key).to_string(), json!(text));
+                put(&mut body, key, json!(text));
             }
             Secret if !text.is_empty() => {
-                body.insert((*key).to_string(), json!(text));
+                put(&mut body, key, json!(text));
             }
             Secret if entry.clear => {
                 body.insert(format!("{key}Set"), json!(false));
@@ -164,6 +260,40 @@ pub fn body(connector: &str, values: &[ConfigValue]) -> Value {
         }
     }
     Value::Object(body)
+}
+
+/// `[{"amountUsd": 20, "date": "2026-10-01"}]` as `2026-10-01 20`, one entry per comma.
+fn top_ups_text(top_ups: &[Value]) -> String {
+    top_ups
+        .iter()
+        .filter_map(|top_up| {
+            Some(format!(
+                "{} {}",
+                top_up["date"].as_str()?,
+                top_up["amountUsd"].as_f64()?
+            ))
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// The reverse of [`top_ups_text`]; `None` when any entry isn't a date and a positive amount.
+fn parse_top_ups(text: &str) -> Option<Value> {
+    let mut top_ups = Vec::new();
+    for entry in text
+        .split([',', ';'])
+        .map(str::trim)
+        .filter(|e| !e.is_empty())
+    {
+        let (date, amount) = entry.split_once(char::is_whitespace)?;
+        let date: NaiveDate = date.parse().ok()?;
+        let amount: f64 = amount.trim().trim_start_matches('$').parse().ok()?;
+        if !amount.is_finite() || amount <= 0.0 {
+            return None;
+        }
+        top_ups.push(json!({ "amountUsd": amount, "date": date }));
+    }
+    Some(Value::Array(top_ups))
 }
 
 #[cfg(test)]
@@ -223,6 +353,70 @@ mod tests {
             "hunter2"
         );
         assert_eq!(body("obs", &edited("", true))["passwordSet"], false);
+    }
+
+    #[test]
+    fn the_rodecaster_form_reads_and_writes_the_nested_audio_recording() {
+        let stored = json!({"enabled": true, "notifyOnMute": false,
+            "audioRecording": {"schemaVersion": 1, "enabled": true, "directory": "/Volumes/Audio"}});
+        let fields = form("rodecaster", &stored);
+        let value = |key: &str| fields.iter().find(|f| f.key == key).unwrap().value.clone();
+        assert_eq!(value("audioRecording.enabled"), "true");
+        assert_eq!(value("audioRecording.directory"), "/Volumes/Audio");
+
+        let edited = vec![
+            ConfigValue {
+                key: "audioRecording.enabled".into(),
+                value: "true".into(),
+                clear: false,
+            },
+            ConfigValue {
+                key: "audioRecording.directory".into(),
+                value: " /Volumes/New ".into(),
+                clear: false,
+            },
+        ];
+        assert_eq!(
+            body("rodecaster", &edited),
+            json!({"audioRecording": {"enabled": true, "directory": "/Volumes/New"}})
+        );
+    }
+
+    #[test]
+    fn openai_top_ups_round_trip_as_text_and_bad_text_keeps_the_stored_ones() {
+        let stored = json!({"enabled": true, "topUps": [
+            {"amountUsd": 20.0, "date": "2026-10-01"},
+            {"amountUsd": 10.5, "date": "2026-10-05"}
+        ]});
+        let text = form("openai", &stored)
+            .into_iter()
+            .find(|f| f.key == "topUps")
+            .unwrap()
+            .value;
+        assert_eq!(text, "2026-10-01 20, 2026-10-05 10.5");
+
+        let save = |value: &str| {
+            body(
+                "openai",
+                &[ConfigValue {
+                    key: "topUps".into(),
+                    value: value.into(),
+                    clear: false,
+                }],
+            )
+        };
+        assert_eq!(
+            save(&text)["topUps"],
+            json!([
+                {"amountUsd": 20.0, "date": "2026-10-01"},
+                {"amountUsd": 10.5, "date": "2026-10-05"}
+            ])
+        );
+        assert_eq!(save("")["topUps"], json!([]));
+        assert_eq!(save("2026-10-01 $15")["topUps"][0]["amountUsd"], 15.0);
+        for bad in ["twenty", "2026-13-01 20", "2026-10-01 -5", "2026-10-01"] {
+            assert!(save(bad).get("topUps").is_none(), "{bad}");
+        }
     }
 
     #[test]

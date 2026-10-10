@@ -92,6 +92,12 @@ if (withPresenter) {
   }
 }
 
+// Likewise the shareable `/transcript` page.
+const withTranscript = selected.find((ui) => existsSync(join(OUT, 'ui', ui.id, 'transcript.html')));
+if (withTranscript) {
+  cpSync(join(OUT, 'ui', withTranscript.id, 'transcript.html'), join(OUT, 'transcript.html'));
+}
+
 writeFileSync(
   join(OUT, 'bundled-uis.json'),
   JSON.stringify({ active: selected[0].id, uis: staged }, null, 2),

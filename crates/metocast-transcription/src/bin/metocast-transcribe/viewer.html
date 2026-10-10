@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live Transcript</title>
+<style>
+  :root { --bg: #fafaf7; --fg: #1c1c1a; --muted: #8a8a84; --accent: #2f6f4f; --line: #e4e4de; --field: #ffffff; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #121211; --fg: #f1f1ec; --muted: #8b8b85; --accent: #7fc3a0; --line: #2a2a27; --field: #1d1d1b; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); }
+  body { font: 400 clamp(20px, 3.2vw, 34px)/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { position: sticky; top: 0; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between;
+           padding: 10px 16px; font-size: 14px; color: var(--muted); background: var(--bg); border-bottom: 1px solid var(--line); }
+  .controls { display: flex; gap: 16px; align-items: center; }
+  select { font: inherit; color: var(--fg); background: var(--field); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .on .dot { background: var(--accent); }
+  main { max-width: 900px; margin: 0 auto; padding: 16px 16px 40vh; }
+  p { margin: 0 0 0.6em; }
+  time { display: block; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  #partial { color: var(--muted); font-style: italic; min-height: 1.45em; }
+</style>
+</head>
+<body>
+<header>
+  <span>Live transcript · English</span>
+  <span class="controls">
+    <label>Listen <select id="audio">
+      <option value="off">Off</option>
+      <option value="hu">Original (Hungarian)</option>
+      <option value="en">Interpreter (English)</option>
+    </select></label>
+    <span class="pill" id="status"><span class="dot"></span><span id="status-text">connecting…</span></span>
+  </span>
+</header>
+<main><div id="segments"></div><p id="partial"></p></main>
+<script>
+  const SAMPLE_RATE = 24000;
+  const TAGS = { hu: 0, en: 1 };
+  const segments = document.getElementById('segments');
+  const partial = document.getElementById('partial');
+  const status = document.getElementById('status');
+  const statusText = document.getElementById('status-text');
+  const audioSelect = document.getElementById('audio');
+  const mmss = (ms) => { const s = Math.floor(ms / 1000); return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
+  const nearBottom = () => window.innerHeight + window.scrollY >= document.body.scrollHeight - 200;
+
+  // Audio: frames are 1 tag byte + 24 kHz mono PCM16 LE, queued back to back with a small
+  // jitter buffer. The AudioContext starts on the user's selection (autoplay policy).
+  let audioCtx = null;
+  let nextTime = 0;
+  audioSelect.addEventListener('change', async () => {
+    nextTime = 0;
+    if (audioSelect.value === 'off') { if (audioCtx) await audioCtx.suspend(); return; }
+    audioCtx ??= new AudioContext({ sampleRate: SAMPLE_RATE });
+    await audioCtx.resume();
+  });
+  function play(buffer) {
+    if (!audioCtx || audioCtx.state !== 'running') return;
+    const pcm = new Int16Array(buffer);
+    const floats = new Float32Array(pcm.length);
+    for (let i = 0; i < pcm.length; i++) floats[i] = pcm[i] / 32768;
+    const audioBuffer = audioCtx.createBuffer(1, floats.length, SAMPLE_RATE);
+    audioBuffer.copyToChannel(floats, 0);
+    const now = audioCtx.currentTime;
+    if (nextTime < now + 0.05) nextTime = now + 0.25;   // (re)prime the jitter buffer
+    if (nextTime > now + 10) return;                     // drop rather than fall far behind
+    const source = audioCtx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(audioCtx.destination);
+    source.start(nextTime);
+    nextTime += audioBuffer.duration;
+  }
+
+  function addSegment(segment) {
+    const p = document.createElement('p');
+    const time = document.createElement('time');
+    time.textContent = mmss(segment.startMs);
+    p.append(time, document.createTextNode(segment.text));
+    segments.append(p);
+  }
+  function setStatus(text, live) { statusText.textContent = text; status.classList.toggle('on', live); }
+  function connect() {
+    const ws = new WebSocket(`ws://${location.hostname}:__WS_PORT__`);
+    ws.binaryType = 'arraybuffer';
+    ws.onopen = () => setStatus('live', true);
+    ws.onclose = () => { setStatus('reconnecting…', false); setTimeout(connect, 2000); };
+    ws.onmessage = (event) => {
+      if (event.data instanceof ArrayBuffer) {
+        const tag = new Uint8Array(event.data, 0, 1)[0];
+        if (tag === TAGS[audioSelect.value]) play(event.data.slice(1));
+        return;
+      }
+      const follow = nearBottom();
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'transcription.snapshot') {
+        segments.replaceChildren();
+        msg.segments.forEach(addSegment);
+        partial.textContent = msg.partial;
+        if (msg.status === 'finished') setStatus('finished', false);
+      } else if (msg.type === 'transcription.segment') {
+        addSegment(msg.segment);
+      } else if (msg.type === 'transcription.partial') {
+        partial.textContent = msg.text;
+      } else if (msg.type === 'transcription.state') {
+        setStatus(msg.status === 'finished' ? 'finished' : 'live', msg.status !== 'finished');
+      }
+      if (follow) window.scrollTo(0, document.body.scrollHeight);
+    };
+  }
+  connect();
+</script>
+</body>
+</html>

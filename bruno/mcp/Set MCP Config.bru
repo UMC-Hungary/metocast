@@ -1,0 +1,34 @@
+meta {
+  name: MCP - Set Config
+  type: http
+  seq: 7
+}
+
+put {
+  url: {{baseUrl}}/api/connectors/mcp/config
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "enabled": true,
+    "readOnly": false,
+    "allowLan": false
+  }
+}
+
+docs {
+  Turns MCP on or off, switches read-only mode, and allows callers that are not on the server's
+  machine. An MCP client cannot change these through the connectors_config_set tool.
+}
+
+tests {
+  test("status is 204", function() {
+    expect(res.status).to.equal(204);
+  });
+}

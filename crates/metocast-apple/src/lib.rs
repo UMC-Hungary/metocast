@@ -7,15 +7,27 @@ use metocast_client::{
     ClientConfig, ClientError, ConnectionState, MetocastClient, WebSocketConnection,
 };
 use metocast_core::{
+    automations::{
+        ActionOutcome, ActionResult, Automation, AutomationAction, AutomationDraft, AutomationList,
+        AutomationRun, AutomationTrigger, ChannelSource, RecordTarget,
+    },
     config::ConfigFieldKind,
     connectors::{
-        AtemInput, AtemState, ConnectorState, ConnectorStatus, MiddlecontrolState, RecordStatus,
-        RecorderStatus, RodecasterChannel, RodecasterProfile, RodecasterRecorderState,
-        StreamStatus,
+        AtemInput, AtemState, ConnectorState, ConnectorStatus, DeskRecorderStatus, LastPreset,
+        MiddlecontrolState, RecordStatus, RecorderStatus, RodecasterChannel,
+        RodecasterDeskRecorder, RodecasterProfile, RodecasterRecorderState, StreamStatus,
     },
     events::{
         BibleReference, BibleVerse, CreateBibleReference, CreateConnection, CreateEvent, Event,
-        EventConnection, EventSummary,
+        EventConnection, EventSummary, OrderItem, OrderItemKind,
+    },
+    media::{
+        AsShot, AudioInfo, AudioProbe, AudioProgress, AudioReport, AudioRequest, AudioSettings,
+        AudioSource, AudioStep, ClockEstimate, CropRect, LutMode, MediaKind, MediaProbe,
+        OutputAspect, PictureMode, PreviewFrame, PreviewRequest, ProgramProbe, ProgramProgress,
+        ProgramReport, ProgramRequest, ProgramStep, RawOptions, RenderProgress, RenderRequest,
+        RenderSettings, RenderState, SubtitleReport, SubtitleSource, SyncMethod, SyncReport,
+        SyncWindow, ValueRange, VideoSound,
     },
     operations::{
         BroadlinkCommand, CronJob, CronJobDraft, DeviceListener, QueueJob, QueueSummary,
@@ -28,6 +40,7 @@ use metocast_core::{
     },
     recordings::Recording,
     slides::{CreateSongSlides, PptFile, SongSlides},
+    transcription::{CreditStatus, TranscriptionState, TranscriptionStatus},
 };
 use serde::Serialize;
 
@@ -219,6 +232,14 @@ pub struct AtemState {
 }
 
 #[uniffi::remote(Record)]
+pub struct LastPreset {
+    pub preset: u8,
+    pub camera_id: u8,
+    /// RFC 3339.
+    pub at: String,
+}
+
+#[uniffi::remote(Record)]
 pub struct MiddlecontrolState {
     pub selected_camera: Option<u8>,
     pub recording: Option<bool>,
@@ -226,6 +247,24 @@ pub struct MiddlecontrolState {
     pub connected_camera_ids: Option<Vec<u8>>,
     pub connected_apcr_ids: Option<Vec<u8>>,
     pub preset_move_active: Option<bool>,
+    /// The preset (1–12) moving the selected camera, `None` at rest.
+    pub running_preset: Option<u8>,
+    pub last_preset: Option<LastPreset>,
+}
+
+/// The RØDECaster's own SD/USB recorder, apart from Metocast's audio recording.
+#[uniffi::remote(Enum)]
+pub enum DeskRecorderStatus {
+    Stopped,
+    Paused,
+    Recording,
+}
+
+#[uniffi::remote(Record)]
+pub struct RodecasterDeskRecorder {
+    pub status: DeskRecorderStatus,
+    /// An SD card or USB drive is there to write to.
+    pub media_present: bool,
 }
 
 #[uniffi::remote(Record)]
@@ -247,6 +286,39 @@ pub enum RecorderStatus {
     Idle,
     Recording,
     Failed,
+}
+
+#[uniffi::remote(Enum)]
+pub enum TranscriptionStatus {
+    NotConfigured,
+    Unavailable,
+    Ready,
+    Connecting,
+    Running,
+    Error,
+}
+
+/// The live English transcript.
+#[derive(Clone, uniffi::Record)]
+pub struct TranscriptionRecord {
+    pub status: TranscriptionStatus,
+    /// `mixerOffline` while unavailable; `noCredit`, `invalidKey` or a message on error.
+    pub reason: Option<String>,
+    pub event_id: Option<String>,
+    /// RFC 3339.
+    pub started_at: Option<String>,
+    /// Why live YouTube captions are failing, while they are.
+    pub youtube_error: Option<String>,
+}
+
+/// Prepaid OpenAI credit left.
+#[derive(Clone, uniffi::Record)]
+pub struct CreditRecord {
+    pub balance_usd: f64,
+    /// Below $5.
+    pub low: bool,
+    /// RFC 3339.
+    pub as_of: String,
 }
 
 #[derive(Clone, uniffi::Record)]
@@ -292,10 +364,20 @@ pub enum ProductionControl {
         channel: u32,
         mute: bool,
     },
+    /// `None` keeps the recording as untracked files, to assign to an event later.
     RodecasterRecordStart {
-        event_id: String,
+        event_id: Option<String>,
     },
     RodecasterRecordStop,
+    /// The desk's own SD/USB recorder, not Metocast's audio recording.
+    RodecasterDeskRecording {
+        on: bool,
+    },
+    /// `None` transcribes with no event.
+    TranscriptionStart {
+        event_id: Option<String>,
+    },
+    TranscriptionStop,
     CameraRecording {
         on: bool,
     },
@@ -341,6 +423,37 @@ pub struct PptFile {
     pub name: String,
     pub path: String,
     pub folder_id: String,
+}
+
+#[uniffi::remote(Enum)]
+pub enum OrderItemKind {
+    Song,
+    Bible,
+    Block,
+}
+
+/// One step of an event's Order of Service. `id` is absent for a step added in this edit.
+#[derive(Clone, uniffi::Record)]
+pub struct OrderItemRecord {
+    pub id: Option<String>,
+    pub kind: OrderItemKind,
+    pub title: String,
+    pub deck_path: Option<String>,
+    pub bible_type: Option<String>,
+    pub notes: String,
+}
+
+impl From<OrderItem> for OrderItemRecord {
+    fn from(item: OrderItem) -> Self {
+        Self {
+            id: item.id.map(|id| id.to_string()),
+            kind: item.kind,
+            title: item.title,
+            deck_path: item.deck_path,
+            bible_type: item.bible_type,
+            notes: item.notes,
+        }
+    }
 }
 
 #[derive(Clone, uniffi::Record)]
@@ -397,6 +510,16 @@ pub enum PresentationCommand {
     },
     Mute,
     Unmute,
+    OrderGo {
+        event_id: String,
+        item_id: String,
+    },
+    OrderNext {
+        event_id: Option<String>,
+    },
+    OrderPrevious {
+        event_id: Option<String>,
+    },
     Register {
         label: String,
         hostname: Option<String>,
@@ -412,6 +535,103 @@ pub struct CronJobRecord {
     pub enabled: bool,
     pub pull_youtube: bool,
     pub auto_upload: bool,
+}
+
+// Automations: rules that run inside the core. The triggers, actions and results are plain data,
+// so Swift gets the core types as they are; a rule's id and a run's times cross as strings.
+
+#[uniffi::remote(Enum)]
+pub enum ChannelSource {
+    Either,
+    Desk,
+    Transmitter,
+}
+
+#[uniffi::remote(Enum)]
+pub enum AutomationTrigger {
+    MiddlecontrolPreset {
+        preset: u8,
+        camera_id: Option<u8>,
+    },
+    RodecasterChannel {
+        channel: u32,
+        label: String,
+        live: bool,
+        source: ChannelSource,
+        hold_seconds: f32,
+    },
+}
+
+#[uniffi::remote(Enum)]
+pub enum RecordTarget {
+    Obs,
+    Atem,
+    BlackmagicCamera,
+    Middlecontrol { camera_id: Option<u8> },
+    Rodecaster,
+    RodecasterAudio,
+}
+
+#[uniffi::remote(Enum)]
+pub enum AutomationAction {
+    RecordStart {
+        target: RecordTarget,
+    },
+    RecordStop {
+        target: RecordTarget,
+    },
+    PresetRecall {
+        preset: u8,
+        camera_id: Option<u8>,
+        wait_for_arrival: bool,
+    },
+}
+
+#[uniffi::remote(Enum)]
+pub enum ActionOutcome {
+    Done,
+    Skipped,
+    Failed,
+}
+
+#[uniffi::remote(Record)]
+pub struct ActionResult {
+    pub action: String,
+    pub outcome: ActionOutcome,
+    pub message: Option<String>,
+}
+
+/// A rule. `id` is empty for one that isn't saved yet.
+#[derive(Clone, uniffi::Record)]
+pub struct AutomationRecord {
+    pub id: String,
+    pub name: String,
+    pub enabled: bool,
+    pub triggers: Vec<AutomationTrigger>,
+    pub actions: Vec<AutomationAction>,
+    pub cooldown_seconds: f32,
+    pub require_event: bool,
+}
+
+#[derive(Clone, uniffi::Record)]
+pub struct AutomationListRecord {
+    /// The master switch: nothing fires while it is off.
+    pub armed: bool,
+    pub automations: Vec<AutomationRecord>,
+}
+
+#[derive(Clone, uniffi::Record)]
+pub struct AutomationRunRecord {
+    pub id: String,
+    pub automation_id: String,
+    pub name: String,
+    /// What fired it, in words.
+    pub cause: String,
+    /// "Run now", which ignores the cooldown, the event check and the master switch.
+    pub manual: bool,
+    /// RFC 3339.
+    pub started_at: String,
+    pub results: Vec<ActionResult>,
 }
 
 #[derive(Clone, uniffi::Record)]
@@ -441,6 +661,348 @@ pub struct BroadlinkCommandRecord {
     pub id: String,
     pub name: String,
     pub category: String,
+}
+
+// Video processing: the media pipeline's records, mostly the core types as they are.
+
+#[uniffi::remote(Enum)]
+pub enum LutMode {
+    Embedded,
+    File,
+    Sidecar,
+    None,
+}
+
+#[uniffi::remote(Enum)]
+pub enum OutputAspect {
+    Widescreen,
+    Native,
+}
+
+#[uniffi::remote(Enum)]
+pub enum MediaKind {
+    Braw,
+    Video,
+}
+
+#[uniffi::remote(Enum)]
+pub enum RenderState {
+    Running,
+    Succeeded,
+    Failed,
+    Cancelled,
+}
+
+#[uniffi::remote(Record)]
+pub struct CropRect {
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
+}
+
+#[uniffi::remote(Record)]
+pub struct AudioInfo {
+    pub codec: String,
+    pub channels: u32,
+    pub sample_rate: u32,
+    pub bits: Option<u32>,
+}
+
+#[uniffi::remote(Record)]
+pub struct RenderSettings {
+    pub gamma: String,
+    pub gamut: String,
+    pub iso: Option<u32>,
+    pub kelvin: Option<u32>,
+    pub tint: Option<i32>,
+    pub exposure: Option<f32>,
+    pub highlight_recovery: bool,
+    pub gamut_compression: bool,
+    pub lut_mode: LutMode,
+    pub lut_path: Option<String>,
+    pub aspect: OutputAspect,
+    pub crop_shift_y: i32,
+    pub bitrate_mbps: u32,
+    pub audio_channels: Vec<u32>,
+    pub sidecar_path: Option<String>,
+}
+
+#[uniffi::remote(Record)]
+pub struct ValueRange {
+    pub min: f64,
+    pub max: f64,
+}
+
+#[uniffi::remote(Record)]
+pub struct AsShot {
+    pub iso: Option<u32>,
+    pub kelvin: Option<u32>,
+    pub tint: Option<i32>,
+    pub exposure: Option<f32>,
+}
+
+#[uniffi::remote(Record)]
+pub struct RawOptions {
+    pub gammas: Vec<String>,
+    pub gamuts: Vec<String>,
+    pub isos: Vec<u32>,
+    pub kelvin: Option<ValueRange>,
+    pub tint: Option<ValueRange>,
+    pub exposure: Option<ValueRange>,
+    pub as_shot: AsShot,
+}
+
+/// One frame as a base64 JPEG, and the crop a render keeps, in source pixels.
+#[uniffi::remote(Record)]
+pub struct PreviewFrame {
+    pub image_jpeg: String,
+    pub active: CropRect,
+    pub output: CropRect,
+}
+
+#[uniffi::remote(Record)]
+pub struct SubtitleSource {
+    pub path: String,
+    pub language: String,
+}
+
+#[uniffi::remote(Record)]
+pub struct SubtitleReport {
+    pub language: String,
+    pub cues: u32,
+    pub shift_seconds: f64,
+    pub confident: bool,
+    pub srt_path: String,
+}
+
+/// A video file on the server's disk, and the render the stored settings would make of it.
+#[derive(Clone, uniffi::Record)]
+pub struct MediaProbeRecord {
+    pub path: String,
+    pub file_name: String,
+    pub file_size: u64,
+    pub kind: MediaKind,
+    pub camera: Option<String>,
+    pub clip_name: Option<String>,
+    pub width: u32,
+    pub height: u32,
+    pub active_area: CropRect,
+    pub fps_num: u32,
+    pub fps_den: u32,
+    pub frame_count: u64,
+    pub duration_seconds: f64,
+    pub start_timecode: Option<String>,
+    /// RFC 3339, by the camera's clock.
+    pub recorded_at: Option<String>,
+    /// RFC 3339, by the server's clock.
+    pub host_record_started_at: Option<String>,
+    pub audio: Option<AudioInfo>,
+    pub gamma: Option<String>,
+    pub gamut: Option<String>,
+    pub embedded_lut: Option<String>,
+    pub defaults: RenderSettings,
+    pub output: CropRect,
+    /// Tools the server lacks for this file: `ffmpeg`, `braw-decode`, `blackmagic-raw-sdk`.
+    pub missing: Vec<String>,
+    /// Blackmagic RAW only: what its settings may be set to.
+    pub raw_options: Option<RawOptions>,
+}
+
+#[derive(Clone, uniffi::Record)]
+pub struct RenderProgressRecord {
+    pub job_id: String,
+    pub state: RenderState,
+    pub frame: u64,
+    pub total_frames: u64,
+    pub fps: f64,
+    pub output_path: String,
+    pub error: Option<String>,
+}
+
+#[uniffi::remote(Enum)]
+pub enum AudioStep {
+    Download,
+    Prepare,
+    Clean,
+    Align,
+    Finish,
+}
+
+#[uniffi::remote(Record)]
+pub struct AudioSettings {
+    pub channels: Vec<u32>,
+    pub target_lufs: f32,
+}
+
+#[uniffi::remote(Record)]
+pub struct AudioReport {
+    pub input_lufs: f64,
+    pub output_lufs: f64,
+    pub output_true_peak_dbtp: f64,
+    pub removed_delay_samples: i64,
+    pub alignment_confidence: f64,
+}
+
+#[derive(Clone, uniffi::Record)]
+pub struct AudioSourceRecord {
+    pub path: String,
+    pub file_name: String,
+    pub file_size: u64,
+    pub audio: AudioInfo,
+    pub duration_seconds: f64,
+    /// RFC 3339, by the recorder's clock.
+    pub recorded_at: Option<String>,
+}
+
+/// Audio files on the server's disk, joined in order, and what processing them needs.
+#[derive(Clone, uniffi::Record)]
+pub struct AudioProbeRecord {
+    pub sources: Vec<AudioSourceRecord>,
+    pub duration_seconds: f64,
+    pub channels: u32,
+    /// RFC 3339, by the recorder's clock.
+    pub recorded_at: Option<String>,
+    pub defaults: AudioSettings,
+    /// Tools the server lacks and cannot fetch.
+    pub missing: Vec<String>,
+    /// Tools the first job downloads.
+    pub downloads: Vec<String>,
+}
+
+#[derive(Clone, uniffi::Record)]
+pub struct AudioProgressRecord {
+    pub job_id: String,
+    pub state: RenderState,
+    pub step: Option<AudioStep>,
+    pub fraction: Option<f64>,
+    pub output_path: String,
+    pub error: Option<String>,
+    pub report: Option<AudioReport>,
+}
+
+#[derive(Clone, uniffi::Record)]
+pub struct RenderQueuedRecord {
+    pub job_id: String,
+    pub output_path: String,
+}
+
+#[uniffi::remote(Enum)]
+pub enum PictureMode {
+    Grade,
+    Copy,
+}
+
+#[uniffi::remote(Enum)]
+pub enum SyncMethod {
+    None,
+    Waveform,
+    Lips,
+    Clock,
+    Manual,
+}
+
+#[uniffi::remote(Enum)]
+pub enum ProgramStep {
+    Download,
+    Picture,
+    Prepare,
+    Sync,
+    Clean,
+    Merge,
+}
+
+#[uniffi::remote(Record)]
+pub struct VideoSound {
+    pub has_track: bool,
+    pub usable: bool,
+    pub level_dbfs: Option<f64>,
+}
+
+#[uniffi::remote(Record)]
+pub struct ClockEstimate {
+    pub offset_seconds: f64,
+    pub learned: bool,
+}
+
+#[uniffi::remote(Record)]
+pub struct SyncWindow {
+    pub video_seconds: f64,
+    pub offset_seconds: f64,
+    pub score: f64,
+    pub agrees: bool,
+}
+
+#[uniffi::remote(Record)]
+pub struct SyncReport {
+    pub method: SyncMethod,
+    pub offset_seconds: f64,
+    pub drift_ppm: f64,
+    pub confidence: f64,
+    pub confident: bool,
+    pub peak_sigma: Option<f64>,
+    pub windows: Vec<SyncWindow>,
+    pub clock_difference_seconds: Option<f64>,
+    pub clock_offset_seconds: Option<f64>,
+    pub manual_frames: i32,
+    pub start_file: Option<String>,
+    pub start_file_seconds: Option<f64>,
+}
+
+#[uniffi::remote(Record)]
+pub struct ProgramReport {
+    pub sync: SyncReport,
+    pub audio: AudioReport,
+    pub audio_seconds: f64,
+    pub coverage: f64,
+    pub silent_start_seconds: f64,
+    pub silent_end_seconds: f64,
+    pub audio_output_path: String,
+    pub subtitles: Vec<SubtitleReport>,
+}
+
+/// A program to queue. Without an event it is listed with the untracked recordings;
+/// `start_seconds` skips the search when the operator knows where the video starts in the
+/// recording; `subtitles` are moved onto the voice and sent with the uploads.
+#[derive(Clone, uniffi::Record)]
+pub struct ProgramRequestRecord {
+    pub video_path: String,
+    pub audio_paths: Vec<String>,
+    pub event_id: Option<String>,
+    pub picture: Option<PictureMode>,
+    pub settings: Option<RenderSettings>,
+    pub audio_settings: Option<AudioSettings>,
+    pub start_seconds: Option<f64>,
+    pub subtitles: Vec<SubtitleSource>,
+}
+
+/// A video and its audio on the server's disk, and how a program job would put them together.
+#[derive(Clone, uniffi::Record)]
+pub struct ProgramProbeRecord {
+    pub video: MediaProbeRecord,
+    /// `None` when the video's own sound is used.
+    pub audio: Option<AudioProbeRecord>,
+    pub video_sound: VideoSound,
+    /// `none`, `waveform` or `lips`.
+    pub sync_method: SyncMethod,
+    pub clock: Option<ClockEstimate>,
+    pub picture: PictureMode,
+    pub warnings: Vec<String>,
+    /// Why the job can't run, when it can't.
+    pub blocker: Option<String>,
+    pub missing: Vec<String>,
+    pub downloads: Vec<String>,
+}
+
+#[derive(Clone, uniffi::Record)]
+pub struct ProgramProgressRecord {
+    pub job_id: String,
+    pub state: RenderState,
+    pub step: Option<ProgramStep>,
+    pub fraction: Option<f64>,
+    pub output_path: String,
+    pub error: Option<String>,
+    pub report: Option<ProgramReport>,
 }
 
 #[derive(Clone, uniffi::Record)]
@@ -567,6 +1129,15 @@ pub enum AppleEvent {
         total_slides: u32,
     },
     EventChanged,
+    /// The Order of Service step on screen; both ids are absent when none is.
+    OrderState {
+        event_id: Option<String>,
+        item_id: Option<String>,
+    },
+    /// An event's Order of Service was replaced; reload it.
+    EventOrderChanged {
+        event_id: String,
+    },
     Notification {
         level: String,
         message: String,
@@ -595,6 +1166,19 @@ pub enum AppleEvent {
     RodecasterRecorder {
         state: RecorderStateRecord,
     },
+    /// The desk's own SD/USB recorder started, paused or stopped, or a card or drive came or went.
+    RodecasterDeskRecorder {
+        state: RodecasterDeskRecorder,
+    },
+    /// The rules or the master switch changed; also sent on connect.
+    AutomationsChanged {
+        armed: bool,
+        automations: Vec<AutomationRecord>,
+    },
+    /// A rule ran.
+    AutomationRun {
+        run: AutomationRunRecord,
+    },
     /// A command this client sent failed: a stable code such as `atem_not_connected`, or the
     /// device's own words.
     CommandFailed {
@@ -618,6 +1202,31 @@ pub enum AppleEvent {
     },
     DeviceAlerts {
         listeners: Vec<DeviceListenerRecord>,
+    },
+    MediaRenderProgress {
+        progress: RenderProgressRecord,
+    },
+    MediaAudioProgress {
+        progress: AudioProgressRecord,
+    },
+    MediaProgramProgress {
+        progress: ProgramProgressRecord,
+    },
+    Transcription {
+        state: TranscriptionRecord,
+    },
+    /// Sent on connect: replaces the state, the line and the credit.
+    TranscriptionSnapshot {
+        state: TranscriptionRecord,
+        line: String,
+        credit: Option<CreditRecord>,
+    },
+    /// The newest English line, open or committed.
+    TranscriptLine {
+        text: String,
+    },
+    TranscriptionCredit {
+        credit: CreditRecord,
     },
     Unknown,
 }
@@ -838,6 +1447,73 @@ impl AppleClient {
             .await
     }
 
+    // ── Automations ──────────────────────────────────────────────────────────
+
+    pub async fn automations(&self) -> Result<AutomationListRecord, AppleError> {
+        let client = self.client.clone();
+        let list = self.run(async move { client.automations().await }).await?;
+        Ok(list.into())
+    }
+
+    /// Creates the rule when its `id` is empty, otherwise replaces it. A rule that breaks a limit
+    /// comes back as `AppleError::Server` with the server's own words.
+    pub async fn save_automation(
+        &self,
+        automation: AutomationRecord,
+    ) -> Result<AutomationRecord, AppleError> {
+        let id = if automation.id.is_empty() {
+            None
+        } else {
+            Some(parse_id(&automation.id)?)
+        };
+        let draft = AutomationDraft::from(automation);
+        let client = self.client.clone();
+        let saved = match id {
+            None => {
+                self.run(async move { client.create_automation(&draft).await })
+                    .await?
+            }
+            Some(id) => {
+                self.run(async move { client.update_automation(id, &draft).await })
+                    .await?
+            }
+        };
+        Ok(saved.into())
+    }
+
+    pub async fn delete_automation(&self, id: String) -> Result<(), AppleError> {
+        let id = parse_id(&id)?;
+        let client = self.client.clone();
+        self.run(async move { client.delete_automation(id).await })
+            .await
+    }
+
+    /// Runs the rule now, ignoring its cooldown, its event check and the master switch, and
+    /// returns when the run ends. It really records and really moves cameras.
+    pub async fn run_automation(&self, id: String) -> Result<AutomationRunRecord, AppleError> {
+        let id = parse_id(&id)?;
+        let client = self.client.clone();
+        Ok(self
+            .run(async move { client.run_automation(id).await })
+            .await?
+            .into())
+    }
+
+    /// The last 50 runs, newest first.
+    pub async fn automation_runs(&self) -> Result<Vec<AutomationRunRecord>, AppleError> {
+        let client = self.client.clone();
+        let runs = self
+            .run(async move { client.automation_runs().await })
+            .await?;
+        Ok(runs.into_iter().map(Into::into).collect())
+    }
+
+    pub async fn set_automations_armed(&self, armed: bool) -> Result<(), AppleError> {
+        let client = self.client.clone();
+        self.run(async move { client.set_automations_armed(armed).await })
+            .await
+    }
+
     pub async fn queues(&self) -> Result<Vec<QueueSummaryRecord>, AppleError> {
         let client = self.client.clone();
         let queues = self.run(async move { client.queues().await }).await?;
@@ -892,6 +1568,154 @@ impl AppleClient {
             .run(async move { client.untracked_recordings().await })
             .await?;
         Ok(recordings.into_iter().map(Into::into).collect())
+    }
+
+    /// Describes a video file on the server's disk and the render the stored settings would make.
+    /// With `sidecar_path` (such as Resolve's .sidecar), its settings become the defaults.
+    pub async fn probe_media(
+        &self,
+        path: String,
+        sidecar_path: Option<String>,
+    ) -> Result<MediaProbeRecord, AppleError> {
+        let client = self.client.clone();
+        let probe = self
+            .run(async move { client.probe_media(&path, sidecar_path.as_deref()).await })
+            .await?;
+        Ok(probe.into())
+    }
+
+    /// One frame of `path` as a JPEG: as recorded without `settings`, else graded with them.
+    pub async fn preview_media(
+        &self,
+        path: String,
+        frame: u64,
+        settings: Option<RenderSettings>,
+        max_width: Option<u32>,
+    ) -> Result<PreviewFrame, AppleError> {
+        let client = self.client.clone();
+        let request = PreviewRequest {
+            path,
+            frame,
+            settings,
+            max_width,
+        };
+        self.run(async move { client.preview_media(&request).await })
+            .await
+    }
+
+    /// Queues a render. `settings` replaces the stored defaults for this file only; without an
+    /// event the finished file is listed with the untracked recordings.
+    pub async fn start_render(
+        &self,
+        path: String,
+        event_id: Option<String>,
+        settings: Option<RenderSettings>,
+    ) -> Result<RenderQueuedRecord, AppleError> {
+        let event_id = event_id.as_deref().map(parse_id).transpose()?;
+        let client = self.client.clone();
+        let request = RenderRequest {
+            path,
+            event_id,
+            settings,
+        };
+        let queued = self
+            .run(async move { client.start_render(&request).await })
+            .await?;
+        Ok(RenderQueuedRecord {
+            job_id: queued.job_id.to_string(),
+            output_path: queued.output_path,
+        })
+    }
+
+    /// Describes audio files on the server's disk, joined in the order given.
+    pub async fn probe_audio(&self, paths: Vec<String>) -> Result<AudioProbeRecord, AppleError> {
+        let client = self.client.clone();
+        let probe = self
+            .run(async move { client.probe_audio(&paths).await })
+            .await?;
+        Ok(probe.into())
+    }
+
+    /// Queues an audio master. `settings` replaces the stored defaults for these files only;
+    /// without an event the master is listed with the untracked recordings.
+    pub async fn start_audio(
+        &self,
+        paths: Vec<String>,
+        event_id: Option<String>,
+        settings: Option<AudioSettings>,
+    ) -> Result<RenderQueuedRecord, AppleError> {
+        let event_id = event_id.as_deref().map(parse_id).transpose()?;
+        let client = self.client.clone();
+        let request = AudioRequest {
+            paths,
+            event_id,
+            settings,
+        };
+        let queued = self
+            .run(async move { client.start_audio(&request).await })
+            .await?;
+        Ok(RenderQueuedRecord {
+            job_id: queued.job_id.to_string(),
+            output_path: queued.output_path,
+        })
+    }
+
+    /// Describes a video and its audio (none: the video's own sound) and how they'd be synced.
+    pub async fn probe_program(
+        &self,
+        video_path: String,
+        audio_paths: Vec<String>,
+    ) -> Result<ProgramProbeRecord, AppleError> {
+        let client = self.client.clone();
+        let probe = self
+            .run(async move { client.probe_program(&video_path, &audio_paths).await })
+            .await?;
+        Ok(probe.into())
+    }
+
+    /// Queues a program: the video with its audio, synced. Its `None` fields take the probe's
+    /// choice and the stored defaults; see [`ProgramRequestRecord`].
+    pub async fn start_program(
+        &self,
+        request: ProgramRequestRecord,
+    ) -> Result<RenderQueuedRecord, AppleError> {
+        let event_id = request.event_id.as_deref().map(parse_id).transpose()?;
+        let client = self.client.clone();
+        let request = ProgramRequest {
+            video_path: request.video_path,
+            audio_paths: request.audio_paths,
+            event_id,
+            picture: request.picture,
+            settings: request.settings,
+            audio_settings: request.audio_settings,
+            start_seconds: request.start_seconds,
+            subtitles: request.subtitles,
+        };
+        let queued = self
+            .run(async move { client.start_program(&request).await })
+            .await?;
+        Ok(RenderQueuedRecord {
+            job_id: queued.job_id.to_string(),
+            output_path: queued.output_path,
+        })
+    }
+
+    /// Moves a finished program's audio by whole frames (positive: later). Its progress arrives
+    /// under the program's job id.
+    pub async fn nudge_program(&self, job_id: String, frames: i32) -> Result<(), AppleError> {
+        let id = parse_id(&job_id)?;
+        let client = self.client.clone();
+        self.run(async move { client.nudge_program(id, frames).await })
+            .await?;
+        Ok(())
+    }
+
+    /// Stops a queued or running render, audio or program job.
+    pub async fn cancel_render(&self, job_id: String) -> Result<(), AppleError> {
+        let id = parse_id(&job_id)?;
+        let client = self.client.clone();
+        self.run(async move { client.cancel_render(id).await })
+            .await
     }
 
     /// Moves a stray recording onto an event.
@@ -1089,6 +1913,58 @@ impl AppleClient {
                 path: folder.path,
             })
             .collect())
+    }
+
+    /// An event's Order of Service, in order.
+    pub async fn event_order(&self, id: String) -> Result<Vec<OrderItemRecord>, AppleError> {
+        let id = parse_id(&id)?;
+        let client = self.client.clone();
+        let items = self
+            .run(async move { client.event_order(id).await })
+            .await?;
+        Ok(items.into_iter().map(Into::into).collect())
+    }
+
+    /// Replaces an event's Order of Service; returns the stored steps with their ids.
+    pub async fn set_event_order(
+        &self,
+        id: String,
+        items: Vec<OrderItemRecord>,
+    ) -> Result<Vec<OrderItemRecord>, AppleError> {
+        let id = parse_id(&id)?;
+        let items = items
+            .into_iter()
+            .map(|item| {
+                Ok(OrderItem {
+                    id: item.id.as_deref().map(parse_id).transpose()?,
+                    kind: item.kind,
+                    title: item.title,
+                    deck_path: item.deck_path,
+                    bible_type: item.bible_type,
+                    notes: item.notes,
+                })
+            })
+            .collect::<Result<Vec<_>, AppleError>>()?;
+        let client = self.client.clone();
+        let stored = self
+            .run(async move { client.set_event_order(id, items).await })
+            .await?;
+        Ok(stored.into_iter().map(Into::into).collect())
+    }
+
+    /// Watches a folder on the server's disk for decks.
+    pub async fn add_ppt_folder(&self, path: String, name: String) -> Result<(), AppleError> {
+        let client = self.client.clone();
+        self.run(async move { client.add_ppt_folder(&path, &name).await })
+            .await
+            .map(drop)
+    }
+
+    pub async fn remove_ppt_folder(&self, id: String) -> Result<(), AppleError> {
+        let id = parse_id(&id)?;
+        let client = self.client.clone();
+        self.run(async move { client.remove_ppt_folder(id).await })
+            .await
     }
 
     /// Writes a deck per Bible reference on the event; returns the files written.
@@ -1364,9 +2240,19 @@ impl TryFrom<ProductionControl> for ProductionCommand {
                 Self::RodecasterMute { channel, mute }
             }
             ProductionControl::RodecasterRecordStart { event_id } => Self::RodecasterRecordStart {
-                event_id: parse_id(&event_id)?,
+                event_id: event_id.as_deref().map(parse_id).transpose()?,
             },
             ProductionControl::RodecasterRecordStop => Self::RodecasterRecordStop,
+            ProductionControl::RodecasterDeskRecording { on: true } => {
+                Self::RodecasterDeskRecordStart
+            }
+            ProductionControl::RodecasterDeskRecording { on: false } => {
+                Self::RodecasterDeskRecordStop
+            }
+            ProductionControl::TranscriptionStart { event_id } => Self::TranscriptionStart {
+                event_id: event_id.as_deref().map(parse_id).transpose()?,
+            },
+            ProductionControl::TranscriptionStop => Self::TranscriptionStop,
             ProductionControl::CameraRecording { on: true } => Self::CameraRecordStart,
             ProductionControl::CameraRecording { on: false } => Self::CameraRecordStop,
             ProductionControl::CameraStreaming { on: true } => Self::CameraStreamStart,
@@ -1427,6 +2313,91 @@ impl From<CronJob> for CronJobRecord {
     }
 }
 
+impl From<Automation> for AutomationRecord {
+    fn from(automation: Automation) -> Self {
+        Self {
+            id: automation.id.to_string(),
+            name: automation.name,
+            enabled: automation.enabled,
+            triggers: automation.triggers,
+            actions: automation.actions,
+            cooldown_seconds: automation.cooldown_seconds,
+            require_event: automation.require_event,
+        }
+    }
+}
+
+impl From<AutomationRecord> for AutomationDraft {
+    fn from(record: AutomationRecord) -> Self {
+        Self {
+            name: record.name,
+            enabled: record.enabled,
+            triggers: record.triggers,
+            actions: record.actions,
+            cooldown_seconds: record.cooldown_seconds,
+            require_event: record.require_event,
+        }
+    }
+}
+
+impl From<AutomationDraft> for AutomationRecord {
+    fn from(draft: AutomationDraft) -> Self {
+        Self {
+            id: String::new(),
+            name: draft.name,
+            enabled: draft.enabled,
+            triggers: draft.triggers,
+            actions: draft.actions,
+            cooldown_seconds: draft.cooldown_seconds,
+            require_event: draft.require_event,
+        }
+    }
+}
+
+impl From<AutomationList> for AutomationListRecord {
+    fn from(list: AutomationList) -> Self {
+        Self {
+            armed: list.armed,
+            automations: list.automations.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl From<AutomationRun> for AutomationRunRecord {
+    fn from(run: AutomationRun) -> Self {
+        Self {
+            id: run.id.to_string(),
+            automation_id: run.automation_id.to_string(),
+            name: run.name,
+            cause: run.cause,
+            manual: run.manual,
+            started_at: run.started_at.to_rfc3339(),
+            results: run.results,
+        }
+    }
+}
+
+/// What is wrong with a rule, in words, or nothing when the server will accept it: the same
+/// limits the server enforces, so an editor can say so before it saves.
+#[uniffi::export]
+pub fn automation_problem(automation: AutomationRecord) -> Option<String> {
+    AutomationDraft::from(automation).validate().err()
+}
+
+/// The opposite rule: the actions in reverse order with start and stop swapped, so recording
+/// stops before the camera moves. A channel trigger flips (one that went live now goes silent
+/// for at least 5 s), preset triggers are dropped for the person to pick, and every camera move
+/// goes to `camera_preset`, or is left out when there is none. The result has no id.
+#[uniffi::export]
+pub fn reverse_automation(
+    automation: AutomationRecord,
+    camera_preset: Option<u8>,
+) -> AutomationRecord {
+    AutomationDraft::from(automation)
+        .reversed(camera_preset)
+        .into()
+}
+
 impl From<QueueSummary> for QueueSummaryRecord {
     fn from(queue: QueueSummary) -> Self {
         Self {
@@ -1460,6 +2431,121 @@ impl From<BroadlinkCommand> for BroadlinkCommandRecord {
             id: command.id.to_string(),
             name: command.name,
             category: command.category,
+        }
+    }
+}
+
+impl From<MediaProbe> for MediaProbeRecord {
+    fn from(probe: MediaProbe) -> Self {
+        Self {
+            path: probe.path,
+            file_name: probe.file_name,
+            file_size: probe.file_size,
+            kind: probe.kind,
+            camera: probe.camera,
+            clip_name: probe.clip_name,
+            width: probe.width,
+            height: probe.height,
+            active_area: probe.active_area,
+            fps_num: probe.fps_num,
+            fps_den: probe.fps_den,
+            frame_count: probe.frame_count,
+            duration_seconds: probe.duration_seconds,
+            start_timecode: probe.start_timecode,
+            recorded_at: probe.recorded_at.map(|date| date.to_rfc3339()),
+            host_record_started_at: probe.host_record_started_at.map(|date| date.to_rfc3339()),
+            audio: probe.audio,
+            gamma: probe.gamma,
+            gamut: probe.gamut,
+            embedded_lut: probe.embedded_lut,
+            defaults: probe.defaults,
+            output: probe.output,
+            missing: probe.missing,
+            raw_options: probe.raw_options,
+        }
+    }
+}
+
+impl From<AudioProbe> for AudioProbeRecord {
+    fn from(probe: AudioProbe) -> Self {
+        Self {
+            sources: probe
+                .sources
+                .into_iter()
+                .map(|source: AudioSource| AudioSourceRecord {
+                    path: source.path,
+                    file_name: source.file_name,
+                    file_size: source.file_size,
+                    audio: source.audio,
+                    duration_seconds: source.duration_seconds,
+                    recorded_at: source.recorded_at.map(|date| date.to_rfc3339()),
+                })
+                .collect(),
+            duration_seconds: probe.duration_seconds,
+            channels: probe.channels,
+            recorded_at: probe.recorded_at.map(|date| date.to_rfc3339()),
+            defaults: probe.defaults,
+            missing: probe.missing,
+            downloads: probe.downloads,
+        }
+    }
+}
+
+impl From<AudioProgress> for AudioProgressRecord {
+    fn from(progress: AudioProgress) -> Self {
+        Self {
+            job_id: progress.job_id.to_string(),
+            state: progress.state,
+            step: progress.step,
+            fraction: progress.fraction,
+            output_path: progress.output_path,
+            error: progress.error,
+            report: progress.report,
+        }
+    }
+}
+
+impl From<ProgramProbe> for ProgramProbeRecord {
+    fn from(probe: ProgramProbe) -> Self {
+        Self {
+            video: probe.video.into(),
+            audio: probe.audio.map(Into::into),
+            video_sound: probe.video_sound,
+            sync_method: probe.sync_method,
+            clock: probe.clock,
+            picture: probe.picture,
+            warnings: probe.warnings,
+            blocker: probe.blocker,
+            missing: probe.missing,
+            downloads: probe.downloads,
+        }
+    }
+}
+
+impl From<ProgramProgress> for ProgramProgressRecord {
+    fn from(progress: ProgramProgress) -> Self {
+        Self {
+            job_id: progress.job_id.to_string(),
+            state: progress.state,
+            step: progress.step,
+            fraction: progress.fraction,
+            output_path: progress.output_path,
+            error: progress.error,
+            report: progress.report,
+        }
+    }
+}
+
+impl From<RenderProgress> for RenderProgressRecord {
+    fn from(progress: RenderProgress) -> Self {
+        Self {
+            job_id: progress.job_id.to_string(),
+            state: progress.state,
+            frame: progress.frame,
+            total_frames: progress.total_frames,
+            fps: progress.fps,
+            output_path: progress.output_path,
+            error: progress.error,
         }
     }
 }
@@ -1543,6 +2629,31 @@ impl From<ConnectedClient> for ConnectedClientRecord {
     }
 }
 
+impl From<TranscriptionState> for TranscriptionRecord {
+    fn from(state: TranscriptionState) -> Self {
+        Self {
+            status: state.status,
+            reason: state.reason,
+            event_id: state.event_id.map(|id| id.to_string()),
+            started_at: state.started_at.map(|at| at.to_rfc3339()),
+            youtube_error: state
+                .youtube
+                .filter(|youtube| !youtube.ok)
+                .and_then(|youtube| youtube.last_error),
+        }
+    }
+}
+
+impl From<CreditStatus> for CreditRecord {
+    fn from(credit: CreditStatus) -> Self {
+        Self {
+            balance_usd: credit.balance_usd,
+            low: credit.low,
+            as_of: credit.as_of.to_rfc3339(),
+        }
+    }
+}
+
 impl From<RodecasterRecorderState> for RecorderStateRecord {
     fn from(state: RodecasterRecorderState) -> Self {
         Self {
@@ -1584,6 +2695,13 @@ impl From<ServerEvent> for AppleEvent {
                 total_slides,
             },
             ServerEvent::EventChanged {} => Self::EventChanged,
+            ServerEvent::OrderState { position } => Self::OrderState {
+                event_id: position.map(|p| p.event_id.to_string()),
+                item_id: position.map(|p| p.item_id.to_string()),
+            },
+            ServerEvent::EventOrderChanged { event_id } => Self::EventOrderChanged {
+                event_id: event_id.to_string(),
+            },
             ServerEvent::Notification { level, message } => Self::Notification { level, message },
             ServerEvent::ConnectorState(ConnectorState::Obs {
                 is_streaming,
@@ -1627,6 +2745,12 @@ impl From<ServerEvent> for AppleEvent {
             ServerEvent::RodecasterRecorder { state } => Self::RodecasterRecorder {
                 state: state.into(),
             },
+            ServerEvent::RodecasterDeskRecorder { state } => Self::RodecasterDeskRecorder { state },
+            ServerEvent::AutomationsChanged { armed, automations } => Self::AutomationsChanged {
+                armed,
+                automations: automations.into_iter().map(Into::into).collect(),
+            },
+            ServerEvent::AutomationRun { run } => Self::AutomationRun { run: run.into() },
             ServerEvent::ObsDevices { devices } => Self::Discovery {
                 tool: DiscoveryTool::Obs,
                 devices: discovery::obs_devices(devices),
@@ -1654,7 +2778,48 @@ impl From<ServerEvent> for AppleEvent {
                     clients: clients.into_iter().map(Into::into).collect(),
                 }
             }
+            ServerEvent::MediaRenderProgress { progress } => Self::MediaRenderProgress {
+                progress: progress.into(),
+            },
+            ServerEvent::MediaAudioProgress { progress } => Self::MediaAudioProgress {
+                progress: progress.into(),
+            },
+            ServerEvent::MediaProgramProgress { progress } => Self::MediaProgramProgress {
+                progress: progress.into(),
+            },
+            ServerEvent::TranscriptionState { state } => Self::Transcription {
+                state: state.into(),
+            },
+            // An empty partial only clears the open line; the last one stays on screen.
+            ServerEvent::TranscriptionPartial { text } if !text.is_empty() => {
+                Self::TranscriptLine { text }
+            }
+            ServerEvent::TranscriptionSegment { segment } => {
+                Self::TranscriptLine { text: segment.text }
+            }
+            ServerEvent::TranscriptionSnapshot {
+                state,
+                segments,
+                partial,
+                credit,
+            } => Self::TranscriptionSnapshot {
+                state: state.into(),
+                line: if partial.is_empty() {
+                    segments
+                        .into_iter()
+                        .last()
+                        .map(|s| s.text)
+                        .unwrap_or_default()
+                } else {
+                    partial
+                },
+                credit: credit.map(Into::into),
+            },
+            ServerEvent::TranscriptionCredit { credit } => Self::TranscriptionCredit {
+                credit: credit.into(),
+            },
             ServerEvent::ConnectorState(ConnectorState::Other)
+            | ServerEvent::TranscriptionPartial { .. }
             | ServerEvent::Ping { .. }
             | ServerEvent::Unknown => Self::Unknown,
         }
@@ -1769,10 +2934,221 @@ mod tests {
         );
         assert!(matches!(
             ProductionCommand::try_from(ProductionControl::RodecasterRecordStart {
-                event_id: "not an id".to_string()
+                event_id: Some("not an id".to_string())
             }),
             Err(AppleError::InvalidIdentifier)
         ));
+        let event_id = uuid::Uuid::new_v4();
+        assert_eq!(
+            ProductionCommand::try_from(ProductionControl::TranscriptionStart {
+                event_id: Some(event_id.to_string())
+            })
+            .unwrap(),
+            ProductionCommand::TranscriptionStart {
+                event_id: Some(event_id)
+            }
+        );
+        // No event: the commands go out without one.
+        assert_eq!(
+            ProductionCommand::try_from(ProductionControl::TranscriptionStart { event_id: None })
+                .unwrap(),
+            ProductionCommand::TranscriptionStart { event_id: None }
+        );
+        assert_eq!(
+            ProductionCommand::try_from(ProductionControl::RodecasterRecordStart {
+                event_id: None
+            })
+            .unwrap(),
+            ProductionCommand::RodecasterRecordStart { event_id: None }
+        );
+    }
+
+    #[test]
+    fn the_desk_recorder_controls_become_the_server_commands() {
+        assert_eq!(
+            ProductionCommand::try_from(ProductionControl::RodecasterDeskRecording { on: true })
+                .unwrap(),
+            ProductionCommand::RodecasterDeskRecordStart
+        );
+        assert_eq!(
+            ProductionCommand::try_from(ProductionControl::RodecasterDeskRecording { on: false })
+                .unwrap(),
+            ProductionCommand::RodecasterDeskRecordStop
+        );
+    }
+
+    fn service_start() -> AutomationRecord {
+        AutomationRecord {
+            id: uuid::Uuid::new_v4().to_string(),
+            name: "Service start".to_string(),
+            enabled: true,
+            triggers: vec![
+                AutomationTrigger::MiddlecontrolPreset {
+                    preset: 3,
+                    camera_id: None,
+                },
+                AutomationTrigger::RodecasterChannel {
+                    channel: 2,
+                    label: "Wireless 1".to_string(),
+                    live: true,
+                    source: ChannelSource::Either,
+                    hold_seconds: 0.0,
+                },
+            ],
+            actions: vec![
+                AutomationAction::PresetRecall {
+                    preset: 3,
+                    camera_id: None,
+                    wait_for_arrival: true,
+                },
+                AutomationAction::RecordStart {
+                    target: RecordTarget::Obs,
+                },
+                AutomationAction::RecordStart {
+                    target: RecordTarget::Rodecaster,
+                },
+            ],
+            cooldown_seconds: 5.0,
+            require_event: false,
+        }
+    }
+
+    #[test]
+    fn a_rule_crosses_the_bridge_and_comes_back_the_same() {
+        let rule = service_start();
+        let draft = AutomationDraft::from(rule.clone());
+        assert_eq!(draft.validate(), Ok(()));
+        let back = AutomationRecord::from(draft.clone());
+        // The id is the server's to give.
+        assert_eq!(back.id, "");
+        assert_eq!(AutomationDraft::from(back), draft);
+    }
+
+    #[test]
+    fn the_editor_can_ask_what_is_wrong_with_a_rule() {
+        assert_eq!(automation_problem(service_start()), None);
+        let mut bad = service_start();
+        bad.triggers = vec![AutomationTrigger::MiddlecontrolPreset {
+            preset: 13,
+            camera_id: None,
+        }];
+        assert_eq!(
+            automation_problem(bad).as_deref(),
+            Some("preset must be between 1 and 12")
+        );
+        let mut nameless = service_start();
+        nameless.name = " ".to_string();
+        assert!(automation_problem(nameless).is_some());
+    }
+
+    #[test]
+    fn the_reverse_of_a_rule_has_no_id_and_stops_before_it_moves() {
+        let reversed = reverse_automation(service_start(), Some(1));
+        assert_eq!(reversed.id, "");
+        assert_eq!(reversed.name, "Service start (reverse)");
+        assert_eq!(
+            reversed.actions,
+            vec![
+                AutomationAction::RecordStop {
+                    target: RecordTarget::Rodecaster
+                },
+                AutomationAction::RecordStop {
+                    target: RecordTarget::Obs
+                },
+                AutomationAction::PresetRecall {
+                    preset: 1,
+                    camera_id: None,
+                    wait_for_arrival: true
+                },
+            ]
+        );
+        assert!(matches!(
+            reversed.triggers.as_slice(),
+            [AutomationTrigger::RodecasterChannel { live: false, hold_seconds, .. }] if *hold_seconds >= 5.0
+        ));
+    }
+
+    #[test]
+    fn automation_messages_reach_swift_as_records() {
+        let changed: ServerEvent = serde_json::from_value(serde_json::json!({
+            "type": "automations.changed", "armed": false,
+            "automations": [{
+                "id": "6f2c1f8e-9a3e-4a8b-9f6e-2d8a1b7c3e10", "name": "Service start",
+                "enabled": true,
+                "triggers": [{"kind": "middlecontrol.preset", "preset": 3, "cameraId": null}],
+                "actions": [{"kind": "record.start", "target": {"device": "obs"}}],
+                "cooldownSeconds": 5.0, "requireEvent": false,
+                "createdAt": "2026-10-07T08:00:00Z", "updatedAt": "2026-10-07T08:00:00Z"
+            }]
+        }))
+        .unwrap();
+        let AppleEvent::AutomationsChanged { armed, automations } = changed.into() else {
+            panic!("not automations.changed");
+        };
+        assert!(!armed);
+        assert_eq!(automations[0].id, "6f2c1f8e-9a3e-4a8b-9f6e-2d8a1b7c3e10");
+
+        let run: ServerEvent = serde_json::from_value(serde_json::json!({
+            "type": "automation.run",
+            "run": {
+                "id": "0d9c4b7a-1e2f-4a3b-8c5d-6e7f8a9b0c1d",
+                "automationId": "6f2c1f8e-9a3e-4a8b-9f6e-2d8a1b7c3e10",
+                "name": "Service start", "cause": "Preset 3 finished on camera 1",
+                "manual": false, "startedAt": "2026-10-07T08:00:00Z",
+                "results": [{"action": "Start OBS", "outcome": "failed",
+                             "message": "obs_not_connected"}]
+            }
+        }))
+        .unwrap();
+        let AppleEvent::AutomationRun { run } = run.into() else {
+            panic!("not automation.run");
+        };
+        assert_eq!(run.cause, "Preset 3 finished on camera 1");
+        assert!(matches!(run.results[0].outcome, ActionOutcome::Failed));
+        assert_eq!(run.started_at, "2026-10-07T08:00:00+00:00");
+
+        let desk: ServerEvent = serde_json::from_value(serde_json::json!({
+            "type": "rodecaster.record.state",
+            "state": {"status": "recording", "mediaPresent": true}
+        }))
+        .unwrap();
+        let AppleEvent::RodecasterDeskRecorder { state } = desk.into() else {
+            panic!("not rodecaster.record.state");
+        };
+        assert!(matches!(state.status, DeskRecorderStatus::Recording));
+        assert!(state.media_present);
+    }
+
+    #[test]
+    fn a_transcript_snapshot_keeps_the_open_line_or_else_the_last_one() {
+        let event: ServerEvent = serde_json::from_value(serde_json::json!({
+            "type": "transcription.snapshot",
+            "state": {"status": "running", "reason": null, "sessionId": null, "eventId": null,
+                      "startedAt": null,
+                      "youtube": {"ok": false, "lastSeq": 3, "lastError": "HTTP 403"}},
+            "segments": [{"seq": 1, "startedAt": "2026-10-05T09:00:00Z",
+                          "endedAt": "2026-10-05T09:00:02Z", "text": "Amen."}],
+            "partial": "",
+            "credit": null
+        }))
+        .unwrap();
+        let AppleEvent::TranscriptionSnapshot {
+            state,
+            line,
+            credit,
+        } = event.into()
+        else {
+            panic!("not a snapshot");
+        };
+        assert!(matches!(state.status, TranscriptionStatus::Running));
+        assert_eq!(state.youtube_error.as_deref(), Some("HTTP 403"));
+        assert_eq!(line, "Amen.");
+        assert!(credit.is_none());
+        let empty: ServerEvent = serde_json::from_value(
+            serde_json::json!({"type": "transcription.partial", "text": ""}),
+        )
+        .unwrap();
+        assert!(matches!(AppleEvent::from(empty), AppleEvent::Unknown));
     }
 
     #[test]

@@ -100,6 +100,15 @@ export class WsTestClient {
     });
   }
 
+  /**
+   * Forgets what has already arrived (of one type, or of every type), so that the next wait is
+   * about what happens next and not about the snapshot sent on connect.
+   */
+  discard(type?: string): void {
+    this.messageQueue =
+      type === undefined ? [] : this.messageQueue.filter((m) => m['type'] !== type);
+  }
+
   /** Send a command and wait for a response message of the given type. */
   async command(cmd: WsClientMessage, responseType: string): Promise<WsClientMessage> {
     const pending = this.waitForMessage(responseType);

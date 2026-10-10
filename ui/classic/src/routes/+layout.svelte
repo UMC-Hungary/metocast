@@ -38,7 +38,7 @@
   }
 </script>
 
-{#if $page.url.pathname.startsWith('/caption') || $page.url.pathname.startsWith('/presenter')}
+{#if $page.url.pathname.startsWith('/caption') || $page.url.pathname.startsWith('/presenter') || $page.url.pathname.startsWith('/transcript')}
   {@render children()}
 {:else}
   <Toaster richColors position="top-right" closeButton />

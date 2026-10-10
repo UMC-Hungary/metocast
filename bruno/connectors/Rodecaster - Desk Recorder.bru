@@ -1,0 +1,39 @@
+meta {
+  name: RØDECaster - Desk Recorder
+  type: http
+  seq: 21
+}
+
+# WebSocket commands — use a WS client connected to:
+# ws://{{host}}/ws?token={{authToken}}
+
+get {
+  url: {{baseUrl}}/ws
+  body: none
+  auth: none
+}
+
+docs {
+  ## The RØDECaster's own SD / USB recorder
+
+  This is the recorder inside the desk, NOT Metocast's FLAC recording of its USB audio (see
+  "RØDECaster - Audio Recording").
+
+  ```json
+  { "type": "rodecaster.record.start" }
+  { "type": "rodecaster.record.stop" }
+  ```
+
+  Each replies `{ "type": "ok" }`, or `{ "type": "error", "message": "rodecaster_not_connected" }`,
+  or `rodecaster_no_media` when a start finds no SD card or USB drive. The desk's own report arrives
+  to every client, and on connect while the desk is connected, as:
+
+  ```json
+  { "type": "rodecaster.record.state", "state": { "status": "recording", "mediaPresent": true } }
+  ```
+
+  `status` is `stopped`, `paused` or `recording`. A start while paused resumes.
+
+  For the hardware check, `rcast record status` and `rcast record start|stop` (in the `rodecaster`
+  crate) read and drive the same recorder from a terminal.
+}

@@ -46,6 +46,7 @@
   import { presenterUrl, appMode } from '$lib/core';
   import { relAge } from '$lib/format';
   import NotifBell from '$lib/NotifBell.svelte';
+  import DeckLibrary from '$lib/DeckLibrary.svelte';
   import SwipeReveal from '$lib/SwipeReveal.svelte';
   import { notify } from '$lib/notifications.svelte';
 
@@ -497,6 +498,9 @@
       onopen={openResult}
       onqueue={queueResult}
     />
+
+    <SectionLabel>{$_('library.title')}</SectionLabel>
+    <DeckLibrary onpick={(file) => openPath(file.path)} openPath={web?.filePath ?? null} />
   </div>
 
   <aside class="secondary-col">

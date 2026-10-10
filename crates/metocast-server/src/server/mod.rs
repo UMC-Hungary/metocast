@@ -1,10 +1,16 @@
 pub mod auth;
 pub mod caption;
+pub mod mcp;
+pub mod mcp_content;
 pub mod openapi;
+pub mod openapi_routes;
+pub mod order;
 pub mod ppt;
 pub mod presenter;
+pub mod redact;
 pub mod routes;
 pub mod websocket;
+pub mod ws_events;
 
 use crate::HostHandle;
 use axum::{
@@ -79,10 +85,18 @@ pub struct AppState {
     pub use_web_presenter: Arc<AtomicBool>,
     /// Visual treatment for text-mode song and Bible slides; persisted in app_settings.
     pub presenter_theme: Arc<RwLock<presenter::PresenterTheme>>,
+    /// The Order of Service step on screen, if one is running. Not stored: a restart starts fresh.
+    pub order_position: Arc<RwLock<Option<metocast_core::events::OrderPosition>>>,
     /// Metadata for every currently-connected WebSocket client.
     pub ws_client_info: Arc<tokio::sync::RwLock<HashMap<Uuid, websocket::WsClientInfo>>>,
     /// Wakes the job-queue worker as soon as `queue_changed` fires.
     pub queue_wake: Arc<tokio::sync::Notify>,
+    /// The `media` render worker's wake-up and cancel handles.
+    pub media: Arc<crate::media::MediaRuntime>,
+    pub transcription: Arc<crate::transcription::TranscriptionService>,
+    /// Rules that run inside the core: when one device does something, Metocast does something
+    /// on others.
+    pub automations: Arc<crate::automations::AutomationService>,
     #[cfg(target_os = "macos")]
     pub keynote_connector: Arc<KeynoteConnector>,
 }
@@ -91,6 +105,8 @@ pub struct ServerOptions {
     pub pool: PgPool,
     pub auth_token: Arc<RwLock<String>>,
     pub connection_url: String,
+    /// The server's own folder (the database lives here too); media tools download into it.
+    pub data_dir: std::path::PathBuf,
     pub port: u16,
     pub static_dir: Option<String>,
     pub obs_connector: Arc<ObsConnector>,
@@ -134,6 +150,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
         pool,
         auth_token,
         connection_url,
+        data_dir,
         port,
         static_dir,
         obs_connector,
@@ -156,6 +173,8 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
         #[cfg(target_os = "macos")]
         keynote_connector,
     } = options;
+    redact::add_secret(&auth_token.read().await);
+    redact::add_secret(&admin_token);
     let ws_clients: Arc<RwLock<HashMap<Uuid, mpsc::UnboundedSender<Message>>>> =
         Arc::new(RwLock::new(HashMap::new()));
     let server_id = Uuid::new_v4().to_string();
@@ -209,6 +228,13 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
         Arc::new(tokio::sync::RwLock::new(HashMap::new()));
     let rodecaster_audio_recorder = Arc::new(RodecasterAudioRecorder::new());
 
+    let transcription = crate::transcription::TranscriptionService::new(
+        pool.clone(),
+        ws_clients.clone(),
+        rodecaster_connector.clone(),
+    );
+    let (automations, automation_jobs) =
+        crate::automations::AutomationService::new(pool.clone(), ws_clients.clone());
     let state = AppState {
         pool,
         auth_token,
@@ -236,13 +262,22 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
         presenter_state: presenter_state.clone(),
         use_web_presenter: use_web_presenter.clone(),
         presenter_theme,
+        order_position: Arc::new(RwLock::new(None)),
         ws_client_info: ws_client_info.clone(),
         queue_wake: Arc::new(tokio::sync::Notify::new()),
+        media: Arc::new(crate::media::MediaRuntime::new(&data_dir)),
+        transcription,
+        automations,
         #[cfg(target_os = "macos")]
         keynote_connector: keynote_connector.clone(),
     };
 
     crate::queue::spawn_worker(state.clone());
+    crate::automations::spawn(state.clone(), automation_jobs).await;
+    crate::media::spawn_worker(state.clone());
+    crate::media::spawn_camera_clip_log(state.clone());
+    crate::transcription::captions_job::spawn_worker(state.clone());
+    state.transcription.spawn_watchers();
 
     {
         let clients = ws_clients.clone();
@@ -475,6 +510,25 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
                 let msg = json!({
                     "type": "rodecaster.audio.record.state",
                     "state": state,
+                })
+                .to_string();
+                let guard = clients.read().await;
+                for tx in guard.values() {
+                    let _ = tx.send(Message::Text(msg.clone().into()));
+                }
+            }
+        });
+    }
+
+    // The desk's own SD or USB recorder, which is not Metocast's audio recording above.
+    {
+        let clients = ws_clients.clone();
+        let mut recorder_rx = rodecaster_connector.recorder_tx.subscribe();
+        tokio::spawn(async move {
+            while let Ok(recorder) = recorder_rx.recv().await {
+                let msg = json!({
+                    "type": "rodecaster.record.state",
+                    "state": crate::connectors::rodecaster::desk_recorder(recorder),
                 })
                 .to_string();
                 let guard = clients.read().await;
@@ -722,6 +776,10 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
         )
         .route("/events/{id}/slides", post(routes::create_event_slides))
         .route(
+            "/events/{id}/order",
+            get(order::get_order).put(order::put_order),
+        )
+        .route(
             "/events/{id}",
             get(routes::get_event)
                 .put(routes::update_event)
@@ -876,6 +934,44 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
         .route("/queues/{queue}/jobs", get(crate::queue::list_jobs))
         .route("/jobs/{id}/retry", post(crate::queue::retry_job))
         .route("/jobs/{id}", delete(crate::queue::purge_job))
+        .route("/media/probe", post(crate::media::probe_media))
+        .route("/media/preview", post(crate::media::preview_media))
+        .route("/media/renders", post(crate::media::start_render))
+        .route(
+            "/media/renders/{id}/cancel",
+            post(crate::media::cancel_render),
+        )
+        .route("/media/audio/probe", post(crate::media::probe_audio))
+        .route("/media/audio", post(crate::media::start_audio))
+        .route("/media/programs/probe", post(crate::media::probe_program))
+        .route("/media/programs", post(crate::media::start_program))
+        .route(
+            "/media/programs/{id}/nudge",
+            post(crate::media::nudge_program),
+        )
+        .route(
+            "/automations",
+            get(crate::automations::api::list).post(crate::automations::api::create),
+        )
+        .route("/automations/runs", get(crate::automations::api::runs))
+        .route(
+            "/automations/armed",
+            put(crate::automations::api::set_armed),
+        )
+        .route(
+            "/automations/{id}",
+            put(crate::automations::api::replace).delete(crate::automations::api::delete),
+        )
+        .route("/automations/{id}/run", post(crate::automations::api::run))
+        .route("/openai/verify", post(routes::openai_verify))
+        .route(
+            "/recordings/{id}/captions",
+            post(crate::transcription::captions_job::enqueue_route),
+        )
+        .route(
+            "/recordings/{id}/captions.vtt",
+            get(crate::transcription::captions_job::vtt_route),
+        )
         .merge(ppt_routes)
         .merge(keynote_routes)
         .route("/presenter/parse", post(presenter::parse_presentation))
@@ -886,12 +982,18 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             auth::auth_middleware,
-        ));
+        ))
+        // With METOCAST_REDACT=1, what identifies the machine is replaced on the way out.
+        .layer(middleware::from_fn(redact::middleware));
 
     // CorsLayer must be the outermost layer so it intercepts OPTIONS preflight
     // requests before they reach the auth middleware. tower-http's CorsLayer
     // only adds response headers and never modifies request headers, so it is
     // safe to apply to all routes including /ws.
+    // The MCP server's REST tools call this copy in-process, so they pass the same auth layer.
+    let api_for_mcp = Router::new()
+        .nest("/api", api_routes.clone())
+        .with_state(state.clone());
     let mut app = Router::new()
         .route("/health", get(|| async { axum::http::StatusCode::OK }))
         .route("/caption", get(caption::caption_handler))
@@ -900,14 +1002,20 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
         .route("/docs", get(openapi::serve_docs))
         .route("/ws", get(websocket::ws_handler))
         .nest("/api", api_routes)
-        .with_state(state.clone());
+        .with_state(state.clone())
+        .merge(mcp::router(state.clone(), api_for_mcp, shutdown.clone()));
 
     if let Some(dir) = static_dir {
         // Without this the SPA fallback answers, losing the route.
-        app = app.route_service(
-            "/presenter",
-            ServeFile::new(format!("{dir}/presenter.html")),
-        );
+        app = app
+            .route_service(
+                "/presenter",
+                ServeFile::new(format!("{dir}/presenter.html")),
+            )
+            .route_service(
+                "/transcript",
+                ServeFile::new(format!("{dir}/transcript.html")),
+            );
         let fallback = ServeFile::new(format!("{dir}/index.html"));
         app = app.fallback_service(ServeDir::new(&dir).fallback(fallback));
     } else if let Some(host) = state.host.clone() {

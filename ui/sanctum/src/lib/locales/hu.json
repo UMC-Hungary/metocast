@@ -203,7 +203,10 @@
       "creating": "Készítés…",
       "created": "Diasorok elkészültek",
       "failed": "Nem sikerült diasort készíteni"
-    }
+    },
+    "captions": "Angol felirat",
+    "captionsQueued": "Angol felirat sorba állítva; a Sorok oldalon követhető.",
+    "captionsFailed": "A feliratot nem sikerült sorba állítani"
   },
   "presentations": {
     "title": "Diák",
@@ -502,7 +505,8 @@
       "discord": "Webhook támogatás hamarosan",
       "blackmagic-camera": "REST API · felvétel- és élő adás vezérlés",
       "middlecontrol": "TCP API · kamera-, felvétel- és presetvezérlés",
-      "rodecaster": "USB HID · csatornaprofil és némítás"
+      "rodecaster": "USB HID · csatornaprofil és némítás",
+      "openai": "Élő magyar → angol átirat"
     },
     "lockedNote": "Ez a csatlakozó még nincs megvalósítva. A Metocast készen tartja a konfigurációt egy jövőbeli verzióhoz.",
     "note": "A csatlakozó beállításai először helyben mentődnek, majd Tauri parancsokon vagy a szerver API-n keresztül egyeztetődnek.",
@@ -621,6 +625,15 @@
       "use": "Használat",
       "usb": "USB",
       "network": "Hálózat"
+    },
+    "openai": {
+      "settings": "Fordítási beállítások",
+      "settingsMeta": "Hangforrás, egyenleg, YouTube-feliratok"
+    },
+    "agents": {
+      "label": "AI ügynökök",
+      "title": "AI ügynökök (MCP)",
+      "meta": "A Claude és más ügynökök vezérelhetik a Metocastot"
     }
   },
   "setup": {
@@ -846,5 +859,124 @@
       "stopping": "Leállítás"
     },
     "note": "A program és az előnézet követi a képkeverőt, a pultján vagy az ATEM Software Controlban végzett váltásokat is."
+  },
+  "transcript": {
+    "card": "Angol átirat",
+    "status": {
+      "notConfigured": "Nincs beállítva",
+      "unavailable": "Offline",
+      "ready": "Készenlét",
+      "connecting": "Kapcsolódás",
+      "running": "Élő",
+      "error": "Hiba"
+    },
+    "start": "Átirat indítása",
+    "stop": "Átirat leállítása",
+    "notConfigured": "Még nincs beállítva",
+    "configure": "OpenAI beállítása",
+    "connectMixer": "Csatlakoztasd a RØDECastert",
+    "reason": {
+      "noCredit": "Elfogyott az OpenAI egyenleg",
+      "invalidKey": "Az OpenAI elutasította az API-kulcsot"
+    },
+    "youtubeOk": "YouTube-feliratok: {seq} elküldve",
+    "credit": "AI-egyenleg: {amount} · frissítve {time}",
+    "noCredit": "Nincs egyenleg",
+    "addAdminKey": "Adj meg admin kulcsot az egyenleg megjelenítéséhez",
+    "open": "Átirat oldal megnyitása"
+  },
+  "openai": {
+    "title": "OpenAI fordítás",
+    "enabled": "Engedélyezve",
+    "enabledSub": "Élő magyar → angol szöveg a RØDECasterről",
+    "keys": "Kulcsok",
+    "apiKey": "API-kulcs",
+    "adminKey": "Admin kulcs (nem kötelező)",
+    "adminKeyHint": "A Costs API-t olvassa, így a vezérlőpult mutatja a maradék egyenleget.",
+    "verify": {
+      "button": "Ellenőrzés",
+      "ok": "A kulcs működik.",
+      "invalid": "Érvénytelen kulcs.",
+      "noAccess": "Nincs hozzáférés."
+    },
+    "topUps": "Feltöltések",
+    "topUpsHint": "Egyenleg = feltöltések − költségek az elsőtől",
+    "amount": "Összeg (USD)",
+    "date": "Dátum",
+    "add": "Hozzáadás",
+    "remove": "Törlés",
+    "audio": "Hang",
+    "source": "RØDECaster forrás",
+    "lag": "Fordítási késés (ms)",
+    "lagHint": "Ennyivel marad le az angol szöveg; a feliratok ennyivel korábban indulnak.",
+    "liveCaptions": "Élő YouTube-feliratok",
+    "liveCaptionsSub": "Az adások HTTP-feliratot kapnak, minden sort azonnal",
+    "ingestionUrl": "Felirat-fogadó URL (felülírás)",
+    "ingestionUrlHint": "Hagyd üresen, hogy a YouTube-ról olvassa.",
+    "autoCaptions": "Feltöltött videók feliratozása",
+    "autoCaptionsSub": "Angol felirat minden YouTube-ra feltöltött videóhoz",
+    "save": "Mentés"
+  },
+  "library": {
+    "title": "Diatár",
+    "search": "Diák keresése",
+    "searchPlaceholder": "Keresés név szerint…",
+    "folder": "Mappa",
+    "allFolders": "Minden mappa",
+    "empty": "Itt nincs diasor",
+    "emptyHint": "Próbálj másik mappát vagy nevet",
+    "noFolders": "Még nincs diamappa",
+    "noFoldersHint": "Adj hozzá egy mappát lent a beállításokban"
+  },
+  "order": {
+    "title": "Istentisztelet rendje",
+    "hint": "Énekek, igék és az istentisztelet részei, sorrendben",
+    "empty": "Még nincs lépés",
+    "emptyHint": "Add hozzá az énekeket, az igéket és a többi részt",
+    "emptyRun": "Nincs istentiszteleti rend",
+    "emptyRunHint": "Az esemény oldalán adhatod hozzá",
+    "kind": {
+      "song": "Ének",
+      "bible": "Ige",
+      "block": "Rész"
+    },
+    "textus": "Textus",
+    "leckio": "Lekció",
+    "addSong": "Ének hozzáadása",
+    "addBlock": "Rész hozzáadása",
+    "chooseSong": "Ének kiválasztása",
+    "titlePlaceholder": "Cím, pl. Imádság",
+    "notesPlaceholder": "Megjegyzés a szolgálóknak",
+    "stepTitle": "{n}. lépés címe",
+    "stepNotes": "{n}. lépés megjegyzése",
+    "moveUp": "Feljebb",
+    "moveDown": "Lejjebb",
+    "remove": "Lépés törlése",
+    "save": "Rend mentése",
+    "saving": "Mentés…",
+    "saved": "Mentve",
+    "previous": "Előző lépés",
+    "next": "Következő lépés",
+    "waiting": "Várakozás az istentisztelet kezdetére…",
+    "addSongNoSlides": "Ének diák nélkül"
+  },
+  "mcp": {
+    "title": "AI ügynökök (MCP)",
+    "enabled": "Bekapcsolva",
+    "enabledSub": "Alapból ki van kapcsolva: egy ügynök közvetítést is indíthat",
+    "readOnly": "Csak olvasás",
+    "readOnlySub": "Az ügynökök láthatnak, de nem módosíthatnak semmit",
+    "allowLan": "Más eszközök engedélyezése a hálózaton",
+    "allowLanSub": "Kikapcsolva: csak ez a számítógép éri el",
+    "save": "Mentés",
+    "saved": "Mentve",
+    "saveFailed": "A mentés nem sikerült",
+    "connect": "Ügynök csatlakoztatása",
+    "address": "Cím",
+    "copyClaudeCode": "Parancs másolása a Claude Code-hoz",
+    "copyClaudeDesktop": "Beállítás másolása a Claude Desktophoz",
+    "copied": "Másolva",
+    "tokenNote": "A másolt szöveg tartalmazza a szerver hozzáférési tokenjét. Csak az ügynök beállításaiba illeszd be, máshová ne.",
+    "toast": "AI ügynökök"
   }
 }

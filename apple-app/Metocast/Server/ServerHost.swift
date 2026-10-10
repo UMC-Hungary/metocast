@@ -15,7 +15,8 @@ final class ServerHost {
         case failed(String)
     }
 
-    static let port = 3737
+    /// `METOCAST_PORT` (with `METOCAST_PG_PORT`) lets a test copy run beside another server.
+    static let port = ProcessInfo.processInfo.environment["METOCAST_PORT"].flatMap(Int.init) ?? 3737
     private static let logLimit = 2_000
 
     private(set) var state: State = .stopped
@@ -165,6 +166,8 @@ final class ServerHost {
         environment["METOCAST_DATA_DIR"] = dataDirectory.path
         environment["METOCAST_EXIT_ON_STDIN_EOF"] = "1"
         environment["NO_COLOR"] = "1"
+        // Screenshots of any UI served from this helper hide the computer name too.
+        if Redaction.isOn { environment["METOCAST_REDACT"] = "1" }
         environment["RUST_LOG"] = environment["RUST_LOG"] ?? "info"
         // Apps launched from the Finder get a bare PATH, and the server looks up ffprobe there.
         environment["PATH"] = "/opt/homebrew/bin:/usr/local/bin:" + (environment["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin")

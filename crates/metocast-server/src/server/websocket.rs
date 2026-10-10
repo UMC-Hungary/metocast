@@ -21,8 +21,7 @@ use uuid::Uuid;
 use sqlx::{PgPool, Row};
 
 use crate::connectors::atem::AtemCommand;
-use crate::connectors::rodecaster_audio::FinalizedAudioFile;
-use crate::connectors::{ConnectorStatus, RecorderStatus, RodecasterConfig, facebook, youtube};
+use crate::connectors::{ConnectorStatus, facebook, youtube};
 use crate::models::{
     activity,
     cron_job::{self, CreateCronJob, UpdateCronJob},
@@ -34,7 +33,9 @@ use crate::models::{
     recording::{CreateRecording, FlagUploadItem, Recording, RecordingUpload},
     untracked_recording,
 };
+use crate::recording_control::{self, AudioStop};
 use crate::server::AppState;
+use crate::server::order;
 use crate::server::ppt;
 use crate::server::presenter;
 
@@ -60,7 +61,7 @@ pub struct WsClientInfo {
 
 // ── Incoming WebSocket command types ─────────────────────────────────────────
 
-#[derive(Deserialize)]
+#[derive(Deserialize, schemars::JsonSchema)]
 #[serde(tag = "type", rename_all = "camelCase")]
 enum WsCommand {
     // ── Keynote (macOS only) ─────────────────────────────────────────────────
@@ -106,6 +107,7 @@ enum WsCommand {
     // ── Events ───────────────────────────────────────────────────────────────
     #[serde(rename = "events.list")]
     EventsList,
+    /// Events as the presenter lists them, in the order it prefers, with `selectedEventId`, the one it would load.
     #[serde(rename = "events.presenter_list")]
     EventsPresenterList,
     #[serde(rename = "events.get")]
@@ -118,7 +120,9 @@ enum WsCommand {
         speaker: Option<String>,
         description: Option<String>,
         auto_upload_enabled: Option<bool>,
+        #[schemars(with = "Option<Vec<serde_json::Value>>")]
         connections: Option<Vec<CreateConnection>>,
+        #[schemars(with = "Option<Vec<serde_json::Value>>")]
         bible_references: Option<Vec<CreateBibleReference>>,
     },
     #[serde(rename = "events.update")]
@@ -130,7 +134,9 @@ enum WsCommand {
         speaker: Option<String>,
         description: Option<String>,
         auto_upload_enabled: Option<bool>,
+        #[schemars(with = "Option<Vec<serde_json::Value>>")]
         connections: Option<Vec<CreateConnection>>,
+        #[schemars(with = "Option<Vec<serde_json::Value>>")]
         bible_references: Option<Vec<CreateBibleReference>>,
     },
     #[serde(rename = "events.delete")]
@@ -159,6 +165,7 @@ enum WsCommand {
     #[serde(rename = "recordings.flag_upload")]
     RecordingsFlagUpload {
         event_id: Uuid,
+        #[schemars(with = "Vec<serde_json::Value>")]
         recordings: Vec<FlagUploadItem>,
     },
     // ── Untracked recordings ─────────────────────────────────────────────────
@@ -284,12 +291,16 @@ enum WsCommand {
     /// multicast does not arrive — a camera added by host still works.
     #[serde(rename = "blackmagic-camera.discover")]
     BlackmagicCameraDiscover { timeout_secs: Option<u64> },
+    /// Start recording on the camera, optionally naming the clip.
     #[serde(rename = "blackmagic-camera.record.start")]
     BlackmagicCameraRecordStart { clip_name: Option<String> },
+    /// Stop recording on the camera.
     #[serde(rename = "blackmagic-camera.record.stop")]
     BlackmagicCameraRecordStop,
+    /// Start the camera's own livestream to the platform set on it. Goes live.
     #[serde(rename = "blackmagic-camera.stream.start")]
     BlackmagicCameraStreamStart,
+    /// Stop the camera's livestream. Ends the broadcast.
     #[serde(rename = "blackmagic-camera.stream.stop")]
     BlackmagicCameraStreamStop,
     /// Copy the channel's RTMP ingestion address and stream key into the camera's
@@ -297,49 +308,98 @@ enum WsCommand {
     #[serde(rename = "blackmagic-camera.stream.push_youtube")]
     BlackmagicCameraStreamPushYoutube,
     // ── Middle Control ────────────────────────────────────────────────────────
+    /// Select a camera on Middle Control by `camera_id`.
     #[serde(rename = "middlecontrol.camera.select")]
     MiddlecontrolCameraSelect { camera_id: u8 },
+    /// Start recording on one camera, or on the one Middle Control has selected when `camera_id` is omitted.
     #[serde(rename = "middlecontrol.record.start")]
     MiddlecontrolRecordStart { camera_id: Option<u8> },
+    /// Stop recording on one camera, or on the one Middle Control has selected when `camera_id` is omitted.
     #[serde(rename = "middlecontrol.record.stop")]
     MiddlecontrolRecordStop { camera_id: Option<u8> },
+    /// Start recording on every Middle Control camera.
     #[serde(rename = "middlecontrol.record.start_all")]
     MiddlecontrolRecordStartAll,
+    /// Stop recording on every Middle Control camera.
     #[serde(rename = "middlecontrol.record.stop_all")]
     MiddlecontrolRecordStopAll,
+    /// Move a camera to a saved preset: `preset` is its number, `camera_id` the camera (the selected one when omitted).
     #[serde(rename = "middlecontrol.preset.recall")]
     MiddlecontrolPresetRecall { preset: u8, camera_id: Option<u8> },
+    /// Switch the ATEM's program output, which is what the audience sees. `input` is the ATEM's source id; 1 is input 1.
     #[serde(rename = "atem.program.set")]
     AtemProgramSet { input: u16 },
+    /// Choose the ATEM's preview source, which is not on air. `input` is the ATEM's source id.
     #[serde(rename = "atem.preview.set")]
     AtemPreviewSet { input: u16 },
+    /// Cut: swap the ATEM's preview and program at once. Goes on air.
     #[serde(rename = "atem.cut")]
     AtemCut,
+    /// Auto transition: swap the ATEM's preview and program with its configured transition. Goes on air.
     #[serde(rename = "atem.auto")]
     AtemAuto,
+    /// Start the ATEM's own recording.
     #[serde(rename = "atem.record.start")]
     AtemRecordStart,
+    /// Stop the ATEM's own recording.
     #[serde(rename = "atem.record.stop")]
     AtemRecordStop,
+    /// Start the ATEM's stream to its configured destination. Goes live.
     #[serde(rename = "atem.stream.start")]
     AtemStreamStart,
+    /// Stop the ATEM's stream. Ends the broadcast.
     #[serde(rename = "atem.stream.stop")]
     AtemStreamStop,
     #[serde(rename = "atem.stream.push_youtube")]
     AtemStreamPushYoutube,
     // ── RØDECaster ───────────────────────────────────────────────────────────
+    /// The desk's profile: its channels and settings. Errors with `rodecaster_not_connected`.
     #[serde(rename = "rodecaster.profile")]
     RodecasterProfile,
+    /// Mute or unmute a RØDECaster `channel`.
     #[serde(rename = "rodecaster.mute.set")]
     RodecasterMuteSet { channel: usize, mute: bool },
+    /// Find the RØDECaster's USB audio device and its channels for the audio recorder. Errors with `rodecaster_not_connected` when the desk is not connected.
     #[serde(rename = "rodecaster.audio.discover")]
     RodecasterAudioDiscover,
+    /// State of the server-side audio recorder.
     #[serde(rename = "rodecaster.audio.record.state")]
     RodecasterAudioRecordState,
+    /// Start the server-side multichannel audio recording from the RØDECaster for an event (`event_id`). Without one the files are kept as untracked recordings, to assign to an event later.
     #[serde(rename = "rodecaster.audio.record.start")]
-    RodecasterAudioRecordStart { event_id: Uuid },
+    RodecasterAudioRecordStart {
+        #[serde(default)]
+        event_id: Option<Uuid>,
+    },
+    /// Stop the audio recorder. Replies `ok`, or the state when it was already idle.
     #[serde(rename = "rodecaster.audio.record.stop")]
     RodecasterAudioRecordStop,
+    /// The desk's own SD or USB recorder; the result arrives as `rodecaster.record.state`.
+    #[serde(rename = "rodecaster.record.start")]
+    RodecasterRecordStart,
+    /// Stop the desk's own SD or USB recorder; the result arrives as `rodecaster.record.state`.
+    #[serde(rename = "rodecaster.record.stop")]
+    RodecasterRecordStop,
+    // ── Automations ──────────────────────────────────────────────────────────
+    /// Answered by `automations.changed`.
+    #[serde(rename = "automations.list")]
+    AutomationsList,
+    /// Runs the rule now, ignoring its cooldown, its event check and the master switch; the
+    /// run arrives as `automation.run`.
+    #[serde(rename = "automations.run")]
+    AutomationsRun { id: Uuid },
+    #[serde(rename = "automations.set_armed")]
+    AutomationsSetArmed { armed: bool },
+    // ── Live transcript ──────────────────────────────────────────────────────
+    /// Start the live Hungarian to English transcript for an event (`eventId`), or for no event when it is omitted. Replies with `transcription.state`.
+    #[serde(rename = "transcription.start")]
+    TranscriptionStart {
+        #[serde(rename = "eventId", alias = "event_id", default)]
+        event_id: Option<Uuid>,
+    },
+    /// Stop the live transcript.
+    #[serde(rename = "transcription.stop")]
+    TranscriptionStop,
     // ── Presenter ────────────────────────────────────────────────────────────
     /// Register a human-readable label and hostname for this connection (shown in the UI).
     #[serde(rename = "presenter.register")]
@@ -356,32 +416,43 @@ enum WsCommand {
     /// Pong reply from a client in response to a `ping` message.
     #[serde(rename = "pong")]
     Pong { ping_id: i64 },
+    /// Load a .pptx into the web presenter from `file_path` on the server, as `text` or `svg` slides, replacing the current deck.
     #[serde(rename = "presenter.load")]
     PresenterLoad {
         file_path: String,
         render_mode: Option<presenter::PresenterRenderMode>,
     },
+    /// Load an event's Bible reading (`textus` or `leckio`) into the web presenter. `event_id` defaults to the event the presenter would select.
     #[serde(rename = "presenter.load_bible_reference")]
     PresenterLoadBibleReference {
         event_id: Option<Uuid>,
         reference_type: presenter::BibleReferenceType,
     },
+    /// Clear the web presenter's deck.
     #[serde(rename = "presenter.unload")]
     PresenterUnload,
+    /// Go to the next slide of the web presenter's deck.
     #[serde(rename = "presenter.next")]
     PresenterNext,
+    /// Go to the previous slide of the web presenter's deck.
     #[serde(rename = "presenter.prev")]
     PresenterPrev,
+    /// Go to the first slide of the web presenter's deck.
     #[serde(rename = "presenter.first")]
     PresenterFirst,
+    /// Go to the last slide of the web presenter's deck.
     #[serde(rename = "presenter.last")]
     PresenterLast,
+    /// Go to slide `slide` (1-based) of the web presenter's deck.
     #[serde(rename = "presenter.goto")]
     PresenterGoto { slide: u32 },
+    /// The web presenter's full state: deck, current slide and mute. Replies with `presenter.state`.
     #[serde(rename = "presenter.status")]
     PresenterStatus,
+    /// Blank the web presenter's screen.
     #[serde(rename = "presenter.mute")]
     PresenterMute,
+    /// Show the web presenter's slides again after a mute.
     #[serde(rename = "presenter.unmute")]
     PresenterUnmute,
     /// Update the raw text content of a single slide (1-based index).
@@ -402,7 +473,10 @@ enum WsCommand {
     PresentationSetUseWebPresenter { enabled: bool },
     /// Select the visual treatment used by text-mode song and Bible slides.
     #[serde(rename = "presentation.set_presenter_theme")]
-    PresentationSetPresenterTheme { theme: presenter::PresenterTheme },
+    PresentationSetPresenterTheme {
+        #[schemars(with = "String")]
+        theme: presenter::PresenterTheme,
+    },
     /// Open a file: routes to web presenter or Keynote based on the stored setting.
     #[serde(rename = "presentation.open")]
     PresentationOpen {
@@ -421,14 +495,19 @@ enum WsCommand {
     /// Close all presentations (Keynote only; shows notification in web presenter mode).
     #[serde(rename = "presentation.close_all")]
     PresentationCloseAll,
+    /// Go to the next slide of the active presentation: the web presenter or Keynote, per the stored setting.
     #[serde(rename = "presentation.next")]
     PresentationNext,
+    /// Go to the previous slide of the active presentation: the web presenter or Keynote, per the stored setting.
     #[serde(rename = "presentation.prev")]
     PresentationPrev,
+    /// Go to the first slide of the active presentation: the web presenter or Keynote, per the stored setting.
     #[serde(rename = "presentation.first")]
     PresentationFirst,
+    /// Go to the last slide of the active presentation: the web presenter or Keynote, per the stored setting.
     #[serde(rename = "presentation.last")]
     PresentationLast,
+    /// Go to slide `slide` (1-based) of the active presentation: the web presenter or Keynote, per the stored setting.
     #[serde(rename = "presentation.goto")]
     PresentationGoto { slide: u32 },
     /// Mute (blank) the active presentation display.
@@ -437,21 +516,42 @@ enum WsCommand {
     /// Unmute the active presentation display.
     #[serde(rename = "presentation.unmute")]
     PresentationUnmute,
+    // ── Order of Service ─────────────────────────────────────────────────────
+    /// Show step `item_id` of event `event_id`'s Order of Service on the output screen: a song opens its deck (if it has one), a Bible step loads the event's reading, a block leaves the screen as it is. Every client gets `order.state`.
+    #[serde(rename = "order.go")]
+    OrderGo { event_id: Uuid, item_id: Uuid },
+    /// Show the next step of the running Order of Service on the output screen. With none running, `event_id` names the event and its first step is shown.
+    #[serde(rename = "order.next")]
+    OrderNext { event_id: Option<Uuid> },
+    /// Show the previous step of the running Order of Service on the output screen.
+    #[serde(rename = "order.previous")]
+    OrderPrevious { event_id: Option<Uuid> },
+    /// Which step the Order of Service is on, with that event's steps. Replies with `order.state`; allowed without the token, like `presenter.status`.
+    #[serde(rename = "order.status")]
+    OrderStatus,
     // ── OBS Devices ──────────────────────────────────────────────────────────
+    /// Start OBS's stream. Goes live.
     #[serde(rename = "obs.stream.start")]
     ObsStreamStart,
+    /// Stop OBS's stream. Ends the broadcast.
     #[serde(rename = "obs.stream.stop")]
     ObsStreamStop,
+    /// Start OBS's recording.
     #[serde(rename = "obs.record.start")]
     ObsRecordStart,
+    /// Stop OBS's recording.
     #[serde(rename = "obs.record.stop")]
     ObsRecordStop,
+    /// Ask OBS to rescan its video and audio input devices. Answers `ok` at once; read the result with `obs.devices.available`.
     #[serde(rename = "obs.devices.scan")]
     ObsDevicesScan,
+    /// The devices the last scan found, with the status of each listener. Errors with `no_scan_data` before the first scan.
     #[serde(rename = "obs.devices.available")]
     ObsDevicesAvailable,
+    /// List the device listeners (devices Metocast watches for in OBS) with their current status.
     #[serde(rename = "obs.listeners.list")]
     ObsListenersList,
+    /// Create a device listener for an OBS device: its `device_item_value` and `device_item_name`, a `category`, and a `friendly_name`.
     #[serde(rename = "obs.listeners.create")]
     ObsListenersCreate {
         connector_type: String,
@@ -460,8 +560,10 @@ enum WsCommand {
         device_item_name: String,
         friendly_name: String,
     },
+    /// Rename a device listener.
     #[serde(rename = "obs.listeners.update")]
     ObsListenersUpdate { id: Uuid, friendly_name: String },
+    /// Delete a device listener.
     #[serde(rename = "obs.listeners.delete")]
     ObsListenersDelete { id: Uuid },
 }
@@ -579,7 +681,46 @@ async fn make_presentation_status(state: &AppState) -> String {
     .to_string()
 }
 
-async fn broadcast_presentation_status(
+/// Opens a deck in the web presenter or Keynote, whichever the stored setting picks.
+pub(crate) async fn open_presentation(
+    state: &AppState,
+    file_path: String,
+    render_mode: Option<presenter::PresenterRenderMode>,
+    client_tx: &mpsc::UnboundedSender<Message>,
+) {
+    if state.use_web_presenter.load(Ordering::Relaxed) {
+        let mode = render_mode.unwrap_or(presenter::PresenterRenderMode::Svg);
+        let result =
+            tokio::task::spawn_blocking(move || presenter::load_pptx(&file_path, mode)).await;
+        match result {
+            Ok(Ok(new_state)) => {
+                *state.presenter_state.write().await = new_state;
+                broadcast_presenter_state(&state.ws_clients, &*state.presenter_state.read().await)
+                    .await;
+            }
+            Ok(Err(e)) => ws_error(client_tx, &e),
+            Err(e) => ws_error(client_tx, &e.to_string()),
+        }
+    } else {
+        #[cfg(target_os = "macos")]
+        {
+            let _ = state.keynote_connector.open_file(&file_path).await;
+        }
+    }
+    broadcast_presentation_status(&state.ws_clients, state).await;
+}
+
+pub(crate) async fn broadcast_json(
+    ws_clients: &Arc<RwLock<HashMap<Uuid, mpsc::UnboundedSender<Message>>>>,
+    message: &serde_json::Value,
+) {
+    let message = message.to_string();
+    for tx in ws_clients.read().await.values() {
+        let _ = tx.send(Message::Text(message.clone().into()));
+    }
+}
+
+pub(crate) async fn broadcast_presentation_status(
     ws_clients: &Arc<RwLock<HashMap<Uuid, mpsc::UnboundedSender<Message>>>>,
     state: &AppState,
 ) {
@@ -590,7 +731,7 @@ async fn broadcast_presentation_status(
     }
 }
 
-async fn broadcast_notification(
+pub(crate) async fn broadcast_notification(
     ws_clients: &Arc<RwLock<HashMap<Uuid, mpsc::UnboundedSender<Message>>>>,
     level: &str,
     message: &str,
@@ -832,13 +973,97 @@ mod tests {
             parsed(&format!(
                 r#"{{"type":"rodecaster.audio.record.start","event_id":"{event_id}"}}"#
             )),
-            WsCommand::RodecasterAudioRecordStart { event_id: parsed_id } if parsed_id == event_id
+            WsCommand::RodecasterAudioRecordStart { event_id: Some(parsed_id) } if parsed_id == event_id
+        ));
+        assert!(matches!(
+            parsed(r#"{"type":"rodecaster.audio.record.start"}"#),
+            WsCommand::RodecasterAudioRecordStart { event_id: None }
         ));
         assert!(matches!(
             parsed(r#"{"type":"rodecaster.audio.record.stop"}"#),
             WsCommand::RodecasterAudioRecordStop
         ));
+        let event_id = Uuid::new_v4();
+        assert!(matches!(
+            parsed(&format!(r#"{{"type":"transcription.start","eventId":"{event_id}"}}"#)),
+            WsCommand::TranscriptionStart { event_id: Some(parsed_id) } if parsed_id == event_id
+        ));
+        assert!(matches!(
+            parsed(r#"{"type":"transcription.start"}"#),
+            WsCommand::TranscriptionStart { event_id: None }
+        ));
+        assert!(matches!(
+            parsed(r#"{"type":"transcription.stop"}"#),
+            WsCommand::TranscriptionStop
+        ));
     }
+
+    #[test]
+    fn the_desk_recorder_and_automation_commands_parse_from_their_wire_names() {
+        let parsed = |text: &str| serde_json::from_str::<WsCommand>(text).expect(text);
+
+        assert!(matches!(
+            parsed(r#"{"type":"rodecaster.record.start"}"#),
+            WsCommand::RodecasterRecordStart
+        ));
+        assert!(matches!(
+            parsed(r#"{"type":"rodecaster.record.stop"}"#),
+            WsCommand::RodecasterRecordStop
+        ));
+        assert!(matches!(
+            parsed(r#"{"type":"automations.list"}"#),
+            WsCommand::AutomationsList
+        ));
+        let id = Uuid::new_v4();
+        assert!(matches!(
+            parsed(&format!(r#"{{"type":"automations.run","id":"{id}"}}"#)),
+            WsCommand::AutomationsRun { id: parsed_id } if parsed_id == id
+        ));
+        assert!(serde_json::from_str::<WsCommand>(r#"{"type":"automations.run"}"#).is_err());
+        assert!(matches!(
+            parsed(r#"{"type":"automations.set_armed","armed":false}"#),
+            WsCommand::AutomationsSetArmed { armed: false }
+        ));
+        assert!(serde_json::from_str::<WsCommand>(r#"{"type":"automations.set_armed"}"#).is_err());
+    }
+}
+
+/// JSON Schema of every command: one `oneOf` branch per wire `type`. The MCP server builds its
+/// tools from this, so a new variant becomes a tool without any further wiring.
+pub(crate) fn command_schema() -> serde_json::Value {
+    serde_json::to_value(schemars::schema_for!(WsCommand)).unwrap_or_default()
+}
+
+/// Runs one command as a private client and returns what the handler sent back to it.
+/// Broadcasts go to the registered clients, not here, so they are not part of the result.
+pub(crate) async fn run_command(
+    state: &AppState,
+    command: serde_json::Value,
+) -> Result<Vec<serde_json::Value>, String> {
+    let cmd: WsCommand = serde_json::from_value(command).map_err(|e| e.to_string())?;
+    let (tx, mut rx) = mpsc::unbounded_channel::<Message>();
+    handle_ws_command(cmd, state, &tx, Uuid::new_v4()).await;
+    drop(tx);
+    let decode = |message: Message| match message {
+        Message::Text(text) => serde_json::from_str::<serde_json::Value>(&text).ok(),
+        _ => None,
+    };
+    let mut replies = Vec::new();
+    while let Ok(message) = rx.try_recv() {
+        replies.extend(decode(message));
+    }
+    // Handlers that spawn work answer later through a clone of `tx`.
+    // ponytail: waits for the first late reply only (10 s cap); stream progress needs a real channel.
+    if replies.is_empty()
+        && let Ok(Some(message)) =
+            tokio::time::timeout(std::time::Duration::from_secs(10), rx.recv()).await
+    {
+        replies.extend(decode(message));
+        while let Ok(message) = rx.try_recv() {
+            replies.extend(decode(message));
+        }
+    }
+    Ok(replies)
 }
 
 async fn handle_ws_command(
@@ -1227,31 +1452,22 @@ async fn handle_ws_command(
         WsCommand::PresentationOpen {
             file_path,
             render_mode,
-        } => {
-            if state.use_web_presenter.load(Ordering::Relaxed) {
-                let mode = render_mode.unwrap_or(presenter::PresenterRenderMode::Svg);
-                let result =
-                    tokio::task::spawn_blocking(move || presenter::load_pptx(&file_path, mode))
-                        .await;
-                match result {
-                    Ok(Ok(new_state)) => {
-                        *state.presenter_state.write().await = new_state;
-                        broadcast_presenter_state(
-                            &state.ws_clients,
-                            &*state.presenter_state.read().await,
-                        )
-                        .await;
-                    }
-                    Ok(Err(e)) => ws_error(client_tx, &e),
-                    Err(e) => ws_error(client_tx, &e.to_string()),
-                }
-            } else {
-                #[cfg(target_os = "macos")]
-                {
-                    let _ = state.keynote_connector.open_file(&file_path).await;
-                }
-            }
-            broadcast_presentation_status(&state.ws_clients, state).await;
+        } => open_presentation(state, file_path, render_mode, client_tx).await,
+        WsCommand::OrderGo { event_id, item_id } => {
+            reply(
+                client_tx,
+                order::go(state, event_id, item_id, client_tx).await,
+            );
+        }
+        WsCommand::OrderNext { event_id } => {
+            reply(client_tx, order::step(state, event_id, 1, client_tx).await);
+        }
+        WsCommand::OrderPrevious { event_id } => {
+            reply(client_tx, order::step(state, event_id, -1, client_tx).await);
+        }
+        WsCommand::OrderStatus => {
+            let message = order::position_message(state).await;
+            let _ = client_tx.send(Message::Text(message.into()));
         }
         WsCommand::PresentationStart => {
             if state.use_web_presenter.load(Ordering::Relaxed) {
@@ -1852,43 +2068,7 @@ async fn handle_ws_command(
             }
         }
         WsCommand::RecordingsUntrackedAssign { id, event_id } => {
-            let result: anyhow::Result<crate::models::recording::Recording> = async {
-                let untracked = sqlx::query_as::<_, untracked_recording::UntrackedRecording>(
-                    "SELECT * FROM untracked_recordings WHERE id = $1",
-                )
-                .bind(id)
-                .fetch_optional(&state.pool)
-                .await?
-                .ok_or_else(|| anyhow::anyhow!("NOT_FOUND"))?;
-                let event_exists: bool =
-                    sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM events WHERE id = $1)")
-                        .bind(event_id)
-                        .fetch_one(&state.pool)
-                        .await?;
-                if !event_exists {
-                    return Err(anyhow::anyhow!("EVENT_NOT_FOUND"));
-                }
-                let mut tx = state.pool.begin().await?;
-                let recording = sqlx::query_as::<_, crate::models::recording::Recording>(
-                    "INSERT INTO recordings (event_id, file_path, file_name, file_size, duration_seconds, detected_at) \
-                     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
-                )
-                .bind(event_id)
-                .bind(&untracked.file_path)
-                .bind(&untracked.file_name)
-                .bind(untracked.file_size)
-                .bind(untracked.duration_seconds)
-                .bind(untracked.detected_at)
-                .fetch_one(&mut *tx)
-                .await?;
-                sqlx::query("DELETE FROM untracked_recordings WHERE id = $1")
-                    .bind(id)
-                    .execute(&mut *tx)
-                    .await?;
-                tx.commit().await?;
-                Ok(recording)
-            }
-            .await;
+            let result = untracked_recording::assign(&state.pool, id, event_id).await;
             match result {
                 Ok(recording) => {
                     let clients = state.ws_clients.clone();
@@ -2252,6 +2432,7 @@ async fn handle_ws_command(
                 &token.access_token,
                 existing_id,
                 privacy_status,
+                crate::transcription::live_captions_enabled(&state.pool).await,
             )
             .await
             {
@@ -2417,7 +2598,7 @@ async fn handle_ws_command(
                 );
             }
             let url = format!(
-                "https://accounts.google.com/o/oauth2/v2/auth?client_id={}&redirect_uri={}&response_type=code&scope=https://www.googleapis.com/auth/youtube&access_type=offline&prompt=consent&state={}",
+                "https://accounts.google.com/o/oauth2/v2/auth?client_id={}&redirect_uri={}&response_type=code&scope=https://www.googleapis.com/auth/youtube%20https://www.googleapis.com/auth/youtube.force-ssl&access_type=offline&prompt=consent&state={}",
                 urlencoding::encode(&config.client_id),
                 urlencoding::encode(crate::server::OAUTH_REDIRECT_URI),
                 urlencoding::encode(&state_token),
@@ -2789,10 +2970,10 @@ async fn handle_ws_command(
             reply(client_tx, state.obs_connector.set_streaming(false).await)
         }
         WsCommand::ObsRecordStart => {
-            reply(client_tx, state.obs_connector.set_recording(true).await)
+            reply(client_tx, recording_control::obs_record(state, true).await)
         }
         WsCommand::ObsRecordStop => {
-            reply(client_tx, state.obs_connector.set_recording(false).await)
+            reply(client_tx, recording_control::obs_record(state, false).await)
         }
         // ── OBS Devices ───────────────────────────────────────────────────────
         WsCommand::ObsDevicesScan => {
@@ -2969,6 +3150,22 @@ async fn handle_ws_command(
                 Err(error) => ws_error(client_tx, &format!("audio_discovery_failed: {error}")),
             }
         }
+        WsCommand::TranscriptionStart { event_id } => {
+            match state.transcription.start(event_id).await {
+                Ok(transcription) => {
+                    let _ = client_tx.send(Message::Text(
+                        json!({ "type": "transcription.state", "state": transcription })
+                            .to_string()
+                            .into(),
+                    ));
+                }
+                Err(error) => ws_error(client_tx, &error),
+            }
+        }
+        WsCommand::TranscriptionStop => {
+            state.transcription.stop().await;
+            ws_ok(client_tx);
+        }
         WsCommand::RodecasterAudioRecordState => {
             let recorder_state = state.rodecaster_audio_recorder.state();
             let _ = client_tx.send(Message::Text(
@@ -2978,74 +3175,51 @@ async fn handle_ws_command(
             ));
         }
         WsCommand::RodecasterAudioRecordStart { event_id } => {
-            let event_available: Result<bool, sqlx::Error> = sqlx::query_scalar(
-                "SELECT EXISTS(SELECT 1 FROM events e WHERE e.id = $1 AND NOT EXISTS(\
-                 SELECT 1 FROM event_activities a WHERE a.event_id = e.id \
-                 AND a.activity_type = 'completed'))",
-            )
-            .bind(event_id)
-            .fetch_one(&state.pool)
-            .await;
-            match event_available {
-                Ok(true) => {}
-                Ok(false) => {
-                    ws_error(client_tx, "recording_event_unavailable");
-                    return;
-                }
-                Err(error) => {
-                    ws_error(client_tx, &error.to_string());
-                    return;
-                }
-            }
-            let Some(profile) = state.rodecaster_connector.get_profile() else {
-                ws_error(client_tx, "rodecaster_not_connected");
-                return;
-            };
-            let config: RodecasterConfig =
-                crate::database::settings::get_json(&state.pool, "rodecaster_config").await;
-            let recorder = Arc::clone(&state.rodecaster_audio_recorder);
-            match tokio::task::spawn_blocking(move || {
-                recorder.start(event_id, &config.audio_recording, &profile)
-            })
-            .await
-            {
-                Ok(Ok(recorder_state)) => {
+            match recording_control::audio_start(state, event_id).await {
+                Ok(recorder_state) => {
                     let _ = client_tx.send(Message::Text(
                         json!({ "type": "rodecaster.audio.record.state", "state": recorder_state })
                             .to_string()
                             .into(),
                     ));
                 }
-                Ok(Err(error)) => ws_error(client_tx, &error),
-                Err(error) => ws_error(client_tx, &format!("recording_start_failed: {error}")),
+                Err(error) => ws_error(client_tx, &error),
             }
         }
-        WsCommand::RodecasterAudioRecordStop => {
-            let recorder_state = state.rodecaster_audio_recorder.state();
-            if recorder_state.status == RecorderStatus::Idle {
+        WsCommand::RodecasterAudioRecordStop => match recording_control::audio_stop(state).await {
+            Ok(AudioStop::AlreadyIdle(recorder_state)) => {
                 let _ = client_tx.send(Message::Text(
                     json!({ "type": "rodecaster.audio.record.state", "state": recorder_state })
                         .to_string()
                         .into(),
                 ));
-                return;
             }
-            let Some(event_id) = recorder_state.event_id else {
-                ws_error(client_tx, "recording_event_unavailable");
-                return;
-            };
-            let recorder = Arc::clone(&state.rodecaster_audio_recorder);
-            match tokio::task::spawn_blocking(move || recorder.stop()).await {
-                Ok(Ok(files)) => {
-                    match persist_audio_recordings(&state.pool, event_id, &files).await {
-                        Ok(()) => ws_ok(client_tx),
-                        Err(error) => {
-                            ws_error(client_tx, &format!("recording_metadata_failed: {error}"))
-                        }
-                    }
-                }
-                Ok(Err(error)) => ws_error(client_tx, &error),
-                Err(error) => ws_error(client_tx, &format!("recording_stop_failed: {error}")),
+            Ok(AudioStop::Stopped) => ws_ok(client_tx),
+            Err(error) => ws_error(client_tx, &error),
+        },
+        WsCommand::RodecasterRecordStart => {
+            reply(client_tx, recording_control::desk_record(state, true).await)
+        }
+        WsCommand::RodecasterRecordStop => reply(
+            client_tx,
+            recording_control::desk_record(state, false).await,
+        ),
+        WsCommand::AutomationsList => {
+            let _ = client_tx.send(Message::Text(
+                state.automations.changed_message().await.into(),
+            ));
+        }
+        WsCommand::AutomationsRun { id } => {
+            if state.automations.queue_now(id).await {
+                ws_ok(client_tx);
+            } else {
+                ws_error(client_tx, "not_found");
+            }
+        }
+        WsCommand::AutomationsSetArmed { armed } => {
+            match state.automations.set_armed(armed).await {
+                Ok(()) => ws_ok(client_tx),
+                Err(error) => ws_error(client_tx, &error.to_string()),
             }
         }
         WsCommand::BlackmagicCameraDiscover { timeout_secs } => {
@@ -3058,25 +3232,12 @@ async fn handle_ws_command(
             });
             ws_ok(client_tx);
         }
-        WsCommand::BlackmagicCameraRecordStart { clip_name } => {
-            let Some(camera) = state.blackmagic_camera_connector.client().await else {
-                ws_error(client_tx, "blackmagic_camera_not_connected");
-                return;
-            };
-            match camera.start_recording(clip_name.as_deref()).await {
-                Ok(()) => ws_ok(client_tx),
-                Err(e) => ws_error(client_tx, &e.to_string()),
-            }
-        }
+        WsCommand::BlackmagicCameraRecordStart { clip_name } => reply(
+            client_tx,
+            recording_control::camera_start(state, clip_name.as_deref()).await,
+        ),
         WsCommand::BlackmagicCameraRecordStop => {
-            let Some(camera) = state.blackmagic_camera_connector.client().await else {
-                ws_error(client_tx, "blackmagic_camera_not_connected");
-                return;
-            };
-            match camera.stop_recording().await {
-                Ok(()) => ws_ok(client_tx),
-                Err(e) => ws_error(client_tx, &e.to_string()),
-            }
+            reply(client_tx, recording_control::camera_stop(state).await)
         }
         WsCommand::BlackmagicCameraStreamStart => {
             let Some(camera) = state.blackmagic_camera_connector.client().await else {
@@ -3123,38 +3284,22 @@ async fn handle_ws_command(
                 Err(error) => ws_error(client_tx, &error),
             }
         }
-        WsCommand::MiddlecontrolRecordStart { camera_id } => {
-            match state
-                .middlecontrol_connector
-                .start_recording(camera_id)
-                .await
-            {
-                Ok(()) => ws_ok(client_tx),
-                Err(error) => ws_error(client_tx, &error),
-            }
-        }
-        WsCommand::MiddlecontrolRecordStop { camera_id } => {
-            match state
-                .middlecontrol_connector
-                .stop_recording(camera_id)
-                .await
-            {
-                Ok(()) => ws_ok(client_tx),
-                Err(error) => ws_error(client_tx, &error),
-            }
-        }
-        WsCommand::MiddlecontrolRecordStartAll => {
-            match state.middlecontrol_connector.start_recording_all().await {
-                Ok(()) => ws_ok(client_tx),
-                Err(error) => ws_error(client_tx, &error),
-            }
-        }
-        WsCommand::MiddlecontrolRecordStopAll => {
-            match state.middlecontrol_connector.stop_recording_all().await {
-                Ok(()) => ws_ok(client_tx),
-                Err(error) => ws_error(client_tx, &error),
-            }
-        }
+        WsCommand::MiddlecontrolRecordStart { camera_id } => reply(
+            client_tx,
+            recording_control::middlecontrol_record(state, true, camera_id).await,
+        ),
+        WsCommand::MiddlecontrolRecordStop { camera_id } => reply(
+            client_tx,
+            recording_control::middlecontrol_record(state, false, camera_id).await,
+        ),
+        WsCommand::MiddlecontrolRecordStartAll => reply(
+            client_tx,
+            recording_control::middlecontrol_record_all(state, true).await,
+        ),
+        WsCommand::MiddlecontrolRecordStopAll => reply(
+            client_tx,
+            recording_control::middlecontrol_record_all(state, false).await,
+        ),
         WsCommand::MiddlecontrolPresetRecall { preset, camera_id } => {
             match state
                 .middlecontrol_connector
@@ -3182,8 +3327,13 @@ async fn handle_ws_command(
         }
         WsCommand::AtemCut => atem_send(state, client_tx, AtemCommand::Cut).await,
         WsCommand::AtemAuto => atem_send(state, client_tx, AtemCommand::Auto).await,
-        WsCommand::AtemRecordStart => atem_send(state, client_tx, AtemCommand::Record(true)).await,
-        WsCommand::AtemRecordStop => atem_send(state, client_tx, AtemCommand::Record(false)).await,
+        WsCommand::AtemRecordStart => {
+            reply(client_tx, recording_control::atem_record(state, true).await)
+        }
+        WsCommand::AtemRecordStop => reply(
+            client_tx,
+            recording_control::atem_record(state, false).await,
+        ),
         WsCommand::AtemStreamStart => atem_send(state, client_tx, AtemCommand::Stream(true)).await,
         WsCommand::AtemStreamStop => atem_send(state, client_tx, AtemCommand::Stream(false)).await,
     }
@@ -3194,33 +3344,6 @@ async fn atem_send(state: &AppState, tx: &mpsc::UnboundedSender<Message>, comman
         Ok(()) => ws_ok(tx),
         Err(error) => ws_error(tx, &error),
     }
-}
-
-async fn persist_audio_recordings(
-    pool: &PgPool,
-    event_id: Uuid,
-    files: &[FinalizedAudioFile],
-) -> Result<(), sqlx::Error> {
-    let mut transaction = pool.begin().await?;
-    for file in files {
-        sqlx::query(
-            "INSERT INTO recordings (event_id, file_path, file_name, file_size, \
-             duration_seconds, media_kind, source, metadata, detected_at) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
-        )
-        .bind(event_id)
-        .bind(&file.path)
-        .bind(&file.file_name)
-        .bind(i64::try_from(file.file_size).unwrap_or(i64::MAX))
-        .bind(file.duration_seconds)
-        .bind(&file.media_kind)
-        .bind(&file.source)
-        .bind(&file.metadata)
-        .bind(Utc::now())
-        .execute(&mut *transaction)
-        .await?;
-    }
-    transaction.commit().await
 }
 
 #[derive(Deserialize, Serialize)]
@@ -3285,7 +3408,12 @@ pub async fn ws_handler(State(state): State<AppState>, req: Request) -> Response
 }
 
 /// WS commands that read-only (unauthenticated) clients are permitted to send.
-const READONLY_ALLOWED: &[&str] = &["presenter.register", "presenter.status", "pong"];
+const READONLY_ALLOWED: &[&str] = &[
+    "presenter.register",
+    "presenter.status",
+    "order.status",
+    "pong",
+];
 
 async fn handle_socket(
     socket: WebSocket,
@@ -3326,6 +3454,21 @@ async fn handle_socket(
     let recorder_msg =
         json!({ "type": "rodecaster.audio.record.state", "state": recorder_state }).to_string();
     let _ = tx.send(Message::Text(recorder_msg.into()));
+    if let Some(desk) = state.rodecaster_connector.get_recorder() {
+        let desk_msg = json!({
+            "type": "rodecaster.record.state",
+            "state": crate::connectors::rodecaster::desk_recorder(desk),
+        })
+        .to_string();
+        let _ = tx.send(Message::Text(desk_msg.into()));
+    }
+    // The rules name devices and settings, so only a client with the token gets them.
+    if is_authenticated {
+        let _ = tx.send(Message::Text(
+            state.automations.changed_message().await.into(),
+        ));
+    }
+    let _ = tx.send(Message::Text(state.transcription.snapshot_message().into()));
 
     // Push current connector statuses so the client doesn't have to poll.
     let obs_status = state.obs_connector.get_status().await;
@@ -3361,6 +3504,8 @@ async fn handle_socket(
             json!({ "type": "presenter.state", "state": &*state.presenter_state.read().await })
                 .to_string();
         let _ = tx.send(Message::Text(presenter_msg.into()));
+        let order_msg = order::position_message(&state).await;
+        let _ = tx.send(Message::Text(order_msg.into()));
     }
 
     // Send initial Keynote status on connection (macOS only).
@@ -3427,6 +3572,12 @@ async fn handle_socket(
 
     let send_task = tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
+            let msg = match msg {
+                Message::Text(text) if super::redact::enabled() => {
+                    Message::Text(super::redact::apply(&text).into_owned().into())
+                }
+                other => other,
+            };
             if ws_sink.send(msg).await.is_err() {
                 break;
             }
@@ -3783,6 +3934,54 @@ pub async fn broadcast_upload_failed(
         "recordingId": recording_id,
         "platform": platform,
         "error": error,
+    })
+    .to_string();
+    let guard = clients.read().await;
+    for tx in guard.values() {
+        let _ = tx.send(Message::Text(msg.clone().into()));
+    }
+}
+
+/// Broadcast `media.render.progress` to all connected WebSocket clients.
+pub async fn broadcast_media_render_progress(
+    clients: &Arc<RwLock<HashMap<Uuid, mpsc::UnboundedSender<Message>>>>,
+    progress: &metocast_core::media::RenderProgress,
+) {
+    let msg = json!({
+        "type": "media.render.progress",
+        "progress": progress,
+    })
+    .to_string();
+    let guard = clients.read().await;
+    for tx in guard.values() {
+        let _ = tx.send(Message::Text(msg.clone().into()));
+    }
+}
+
+/// Broadcast `media.audio.progress` to all connected WebSocket clients.
+pub async fn broadcast_media_audio_progress(
+    clients: &Arc<RwLock<HashMap<Uuid, mpsc::UnboundedSender<Message>>>>,
+    progress: &metocast_core::media::AudioProgress,
+) {
+    let msg = json!({
+        "type": "media.audio.progress",
+        "progress": progress,
+    })
+    .to_string();
+    let guard = clients.read().await;
+    for tx in guard.values() {
+        let _ = tx.send(Message::Text(msg.clone().into()));
+    }
+}
+
+/// Broadcast `media.program.progress` to all connected WebSocket clients.
+pub async fn broadcast_media_program_progress(
+    clients: &Arc<RwLock<HashMap<Uuid, mpsc::UnboundedSender<Message>>>>,
+    progress: &metocast_core::media::ProgramProgress,
+) {
+    let msg = json!({
+        "type": "media.program.progress",
+        "progress": progress,
     })
     .to_string();
     let guard = clients.read().await;

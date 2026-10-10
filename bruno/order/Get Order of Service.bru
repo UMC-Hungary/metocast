@@ -1,0 +1,26 @@
+meta {
+  name: Get Order of Service
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/events/{{eventId}}/order
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  The event's steps in order: `song` (a deck, or none for a verse sung without slides), `bible` (the event's `textus` or `leckio`) and
+  `block` (no slides).
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+}

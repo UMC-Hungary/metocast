@@ -5,6 +5,10 @@ struct MetocastApp: App {
     @State private var model = AppModel()
     @AppStorage("appearance") private var appearance = Appearance.system
 
+    init() {
+        PresenterFont.register()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()
@@ -86,56 +90,65 @@ private struct RootView: View {
 #if os(macOS)
 private struct MacRootView: View {
     @Environment(AppModel.self) private var model
-    @State private var isShowingNotifications = false
 
     var body: some View {
         @Bindable var model = model
         NavigationSplitView {
-            List(selection: $model.pane) {
-                // On the Mac, settings live in the inspector (⌘,) rather than the sidebar.
-                ForEach(MetocastPane.allCases.filter { $0 != .settings }, id: \.self) { item in
+            // An open equipment page leaves the sidebar unselected; picking any item, even the current one, closes it.
+            List(selection: Binding(
+                get: { model.equipment == nil ? model.pane : nil },
+                set: { if let pane = $0 { model.pane = pane; model.equipment = nil } }
+            )) {
+                // On the Mac, settings live in the inspector (⌘,) rather than the sidebar. Media reads
+                // files on the server's disk, so only the Mac hosting the server offers it.
+                ForEach(MetocastPane.allCases.filter { $0 != .settings && ($0 != .media || model.mode == .server) }, id: \.self) { item in
                     Label(item.title, systemImage: item.icon)
                 }
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 220)
         } detail: {
             NavigationStack {
-                switch model.pane {
-                case .dashboard: DashboardView()
-                case .events: EventsView()
-                case .live: LiveView()
-                case .presentation: PresentationView()
-                case .settings: EmptyView()
+                if let page = model.equipment, let session = model.session {
+                    switch page {
+                    case .connectors: ConnectorsView(session: session)
+                    case .automations: AutomationsView(session: session)
+                    case .serverTools: ServerToolsView(session: session)
+                    case .devices: DevicesView(session: session)
+                    }
+                } else {
+                    switch model.pane {
+                    case .dashboard: DashboardView()
+                    case .events: EventsView()
+                    case .live: LiveView()
+                    case .presentation: PresentationView()
+                    case .media: MediaView()
+                    case .settings: EmptyView()
+                    }
                 }
             }
+            // A fresh stack per page, so screens pushed on one page don't linger on the next.
+            .id(model.equipment.map { "\($0)" } ?? model.pane.rawValue)
+            // Root pages; each pushed page applies it too, since a push drops the stack's own.
+            .windowActions()
         }
         .inspector(isPresented: $model.isShowingSettings) {
             SettingsView()
                 .inspectorColumnWidth(340)
         }
         .toolbar {
-            ToolbarItem {
-                Button("Refresh", systemImage: "arrow.clockwise") {
-                    Task { await model.session?.refresh() }
+            if let session = model.session {
+                // Record and Transcript stay within reach from every page, event or not.
+                ToolbarItemGroup { OutputToolbarButtons(session: session) }
+                ToolbarSpacer(.fixed)
+                // A running export stays in view from every page.
+                if !session.runningMediaJobs.isEmpty {
+                    ToolbarItem { MediaJobsButton(session: session) }
+                    ToolbarSpacer(.fixed)
                 }
-                .disabled(model.session == nil)
             }
-            ToolbarSpacer(.fixed)
-            ToolbarItem {
-                // The Mac has room for a popover, which the HIG reserves for wide layouts.
-                NotificationsBell { isShowingNotifications = true }
-                    .popover(isPresented: $isShowingNotifications, arrowEdge: .bottom) {
-                        NotificationsView()
-                    }
-            }
-            ToolbarSpacer(.fixed)
             ToolbarItem {
                 NewEventButton()
-            }
-            ToolbarItem {
-                Button("Settings", systemImage: "sidebar.trailing") {
-                    model.isShowingSettings.toggle()
-                }
+                    .labelStyle(.titleAndIcon)
             }
         }
         .sheet(isPresented: $model.isAddingEvent) {
@@ -167,7 +180,7 @@ private struct TabRootView: View {
                         .toolbarVisibility(.hidden, for: .tabBar)
                         .toolbar {
                             ToolbarItemGroup(placement: .bottomBar) {
-                                ForEach(MetocastPane.allCases, id: \.self) { pane in
+                                ForEach(MetocastPane.allCases.filter { $0 != .media }, id: \.self) { pane in
                                     Button(pane.title, systemImage: pane.icon) { model.pane = pane }
                                         .symbolVariant(pane == .events ? .fill : .none)
                                 }
@@ -216,11 +229,49 @@ private struct TabRootView: View {
 }
 #endif
 
+extension View {
+    /// Notifications and Settings, which end the Mac's toolbar on every page. The toolbar lists an
+    /// outer view's items before the page's, whatever their placement, so these are declared in an
+    /// overlay, after the page. Apply it to each page the detail column shows, pushed ones included.
+    func windowActions() -> some View { modifier(WindowActions()) }
+}
+
+private struct WindowActions: ViewModifier {
+    @Environment(AppModel.self) private var model
+    @State private var isShowingNotifications = false
+
+    func body(content: Content) -> some View {
+        #if os(macOS)
+        content.overlay {
+            Color.clear
+                .allowsHitTesting(false)
+                .toolbar {
+                    ToolbarItem {
+                        // The Mac has room for a popover, which the HIG reserves for wide layouts.
+                        NotificationsBell { isShowingNotifications = true }
+                            .popover(isPresented: $isShowingNotifications, arrowEdge: .bottom) {
+                                NotificationsView()
+                            }
+                    }
+                    ToolbarItem {
+                        Button("Settings", systemImage: "sidebar.trailing") {
+                            model.isShowingSettings.toggle()
+                        }
+                    }
+                }
+        }
+        #else
+        // The iPhone puts Notifications in each tab's bar and Settings in its own tab.
+        content
+        #endif
+    }
+}
+
 struct NewEventButton: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        Button("New Event", systemImage: "plus") {
+        Button("New Event", systemImage: "calendar.badge.plus") {
             model.isAddingEvent = true
         }
     }
@@ -259,8 +310,13 @@ struct NotificationsBell: View {
     }
 }
 
+/// Settings' equipment screens, shown in the Mac's content column (the iPhone pushes them from Settings).
+enum EquipmentPage: Hashable {
+    case connectors, automations, serverTools, devices
+}
+
 enum MetocastPane: String, CaseIterable, Hashable {
-    case dashboard, events, live, presentation, settings
+    case dashboard, events, live, presentation, media, settings
 
     var title: String {
         switch self {
@@ -268,6 +324,7 @@ enum MetocastPane: String, CaseIterable, Hashable {
         case .events: "Events"
         case .live: "Live"
         case .presentation: "Presentation"
+        case .media: "Media"
         case .settings: "Settings"
         }
     }
@@ -278,6 +335,7 @@ enum MetocastPane: String, CaseIterable, Hashable {
         case .events: "calendar"
         case .live: "dot.radiowaves.left.and.right"
         case .presentation: "play.rectangle"
+        case .media: "film.stack"
         case .settings: "gearshape"
         }
     }

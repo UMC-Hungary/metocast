@@ -13,3 +13,6 @@ src-tauri/vendor/
 packages/design-system/tokens/generated/
 packages/design-system/docs/
 packages/design-system/stories/
+docs/mcp/TOOLS.md
+docs/api/WEBSOCKET.md
+docs/api/ws-events.schema.json

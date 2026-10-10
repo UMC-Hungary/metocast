@@ -8,8 +8,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use hidapi::{HidApi, HidDevice};
-use rcp2_core::DeviceViewModel;
-use rcp2_core::ops::fader;
+use rcp2_core::ops::{fader, recorder};
+use rcp2_core::{DeviceViewModel, RecordingStatus, StorageInfo};
 use rcp2_protocol::device::{DeviceConnection, DeviceEvent, DeviceModel};
 use rcp2_protocol::transport::Transport;
 use rcp2_protocol::transport::hid::{
@@ -25,6 +25,8 @@ const MUTE_PROPERTY: &str = "channelOutputMute";
 const WIRELESS_MUTE_PROPERTY: &str = "channelWirelessMute";
 const CUE_PROPERTY: &str = "channelCueEnable";
 const SOURCE_PROPERTY: &str = "channelInputSource";
+const RECORD_STATE_PROPERTY: &str = "recordState";
+const STORAGE_PROPERTY_PREFIX: &str = "storageVolume";
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Debug, thiserror::Error)]
@@ -163,12 +165,52 @@ pub struct MuteChange {
     pub remote: bool,
 }
 
+/// What `recordState` on the desk's `RECORDER` node says.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RecordState {
+    #[default]
+    Stopped,
+    Paused,
+    Recording,
+}
+
+impl From<RecordingStatus> for RecordState {
+    fn from(status: RecordingStatus) -> Self {
+        match status {
+            RecordingStatus::Stopped => Self::Stopped,
+            RecordingStatus::Paused => Self::Paused,
+            RecordingStatus::Recording => Self::Recording,
+        }
+    }
+}
+
+/// The desk's own recorder: what it is doing, and whether a card or drive is there to
+/// write to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Recorder {
+    pub state: RecordState,
+    pub media_present: bool,
+}
+
 #[derive(Debug)]
 pub enum Event {
     Mute(MuteChange),
+    /// The recorder started, paused or stopped, or a card or drive came or went.
+    Recorder(Recorder),
     Resynced,
     Idle,
     Disconnected(String),
+}
+
+/// A recording needs a removable volume: the SD card, or a USB drive. The desk's internal
+/// storage holds its sound pads, not recordings.
+#[must_use]
+pub fn media_present(storage: &[StorageInfo]) -> bool {
+    storage
+        .iter()
+        .any(|volume| volume.present && volume.removable)
 }
 
 #[derive(Debug, Default)]
@@ -223,6 +265,8 @@ pub struct Device {
     model: DeviceModel,
     roots: Vec<usize>,
     mutes: Mutes,
+    /// What `poll` last reported, so a burst of identical updates is one event.
+    recorder: Option<Recorder>,
 }
 
 impl Device {
@@ -256,12 +300,15 @@ impl Device {
             muted_flags(&state, &roots, MUTE_PROPERTY),
             muted_flags(&state, &roots, WIRELESS_MUTE_PROPERTY),
         );
-        Ok(Self {
+        let mut device = Self {
             conn,
             model,
             roots,
             mutes,
-        })
+            recorder: None,
+        };
+        device.recorder = device.recorder().ok();
+        Ok(device)
     }
 
     #[must_use]
@@ -289,6 +336,32 @@ impl Device {
         Ok(())
     }
 
+    /// Asks the desk's own recorder to start (or resume) or to stop. The desk reports what it
+    /// did as a `recordState` update, which `poll` returns as [`Event::Recorder`].
+    ///
+    /// # Errors
+    /// A transport failure.
+    pub fn set_recording(&mut self, on: bool) -> Result<(), Error> {
+        if on {
+            recorder::start_recording(&self.conn)?;
+        } else {
+            recorder::stop_recording(&self.conn)?;
+        }
+        self.conn.flush()?;
+        Ok(())
+    }
+
+    /// # Errors
+    /// Fails when the device's state lock is poisoned.
+    pub fn recorder(&self) -> Result<Recorder, Error> {
+        let state = self.conn.state().snapshot()?;
+        let view = DeviceViewModel::from_state(&state, self.model.profile());
+        Ok(Recorder {
+            state: view.recorder.state.into(),
+            media_present: media_present(&view.storage),
+        })
+    }
+
     /// The complete typed device state plus the identity fields needed to compare
     /// USB recording settings and fader assignments across hardware changes.
     ///
@@ -305,10 +378,11 @@ impl Device {
                 indices,
                 name,
                 value,
-            }) => self
-                .mutes
-                .observe(&indices, &name, &value)
-                .map_or(Event::Idle, Event::Mute),
+            }) => match self.mutes.observe(&indices, &name, &value) {
+                Some(change) => Event::Mute(change),
+                None if affects_recorder(&name) => self.recorder_change(),
+                None => Event::Idle,
+            },
             Ok(DeviceEvent::StateInitialized) => {
                 if let Ok(state) = self.conn.state().snapshot() {
                     self.roots = fader::channel_indices(&state);
@@ -318,6 +392,7 @@ impl Device {
                         muted_flags(&state, &self.roots, WIRELESS_MUTE_PROPERTY),
                     );
                 }
+                self.recorder = self.recorder().ok();
                 Event::Resynced
             }
             Ok(DeviceEvent::Error(e)) => Event::Disconnected(e),
@@ -329,6 +404,22 @@ impl Device {
             }
         }
     }
+}
+
+impl Device {
+    fn recorder_change(&mut self) -> Event {
+        match self.recorder() {
+            Ok(now) if self.recorder != Some(now) => {
+                self.recorder = Some(now);
+                Event::Recorder(now)
+            }
+            _ => Event::Idle,
+        }
+    }
+}
+
+fn affects_recorder(property: &str) -> bool {
+    property == RECORD_STATE_PROPERTY || property.starts_with(STORAGE_PROPERTY_PREFIX)
 }
 
 #[must_use]
@@ -583,6 +674,61 @@ mod tests {
         assert_eq!(humanise("channelOutputMute"), "Channel Output Mute");
         assert_eq!(humanise("channelHPFEnable"), "Channel HPF Enable");
         assert_eq!(humanise("input48VEnable"), "Input48V Enable");
+    }
+
+    fn volume(present: bool, removable: bool) -> StorageInfo {
+        StorageInfo {
+            present,
+            removable,
+            ..StorageInfo::default()
+        }
+    }
+
+    #[test]
+    fn only_a_present_card_or_drive_counts_as_somewhere_to_record() {
+        assert!(!media_present(&[]));
+        // The internal volume is always there and is no place for recordings.
+        assert!(!media_present(&[volume(true, false)]));
+        assert!(!media_present(&[volume(false, true)]));
+        assert!(media_present(&[volume(true, false), volume(true, true)]));
+    }
+
+    #[test]
+    fn record_state_follows_the_desks_numbers() {
+        assert_eq!(
+            RecordState::from(RecordingStatus::from_u32(0)),
+            RecordState::Stopped
+        );
+        assert_eq!(
+            RecordState::from(RecordingStatus::from_u32(1)),
+            RecordState::Paused
+        );
+        assert_eq!(
+            RecordState::from(RecordingStatus::from_u32(2)),
+            RecordState::Recording
+        );
+    }
+
+    #[test]
+    fn only_recorder_and_storage_updates_are_looked_at() {
+        assert!(affects_recorder("recordState"));
+        assert!(affects_recorder("storageVolumeState"));
+        assert!(affects_recorder("storageVolumeName"));
+        assert!(!affects_recorder("recordTimeMs"));
+        assert!(!affects_recorder(MUTE_PROPERTY));
+    }
+
+    #[test]
+    fn the_recorder_is_reported_in_camel_case() {
+        let json = serde_json::to_value(Recorder {
+            state: RecordState::Recording,
+            media_present: true,
+        })
+        .unwrap();
+        assert_eq!(
+            json,
+            serde_json::json!({"state": "recording", "mediaPresent": true})
+        );
     }
 
     #[test]

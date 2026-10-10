@@ -310,7 +310,22 @@ async fn finalize_completed(
     .bind(platform)
     .execute(pool)
     .await?;
+    // The recording row carries the link the Mac app lists next to the file.
+    if !video_id.is_empty() {
+        sqlx::query(
+            "UPDATE recordings SET uploaded = true, uploaded_at = NOW(), \
+             video_id = $1, video_url = $2, updated_at = NOW() WHERE id = $3",
+        )
+        .bind(&video_id)
+        .bind(&video_url)
+        .bind(recording_id)
+        .execute(pool)
+        .await?;
+    }
 
     broadcast_upload_completed(ws_clients, recording_id, platform, &video_id, &video_url).await;
+    if !video_id.is_empty() {
+        crate::transcription::captions_job::after_upload(pool, recording_id).await;
+    }
     Ok(())
 }

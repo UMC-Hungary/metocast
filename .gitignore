@@ -83,3 +83,6 @@ gemini.md
 
 # Local planning notes (kept on disk, not tracked)
 /plans/
+
+# ffmpeg/build.sh output
+/ffmpeg/build/

@@ -1,0 +1,28 @@
+meta {
+  name: Generate Recording Captions
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/recordings/{{recordingId}}/captions
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  Queues English captions for a recording on the `captions` queue. The file is
+  played to the realtime translation model at 1x, cues are snapped to speech
+  onsets and the WebVTT is uploaded to the recording's YouTube video as
+  "English". Progress arrives as `captions.job.state` on /ws.
+}
+
+tests {
+  test("status is 202", function() {
+    expect(res.status).to.equal(202);
+  });
+}

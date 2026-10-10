@@ -141,13 +141,14 @@ impl RodecasterAudioRecorder {
         }
     }
 
-    /// Starts one core-owned capture. Repeated starts return the active state.
+    /// Starts one core-owned capture, for an event or for none. Repeated starts return the
+    /// active state.
     ///
     /// # Errors
     /// Returns an actionable validation, discovery, stream, or writer error.
     pub fn start(
         &self,
-        event_id: Uuid,
+        event_id: Option<Uuid>,
         config: &RodecasterAudioRecordingConfig,
         profile: &rodecaster::Profile,
     ) -> Result<AudioRecorderState, String> {
@@ -230,7 +231,7 @@ impl RodecasterAudioRecorder {
         let state = AudioRecorderState {
             status: RecorderStatus::Recording,
             session_id: Some(session_id),
-            event_id: Some(event_id),
+            event_id,
             output_mode: Some(config.output_mode),
             started_at: Some(started_at),
             endpoint: Some(selected.endpoint),
@@ -300,13 +301,15 @@ struct ActiveSession {
     writer: JoinHandle<Result<Vec<FinalizedAudioFile>, String>>,
 }
 
-struct SelectedEndpoint {
-    device: cpal::Device,
-    config: SupportedStreamConfig,
-    endpoint: AudioEndpoint,
+pub(crate) struct SelectedEndpoint {
+    pub(crate) device: cpal::Device,
+    pub(crate) config: SupportedStreamConfig,
+    pub(crate) endpoint: AudioEndpoint,
 }
 
-fn select_endpoint(profile: &rodecaster::Profile) -> Result<SelectedEndpoint, String> {
+/// The RØDECaster's multitrack USB input and where each source sits in it. CoreAudio lets the
+/// recorder and the transcriber open it at the same time.
+pub(crate) fn select_endpoint(profile: &rodecaster::Profile) -> Result<SelectedEndpoint, String> {
     let host = cpal::default_host();
     let devices = host
         .input_devices()
@@ -663,6 +666,40 @@ fn build_input_stream(
         other => return Err(format!("unsupported_audio_sample_format: {other}")),
     };
     stream.map_err(|e| format!("recording_stream_open_failed: {e}"))
+}
+
+/// Opens `device` delivering interleaved `f32` samples, whatever its native format.
+pub(crate) fn build_f32_input_stream(
+    device: &cpal::Device,
+    supported: &SupportedStreamConfig,
+    mut on_data: impl FnMut(&[f32]) + Send + 'static,
+    on_error: impl FnMut(cpal::Error) + Send + 'static,
+) -> Result<cpal::Stream, String> {
+    let stream_config = supported.config();
+    macro_rules! stream {
+        ($sample:ty) => {{
+            let mut converted = Vec::new();
+            device.build_input_stream::<$sample, _, _>(
+                stream_config,
+                move |samples, _| {
+                    converted.clear();
+                    converted.extend(samples.iter().map(|s| f32::from_sample(*s)));
+                    on_data(&converted);
+                },
+                on_error,
+                None,
+            )
+        }};
+    }
+    let stream = match supported.sample_format() {
+        SampleFormat::I16 => stream!(i16),
+        SampleFormat::I24 => stream!(cpal::I24),
+        SampleFormat::I32 => stream!(i32),
+        SampleFormat::F32 => stream!(f32),
+        SampleFormat::F64 => stream!(f64),
+        other => return Err(format!("unsupported_audio_sample_format: {other}")),
+    };
+    stream.map_err(|e| format!("audio_stream_open_failed: {e}"))
 }
 
 fn to_i24<T>(sample: T) -> i32

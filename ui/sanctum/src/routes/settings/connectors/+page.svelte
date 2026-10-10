@@ -48,6 +48,7 @@
     type DiscoveredMiddlecontrol,
     type DiscoveredAtem,
     type RodecasterAudioRecordingConfig,
+    type OpenAiConfig,
   } from '@metocast/core-client';
   import { appMode } from '$lib/core';
   import { rode } from '$lib/rode';
@@ -112,6 +113,14 @@
       supported: true,
       brand: siFacebook.path,
       fields: [fld('appId'), fld('appSecret', 'password', true), fld('pageId')],
+    },
+    {
+      id: 'openai',
+      name: 'OpenAI Translation',
+      cat: 'streaming',
+      supported: true,
+      char: 'EN',
+      fields: [fld('apiKey', 'password', true)],
     },
     {
       id: 'broadlink',
@@ -216,6 +225,39 @@
     }),
     discord: (form, enabled) => ({ enabled, webhookUrl: form.webhookUrl ?? '' }),
     szentiras: (form, enabled) => ({ enabled, apiKey: form.apiKey ?? '' }),
+    // The rest is edited on /settings/connectors/openai; the core merges over what it has.
+    openai: (form, enabled) => ({ ...openaiConfig, enabled, apiKey: form.apiKey ?? '' }),
+    // Not listed above: the Mac app edits AI Agents (MCP). Should this page ever save it, it
+    // falls back to the most restrictive switches rather than widening access.
+    mcp: (_form, enabled) => ({ enabled, readOnly: true, allowLan: false }),
+    // Not listed above: the Mac app edits Media Processing. Blank fields keep the core's defaults.
+    media: (form, enabled) => ({
+      enabled,
+      ffmpegPath: form.ffmpegPath ?? '',
+      brawSdkPath: form.brawSdkPath ?? '',
+      outputFolder: form.outputFolder ?? '',
+      gamma: form.gamma || 'Blackmagic Design Film',
+      gamut: form.gamut || 'Blackmagic Design',
+      iso: Number(form.iso) || 0,
+      kelvin: Number(form.kelvin) || 0,
+      tint: form.tint ?? '',
+      exposure: form.exposure ?? '',
+      highlightRecovery: toggles.media?.highlightRecovery ?? false,
+      gamutCompression: toggles.media?.gamutCompression ?? false,
+      lutMode:
+        form.lutMode === 'file' || form.lutMode === 'sidecar' || form.lutMode === 'none'
+          ? form.lutMode
+          : 'embedded',
+      lutPath: form.lutPath ?? '',
+      sidecarPath: form.sidecarPath ?? '',
+      aspect: form.aspect === 'native' ? 'native' : '16:9',
+      cropShiftY: form.cropShiftY || '0',
+      bitrateMbps: Number(form.bitrateMbps) || 100,
+      audioChannels: form.audioChannels || '1,2',
+      audioTargetLufs: form.audioTargetLufs || '-14',
+      audioOutputFolder: form.audioOutputFolder ?? '',
+      jiveVocalsPath: form.jiveVocalsPath ?? '',
+    }),
   };
 
   let statuses = $state<Partial<Record<ConnectorName, ConnState>>>({});
@@ -240,6 +282,17 @@
     processingMode: 'preFader',
     outputMode: 'mainMix',
     sources: [],
+  });
+  let openaiConfig = $state<OpenAiConfig>({
+    enabled: false,
+    apiKey: '',
+    adminKey: '',
+    topUps: [],
+    source: { kind: 'mainMix' },
+    lagMs: 3200,
+    youtubeLiveCaptions: false,
+    captionIngestionUrl: '',
+    autoYoutubeCaptions: false,
   });
   let secretKept = $state<Record<string, string[]>>({});
   let expanded = $state<ConnectorName | null>('obs');
@@ -286,13 +339,9 @@
   const rodecasterAudioSources = $derived(
     rodecasterAudioEndpoint?.sources.filter((source) => source.identity.kind === 'faderSlot') ?? [],
   );
-  const middlecontrolCameraIds = $derived(
-    live.middlecontrolState?.connectedCameraIds ?? [],
-  );
+  const middlecontrolCameraIds = $derived(live.middlecontrolState?.connectedCameraIds ?? []);
   const middlecontrolApcrIds = $derived(live.middlecontrolState?.connectedApcrIds ?? []);
-  const middlecontrolRecordingIds = $derived(
-    live.middlecontrolState?.recordingCameraIds ?? [],
-  );
+  const middlecontrolRecordingIds = $derived(live.middlecontrolState?.recordingCameraIds ?? []);
   const middlecontrolDeviceIds = $derived(
     [...new Set([...middlecontrolCameraIds, ...middlecontrolApcrIds])].sort((a, b) => a - b),
   );
@@ -342,6 +391,7 @@
   async function loadConfig(meta: ConnMeta) {
     const cfg = await fetchConnectorConfig(meta.id);
     if ('audioRecording' in cfg) rodecasterAudioRecording = cfg.audioRecording;
+    if ('topUps' in cfg) openaiConfig = cfg;
     const form: Record<string, string> = {};
     const flags: Record<string, boolean> = {};
     const kept: string[] = [];
@@ -698,7 +748,8 @@
                       variant="quiet"
                       compact
                       onclick={() => void openExternal(MIDDLECONTROL_SDK_URL)}
-                    >{$_('conn.middlecontrol.sdk')} ↗</Button>
+                      >{$_('conn.middlecontrol.sdk')} ↗</Button
+                    >
                   </div>
                   <section
                     class="middlecontrol-devices"
@@ -1094,6 +1145,20 @@
                   </List>
                 {/if}
 
+                {#if meta.id === 'openai'}
+                  <List>
+                    <Row
+                      title={$_('conn.openai.settings')}
+                      meta={$_('conn.openai.settingsMeta')}
+                      detail={$_('conn.camera.open')}
+                      href="/settings/connectors/openai"
+                      last
+                    >
+                      {#snippet icon()}<Glyph char="EN" size={28} />{/snippet}
+                    </Row>
+                  </List>
+                {/if}
+
                 {#if meta.id === 'broadlink'}
                   <DiscoveryPanel
                     title={$_('conn.discovery.title')}
@@ -1126,6 +1191,19 @@
         </List>
       {/if}
     {/each}
+
+    <SectionLabel>{$_('conn.agents.label')}</SectionLabel>
+    <List>
+      <Row
+        title={$_('conn.agents.title')}
+        meta={$_('conn.agents.meta')}
+        detail={$_('conn.camera.open')}
+        href="/settings/connectors/mcp"
+        last
+      >
+        {#snippet icon()}<Glyph char="AI" size={28} />{/snippet}
+      </Row>
+    </List>
 
     <p class="note">{$_('conn.note')}</p>
   </div>

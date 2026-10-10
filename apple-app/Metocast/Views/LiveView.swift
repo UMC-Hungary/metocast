@@ -8,9 +8,18 @@ struct LiveView: View {
 
     var body: some View {
         Group {
-            if let session = model.session, session.hasLiveDevices {
+            if let session = model.session,
+               session.hasLiveDevices || EventSchedule.current(in: session.events, now: .now) != nil {
                 let outputs = session.outputs
                 Form {
+                    if let event = EventSchedule.current(in: session.events, now: .now) {
+                        LiveOrderSection(session: session, event: event)
+                    }
+                    if !session.automations.isEmpty {
+                        Section {
+                            AutomationsArmedRow(session: session)
+                        }
+                    }
                     if session.obs != nil {
                         Section("OBS") {
                             outputRows(outputs, for: "obs", session: session)
@@ -73,8 +82,19 @@ struct LiveView: View {
                             } else {
                                 LabeledContent("Camera", value: cameras.selectedCamera.map { "Camera \($0)" } ?? "None")
                             }
+                            if let preset = presetText(cameras) {
+                                LabeledContent("Preset") {
+                                    HStack(spacing: 6) {
+                                        if cameras.runningPreset != nil { ProgressView().controlSize(.small) }
+                                        Text(preset)
+                                    }
+                                }
+                            }
                             outputRows(outputs, for: "middlecontrol", session: session)
                         }
+                    }
+                    if let transcription = session.transcription, transcription.status != .notConfigured {
+                        TranscriptSection(session: session, state: transcription, outputs: outputs)
                     }
                     if session.rodecaster != nil || outputs.contains(where: { $0.connector == "rodecaster" }) {
                         Section {
@@ -107,6 +127,16 @@ struct LiveView: View {
         .navigationTitle("Live")
     }
 
+    /// "Preset 3 moving" while Middle Control runs a preset, then "Preset 3 reached" with the time.
+    private func presetText(_ cameras: MiddlecontrolState) -> String? {
+        if let running = cameras.runningPreset {
+            return "Preset \(running) moving"
+        }
+        guard let last = cameras.lastPreset else { return nil }
+        let time = Date(rfc3339: last.at).map { " · " + $0.formatted(date: .omitted, time: .shortened) } ?? ""
+        return "Preset \(last.preset) reached\(time)"
+    }
+
     private func outputRows(_ outputs: [LiveOutput], for connector: String, session: MetocastSession) -> some View {
         ForEach(outputs.filter { $0.connector == connector }) { output in
             OutputRow(output: output, send: session.control)
@@ -118,6 +148,80 @@ extension MetocastSession {
     var hasLiveDevices: Bool {
         obs != nil || atem != nil || middlecontrol != nil || rodecaster != nil || camera != nil
             || !outputs.isEmpty
+    }
+}
+
+/// The master switch for automations, where the operator sees it during a service.
+private struct AutomationsArmedRow: View {
+    let session: MetocastSession
+
+    var body: some View {
+        Toggle(isOn: Binding(
+            get: { session.automationsArmed },
+            set: { armed in Task { try? await session.setAutomationsArmed(armed) } }
+        )) {
+            Label {
+                Text("Automations armed")
+                Text(session.automationsArmed ? "Rules fire by themselves" : "Disarmed: nothing fires")
+                    .foregroundStyle(session.automationsArmed ? Color.secondary : Color.orange)
+            } icon: {
+                Image(systemName: session.automationsArmed ? "bolt.fill" : "bolt.slash")
+                    .foregroundStyle(session.automationsArmed ? AnyShapeStyle(.tint) : AnyShapeStyle(.orange))
+            }
+        }
+    }
+}
+
+/// The live English transcript: start and stop, the newest line, and why it can't run.
+private struct TranscriptSection: View {
+    let session: MetocastSession
+    let state: TranscriptionRecord
+    let outputs: [LiveOutput]
+
+    var body: some View {
+        Section {
+            ForEach(outputs.filter { $0.connector == "openai" }) { output in
+                OutputRow(output: output, send: session.control)
+            }
+            if !session.transcriptLine.isEmpty {
+                Text(session.transcriptLine)
+                    .italic()
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+            }
+            if let error = state.youtubeError {
+                Label("YouTube captions: \(error)", systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.orange)
+            }
+            if let url = URL(string: session.baseURL + "/transcript") {
+                Link("Open Transcript Page", destination: url)
+            }
+        } header: {
+            Text("English Transcript")
+        } footer: {
+            VStack(alignment: .leading, spacing: 2) {
+                if let problem {
+                    Text(problem)
+                }
+                if let credit = session.transcriptCredit {
+                    Text("AI credit: \(credit.balanceUsd, format: .currency(code: "USD"))")
+                        .foregroundStyle(credit.low ? .red : .secondary)
+                } else {
+                    Text("AI credit: add an admin key and your top-ups in Settings → Connectors → OpenAI Translation.")
+                }
+            }
+        }
+    }
+
+    private var problem: String? {
+        switch (state.status, state.reason) {
+        case (.unavailable, _): "Connect the RØDECaster to transcribe."
+        case (.error, "noCredit"): "OpenAI has no credit left."
+        case (.error, "invalidKey"): "OpenAI rejected the API key. Check it in Settings → Connectors."
+        case (.error, let reason?): reason
+        case (.connecting, let reason?): "Retrying: \(reason)"
+        default: session.transcriptRefusal
+        }
     }
 }
 
@@ -157,6 +261,9 @@ private struct InputBus: View {
                 }
             }
         }
+        // "Cam 1" alone doesn't say whether it's on Program or Preview.
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(title)
     }
 }
 
@@ -179,20 +286,20 @@ private struct MixerChannelRow: View {
                     .foregroundStyle(channel.mute || channel.wirelessMute ? AnyShapeStyle(.orange) : AnyShapeStyle(.tint))
             }
         }
+        // The switch is "on" when the channel is live, which "on/off" alone doesn't say.
+        .accessibilityValue(channel.mute ? "Muted" : "Live")
     }
 }
 
-/// A stream or recording with its state and a start or stop button. Stopping asks first:
-/// a stream or recording ended by accident mid-service can't be picked up again.
+/// A stream or recording with its state and a start or stop button.
 private struct OutputRow: View {
     let output: LiveOutput
     let send: (ProductionControl) -> Void
-    @State private var isConfirmingStop = false
 
     var body: some View {
         HStack {
             Label {
-                Text(output.kind == .stream ? "Stream" : "Recording")
+                Text(output.kindTitle)
                 HStack(spacing: 4) {
                     // A running timer says it's on, so it stands in for the state.
                     Group {
@@ -217,23 +324,81 @@ private struct OutputRow: View {
             Spacer()
             if output.isBusy {
                 ProgressView().controlSize(.small)
-            } else if let control = output.control {
+            } else if output.control != nil {
                 // The row names the output, so the stop button only needs the verb.
-                Button(output.isOn ? (output.kind == .stream ? "End" : "Stop") : output.startTitle) {
-                    if output.isOn {
-                        isConfirmingStop = true
-                    } else {
-                        send(control(true))
-                    }
+                OutputButton(output: output, send: send) {
+                    Text(output.isOn ? (output.kind == .stream ? "End" : "Stop") : output.startTitle)
                 }
                 .buttonStyle(.bordered)
                 .tint(output.isOn ? .red : .accentColor)
-                .confirmationDialog("\(output.stopTitle)?", isPresented: $isConfirmingStop) {
-                    Button(output.stopTitle, role: .destructive) { send(control(false)) }
-                } message: {
-                    Text("This stops the \(output.name) for everyone.")
+            }
+        }
+        // Going live or stopping happens out of view (a rule, another device), so say it.
+        .onChange(of: output.state) { _, _ in
+            AccessibilityNotification.Announcement("\(output.name): \(output.stateText)").post()
+        }
+    }
+}
+
+/// Starts or stops one output. Stopping asks first: a stream or recording ended by accident
+/// mid-service can't be picked up again. The caller supplies the label and the style, and
+/// the button is disabled while the output can't start.
+struct OutputButton<Content: View>: View {
+    let output: LiveOutput
+    let send: (ProductionControl) -> Void
+    @ViewBuilder let label: Content
+    @State private var isConfirmingStop = false
+
+    var body: some View {
+        Button {
+            guard let control = output.control else { return }
+            if output.isOn {
+                isConfirmingStop = true
+            } else {
+                send(control(true))
+            }
+        } label: {
+            label
+        }
+        .disabled(output.control == nil || output.isBusy)
+        // The label may be a bare verb or an icon; VoiceOver always hears what it acts on.
+        .accessibilityLabel(output.actionName)
+        .confirmationDialog("\(output.stopTitle)?", isPresented: $isConfirmingStop) {
+            Button(output.stopTitle, role: .destructive) {
+                if let control = output.control { send(control(false)) }
+            }
+        } message: {
+            Text("This stops the \(output.name) for everyone.")
+        }
+    }
+}
+
+#if os(macOS)
+/// Record and Transcript in the Mac toolbar, so they are within reach from every page, whether
+/// or not an event exists. The toolbar already gives its items glass; a running output takes the
+/// prominent glass in red. One that can't start is dimmed, and both of these only wait for the
+/// RØDECaster.
+struct OutputToolbarButtons: View {
+    let session: MetocastSession
+
+    var body: some View {
+        ForEach(session.outputs.filter(\.showsInToolbar)) { output in
+            let button = OutputButton(output: output, send: session.control) {
+                if output.isBusy {
+                    ProgressView().controlSize(.small)
+                } else {
+                    // Icon-only in the bar, but VoiceOver hears what it does, not just what it is.
+                    Label(output.actionName, systemImage: output.symbol)
                 }
+            }
+            .help(output.control == nil ? "The RØDECaster isn't connected." : output.actionName)
+            // Two glass styles are two types, so the running one branches.
+            if output.isOn {
+                button.buttonStyle(.glassProminent).tint(.red)
+            } else {
+                button
             }
         }
     }
 }
+#endif

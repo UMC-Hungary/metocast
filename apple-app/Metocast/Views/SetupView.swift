@@ -75,6 +75,7 @@ struct SetupView: View {
                         ProgressView()
                     } else {
                         Button("Connect", systemImage: "checkmark", role: .confirm, action: connect)
+                            .pointingHand()
                             .disabled(address.isEmpty || token.isEmpty)
                     }
                 }

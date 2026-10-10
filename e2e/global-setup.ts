@@ -69,6 +69,8 @@ export async function setup(): Promise<void> {
       METOCAST_AUTH_TOKEN: token,
       METOCAST_PORT: port,
       METOCAST_DATA_DIR: './test-server-data',
+      // Off the app's 15432: a clash there makes the server kill the app's database.
+      METOCAST_PG_PORT: process.env.METOCAST_PG_PORT ?? '15433',
       // Normally regenerated per run and handed to the desktop app over IPC;
       // pinned here so the access-contract tests can exercise both sides.
       METOCAST_ADMIN_TOKEN: process.env.METOCAST_ADMIN_TOKEN ?? 'e2e-admin-token',

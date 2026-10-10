@@ -1,8 +1,17 @@
 import { z } from 'zod';
-import { EventSchema, EventSummarySchema, EventActivitySchema } from './event.js';
+import {
+  EventSchema,
+  EventSummarySchema,
+  EventActivitySchema,
+  OrderItemSchema,
+  OrderPositionSchema,
+} from './event.js';
 import { RecordingSchema, RecordingWithEventSchema } from './recording.js';
 import { UntrackedRecordingSchema } from './untracked-recording.js';
 import { QueueSummarySchema } from './queue.js';
+import { AudioProgressSchema, ProgramProgressSchema, RenderProgressSchema } from './media.js';
+import { CaptionsJobStateSchema, TranscriptMessageSchema } from './transcription.js';
+import { AutomationMessageSchema } from './automations.js';
 import {
   AtemStateSchema,
   AtemStreamTargetSchema,
@@ -14,6 +23,7 @@ import {
   RodecasterProfileSchema,
   RodecasterAudioDiscoverySchema,
   RodecasterAudioRecorderStateSchema,
+  RodecasterDeskRecorderSchema,
 } from './connectors.js';
 
 // ── OBS Device types ──────────────────────────────────────────────────────────
@@ -330,6 +340,23 @@ export const WsMessageSchema = z.discriminatedUnion('type', [
     recordingId: z.string().uuid(),
     reason: z.string(),
   }),
+  z.object({
+    type: z.literal('media.render.progress'),
+    progress: RenderProgressSchema,
+  }),
+  z.object({
+    type: z.literal('media.audio.progress'),
+    progress: AudioProgressSchema,
+  }),
+  z.object({
+    type: z.literal('media.program.progress'),
+    progress: ProgramProgressSchema,
+  }),
+  // ── Automations ────────────────────────────────────────────────────────────
+  ...AutomationMessageSchema.options,
+  // ── Live transcript and final-video captions ───────────────────────────────
+  ...TranscriptMessageSchema.options,
+  CaptionsJobStateSchema.extend({ type: z.literal('captions.job.state') }),
   // ── Events (WS command responses) ──────────────────────────────────────────
   z.object({ type: z.literal('events.list'), events: z.array(EventSummarySchema) }),
   z.object({
@@ -370,6 +397,18 @@ export const WsMessageSchema = z.discriminatedUnion('type', [
   }),
   // ── Presenter (push + command responses) ───────────────────────────────────
   z.object({ type: z.literal('presenter.state'), state: PresenterStateSchema }),
+  // ── Order of Service (push + `order.status` reply) ────────────────────────
+  z.object({
+    type: z.literal('order.state'),
+    position: OrderPositionSchema.nullable(),
+    /** The running event's steps; empty when no step is on screen. */
+    items: z.array(OrderItemSchema).default([]),
+  }),
+  z.object({
+    type: z.literal('event.order.changed'),
+    eventId: z.string().uuid(),
+    items: z.array(OrderItemSchema),
+  }),
   z.object({
     type: z.literal('presenter.slide_changed'),
     currentSlide: z.number().int().nonnegative(),
@@ -474,6 +513,11 @@ export const WsMessageSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('rodecaster.audio.record.state'),
     state: RodecasterAudioRecorderStateSchema,
+  }),
+  /** The desk's own SD/USB recorder, as opposed to Metocast's audio recording above. */
+  z.object({
+    type: z.literal('rodecaster.record.state'),
+    state: RodecasterDeskRecorderSchema,
   }),
   // ── OBS Devices ────────────────────────────────────────────────────────────
   z.object({

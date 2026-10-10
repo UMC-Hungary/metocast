@@ -1,0 +1,34 @@
+meta {
+  name: Run Automation
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/automations/{{automationId}}/run
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  Runs the rule's actions NOW, ignoring its cooldown, `requireEvent` and the master switch. It really
+  records and really moves cameras. Answers with the finished run: one result per action, each `done`,
+  `skipped` (already recording, not recording, …) or `failed` with the connector's code
+  (`obs_not_connected`, `atem_not_connected`, `rodecaster_no_media`, `no event today`, …). The run also
+  arrives to every client as `automation.run`, and a run with a failure sends a `notification` at level
+  `warn`.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("the run is marked manual and has a result per action", function() {
+    expect(res.body.manual).to.equal(true);
+    expect(res.body.results).to.be.an('array');
+  });
+}

@@ -1,0 +1,32 @@
+meta {
+  name: Set Automations Armed
+  type: http
+  seq: 7
+}
+
+put {
+  url: {{baseUrl}}/api/automations/armed
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "armed": false
+  }
+}
+
+docs {
+  The master switch. While it is off nothing fires (for example during a rehearsal); each rule keeps
+  its own enabled toggle, and "Run now" still works. Send `{ "armed": true }` to arm again.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+}

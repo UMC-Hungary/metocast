@@ -65,6 +65,7 @@ struct NotificationsView: View {
                     .frame(width: 36, height: 36)
                     .background(.tint.opacity(0.12), in: Circle())
                     #endif
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.title)
                         .fontWeight(item.isRead ? .regular : .semibold)
@@ -73,6 +74,9 @@ struct NotificationsView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            // Bold is how the eye sees unread; VoiceOver hears it.
+            .accessibilityElement(children: .combine)
+            .accessibilityValue(item.isRead ? "" : "Unread")
         }
         .overlay {
             if shown.isEmpty {

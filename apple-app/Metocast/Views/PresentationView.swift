@@ -2,24 +2,31 @@ import SwiftUI
 import WebKit
 import Metocast
 
-/// The live presenter: the slide on the output screen and the controls that move it. In Keynote
-/// mode the server has the slides, so this shows what Keynote reports instead of the artwork.
+/// The slide library and the live presenter on one page: the decks in the watched folders, and
+/// the slide on the output screen with the controls that move it. One click on a deck opens it.
+/// In Keynote mode the server has the slides, so this shows what Keynote reports instead.
 struct PresentationView: View {
     @Environment(AppModel.self) private var model
-    @State private var isBrowsingSlides = false
+    @State private var query = ""
+    @State private var isWritingSong = false
+    @State private var isAskingForSongFolder = false
 
     var body: some View {
         Group {
             if let session = model.session {
-                content(session)
+                page(session)
                     .toolbar {
-                        ToolbarItem(placement: .primaryAction) {
-                            Button("Open Slides", systemImage: "folder") { isBrowsingSlides = true }
-                        }
-                        if isShowing(session) {
-                            ToolbarItem {
-                                Button("Close Slides", systemImage: "xmark.circle") { session.show(.close) }
+                        // Page actions carry their names; the shell's icons around them would otherwise blur together.
+                        ToolbarItemGroup {
+                            Group {
+                                Button("New Song", systemImage: "music.note.list") { Task { await newSong(session) } }
+                                if isShowing(session) {
+                                    Button("Close Slides", systemImage: "xmark.circle") { session.show(.close) }
+                                }
                             }
+                            #if os(macOS)
+                            .labelStyle(.titleAndIcon)
+                            #endif
                         }
                         #if os(macOS)
                         if isShowing(session) {
@@ -27,9 +34,10 @@ struct PresentationView: View {
                         }
                         #endif
                     }
-                    .sheet(isPresented: $isBrowsingSlides) {
-                        SlideBrowserView(session: session)
+                    .navigationDestination(isPresented: $isWritingSong) {
+                        SongSlidesView(session: session).windowActions()
                     }
+                    .songFolderPrompt(isPresented: $isAskingForSongFolder, session: session) { _ in isWritingSong = true }
             } else {
                 ContentUnavailableView("No Presentation", systemImage: "play.rectangle")
                     .navigationTitle("Presentation")
@@ -38,10 +46,44 @@ struct PresentationView: View {
     }
 
     @ViewBuilder
+    private func page(_ session: MetocastSession) -> some View {
+        let library = DeckList(session: session, query: query) { file in
+            session.show(.open(filePath: file.path))
+        }
+        .librarySearch($query)
+        #if os(macOS)
+        HStack(spacing: 0) {
+            library.frame(width: 340)
+            Divider()
+            content(session)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        #else
+        VStack(spacing: 0) {
+            if isShowing(session) {
+                content(session).frame(maxHeight: 360)
+            }
+            library
+        }
+        .navigationTitle("Presentation")
+        #endif
+    }
+
+    /// A song needs somewhere to go, so a missing folder is asked for before the page opens.
+    private func newSong(_ session: MetocastSession) async {
+        let folder = (try? await session.serverSettings().songSlideFolder.trimmed) ?? ""
+        if folder.isEmpty {
+            isAskingForSongFolder = true
+        } else {
+            isWritingSong = true
+        }
+    }
+
+    @ViewBuilder
     private func content(_ session: MetocastSession) -> some View {
         if session.usesWebPresenter, let state = session.presenter, state.loaded {
             VStack(spacing: 20) {
-                SlideView(state: state, number: state.currentSlide)
+                SlideView(state: state, number: state.currentSlide, theme: session.presenterTheme)
                     .clipShape(.rect(cornerRadius: 12))
                     .overlay {
                         // The output screen is black; the operator still sees what comes back.
@@ -89,11 +131,8 @@ struct PresentationView: View {
                 Label("No Presentation", systemImage: "play.rectangle")
             } description: {
                 Text(session.usesWebPresenter
-                    ? "Open a deck to show it on the output screen."
-                    : "Open a deck to show it in Keynote on the server's Mac.")
-            } actions: {
-                Button("Open Slides…") { isBrowsingSlides = true }
-                    .buttonStyle(.borderedProminent)
+                    ? "Pick a deck from the list to show it on the output screen."
+                    : "Pick a deck from the list to show it in Keynote on the server's Mac.")
             }
             .navigationTitle("Presentation")
         }
@@ -160,36 +199,38 @@ struct PresentationView: View {
     }
 }
 
-/// One slide as the output screen shows it: the imported SVG artwork or the styled text.
+/// One slide as the output screen shows it. Like Sanctum's presenter, Classic shows an imported
+/// deck's own artwork and Editorial always shows the styled text.
 struct SlideView: View {
     let state: PresenterStateRecord
     let number: UInt32
+    let theme: PresenterTheme
 
     var body: some View {
         ZStack {
             Color.black
-            if state.renderMode == "svg", let slide = state.svgSlides.first(where: { $0.index == number }) {
+            if theme == .classic, state.renderMode == "svg", let slide = state.svgSlides.first(where: { $0.index == number }) {
                 SVGView(svg: SVGView.scalable(slide))
             } else if let slide = state.slides.first(where: { $0.index == number }) {
-                GeometryReader { geometry in
-                    // Font sizes are in points on the slide; slide sizes are in EMU (12,700 per point).
-                    let scale = geometry.size.height / (Double(max(state.slideHeightEmu, 1)) / 12_700)
-                    VStack(spacing: 12 * scale) {
-                        ForEach(Array(slide.paragraphs.enumerated()), id: \.offset) { _, paragraph in
-                            Text(paragraph.lines.joined(separator: "\n"))
-                                .font(.system(size: CGFloat(paragraph.fontSizePt > 0 ? paragraph.fontSizePt : 32) * scale))
-                                .multilineTextAlignment(paragraph.textAlignment)
-                                .frame(maxWidth: .infinity, alignment: paragraph.frameAlignment)
-                        }
-                    }
-                    .foregroundStyle(.white)
-                    .minimumScaleFactor(0.3)
-                    .padding(36 * scale)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
+                PresenterTextSlide(
+                    paragraphs: slide.paragraphs.map {
+                        PresenterParagraph(lines: $0.lines, align: $0.align, fontSizePt: Double($0.fontSizePt))
+                    },
+                    index: Int(number),
+                    fileName: state.filePath == nil ? nil : state.fileName,
+                    design: theme == .editorial ? .editorial : .classic,
+                    slideWidthEmu: Double(state.slideWidthEmu),
+                    slideHeightEmu: Double(max(state.slideHeightEmu, 1))
+                )
             }
         }
         .aspectRatio(Double(state.slideWidthEmu) / Double(max(state.slideHeightEmu, 1)), contentMode: .fit)
+        // One element with the slide's words, instead of a web view of SVG paths.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Slide \(number)")
+        .accessibilityValue(
+            state.slides.first { $0.index == number }?.paragraphs.flatMap(\.lines).joined(separator: "\n") ?? ""
+        )
     }
 }
 
@@ -266,21 +307,3 @@ extension PlatformViewRepresentable {
     func updateNSView(_ view: WKWebView, context: Context) { update(view, context: context) }
 }
 #endif
-
-private extension ParagraphRecord {
-    var textAlignment: TextAlignment {
-        switch align {
-        case "center": .center
-        case "right": .trailing
-        default: .leading
-        }
-    }
-
-    var frameAlignment: Alignment {
-        switch align {
-        case "center": .center
-        case "right": .trailing
-        default: .leading
-        }
-    }
-}

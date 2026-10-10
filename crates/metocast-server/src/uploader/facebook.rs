@@ -164,6 +164,69 @@ pub async fn finish_upload(
     Ok(body.video_id.or(body.id).unwrap_or_default())
 }
 
+/// Sends the recording's caption tracks (such as a transcript dropped on the Media page) to its
+/// Facebook video, one SRT per language. Best effort: the video is up either way.
+async fn upload_captions(
+    client: &reqwest::Client,
+    pool: &sqlx::PgPool,
+    token: &str,
+    recording_id: Uuid,
+    video_id: &str,
+) {
+    let tracks: Vec<(String, String)> =
+        sqlx::query_as("SELECT language, vtt FROM caption_tracks WHERE recording_id = $1")
+            .bind(recording_id)
+            .fetch_all(pool)
+            .await
+            .unwrap_or_default();
+    for (language, vtt) in tracks {
+        // Facebook reads the locale from the file name: `<name>.hu_HU.srt`.
+        let locale = format!(
+            "{language}_{}",
+            if language == "en" {
+                "US".to_string()
+            } else {
+                language.to_uppercase()
+            }
+        );
+        let srt = match metocast_transcription::captions::parse_cues(&vtt) {
+            Ok(cues) => metocast_transcription::captions::render_srt(&cues),
+            Err(e) => {
+                tracing::warn!(recording = %recording_id, %language, "captions: unreadable track: {e}");
+                continue;
+            }
+        };
+        let file = reqwest::multipart::Part::text(srt)
+            .file_name(format!("captions.{locale}.srt"))
+            .mime_str("application/x-subrip");
+        let sent = match file {
+            Ok(file) => client
+                .post(format!(
+                    "https://graph.facebook.com/v19.0/{video_id}/captions"
+                ))
+                .bearer_auth(token)
+                .multipart(reqwest::multipart::Form::new().part("captions_file", file))
+                .send()
+                .await
+                .map_err(anyhow::Error::from),
+            Err(e) => Err(e.into()),
+        };
+        match sent {
+            Ok(response) if response.status().is_success() => {
+                tracing::info!(recording = %recording_id, %locale, "captions: sent to Facebook");
+            }
+            Ok(response) => tracing::warn!(
+                recording = %recording_id,
+                %locale,
+                "captions: Facebook refused ({}): {}",
+                response.status(),
+                response.text().await.unwrap_or_default()
+            ),
+            Err(e) => tracing::warn!(recording = %recording_id, %locale, "captions: Facebook: {e}"),
+        }
+    }
+}
+
 /// Run the full Facebook chunked upload for a recording.
 pub(super) async fn run_upload(
     pool: &sqlx::PgPool,
@@ -312,6 +375,9 @@ pub(super) async fn run_upload(
             broadcast_upload_completed(ws_clients, recording_id, "facebook", &video_id, &video_url)
                 .await;
             tracing::info!("Facebook upload completed for recording {recording_id}: {video_id}");
+            if !video_id.is_empty() {
+                upload_captions(&client, pool, token, recording_id, &video_id).await;
+            }
             Ok(())
         }
         Err(e) => {

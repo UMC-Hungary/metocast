@@ -1,0 +1,21 @@
+meta {
+  name: Delete Automation
+  type: http
+  seq: 8
+}
+
+delete {
+  url: {{baseUrl}}/api/automations/{{automationId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 204", function() {
+    expect(res.status).to.equal(204);
+  });
+}

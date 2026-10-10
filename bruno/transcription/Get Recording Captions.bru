@@ -1,0 +1,25 @@
+meta {
+  name: Get Recording Captions
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/recordings/{{recordingId}}/captions.vtt
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  The last generated English WebVTT track; 404 until a captions job has run.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+}

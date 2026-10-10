@@ -23,7 +23,7 @@ use crate::models::event::{Event, fetch_event};
 use crate::server::AppState;
 use crate::server::websocket::{broadcast_event_changed, write_youtube_result};
 
-/// The only queue in use today; the table is queue-name generic.
+/// YouTube schedule sync. The table is queue-name generic: `media` renders use it too.
 pub const PLATFORM_SYNC: &str = "platform_sync";
 
 const MAX_ATTEMPTS: i32 = 5;
@@ -168,8 +168,9 @@ fn backoff_secs(attempts: i32) -> i64 {
     (5i64 << shift).min(3600)
 }
 
-/// SQS visibility timeout: hand back jobs whose worker died mid-flight.
-pub async fn reclaim_stuck(pool: &PgPool, queue: &str) -> anyhow::Result<u64> {
+/// SQS visibility timeout: hand back jobs whose worker died mid-flight. Each queue picks its
+/// own timeout; a long-running job keeps its lock fresh with [`heartbeat`].
+pub async fn reclaim_stuck(pool: &PgPool, queue: &str, timeout_secs: i64) -> anyhow::Result<u64> {
     let res = sqlx::query(
         "UPDATE job_queue SET status = 'pending', locked_at = NULL, locked_by = NULL, \
          dedup_key = NULL, updated_at = now() \
@@ -177,10 +178,22 @@ pub async fn reclaim_stuck(pool: &PgPool, queue: &str) -> anyhow::Result<u64> {
            AND locked_at < now() - make_interval(secs => $2)",
     )
     .bind(queue)
-    .bind(VISIBILITY_TIMEOUT_SECS as f64)
+    .bind(timeout_secs as f64)
     .execute(pool)
     .await?;
     Ok(res.rows_affected())
+}
+
+/// Tells `reclaim_stuck` a long-running job is still alive.
+pub async fn heartbeat(pool: &PgPool, id: Uuid) -> anyhow::Result<()> {
+    sqlx::query(
+        "UPDATE job_queue SET locked_at = now(), updated_at = now() \
+         WHERE id = $1 AND status = 'processing'",
+    )
+    .bind(id)
+    .execute(pool)
+    .await?;
+    Ok(())
 }
 
 /// Drop succeeded jobs past their retention window. Without this the table
@@ -240,7 +253,7 @@ pub fn spawn_worker(state: AppState) {
 }
 
 async fn run_cycle(state: &AppState) {
-    if let Err(e) = reclaim_stuck(&state.pool, PLATFORM_SYNC).await {
+    if let Err(e) = reclaim_stuck(&state.pool, PLATFORM_SYNC, VISIBILITY_TIMEOUT_SECS).await {
         tracing::error!("queue: reclaim_stuck failed: {e}");
     }
 
@@ -312,6 +325,7 @@ async fn handle_job(state: &AppState, job: &Job) -> anyhow::Result<()> {
                 conn.and_then(|c| c.external_id.as_deref()),
                 conn.and_then(|c| c.privacy_status.as_deref())
                     .unwrap_or("private"),
+                crate::transcription::live_captions_enabled(&state.pool).await,
             )
             .await?;
             let updated = write_youtube_result(state, event.id, &result).await?;

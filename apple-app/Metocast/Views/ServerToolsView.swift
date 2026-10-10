@@ -1,41 +1,57 @@
 import SwiftUI
 import Metocast
 
-/// The server's housekeeping: what runs on a schedule, what is uploading, the remotes, the
-/// sources OBS watches, recordings that belong to no event, the caption overlay and the log.
+/// The server's housekeeping, grouped by what it touches: recordings, the stream, the room and the server itself.
+/// Video and audio processing has its own Media page.
 struct ServerToolsView: View {
     let session: MetocastSession
 
     var body: some View {
         List {
-            NavigationLink { AutomationsView(session: session) } label: {
-                Label("Automations", systemImage: "clock.arrow.trianglehead.2.counterclockwise.rotate.90")
+            Section {
+                tool("Uploads", systemImage: "arrow.up.circle") { UploadsView(session: session) }
+                tool("Unassigned Recordings", systemImage: "questionmark.folder") { UntrackedRecordingsView(session: session) }
+            } header: {
+                Text("Recordings")
+            } footer: {
+                Text("Uploads and other background work, and recordings that belong to no event yet.")
             }
-            NavigationLink { UploadsView(session: session) } label: {
-                Label("Uploads", systemImage: "arrow.up.circle")
+            Section {
+                tool("Caption Overlay", systemImage: "text.below.photo") { CaptionOverlayView(session: session) }
+                tool("Device Alerts", systemImage: "bell.badge") { DeviceAlertsView(session: session) }
+            } header: {
+                Text("Stream")
+            } footer: {
+                Text("The captions OBS shows over the stream, and the OBS sources the server warns about when one goes missing.")
             }
-            NavigationLink { RemotesView(session: session) } label: {
-                Label("Remotes", systemImage: "av.remote")
+            Section {
+                tool("Remotes", systemImage: "av.remote") { RemotesView(session: session) }
+            } header: {
+                Text("Room")
+            } footer: {
+                Text("Saved RF and IR commands for the projector and the screen.")
             }
-            NavigationLink { DeviceAlertsView(session: session) } label: {
-                Label("Device Alerts", systemImage: "bell.badge")
-            }
-            NavigationLink { UntrackedRecordingsView(session: session) } label: {
-                Label("Unassigned Recordings", systemImage: "questionmark.folder")
-            }
-            NavigationLink { CaptionOverlayView(session: session) } label: {
-                Label("Caption Overlay", systemImage: "text.below.photo")
-            }
-            NavigationLink { CoreLogView(session: session) } label: {
-                Label("Core Log", systemImage: "doc.text")
+            Section {
+                tool("Scheduled Jobs", systemImage: "clock.arrow.trianglehead.2.counterclockwise.rotate.90") { ScheduledJobsView(session: session) }
+                tool("Core Log", systemImage: "doc.text") { CoreLogView(session: session) }
+            } header: {
+                Text("Server")
+            } footer: {
+                Text("What runs on a timer, and the server's own log for troubleshooting.")
             }
         }
         .navigationTitle("Server Tools")
     }
+
+    private func tool(_ title: String, systemImage: String, @ViewBuilder destination: () -> some View) -> some View {
+        NavigationLink { destination().windowActions() } label: { Label(title, systemImage: systemImage) }
+            // A Mac list row link is otherwise an element of unknown role; the trait says it opens.
+            .accessibilityAddTraits(.isButton)
+    }
 }
 
-/// Jobs the server runs on a schedule.
-private struct AutomationsView: View {
+/// Jobs the server runs on a schedule. (Rules that react to devices are Settings → Automations.)
+private struct ScheduledJobsView: View {
     let session: MetocastSession
     @State private var jobs: [CronJobRecord] = []
     @State private var editing: CronJobRecord?
@@ -58,6 +74,14 @@ private struct AutomationsView: View {
                     .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
+                .contextMenu {
+                    Button("Delete", role: .destructive) {
+                        Task {
+                            try? await session.deleteCronJob(id: job.id)
+                            await load()
+                        }
+                    }
+                }
             }
             .onDelete { offsets in
                 Task { await delete(offsets) }
@@ -68,13 +92,13 @@ private struct AutomationsView: View {
         }
         .overlay {
             if jobs.isEmpty {
-                ContentUnavailableView("No Automations", systemImage: "clock", description: Text("Scheduled pulls and uploads show up here."))
+                ContentUnavailableView("No Scheduled Jobs", systemImage: "clock", description: Text("Scheduled pulls and uploads show up here."))
             }
         }
-        .navigationTitle("Automations")
+        .navigationTitle("Scheduled Jobs")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button("New Automation", systemImage: "plus") { isAdding = true }
+                Button("New Scheduled Job", systemImage: "plus") { isAdding = true }
             }
         }
         .sheet(isPresented: $isAdding) {
@@ -126,7 +150,7 @@ private struct CronJobEditor: View {
                         TextField("Name", text: $name).multilineTextAlignment(.trailing).labelsHidden()
                     }
                     LabeledContent("Schedule") {
-                        TextField("0 9 * * 0", text: $expression)
+                        TextField("Schedule", text: $expression, prompt: Text("0 9 * * 0"))
                             .multilineTextAlignment(.trailing)
                             .labelsHidden()
                             #if os(iOS)
@@ -147,7 +171,7 @@ private struct CronJobEditor: View {
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle(job == nil ? "New Automation" : "Automation")
+            .navigationTitle(job == nil ? "New Scheduled Job" : "Scheduled Job")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
@@ -270,7 +294,7 @@ private struct RemotesView: View {
                 } label: {
                     LabeledContent {
                         if sent == command.id {
-                            Image(systemName: "checkmark").foregroundStyle(.green)
+                            Image(systemName: "checkmark").foregroundStyle(.green).accessibilityLabel("Sent")
                         }
                     } label: {
                         Text(command.name)
@@ -335,6 +359,12 @@ private struct DeviceAlertsView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
+                    .contextMenu {
+                        Button("Stop Watching", role: .destructive) {
+                            session.alerts(.delete(id: listener.id))
+                            session.alerts(.list)
+                        }
+                    }
                 }
                 .onDelete { offsets in
                     for index in offsets {
@@ -393,6 +423,14 @@ private struct UntrackedRecordingsView: View {
                     Button("Assign to an Event") { assigning = recording }
                         .font(.subheadline)
                 }
+                .contextMenu {
+                    Button("Delete", role: .destructive) {
+                        Task {
+                            try? await session.deleteUntracked(id: recording.id)
+                            await load()
+                        }
+                    }
+                }
             }
             .onDelete { offsets in
                 Task {
@@ -442,7 +480,7 @@ private struct UntrackedRecordingsView: View {
 extension UntrackedRecordingRecord: @retroactive Identifiable {}
 
 /// Picks one of the server's events.
-private struct EventPicker: View {
+struct EventPicker: View {
     let session: MetocastSession
     let onPick: (EventSummaryRecord) -> Void
     @Environment(\.dismiss) private var dismiss

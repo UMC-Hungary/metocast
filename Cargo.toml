@@ -6,6 +6,7 @@ members = [
   "crates/metocast-client",
   "crates/metocast-core",
   "crates/metocast-server",
+  "crates/metocast-transcription",
   "presenter-receiver",
   "rodecaster",
   "src-tauri",

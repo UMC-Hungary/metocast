@@ -1,0 +1,34 @@
+meta {
+  name: Nudge Program
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/media/programs/{{programJobId}}/nudge
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "frames": 1
+  }
+}
+
+docs {
+  Moves a finished program's audio by whole frames (positive plays it later):
+  the WAV is shifted, keeping its length, and the picture copied again with it.
+  Set `programJobId` to the `jobId` Start Program returned. Progress arrives as
+  `media.program.progress` under the program's job id.
+}
+
+tests {
+  test("status is 202", function() {
+    expect(res.status).to.equal(202);
+  });
+}

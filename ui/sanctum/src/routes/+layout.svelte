@@ -41,7 +41,10 @@
   let phase = $state<'loading' | 'setup' | 'app'>('loading');
   let pendingLink = $state<ConnectLink | null>(null);
   let overrideLink = $state<ConnectLink | null>(null);
-  const isPresenter = $derived(page.url.pathname === '/presenter');
+  // Standalone pages that connect on their own and render without the app shell.
+  const isPresenter = $derived(
+    page.url.pathname === '/presenter' || page.url.pathname === '/transcript',
+  );
   const notificationPreview =
     import.meta.env.DEV && import.meta.env.VITE_SANCTUM_UX_PREVIEW === 'connector-notifications';
 

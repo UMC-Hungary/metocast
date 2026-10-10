@@ -1,9 +1,12 @@
 import { z } from 'zod';
 
-/** Only the platform_sync job types exist today; both key off one of these. */
+/** `platform_sync` jobs key off an event or a broadcast; `media` renders name their files. */
 export const JobPayloadSchema = z.object({
   event_id: z.string().uuid().optional(),
   broadcast_id: z.string().optional(),
+  path: z.string().optional(),
+  outputPath: z.string().optional(),
+  eventId: z.string().uuid().nullable().optional(),
 });
 
 export const JobSchema = z.object({

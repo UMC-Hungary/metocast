@@ -203,7 +203,10 @@
       "creating": "Generating…",
       "created": "Slide decks written",
       "failed": "Could not generate slides"
-    }
+    },
+    "captions": "English captions",
+    "captionsQueued": "English captions queued; they follow on the Queues page.",
+    "captionsFailed": "Could not queue the captions"
   },
   "presentations": {
     "title": "Slides",
@@ -502,7 +505,8 @@
       "discord": "Webhook support coming soon",
       "blackmagic-camera": "REST API · record and livestream control",
       "middlecontrol": "TCP API · camera, recording and preset control",
-      "rodecaster": "USB HID · channel profile and mute control"
+      "rodecaster": "USB HID · channel profile and mute control",
+      "openai": "Hungarian → English live transcript"
     },
     "lockedNote": "This connector is not implemented yet. Metocast keeps the configuration ready for a future build.",
     "note": "Connector settings are saved locally first, then reconciled through Tauri commands or the server API.",
@@ -621,6 +625,15 @@
       "use": "Use",
       "usb": "USB",
       "network": "Network"
+    },
+    "openai": {
+      "settings": "Translation settings",
+      "settingsMeta": "Audio source, credit, YouTube captions"
+    },
+    "agents": {
+      "label": "AI agents",
+      "title": "AI Agents (MCP)",
+      "meta": "Let Claude and other agents operate Metocast"
     }
   },
   "setup": {
@@ -846,5 +859,124 @@
       "stopping": "Stopping"
     },
     "note": "Program and preview follow the switcher, including changes made on its panel or in ATEM Software Control."
+  },
+  "transcript": {
+    "card": "English transcript",
+    "status": {
+      "notConfigured": "Not configured",
+      "unavailable": "Offline",
+      "ready": "Ready",
+      "connecting": "Connecting",
+      "running": "Live",
+      "error": "Error"
+    },
+    "start": "Start transcript",
+    "stop": "Stop transcript",
+    "notConfigured": "Not yet configured",
+    "configure": "Configure OpenAI",
+    "connectMixer": "Connect the RØDECaster",
+    "reason": {
+      "noCredit": "OpenAI has no credit left",
+      "invalidKey": "OpenAI rejected the API key"
+    },
+    "youtubeOk": "YouTube captions: {seq} sent",
+    "credit": "AI credit: {amount} · updated {time}",
+    "noCredit": "No credit",
+    "addAdminKey": "Add an admin key to see your balance",
+    "open": "Open the transcript page"
+  },
+  "openai": {
+    "title": "OpenAI Translation",
+    "enabled": "Enabled",
+    "enabledSub": "Live Hungarian → English text from the RØDECaster",
+    "keys": "Keys",
+    "apiKey": "API key",
+    "adminKey": "Admin key (optional)",
+    "adminKeyHint": "Reads the Costs API, so the dashboard can show the credit left.",
+    "verify": {
+      "button": "Verify",
+      "ok": "Key works.",
+      "invalid": "Invalid key.",
+      "noAccess": "No access."
+    },
+    "topUps": "Top-ups",
+    "topUpsHint": "Balance = top-ups − costs since the first one",
+    "amount": "Amount (USD)",
+    "date": "Date",
+    "add": "Add",
+    "remove": "Remove",
+    "audio": "Audio",
+    "source": "RØDECaster source",
+    "lag": "Translation lag (ms)",
+    "lagHint": "How far the English trails the speech; captions start this much earlier.",
+    "liveCaptions": "Live YouTube captions",
+    "liveCaptionsSub": "Broadcasts take HTTP captions and get each line as it is said",
+    "ingestionUrl": "Caption ingestion URL (override)",
+    "ingestionUrlHint": "Leave blank to read it from YouTube.",
+    "autoCaptions": "Caption finished uploads",
+    "autoCaptionsSub": "Generate English captions from every video uploaded to YouTube",
+    "save": "Save"
+  },
+  "library": {
+    "title": "Slide library",
+    "search": "Search slides",
+    "searchPlaceholder": "Search by name…",
+    "folder": "Folder",
+    "allFolders": "All folders",
+    "empty": "No decks here",
+    "emptyHint": "Try another folder or name",
+    "noFolders": "No slide folders yet",
+    "noFoldersHint": "Add a folder in the settings below"
+  },
+  "order": {
+    "title": "Order of Service",
+    "hint": "Songs, readings and the parts of the service, in order",
+    "empty": "No steps yet",
+    "emptyHint": "Add songs, the readings and the other parts of the service",
+    "emptyRun": "No Order of Service",
+    "emptyRunHint": "Add one on the event's page",
+    "kind": {
+      "song": "Song",
+      "bible": "Reading",
+      "block": "Block"
+    },
+    "textus": "Textus",
+    "leckio": "Lekció",
+    "addSong": "Add song",
+    "addBlock": "Add block",
+    "chooseSong": "Choose a song",
+    "titlePlaceholder": "Title, e.g. Prayer",
+    "notesPlaceholder": "Notes for the leaders",
+    "stepTitle": "Title of step {n}",
+    "stepNotes": "Notes for step {n}",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "remove": "Remove step",
+    "save": "Save Order of Service",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "previous": "Previous step",
+    "next": "Next step",
+    "waiting": "Waiting for the service to start…",
+    "addSongNoSlides": "Song without slides"
+  },
+  "mcp": {
+    "title": "AI Agents (MCP)",
+    "enabled": "Enabled",
+    "enabledSub": "Off until you turn it on: an agent can start a stream",
+    "readOnly": "Read-only",
+    "readOnlySub": "Agents can look but not change anything",
+    "allowLan": "Allow other devices on the network",
+    "allowLanSub": "Off: only this computer can reach it",
+    "save": "Save",
+    "saved": "Saved",
+    "saveFailed": "Couldn't save",
+    "connect": "Connect an agent",
+    "address": "Address",
+    "copyClaudeCode": "Copy command for Claude Code",
+    "copyClaudeDesktop": "Copy config for Claude Desktop",
+    "copied": "Copied",
+    "tokenNote": "The copied text contains this server's access token. Paste it into your agent's settings and nowhere else.",
+    "toast": "AI agents"
   }
 }

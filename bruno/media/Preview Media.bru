@@ -1,0 +1,42 @@
+meta {
+  name: Preview Media
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/media/preview
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "path": "/Volumes/A002/Untitled CAM 1 05.braw",
+    "frame": 20000,
+    "settings": null,
+    "maxWidth": 1600
+  }
+}
+
+docs {
+  One frame of a file on the server's disk as a base64 JPEG (`imageJpeg`), for
+  the Mac app's Media viewer. Without `settings` it is the frame as recorded
+  (Blackmagic RAW: its own look, the flat log); with them it is graded like a
+  render. `active` is the picture the JPEG shows and `output` the crop a render
+  keeps, both in source pixels. Runs beside the media queue.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("response has the image and crop", function() {
+    expect(res.body).to.have.property('imageJpeg');
+    expect(res.body).to.have.property('output');
+  });
+}

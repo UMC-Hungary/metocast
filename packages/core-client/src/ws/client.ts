@@ -1,6 +1,8 @@
 import { WsMessageSchema } from '../schemas/ws-messages.js';
 import type { WsMessage } from '../schemas/ws-messages.js';
 import { coreConfig } from '../config.js';
+import { TranscriptMessageSchema } from '../schemas/transcription.js';
+import type { TranscriptMessage } from '../schemas/transcription.js';
 
 export type WsStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
@@ -124,4 +126,45 @@ export function connectPresenterWs(options: {
     }
   });
   return socket;
+}
+
+/**
+ * Follows the live transcript from the core that served this page, read-only and without a
+ * token, reconnecting until the returned function is called. `wsPort` reaches the core when the
+ * page comes from another port (the Vite dev server).
+ */
+export function connectTranscriptWs(options: {
+  wsPort?: string | null;
+  onMessage: (msg: TranscriptMessage) => void;
+  onConnection?: (open: boolean) => void;
+}): () => void {
+  let closed = false;
+  let current: WebSocket | null = null;
+  const open = () => {
+    const host = options.wsPort
+      ? `${window.location.hostname}:${options.wsPort}`
+      : window.location.host;
+    const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    current = new WebSocket(`${scheme}://${host}/ws`);
+    current.addEventListener('open', () => options.onConnection?.(true));
+    current.addEventListener('message', (ev) => {
+      let raw: unknown;
+      try {
+        raw = JSON.parse(ev.data as string);
+      } catch {
+        return;
+      }
+      const result = TranscriptMessageSchema.safeParse(raw);
+      if (result.success) options.onMessage(result.data);
+    });
+    current.addEventListener('close', () => {
+      options.onConnection?.(false);
+      if (!closed) setTimeout(open, 3000);
+    });
+  };
+  open();
+  return () => {
+    closed = true;
+    current?.close();
+  };
 }

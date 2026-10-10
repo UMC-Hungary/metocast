@@ -22,12 +22,16 @@
     listEvents,
     startRodecasterAudioRecording,
     stopRodecasterAudioRecording,
+    startTranscription,
+    stopTranscription,
     type RodecasterAudioRecordingConfig,
   } from '@metocast/core-client';
   import type { EventSummary } from '@metocast/core-client/schemas/event';
   import { live } from '$lib/live.svelte';
   import { monthAbbr, dayNum, timeShort, dateTimeLabel, clock, eventTitle } from '$lib/format';
   import NotifBell from '$lib/NotifBell.svelte';
+  import CreditLine from '$lib/CreditLine.svelte';
+  import OrderOfService from '$lib/OrderOfService.svelte';
 
   let events = $state<EventSummary[]>([]);
   let connected = $state(0);
@@ -77,6 +81,43 @@
   $effect(() => {
     if (recorderState) recordingPending = false;
   });
+
+  // ── Live English transcript ────────────────────────────────────────────────
+  let transcriptPending = $state(false);
+  const transcript = $derived(live.transcription);
+  const transcribing = $derived(
+    transcript?.status === 'running' || transcript?.status === 'connecting',
+  );
+  const canTranscribe = $derived(
+    (transcript?.status === 'ready' || transcript?.status === 'error') &&
+      live.currentEvent !== null &&
+      !live.currentEvent.isCompleted,
+  );
+  const transcriptElapsed = $derived(
+    transcribing && transcript?.startedAt
+      ? clock((tick - Date.parse(transcript.startedAt)) / 1000)
+      : '—',
+  );
+
+  $effect(() => {
+    if (transcript) transcriptPending = false;
+  });
+
+  $effect(() => {
+    if (!transcribing) return;
+    const id = setInterval(() => (tick = Date.now()), 1000);
+    return () => clearInterval(id);
+  });
+
+  function toggleTranscript(): void {
+    const sent = transcribing
+      ? stopTranscription()
+      : live.currentEvent
+        ? startTranscription(live.currentEvent.id)
+        : false;
+    transcriptPending = sent;
+    if (sent) setTimeout(() => (transcriptPending = false), 5000);
+  }
 
   $effect(() => {
     if (!audioRecording) return;
@@ -200,6 +241,65 @@
     </section>
   {/if}
 
+  {#if transcript}
+    <section class="recorder">
+      <SectionLabel hint={$_(`transcript.status.${transcript.status}`)}
+        >{$_('transcript.card')}</SectionLabel
+      >
+      <article>
+        <header>
+          <p>
+            <Dot
+              color={transcribing ? 'var(--status-live)' : 'var(--text-muted)'}
+              size={8}
+              pulse={transcript.status === 'running'}
+            />
+            <span class:live={transcribing}>{$_(`transcript.status.${transcript.status}`)}</span>
+          </p>
+          <time>{transcriptElapsed}</time>
+        </header>
+        <h2>{live.currentEvent ? eventTitle(live.currentEvent) : $_('dash.noRecordEvent')}</h2>
+        {#if live.transcriptLine}<p class="sub line">{live.transcriptLine}</p>{/if}
+        <div class="action">
+          {#if transcript.status === 'notConfigured'}
+            <p class="hint">{$_('transcript.notConfigured')}</p>
+            <Button variant="primary" block href="/settings/connectors/openai"
+              >{$_('transcript.configure')}</Button
+            >
+          {:else}
+            <Button
+              variant={transcribing ? 'danger' : 'primary'}
+              block
+              loading={transcriptPending}
+              disabled={!transcribing && !canTranscribe}
+              onclick={toggleTranscript}
+            >
+              {transcribing ? $_('transcript.stop') : $_('transcript.start')}
+            </Button>
+            {#if transcript.status === 'unavailable'}
+              <p class="hint">{$_('transcript.connectMixer')}</p>
+            {:else if transcript.status === 'error' && transcript.reason}
+              <p class="hint error">
+                {transcript.reason === 'noCredit' || transcript.reason === 'invalidKey'
+                  ? $_(`transcript.reason.${transcript.reason}`)
+                  : transcript.reason}
+              </p>
+            {/if}
+          {/if}
+          {#if transcript.youtube}
+            <p class="hint" class:error={!transcript.youtube.ok}>
+              {transcript.youtube.ok
+                ? $_('transcript.youtubeOk', { values: { seq: transcript.youtube.lastSeq } })
+                : transcript.youtube.lastError}
+            </p>
+          {/if}
+          <CreditLine />
+          <p class="hint"><a href="/transcript" target="_blank">{$_('transcript.open')}</a></p>
+        </div>
+      </article>
+    </section>
+  {/if}
+
   <div class="main-col">
     <SectionLabel hint={nextEvent ? timeShort(nextEvent.dateTime, loc) : ''}
       >{$_('dash.upNext')}</SectionLabel
@@ -229,6 +329,10 @@
       </List>
     {:else}
       <EmptyState title={$_('dash.noneScheduled')} hint={$_('dash.noneScheduledHint')} />
+    {/if}
+    {#if live.currentEvent ?? nextEvent}
+      {@const running = (live.currentEvent ?? nextEvent)!}
+      <OrderOfService eventId={running.id} mode="run" eventTitle={eventTitle(running)} />
     {/if}
   </div>
 
@@ -282,6 +386,12 @@
   }
   .hint.error {
     color: var(--status-error);
+  }
+  .hint a {
+    color: inherit;
+  }
+  .sub.line {
+    font-style: italic;
   }
   article {
     border: 1px solid color-mix(in srgb, var(--text-primary) 16%, transparent);

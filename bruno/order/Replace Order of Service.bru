@@ -1,0 +1,47 @@
+meta {
+  name: Replace Order of Service
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{baseUrl}}/api/events/{{eventId}}/order
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "items": [
+      { "kind": "block", "title": "Köszöntés, imádság" },
+      { "kind": "song", "title": "Mindörökké hű az Úr (603)", "deckPath": "/Users/operator/Songs/603.pptx", "notes": "Dicsőítő énekek" },
+      { "kind": "song", "title": "Emlékezzél meg az Úr jóságáról (602)", "deckPath": "/Users/operator/Songs/602.pptx" },
+      { "kind": "bible", "title": "Lekció", "bibleType": "leckio" },
+      { "kind": "block", "title": "Pásztori ima és Mi Atyánk" },
+      { "kind": "song", "title": "Ne félj, mert enyém vagy (405)", "deckPath": "/Users/operator/Songs/405.pptx" },
+      { "kind": "bible", "title": "Textus", "bibleType": "textus" },
+      { "kind": "block", "title": "Igehirdetés", "notes": "Khaled László" },
+      { "kind": "block", "title": "Ima" },
+      { "kind": "song", "title": "Ó, hála az Úrnak (47)", "deckPath": "/Users/operator/Songs/47.pptx", "notes": "1. vers" },
+      { "kind": "block", "title": "Beiktatás", "notes": "Kovács Zoltán" },
+      { "kind": "song", "title": "Ó, hála az Úrnak (47)", "deckPath": "/Users/operator/Songs/47.pptx", "notes": "2. vers – közben kollekta" },
+      { "kind": "block", "title": "Hirdetések, áldás" },
+      { "kind": "song", "title": "Záró énekvers" }
+    ]
+  }
+}
+
+docs {
+  Replaces the whole list and broadcasts `event.order.changed`. Send a step's `id` back to keep
+  it, so the step on screen stays current.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+}

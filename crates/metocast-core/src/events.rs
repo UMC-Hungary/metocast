@@ -198,3 +198,67 @@ mod tests {
         assert!(value.get("recording_count").is_none());
     }
 }
+
+/// What one step of an Order of Service shows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OrderItemKind {
+    /// A song: its deck from the slide folders in `deck_path`, or none (then the title names it).
+    Song,
+    /// One of the event's own readings, `textus` or `leckio`, in `bible_type`.
+    Bible,
+    /// A part of the service with no slides, such as a prayer or the sermon.
+    Block,
+}
+
+impl OrderItemKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Song => "song",
+            Self::Bible => "bible",
+            Self::Block => "block",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "song" => Some(Self::Song),
+            "bible" => Some(Self::Bible),
+            "block" => Some(Self::Block),
+            _ => None,
+        }
+    }
+}
+
+/// One step of an event's Order of Service.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderItem {
+    /// Absent for a step added in this edit; kept across edits so the live step survives them.
+    #[serde(default)]
+    pub id: Option<Uuid>,
+    pub kind: OrderItemKind,
+    #[serde(default)]
+    pub title: String,
+    #[serde(default)]
+    pub deck_path: Option<String>,
+    #[serde(default)]
+    pub bible_type: Option<String>,
+    /// For the people leading: the key, the verses to sing, who reads.
+    #[serde(default)]
+    pub notes: String,
+}
+
+/// `GET`/`PUT /api/events/{id}/order`: the whole list, in order.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct EventOrder {
+    pub items: Vec<OrderItem>,
+}
+
+/// The step the Order of Service is on, pushed as `order.state`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderPosition {
+    pub event_id: Uuid,
+    pub item_id: Uuid,
+}

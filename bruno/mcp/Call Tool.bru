@@ -1,0 +1,43 @@
+meta {
+  name: MCP - Call Tool
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/mcp
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+headers {
+  Accept: application/json, text/event-stream
+}
+
+body:json {
+  {
+    "jsonrpc": "2.0",
+    "id": 3,
+    "method": "tools/call",
+    "params": { "name": "events_list", "arguments": {} }
+  }
+}
+
+docs {
+  Runs one tool. `isError` is true when the operation failed; the text is the JSON the REST or
+  WebSocket operation returned. Arguments follow the tool's inputSchema: path parameters by
+  name, `query` and `body` objects for REST-backed tools.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("is not an error", function() {
+    expect(res.body.result.isError).to.equal(false);
+  });
+}

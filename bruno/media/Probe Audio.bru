@@ -1,0 +1,42 @@
+meta {
+  name: Probe Audio
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/media/audio/probe
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "paths": [
+      "/Volumes/WirelessPRO 1/00015_Wireless_PRO.WAV",
+      "/Volumes/WirelessPRO 1/00016_Wireless_PRO.WAV"
+    ]
+  }
+}
+
+docs {
+  Describes audio files on the server's disk, joined in the order given: format,
+  length, start time (the container's creation time, else the file's), the stored
+  audio defaults (`media` connector config), `missing` tools (ffmpeg, or a
+  configured jive-vocals that isn't there) and `downloads` (jive-vocals, fetched
+  by the first job).
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("response has the audio defaults", function() {
+    expect(res.body).to.have.property('defaults');
+    expect(res.body).to.have.property('downloads');
+  });
+}

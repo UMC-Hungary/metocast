@@ -14,11 +14,15 @@ struct EventEditorView: View {
     @State private var speaker: String
     @State private var textus: String
     @State private var leckio: String
+    @State private var textusTranslation: String
+    @State private var leckioTranslation: String
     /// Book hints per field, keyed by its label.
     @State private var suggestions: [String: [String]] = [:]
-    /// Verses by the reference they were looked up for; empty when the core found none. Keyed by
-    /// reference so a slow lookup for a half-typed one can never be saved with the finished one.
-    @State private var lookups: [String: [BibleVerseRecord]] = [:]
+    /// Verses by the reference and translation they were looked up for; empty when the core found none.
+    /// Keyed like that so a slow lookup for a half-typed reference can never be saved with the finished one.
+    @State private var lookups: [Lookup: [BibleVerseRecord]] = [:]
+    /// Why a lookup failed, such as a missing szentiras.eu key, so it isn't mistaken for "not found".
+    @State private var lookupFailures: [Lookup: String] = [:]
     @State private var summary: String
     @State private var privacy: String
     @State private var autoUpload: Bool
@@ -32,16 +36,27 @@ struct EventEditorView: View {
         self.onSaved = onSaved
         let reference = { (type: String) in event?.bibleReferences.first { $0.referenceType == type }?.reference ?? "" }
         _title = State(initialValue: event?.title ?? "")
+        // A new event starts at the next Sunday service, 10:00, like Sanctum and Classic (weekday 1 is Sunday).
         _date = State(initialValue: event?.date
-            ?? Calendar.current.nextDate(after: .now, matching: DateComponents(minute: 0), matchingPolicy: .nextTime)
+            ?? Calendar.current.nextDate(
+                after: .now, matching: DateComponents(hour: 10, minute: 0, weekday: 1), matchingPolicy: .nextTime
+            )
             ?? .now)
         _speaker = State(initialValue: event?.speaker ?? "")
         _textus = State(initialValue: reference("textus"))
         _leckio = State(initialValue: reference("leckio"))
+        let translation = { (type: String) in
+            event?.bibleReferences.first { $0.referenceType == type }?.translation ?? MetocastSession.defaultBibleTranslation
+        }
+        _textusTranslation = State(initialValue: translation("textus"))
+        _leckioTranslation = State(initialValue: translation("leckio"))
         _summary = State(initialValue: event?.description ?? "")
         _privacy = State(initialValue: event?.connections.first { $0.platform == "youtube" }?.privacyStatus ?? "public")
         _autoUpload = State(initialValue: event?.autoUploadEnabled ?? true)
     }
+
+    private var textusLookup: Lookup { Lookup(translation: textusTranslation, reference: textus.trimmingCharacters(in: .whitespaces)) }
+    private var leckioLookup: Lookup { Lookup(translation: leckioTranslation, reference: leckio.trimmingCharacters(in: .whitespaces)) }
 
     private var publishedTitle: String {
         renderTitle(template, TitleValues(date: date, title: title, textus: textus, leckio: leckio, speaker: speaker))
@@ -68,6 +83,7 @@ struct EventEditorView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(event == nil ? "Add" : "Save", role: .confirm, action: save)
+                        .pointingHand()
                         .disabled(!canSave)
                 }
             }
@@ -86,6 +102,7 @@ struct EventEditorView: View {
                             ProgressView()
                         } else {
                             Button(event == nil ? "Add" : "Save", systemImage: "checkmark", role: .confirm, action: save)
+                                .pointingHand()
                                 .disabled(!canSave)
                         }
                     }
@@ -107,6 +124,7 @@ struct EventEditorView: View {
             } footer: {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(publishedTitle)
+                        .accessibilityLabel("Published title: \(publishedTitle)")
                     if publishedTitle.count > 100 {
                         Text("YouTube titles can be at most 100 characters; this one has \(publishedTitle.count).")
                             .foregroundStyle(.red)
@@ -114,10 +132,12 @@ struct EventEditorView: View {
                 }
             }
             Section {
-                referenceField("Textus", text: $textus)
-                referenceField("Lekció", text: $leckio)
+                referenceField("Textus", text: $textus, translation: $textusTranslation)
+                referenceField("Lekció", text: $leckio, translation: $leckioTranslation)
             } header: {
                 Text("Bible")
+            } footer: {
+                Text("UF and RUF (v2) come from our own Bible API. The other translations come from szentiras.eu and need its API key under Connectors.")
             }
             Section {
                 TextField("Description", text: $summary, axis: .vertical)
@@ -144,15 +164,21 @@ struct EventEditorView: View {
         // Switches on both platforms; the Mac would otherwise draw checkboxes.
         .toggleStyle(.switch)
         .task { template = await model.session?.titleTemplate() ?? template }
-        .task(id: textus) { await lookUp(textus) }
-        .task(id: leckio) { await lookUp(leckio) }
+        .task(id: textusLookup) { await lookUp(textusLookup) }
+        .task(id: leckioLookup) { await lookUp(leckioLookup) }
         .task(id: textus) { await suggest("Textus", text: textus) }
         .task(id: leckio) { await suggest("Lekció", text: leckio) }
     }
 
-    private func referenceField(_ label: String, text: Binding<String>) -> some View {
+    private func referenceField(_ label: String, text: Binding<String>, translation: Binding<String>) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            referenceRow(label, text: text)
+            translationPicker(label, selection: translation)
+            referenceRow(label, text: text, translation: translation.wrappedValue)
+            if let message = lookupFailures[Lookup(translation: translation.wrappedValue, reference: text.wrappedValue.trimmingCharacters(in: .whitespaces))] {
+                Text(message)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+            }
             // The book list comes from the core; a tap fills the field in, chapter and all.
             if let hits = suggestions[label], !hits.isEmpty {
                 ScrollView(.horizontal) {
@@ -169,13 +195,30 @@ struct EventEditorView: View {
         }
     }
 
-    private func referenceRow(_ label: String, text: Binding<String>) -> some View {
+    private func translationPicker(_ label: String, selection: Binding<String>) -> some View {
+        // A translation stored by another app, such as plain "UF", stays selectable.
+        var options = MetocastSession.bibleTranslations
+        if !options.contains(where: { $0.code == selection.wrappedValue }) {
+            options.append(.init(code: selection.wrappedValue, name: selection.wrappedValue))
+        }
+        return Picker("\(label) Translation", selection: selection) {
+            Section("Our API") {
+                ForEach(options.filter(\.isOurs), id: \.code) { Text($0.name).tag($0.code) }
+            }
+            Section("Szentírás.eu") {
+                ForEach(options.filter { !$0.isOurs }, id: \.code) { Text($0.name).tag($0.code) }
+            }
+        }
+        .pointingHand()
+    }
+
+    private func referenceRow(_ label: String, text: Binding<String>, translation: String) -> some View {
         LabeledContent {
             HStack {
                 TextField(label, text: text, prompt: Text("Jn 3,16-21"))
                     .labelsHidden()
                     .autocorrectionDisabled()
-                if let verses = lookups[text.wrappedValue.trimmingCharacters(in: .whitespaces)] {
+                if let verses = lookups[Lookup(translation: translation, reference: text.wrappedValue.trimmingCharacters(in: .whitespaces))] {
                     if verses.isEmpty {
                         Image(systemName: "exclamationmark.triangle")
                             .foregroundStyle(.orange)
@@ -197,7 +240,7 @@ struct EventEditorView: View {
     /// this task, so the core is asked once the typing pauses.
     private func suggest(_ label: String, text: String) async {
         let term = text.trimmingCharacters(in: .whitespaces)
-        guard term.count >= 2, !lookups.keys.contains(term) else {
+        guard term.count >= 2, !lookups.keys.contains(where: { $0.reference == term }) else {
             suggestions[label] = []
             return
         }
@@ -211,16 +254,14 @@ struct EventEditorView: View {
     }
 
     /// Waits for typing to pause (a newer edit cancels this task), then asks the core.
-    private func lookUp(_ text: String) async {
-        let reference = text.trimmingCharacters(in: .whitespaces)
-        guard !reference.isEmpty, lookups[reference] == nil else { return }
+    private func lookUp(_ key: Lookup) async {
+        guard !key.reference.isEmpty, lookups[key] == nil, let session = model.session else { return }
         do {
             try await Task.sleep(for: .milliseconds(500))
+            lookups[key] = try await session.verses(for: key.reference, translation: key.translation)
+            lookupFailures[key] = nil
         } catch {
-            return
-        }
-        if let verses = try? await model.session?.verses(for: reference) {
-            lookups[reference] = verses
+            if !Task.isCancelled { lookupFailures[key] = error.metocastMessage }
         }
     }
 
@@ -230,8 +271,8 @@ struct EventEditorView: View {
         error = nil
         Task {
             var references: [BibleReferenceRecord] = []
-            for (type, text) in [("textus", textus), ("leckio", leckio)] {
-                if let reference = await reference(type, text: text, session: session) {
+            for (type, key) in [("textus", textusLookup), ("leckio", leckioLookup)] {
+                if let reference = await reference(type, key, session: session) {
                     references.append(reference)
                 }
             }
@@ -258,20 +299,25 @@ struct EventEditorView: View {
 
     /// An empty reference tells the core to remove it; one that doesn't resolve is left as stored.
     /// Saving before the typing pause is over looks the reference up now.
-    private func reference(_ type: String, text: String, session: MetocastSession) async -> BibleReferenceRecord? {
-        let reference = text.trimmingCharacters(in: .whitespaces)
+    private func reference(_ type: String, _ key: Lookup, session: MetocastSession) async -> BibleReferenceRecord? {
         var verses: [BibleVerseRecord] = []
-        if !reference.isEmpty {
-            guard let found = await lookedUp(reference, session: session), !found.isEmpty else { return nil }
+        if !key.reference.isEmpty {
+            guard let found = await lookedUp(key, session: session), !found.isEmpty else { return nil }
             verses = found
         }
         return BibleReferenceRecord(
-            referenceType: type, reference: reference, translation: MetocastSession.bibleTranslation, verses: verses
+            referenceType: type, reference: key.reference, translation: key.translation, verses: verses
         )
     }
 
-    private func lookedUp(_ reference: String, session: MetocastSession) async -> [BibleVerseRecord]? {
-        if let verses = lookups[reference] { return verses }
-        return try? await session.verses(for: reference)
+    private func lookedUp(_ key: Lookup, session: MetocastSession) async -> [BibleVerseRecord]? {
+        if let verses = lookups[key] { return verses }
+        return try? await session.verses(for: key.reference, translation: key.translation)
     }
+}
+
+/// A reference as looked up in one translation.
+private struct Lookup: Hashable {
+    let translation: String
+    let reference: String
 }

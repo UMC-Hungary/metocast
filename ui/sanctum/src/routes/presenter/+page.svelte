@@ -4,6 +4,14 @@
   import { connectPresenterWs } from '@metocast/core-client';
   import { WsMessageSchema } from '@metocast/core-client/schemas/ws-messages';
   import type { PresenterState, PresenterTheme } from '@metocast/core-client/schemas/ws-messages';
+  import type { OrderItem, OrderPosition } from '@metocast/core-client';
+  import { _ } from 'svelte-i18n';
+
+  // `?view=order` shows the running Order of Service instead of the slides: a read-only page
+  // for a stage screen or for people following along, which follows the step on screen.
+  const orderView = $derived($page.url.searchParams.get('view') === 'order');
+  let orderItems = $state<OrderItem[]>([]);
+  let orderPosition = $state<OrderPosition | null>(null);
 
   // ── Standalone WS connection ──────────────────────────────────────────────
 
@@ -42,6 +50,11 @@
               totalSlides: msg.totalSlides,
             };
           }
+        } else if (msg.type === 'order.state') {
+          orderPosition = msg.position;
+          orderItems = msg.items;
+        } else if (msg.type === 'event.order.changed') {
+          if (msg.eventId === orderPosition?.eventId) orderItems = msg.items;
         } else if (msg.type === 'ping') {
           send({ type: 'pong', ping_id: msg.pingId });
         }
@@ -51,6 +64,7 @@
     standaloneSocket.addEventListener('open', () => {
       send({ type: 'presenter.register', label: 'Presenter Display' });
       send({ type: 'presenter.status' });
+      send({ type: 'order.status' });
     });
 
     standaloneSocket.addEventListener('close', () => {
@@ -120,6 +134,7 @@
   });
 
   function handleKey(e: KeyboardEvent) {
+    if (orderView) return;
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
       navigate('next');
     } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
@@ -262,102 +277,129 @@
   <title>Presenter</title>
 </svelte:head>
 
-<div class="presenter-root">
-  {#if isMuted}
-    <div class="mute-overlay" aria-label="Display muted">
-      {#if token}
-        <button class="unmute-hint" onclick={toggleMute} aria-label="Unmute display">
-          Click or press B to unmute
-        </button>
-      {/if}
-    </div>
-  {:else if !isLoaded}
-    <div class="waiting">
-      <p>Waiting for presentation…</p>
-      <p class="hint">Load a .pptx file from the Presentations page to begin.</p>
-    </div>
-  {:else}
-    {#if shouldRenderSvg}
-      <div class="svg-stage">
-        {#if svgObjectUrl}
-          <img class="svg-slide" src={svgObjectUrl} alt="Current slide" />
+{#if orderView}
+  <main class="order-view">
+    <h1>{$_('order.title')}</h1>
+    {#if orderItems.length === 0}
+      <p class="order-waiting">{$_('order.waiting')}</p>
+    {:else}
+      <ol>
+        {#each orderItems as item, index (item.id ?? index)}
+          <li aria-current={item.id === orderPosition?.itemId ? 'step' : undefined}>
+            <span class="order-number">{index + 1}</span>
+            <span class="order-text">
+              <span class="order-title"
+                >{item.title ||
+                  (item.kind === 'bible'
+                    ? $_(item.bibleType === 'textus' ? 'order.textus' : 'order.leckio')
+                    : $_(`order.kind.${item.kind}`))}</span
+              >
+              {#if item.notes}<span class="order-notes">{item.notes}</span>{/if}
+            </span>
+          </li>
+        {/each}
+      </ol>
+    {/if}
+  </main>
+{:else}
+  <div class="presenter-root">
+    {#if isMuted}
+      <div class="mute-overlay" aria-label="Display muted">
+        {#if token}
+          <button class="unmute-hint" onclick={toggleMute} aria-label="Unmute display">
+            Click or press B to unmute
+          </button>
         {/if}
       </div>
-    {:else if presenterTheme === 'editorial' && editorialBlank}
-      <div class="editorial-stage blank"></div>
-    {:else if presenterTheme === 'editorial'}
-      <div class="editorial-stage" class:bible={editorialBible} data-density={editorialDensity}>
-        {#if editorialBible}
-          <p class="editorial-eyebrow">{bibleLabel(counterParagraph)}</p>
-          <p class="editorial-verse-number">{bibleVerseNumber(counterParagraph)}</p>
-          <div class="editorial-scripture">
-            {#each mainParagraphs as paragraph, i (i)}
-              <p>
-                {#each paragraph.lines as line, j (j)}
-                  {#if j > 0}<br />{/if}{line}
-                {/each}
-              </p>
-            {/each}
-          </div>
-        {:else}
-          <p class="editorial-eyebrow">
-            {editorialSongTitle ? 'Ének' : deckLabel(standaloneState?.filePath)}
-          </p>
-          <div
-            class="editorial-lyrics"
-            class:title={editorialSongTitle}
-            style:font-size={`${editorialSongFontSize}vw`}
-          >
-            {#each editorialSongLines as line, i (i)}
-              <span class="editorial-line">{line || '\u00a0'}</span>
-            {/each}
-          </div>
-          {#if !editorialSongTitle}<p class="editorial-section">{slideIndex}. dia</p>{/if}
-        {/if}
-        <p class="editorial-mark">Metocast</p>
+    {:else if !isLoaded}
+      <div class="waiting">
+        <p>Waiting for presentation…</p>
+        <p class="hint">Load a .pptx file from the Presentations page to begin.</p>
       </div>
     {:else}
-      <div class="slide-area" bind:this={slideAreaEl}>
-        <div class="main-content" style:visibility={scaleFactor > 0 ? 'visible' : 'hidden'}>
-          <div class="text-container">
-            {#each mainParagraphs as para, i (i)}
-              <p
-                class="slide-text"
-                class:no-wrap={!counterParagraph}
-                style="text-align: {para.align}; font-size: {fontSizePx(para.fontSizePt)}px"
-              >
-                {#each para.lines as line, i (i)}
-                  {#if i > 0}<br />{/if}{line}
-                {/each}
-              </p>
-            {/each}
-          </div>
+      {#if shouldRenderSvg}
+        <div class="svg-stage">
+          {#if svgObjectUrl}
+            <img class="svg-slide" src={svgObjectUrl} alt="Current slide" />
+          {/if}
         </div>
-        {#if counterParagraph}
-          <p
-            class="counter-text"
-            style:visibility={scaleFactor > 0 ? 'visible' : 'hidden'}
-            style="font-size: {counterFontSizePx()}px"
-          >
-            {#each counterParagraph.lines as line, i (i)}
-              {#if i > 0}<br />{/if}{line}
-            {/each}
-          </p>
-        {/if}
-      </div>
-    {/if}
+      {:else if presenterTheme === 'editorial' && editorialBlank}
+        <div class="editorial-stage blank"></div>
+      {:else if presenterTheme === 'editorial'}
+        <div class="editorial-stage" class:bible={editorialBible} data-density={editorialDensity}>
+          {#if editorialBible}
+            <p class="editorial-eyebrow">{bibleLabel(counterParagraph)}</p>
+            <p class="editorial-verse-number">{bibleVerseNumber(counterParagraph)}</p>
+            <div class="editorial-scripture">
+              {#each mainParagraphs as paragraph, i (i)}
+                <p>
+                  {#each paragraph.lines as line, j (j)}
+                    {#if j > 0}<br />{/if}{line}
+                  {/each}
+                </p>
+              {/each}
+            </div>
+          {:else}
+            <p class="editorial-eyebrow">
+              {editorialSongTitle ? 'Ének' : deckLabel(standaloneState?.filePath)}
+            </p>
+            <div
+              class="editorial-lyrics"
+              class:title={editorialSongTitle}
+              style:font-size={`${editorialSongFontSize}vw`}
+            >
+              {#each editorialSongLines as line, i (i)}
+                <span class="editorial-line">{line || '\u00a0'}</span>
+              {/each}
+            </div>
+            {#if !editorialSongTitle}<p class="editorial-section">{slideIndex}. dia</p>{/if}
+          {/if}
+          <p class="editorial-mark">Metocast</p>
+        </div>
+      {:else}
+        <div class="slide-area" bind:this={slideAreaEl}>
+          <div class="main-content" style:visibility={scaleFactor > 0 ? 'visible' : 'hidden'}>
+            <div class="text-container">
+              {#each mainParagraphs as para, i (i)}
+                <p
+                  class="slide-text"
+                  class:no-wrap={!counterParagraph}
+                  style="text-align: {para.align}; font-size: {fontSizePx(para.fontSizePt)}px"
+                >
+                  {#each para.lines as line, i (i)}
+                    {#if i > 0}<br />{/if}{line}
+                  {/each}
+                </p>
+              {/each}
+            </div>
+          </div>
+          {#if counterParagraph}
+            <p
+              class="counter-text"
+              style:visibility={scaleFactor > 0 ? 'visible' : 'hidden'}
+              style="font-size: {counterFontSizePx()}px"
+            >
+              {#each counterParagraph.lines as line, i (i)}
+                {#if i > 0}<br />{/if}{line}
+              {/each}
+            </p>
+          {/if}
+        </div>
+      {/if}
 
-    {#if token}
-      <div class="nav-bar">
-        <button class="nav-btn" onclick={() => navigate('prev')} aria-label="Previous slide"
-          >◀</button
-        >
-        <span class="slide-counter">{slideIndex} / {slideTotal}</span>
-        <button class="nav-btn" onclick={() => navigate('next')} aria-label="Next slide">▶</button>
-      </div>
+      {#if token}
+        <div class="nav-bar">
+          <button class="nav-btn" onclick={() => navigate('prev')} aria-label="Previous slide"
+            >◀</button
+          >
+          <span class="slide-counter">{slideIndex} / {slideTotal}</span>
+          <button class="nav-btn" onclick={() => navigate('next')} aria-label="Next slide">▶</button
+          >
+        </div>
+      {/if}
     {/if}
-  {/if}
-</div>
+  </div>
+{/if}
 
 <style>
   @font-face {
@@ -776,6 +818,55 @@
 
   .hint {
     font-size: 1rem !important;
+    opacity: 0.7;
+  }
+  .order-view {
+    min-height: 100vh;
+    padding: 32px 24px;
+    background: #000;
+    color: #fff;
+    font-family: var(--font-display, system-ui);
+  }
+  .order-view h1 {
+    margin: 0 0 24px;
+    font-size: 1.4rem;
+    font-weight: 500;
+    opacity: 0.7;
+  }
+  .order-view ol {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .order-view li {
+    display: grid;
+    grid-template-columns: 2.5ch 1fr;
+    gap: 16px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 1.6rem;
+    opacity: 0.55;
+  }
+  .order-view li[aria-current='step'] {
+    background: rgba(255, 255, 255, 0.14);
+    opacity: 1;
+  }
+  .order-number {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  .order-text {
+    display: grid;
+    gap: 2px;
+  }
+  .order-notes {
+    font-size: 1.1rem;
+    opacity: 0.75;
+  }
+  .order-waiting {
+    font-size: 1.4rem;
     opacity: 0.7;
   }
 </style>

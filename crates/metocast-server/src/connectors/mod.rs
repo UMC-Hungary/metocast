@@ -7,6 +7,7 @@ pub mod facebook;
 pub mod keynote;
 pub mod middlecontrol;
 pub mod obs;
+pub mod preset_tracker;
 pub mod rodecaster;
 pub mod rodecaster_audio;
 pub mod vmix;

@@ -1,0 +1,26 @@
+meta {
+  name: Cancel Render
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/media/renders/{{renderJobId}}/cancel
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  Stops a queued or running render, audio or program job; its partial files are
+  removed.
+}
+
+tests {
+  test("status is 204", function() {
+    expect(res.status).to.equal(204);
+  });
+}

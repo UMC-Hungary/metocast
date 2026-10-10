@@ -1,7 +1,13 @@
 import WebSocket from 'ws'
 import {
+	AutomationRunMessageSchema,
+	AutomationsChangedMessageSchema,
+	DeskRecorderMessageSchema,
 	PresentationSettingsMessageSchema,
+	OrderStateMessageSchema,
+	type OrderStep,
 	PresenterEventListResponseSchema,
+	type AutomationSummary,
 	type BibleReferenceType,
 	type EventSummary,
 	type ModuleConfig,
@@ -30,6 +36,11 @@ export class MetocastApi {
 	private onPresentationStatusChanged?: (status: PresentationStatus) => void
 	private onPresentationSettingsChanged?: (useWebPresenter: boolean) => void
 	private onEventsChanged?: () => void
+	private onTranscriptionStatusChanged?: (status: string) => void
+	private onAutomationsChanged?: (armed: boolean, automations: AutomationSummary[]) => void
+	private onAutomationRun?: (name: string, manual: boolean, failures: number) => void
+	private onOrderStepChanged?: (step: OrderStep | null) => void
+	private onDeskRecorderChanged?: (status: 'stopped' | 'paused' | 'recording', mediaPresent: boolean) => void
 	private useWebPresenter = false
 
 	constructor(config: ModuleConfig) {
@@ -232,6 +243,15 @@ export class MetocastApi {
 		return sent ? { success: true } : { success: false, error: 'WebSocket not connected' }
 	}
 
+	/**
+	 * Moves the event's Order of Service one step. With no step on screen, `eventId` names the
+	 * event whose first step `next` shows.
+	 */
+	orderStep(direction: 'next' | 'previous', eventId: string | null): { success: boolean; error?: string } {
+		const sent = this.sendWsCommand(`order.${direction}`, { event_id: eventId })
+		return sent ? { success: true } : { success: false, error: 'WebSocket not connected' }
+	}
+
 	async presentationGoto(slideNumber: number): Promise<{ success: boolean; error?: string }> {
 		const sent = this.sendWsCommand('presentation.goto', { slide: slideNumber })
 		return sent ? { success: true } : { success: false, error: 'WebSocket not connected' }
@@ -287,6 +307,11 @@ export class MetocastApi {
 		onPresentationStatusChanged?: (status: PresentationStatus) => void
 		onPresentationSettingsChanged?: (useWebPresenter: boolean) => void
 		onEventsChanged?: () => void
+		onTranscriptionStatusChanged?: (status: string) => void
+		onAutomationsChanged?: (armed: boolean, automations: AutomationSummary[]) => void
+		onAutomationRun?: (name: string, manual: boolean, failures: number) => void
+		onDeskRecorderChanged?: (status: 'stopped' | 'paused' | 'recording', mediaPresent: boolean) => void
+		onOrderStepChanged?: (step: OrderStep | null) => void
 	}): void {
 		this.onConnectionChange = callbacks.onConnectionChange
 		this.onPptFoldersChanged = callbacks.onPptFoldersChanged
@@ -294,6 +319,11 @@ export class MetocastApi {
 		this.onPresentationStatusChanged = callbacks.onPresentationStatusChanged
 		this.onPresentationSettingsChanged = callbacks.onPresentationSettingsChanged
 		this.onEventsChanged = callbacks.onEventsChanged
+		this.onTranscriptionStatusChanged = callbacks.onTranscriptionStatusChanged
+		this.onAutomationsChanged = callbacks.onAutomationsChanged
+		this.onAutomationRun = callbacks.onAutomationRun
+		this.onDeskRecorderChanged = callbacks.onDeskRecorderChanged
+		this.onOrderStepChanged = callbacks.onOrderStepChanged
 	}
 
 	connectWebSocket(): void {
@@ -386,6 +416,41 @@ export class MetocastApi {
 			}
 			case 'event.changed': {
 				this.onEventsChanged?.()
+				break
+			}
+			case 'order.state': {
+				const result = OrderStateMessageSchema.safeParse(message)
+				if (!result.success) break
+				const { position, items } = result.data
+				const index = position ? items.findIndex((item) => item.id === position.itemId) : -1
+				const item = items[index]
+				this.onOrderStepChanged?.(
+					item ? { title: item.title || item.kind, number: index + 1, count: items.length } : null,
+				)
+				break
+			}
+			case 'transcription.snapshot':
+			case 'transcription.state': {
+				const status = (message.state as { status?: unknown } | undefined)?.status
+				if (typeof status === 'string') this.onTranscriptionStatusChanged?.(status)
+				break
+			}
+			case 'automations.changed': {
+				const result = AutomationsChangedMessageSchema.safeParse(message)
+				if (result.success) this.onAutomationsChanged?.(result.data.armed, result.data.automations)
+				break
+			}
+			case 'automation.run': {
+				const result = AutomationRunMessageSchema.safeParse(message)
+				if (result.success) {
+					const { name, manual, results } = result.data.run
+					this.onAutomationRun?.(name, manual, results.filter((r) => r.outcome === 'failed').length)
+				}
+				break
+			}
+			case 'rodecaster.record.state': {
+				const result = DeskRecorderMessageSchema.safeParse(message)
+				if (result.success) this.onDeskRecorderChanged?.(result.data.state.status, result.data.state.mediaPresent)
 				break
 			}
 			case 'ppt.folders_changed': {
