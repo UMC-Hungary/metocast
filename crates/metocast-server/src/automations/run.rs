@@ -165,6 +165,7 @@ mod tests {
 
     use super::*;
     use crate::connectors::preset_tracker::{Motion, PresetEvent, PresetFinished, PresetStarted};
+    use metocast_core::best_effort::LogGone;
 
     /// What the fake devices were asked, and when, from the start of the test.
     #[derive(Debug, Clone, PartialEq, Eq)]
@@ -274,19 +275,23 @@ mod tests {
                     if moves {
                         motion.send_modify(|m| m.pan = Some(300));
                     }
-                    let _ = events.send(PresetEvent::Started(PresetStarted {
-                        preset,
-                        camera_id: 1,
-                        at: Utc::now(),
-                        chain: Vec::new(),
-                    }));
+                    events
+                        .send(PresetEvent::Started(PresetStarted {
+                            preset,
+                            camera_id: 1,
+                            at: Utc::now(),
+                            chain: Vec::new(),
+                        }))
+                        .log_gone();
                     tokio::time::sleep(after).await;
-                    let _ = events.send(PresetEvent::Finished(PresetFinished {
-                        preset,
-                        camera_id: 1,
-                        at: Utc::now(),
-                        chain: Vec::new(),
-                    }));
+                    events
+                        .send(PresetEvent::Finished(PresetFinished {
+                            preset,
+                            camera_id: 1,
+                            at: Utc::now(),
+                            chain: Vec::new(),
+                        }))
+                        .log_gone();
                 });
             }
             Ok(())

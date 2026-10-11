@@ -1,5 +1,6 @@
 mod discovery;
 use discovery::{DiscoveredDeviceRecord, DiscoveryTool};
+use metocast_core::best_effort::LogGone;
 
 use std::sync::{Arc, Mutex};
 
@@ -1357,7 +1358,7 @@ impl AppleClient {
             if let Ok(mut slot) = stored_connection.lock() {
                 *slot = Some(connection.clone());
             }
-            let _ = ready_tx.send(());
+            ready_tx.send(()).log_gone();
             listener.on_state_changed(connection_state(*state.borrow()));
             loop {
                 tokio::select! {

@@ -62,13 +62,19 @@ impl Broadcaster {
                 let page = page.clone();
                 tokio::spawn(async move {
                     let mut request = [0_u8; 4_096];
-                    let _ = stream.read(&mut request).await;
+                    if stream.read(&mut request).await.is_err() {
+                        return;
+                    }
                     let response = format!(
                         "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\
                          Content-Length: {}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n{page}",
                         page.len()
                     );
-                    let _ = stream.write_all(response.as_bytes()).await;
+                    if let Err(error) = stream.write_all(response.as_bytes()).await {
+                        eprintln!(
+                            "metocast-transcribe: the viewer page was not delivered: {error}"
+                        );
+                    }
                 });
             }
         });
@@ -132,10 +138,21 @@ impl Broadcaster {
         let mut frame = Vec::with_capacity(1 + pcm.len() * 2);
         frame.push(tag);
         frame.extend(pcm.iter().flat_map(|s| s.to_le_bytes()));
-        let _ = self.tx.send(Message::Binary(frame));
+        self.broadcast(Message::Binary(frame));
     }
 
     fn send_json(&self, value: &serde_json::Value) {
-        let _ = self.tx.send(Message::Text(value.to_string()));
+        self.broadcast(Message::Text(value.to_string()));
+    }
+
+    /// With no viewer connected, the normal state until the page is opened, there is nobody to
+    /// send to. Only a viewer that leaves between the check and the send is worth a line.
+    fn broadcast(&self, message: Message) {
+        if self.tx.receiver_count() == 0 {
+            return;
+        }
+        if let Err(error) = self.tx.send(message) {
+            eprintln!("metocast-transcribe: the last viewer left mid-send: {error}");
+        }
     }
 }

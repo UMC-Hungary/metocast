@@ -84,7 +84,8 @@ pub enum RealtimeEvent {
     },
 }
 
-/// Streams `audio` to the API until the channel closes and the server goes quiet.
+/// Streams `audio` to the API until the channel closes and the server goes quiet, or until the
+/// consumer of `events` is gone.
 ///
 /// # Errors
 /// Returns an error when the connection or handshake fails (for example a bad API key) or the
@@ -96,7 +97,12 @@ pub async fn run(
 ) -> Result<()> {
     // A process that links both rustls backends (reqwest brings aws-lc-rs, tungstenite ring)
     // makes rustls panic at connect instead of choosing. Installing is a no-op once one is set.
-    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+    if rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .is_err()
+    {
+        tracing::trace!("a rustls crypto provider is already installed");
+    }
     let mut request = config
         .url
         .as_str()
@@ -132,7 +138,10 @@ pub async fn run(
                             });
                             match sink.send(Message::Text(append.to_string())).await {
                                 Ok(()) => {
-                                    let _ = events.send(RealtimeEvent::AudioSent { at_ms: at_ms(sent_samples) });
+                                    let sent = RealtimeEvent::AudioSent { at_ms: at_ms(sent_samples) };
+                                    if !deliver(&events, sent) {
+                                        return Ok(());
+                                    }
                                 }
                                 Err(e) => {
                                     write_error = Some(e);
@@ -158,10 +167,13 @@ pub async fn run(
                 if let Some(e) = write_error {
                     return Err(ws_error(e));
                 }
-                let _ = events.send(RealtimeEvent::Closed {
-                    at_ms: now,
-                    reason: "connection ended".into(),
-                });
+                deliver(
+                    &events,
+                    RealtimeEvent::Closed {
+                        at_ms: now,
+                        reason: "connection ended".into(),
+                    },
+                );
                 return Ok(());
             }
             Some(Err(e)) => return Err(ws_error(write_error.unwrap_or(e))),
@@ -170,21 +182,30 @@ pub async fn run(
                     || "closed".to_string(),
                     |f| format!("{} {}", f.code, f.reason),
                 );
-                let _ = events.send(RealtimeEvent::Closed { at_ms: now, reason });
+                deliver(&events, RealtimeEvent::Closed { at_ms: now, reason });
                 return Ok(());
             }
-            Some(Ok(Message::Text(text))) => forward(&text, now, config.forward_audio, &events),
+            Some(Ok(Message::Text(text))) => {
+                if !forward(&text, now, config.forward_audio, &events) {
+                    return Ok(());
+                }
+            }
             Some(Ok(_)) => {}
         }
     }
     if let Some(e) = write_error {
         return Err(ws_error(e));
     }
-    let _ = sink.send(Message::Close(None)).await;
-    let _ = events.send(RealtimeEvent::Closed {
-        at_ms: at_ms(sent_samples),
-        reason: "drained".into(),
-    });
+    if let Err(error) = sink.send(Message::Close(None)).await {
+        tracing::debug!(%error, "the close frame was not sent");
+    }
+    deliver(
+        &events,
+        RealtimeEvent::Closed {
+            at_ms: at_ms(sent_samples),
+            reason: "drained".into(),
+        },
+    );
     Ok(())
 }
 
@@ -209,14 +230,16 @@ fn forward(
     at_ms: u64,
     forward_audio: bool,
     events: &mpsc::UnboundedSender<RealtimeEvent>,
-) {
+) -> bool {
     let Ok(value) = serde_json::from_str::<Value>(text) else {
-        let _ = events.send(RealtimeEvent::Server {
-            at_ms,
-            kind: "unparsable".into(),
-            raw: Value::String(text.chars().take(500).collect()),
-        });
-        return;
+        return deliver(
+            events,
+            RealtimeEvent::Server {
+                at_ms,
+                kind: "unparsable".into(),
+                raw: Value::String(text.chars().take(500).collect()),
+            },
+        );
     };
     let kind = value["type"].as_str().unwrap_or("unknown").to_string();
     let event = match kind.as_str() {
@@ -243,7 +266,7 @@ fn forward(
                 });
             match pcm {
                 Some(pcm) => RealtimeEvent::TargetAudio { at_ms, pcm },
-                None => return,
+                None => return true,
             }
         }
         _ => RealtimeEvent::Server {
@@ -252,7 +275,17 @@ fn forward(
             raw: value,
         },
     };
-    let _ = events.send(event);
+    deliver(events, event)
+}
+
+/// Hands an event to the consumer. `false` means it dropped its receiver: nobody is listening,
+/// so the stream stops instead of paying for audio no one reads.
+fn deliver(events: &mpsc::UnboundedSender<RealtimeEvent>, event: RealtimeEvent) -> bool {
+    let delivered = events.send(event).is_ok();
+    if !delivered {
+        tracing::debug!("the realtime event consumer is gone");
+    }
+    delivered
 }
 
 fn delta_text(value: &Value) -> String {

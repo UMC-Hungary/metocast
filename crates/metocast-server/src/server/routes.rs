@@ -5,6 +5,7 @@ use axum::{
     response::{Html, IntoResponse, Response},
 };
 use chrono::Utc;
+use metocast_core::best_effort::{LogFailed, LogGone};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::net::SocketAddr;
@@ -761,7 +762,8 @@ pub(crate) async fn discover_cameras(
 
     let msg = json!({ "type": "blackmagic-camera.discovered", "cameras": cameras }).to_string();
     for tx in state.ws_clients.read().await.values() {
-        let _ = tx.send(axum::extract::ws::Message::Text(msg.clone().into()));
+        tx.send(axum::extract::ws::Message::Text(msg.clone().into()))
+            .log_gone();
     }
 
     adopt_camera(state, found.first()).await;
@@ -1096,7 +1098,6 @@ pub async fn trigger_youtube_schedule(
         .unwrap_or("private");
 
     match youtube::schedule_event(
-        &event.id.to_string(),
         event.published_title(),
         &event.date_time,
         &token.access_token,
@@ -1142,7 +1143,7 @@ pub async fn trigger_youtube_schedule(
         }
         Err(e) => {
             tracing::error!("YouTube schedule_event failed: {e}");
-            let _ = async {
+            if let Err(error) = async {
                 let mut tx = state.pool.begin().await?;
                 sqlx::query("SET LOCAL app.skip_sync_notify = 'true'")
                     .execute(&mut *tx)
@@ -1164,7 +1165,10 @@ pub async fn trigger_youtube_schedule(
                 tx.commit().await?;
                 anyhow::Ok(())
             }
-            .await;
+            .await
+            {
+                tracing::warn!(%error, "could not record the failed schedule");
+            }
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({"error": e.to_string()})),
@@ -1290,7 +1294,7 @@ pub async fn trigger_facebook_schedule(
         }
         Err(e) => {
             tracing::error!("Facebook schedule_event failed: {e}");
-            let _ = async {
+            if let Err(error) = async {
                 let mut tx = state.pool.begin().await?;
                 sqlx::query("SET LOCAL app.skip_sync_notify = 'true'")
                     .execute(&mut *tx)
@@ -1312,7 +1316,10 @@ pub async fn trigger_facebook_schedule(
                 tx.commit().await?;
                 anyhow::Ok(())
             }
-            .await;
+            .await
+            {
+                tracing::warn!(%error, "could not record the failed schedule");
+            }
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({"error": e.to_string()})),
@@ -2817,12 +2824,13 @@ pub async fn broadlink_discover(State(state): State<AppState>) -> impl IntoRespo
                     .to_string();
                     let guard = clients.read().await;
                     for tx in guard.values() {
-                        let _ = tx.send(axum::extract::ws::Message::Text(msg.clone().into()));
+                        tx.send(axum::extract::ws::Message::Text(msg.clone().into()))
+                            .log_gone();
                     }
                     drop(guard);
 
                     // Upsert discovered device into DB
-                    let _ = sqlx::query(
+                    sqlx::query(
                         "INSERT INTO broadlink_devices (name, device_type, model, host, mac, last_seen_at) \
                          VALUES ($1, $2, $3, $4, $5, NOW()) \
                          ON CONFLICT (mac) DO UPDATE SET host = EXCLUDED.host, last_seen_at = NOW()",
@@ -2833,7 +2841,7 @@ pub async fn broadlink_discover(State(state): State<AppState>) -> impl IntoRespo
                     .bind(&dev.host)
                     .bind(&dev.mac)
                     .execute(&pool)
-                    .await;
+                    .await.log_failed();
                 }
 
                 // Refresh status after upserts
@@ -3065,7 +3073,7 @@ pub async fn broadlink_start_learn(
                 error: Some(e),
             },
         };
-        let _ = learn_tx.send(event);
+        learn_tx.send(event).log_gone();
         learn_active.store(false, Ordering::SeqCst);
     });
 

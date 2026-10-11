@@ -98,8 +98,15 @@ impl Bridge {
     /// One line on stdout. A closed stdout means the client is gone, and reading stdin ends too.
     async fn emit(&self, line: &str) {
         let mut out = self.out.lock().await;
-        let _ = out.write_all(format!("{line}\n").as_bytes()).await;
-        let _ = out.flush().await;
+        let line = format!("{line}\n");
+        let written = async {
+            out.write_all(line.as_bytes()).await?;
+            out.flush().await
+        }
+        .await;
+        if let Err(error) = written {
+            eprintln!("metocast mcp-stdio: cannot write to stdout: {error}");
+        }
     }
 
     fn request(
@@ -316,8 +323,20 @@ impl Bridge {
             stream.abort();
         }
         if let Some(session) = state.session.take() {
-            let goodbye = self.request(Method::DELETE, Some(&session), None).send();
-            let _ = tokio::time::timeout(Duration::from_secs(2), goodbye).await;
+            self.hang_up(Some(&session)).await;
+        }
+    }
+
+    /// The goodbye is best effort: a server that is gone or slow only leaves the entry in its
+    /// connected list until it times out, so say so and carry on.
+    async fn hang_up(&self, session: Option<&str>) {
+        let goodbye = self.request(Method::DELETE, session, None).send();
+        match tokio::time::timeout(Duration::from_secs(2), goodbye).await {
+            Ok(Ok(_)) => {}
+            Ok(Err(error)) => eprintln!("metocast mcp-stdio: could not end the session: {error}"),
+            Err(_) => {
+                eprintln!("metocast mcp-stdio: the goodbye was not answered within 2 seconds")
+            }
         }
     }
 
@@ -357,7 +376,7 @@ impl Bridge {
             .json::<Value>()
             .await
             .unwrap_or(Value::Null);
-        let _ = self.request(Method::DELETE, session, None).send().await;
+        self.hang_up(session).await;
         Ok(format!(
             "Metocast {} answers at {} with {} tools.",
             hello["result"]["serverInfo"]["version"]
@@ -417,10 +436,16 @@ pub async fn pipe(
         while running.try_join_next().is_some() {}
     }
     // The client is done. What it already asked for may finish, briefly.
-    let _ = tokio::time::timeout(DRAIN, async {
+    let drained = tokio::time::timeout(DRAIN, async {
         while running.join_next().await.is_some() {}
     })
     .await;
+    if drained.is_err() {
+        eprintln!(
+            "metocast mcp-stdio: {} request(s) were still running at shutdown and were dropped",
+            running.len()
+        );
+    }
     bridge.close().await;
 }
 

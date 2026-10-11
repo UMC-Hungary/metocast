@@ -15,6 +15,7 @@
 //!
 //! A `nudge_program` job moves a finished program's audio by whole frames: the WAV is shifted
 //! and the picture copied again, which takes seconds.
+use metocast_core::best_effort::{LogFailed, LogGone};
 use std::path::{Path as FsPath, PathBuf};
 use std::process::Stdio;
 use std::time::Instant;
@@ -990,7 +991,7 @@ impl Running {
         let (cancel_tx, cancel) = watch::channel(false);
         let relay = tokio::spawn(async move {
             if stopped.await.is_ok() {
-                let _ = cancel_tx.send(true);
+                cancel_tx.send_replace(true);
             }
         });
         let pool = state.pool.clone();
@@ -1043,10 +1044,10 @@ pub(super) async fn process(state: &AppState, job: &Job) -> Result<(), String> {
     )
     .await;
     running.finish(state).await;
-    let _ = std::fs::remove_dir_all(&work);
+    metocast_core::best_effort::remove_dir_all_if_present(&work);
     if result.is_err() {
-        let _ = std::fs::remove_file(partial_path(&output));
-        let _ = std::fs::remove_file(partial_path(&audio_output));
+        metocast_core::best_effort::remove_file_if_present(partial_path(&output));
+        metocast_core::best_effort::remove_file_if_present(partial_path(&audio_output));
     }
     match &result {
         Ok(report) => {
@@ -1368,7 +1369,7 @@ async fn render_picture(
     let mut watching = cancel;
     let relay = tokio::spawn(async move {
         audio::cancelled(&mut watching).await;
-        let _ = stop.send(());
+        stop.send(()).log_gone();
     });
     let total = probe.frame_count.max(1);
     let forward = async {
@@ -1415,7 +1416,7 @@ async fn read_envelope(
     let mut stderr = child.stderr.take().ok_or("ffmpeg gave no errors stream")?;
     let errors = tokio::spawn(async move {
         let mut text = String::new();
-        let _ = stderr.read_to_string(&mut text).await;
+        stderr.read_to_string(&mut text).await.log_failed();
         text
     });
     let mut envelope = Envelope::new();
@@ -1425,7 +1426,7 @@ async fn read_envelope(
         let read = tokio::select! {
             read = stdout.read(&mut buffer) => read.map_err(|e| format!("reading ffmpeg: {e}"))?,
             () = audio::cancelled(&mut cancel) => {
-                let _ = child.start_kill();
+                child.start_kill().log_gone();
                 return Err(CANCELLED.to_string());
             }
         };
@@ -1731,8 +1732,12 @@ pub(super) async fn nudge(state: &AppState, job: &Job) -> Result<(), String> {
     let result = shift_program(state, &payload, &reporter, running.cancel.clone()).await;
     running.finish(state).await;
     if result.is_err() {
-        let _ = std::fs::remove_file(partial_path(FsPath::new(&payload.output_path)));
-        let _ = std::fs::remove_file(partial_path(FsPath::new(&payload.audio_output_path)));
+        metocast_core::best_effort::remove_file_if_present(partial_path(FsPath::new(
+            &payload.output_path,
+        )));
+        metocast_core::best_effort::remove_file_if_present(partial_path(FsPath::new(
+            &payload.audio_output_path,
+        )));
     }
     reporter.ended(&result).await;
     result.map(|_| ())
@@ -1972,7 +1977,10 @@ mod tests {
     #[tokio::test]
     #[ignore = "needs lip-reader, ffmpeg, a video and its recording"]
     async fn real_lips_find_the_video_in_its_recording() {
-        let _ = tracing_subscriber::fmt().with_test_writer().try_init();
+        tracing_subscriber::fmt()
+            .with_test_writer()
+            .try_init()
+            .log_gone();
         let env = |name: &str| std::env::var(name).unwrap_or_else(|_| panic!("{name}"));
         let video = PathBuf::from(env("METOCAST_TEST_SYNC_VIDEO"));
         let recording = PathBuf::from(env("METOCAST_TEST_SYNC_AUDIO"));

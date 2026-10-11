@@ -1,3 +1,4 @@
+use metocast_core::best_effort::LogGone;
 use std::sync::Arc;
 
 use crate::HostHandle;
@@ -92,7 +93,7 @@ impl FacebookConnector {
     async fn stop_internal(&self) {
         let mut guard = self.stop_tx.lock().await;
         if let Some(tx) = guard.take() {
-            let _ = tx.send(true);
+            tx.send_replace(true);
         }
     }
 
@@ -118,7 +119,7 @@ async fn set_status(
     tracing::info!(connector = "facebook", status = ?new_status, "connector status");
     *status.write().await = new_status;
     let current = status.read().await.clone();
-    let _ = status_tx.send(current.clone());
+    status_tx.send(current.clone()).log_gone();
     if let Some(host) = host
         && let Err(e) = crate::emit(host, "connector://facebook-status", &current)
     {
@@ -286,8 +287,7 @@ async fn run_token_loop(
     loop {
         tokio::select! {
             () = tokio::time::sleep(Duration::from_secs(300)) => {}
-            result = stop_rx.changed() => {
-                let _ = result;
+            _ = stop_rx.changed() => {
                 set_status(&status, &status_tx, host.as_ref(), ConnectorStatus::Disconnected).await;
                 return;
             }

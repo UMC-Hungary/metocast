@@ -145,9 +145,8 @@ struct CursorHide;
 #[cfg(target_os = "linux")]
 impl CursorHide {
     fn new() -> Self {
-        use std::io::Write;
         print!("\x1b[?25l");
-        let _ = std::io::stdout().flush();
+        flush_stdout();
         CursorHide
     }
 }
@@ -155,9 +154,16 @@ impl CursorHide {
 #[cfg(target_os = "linux")]
 impl Drop for CursorHide {
     fn drop(&mut self) {
-        use std::io::Write;
         print!("\x1b[?25h");
-        let _ = std::io::stdout().flush();
+        flush_stdout();
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn flush_stdout() {
+    use std::io::Write;
+    if let Err(error) = std::io::stdout().flush() {
+        eprintln!("[display] stdout could not be flushed: {error}");
     }
 }
 

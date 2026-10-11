@@ -2,6 +2,7 @@
 //! server binary: embedded PostgreSQL → migrations → pool → connectors → Axum.
 
 use crate::HostHandle;
+use metocast_core::best_effort::LogFailed;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -120,7 +121,7 @@ pub async fn spawn(options: CoreOptions) -> anyhow::Result<crate::ServerHandle> 
     match ready_rx.await {
         Ok(Ok(address)) => Ok(crate::ServerHandle::new(address, shutdown_tx, task)),
         Ok(Err(error)) => {
-            let _ = task.await;
+            task.await.log_failed();
             Err(anyhow::anyhow!(error))
         }
         Err(_) => {

@@ -1,3 +1,4 @@
+use metocast_core::best_effort::LogGone;
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
@@ -158,7 +159,11 @@ impl RodecasterConnector {
     }
 
     fn send(&self, control: Control) {
-        let _ = self.control.lock().expect("control lock").send(control);
+        self.control
+            .lock()
+            .expect("control lock")
+            .send(control)
+            .log_gone();
     }
 }
 
@@ -217,7 +222,7 @@ impl Shared {
                             &config,
                         );
                     }
-                    let _ = reply.send(result);
+                    reply.send(result).log_gone();
                 }
                 Ok(Control::SetRecording { on, reply }) => {
                     let result = device.as_mut().map_or_else(
@@ -230,7 +235,7 @@ impl Shared {
                             d.set_recording(on).map_err(|e| e.to_string())
                         },
                     );
-                    let _ = reply.send(result);
+                    reply.send(result).log_gone();
                 }
                 Err(RecvTimeoutError::Timeout) => {}
                 Err(RecvTimeoutError::Disconnected) => return,
@@ -298,14 +303,14 @@ impl Shared {
 
     fn publish_recorder(&self, recorder: Recorder) {
         *self.recorder.write().expect("recorder lock") = Some(recorder);
-        let _ = self.recorder_tx.send(recorder);
+        self.recorder_tx.send(recorder).log_gone();
     }
 
     fn publish_profile(&self, device: &Device) {
         match device.profile() {
             Ok(profile) => {
                 *self.profile.write().expect("profile lock") = Some(profile.clone());
-                let _ = self.profile_tx.send(profile);
+                self.profile_tx.send(profile).log_gone();
             }
             Err(e) => tracing::warn!("rodecaster: cannot read profile: {e}"),
         }
@@ -329,13 +334,15 @@ impl Shared {
         );
         drop(guard);
 
-        let _ = self.mute_tx.send(MuteEvent {
-            channel: change.channel,
-            label,
-            muted: change.muted,
-            remote: change.remote,
-            notify: config.as_ref().is_some_and(|c| c.notify_on_mute),
-        });
+        self.mute_tx
+            .send(MuteEvent {
+                channel: change.channel,
+                label,
+                muted: change.muted,
+                remote: change.remote,
+                notify: config.as_ref().is_some_and(|c| c.notify_on_mute),
+            })
+            .log_gone();
     }
 
     fn set_status(&self, status: ConnectorStatus) {
@@ -345,7 +352,7 @@ impl Shared {
         }
         *current = status.clone();
         drop(current);
-        let _ = self.status_tx.send(status);
+        self.status_tx.send(status).log_gone();
     }
 }
 

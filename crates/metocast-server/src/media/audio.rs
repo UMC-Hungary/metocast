@@ -12,6 +12,7 @@
 //! 5. **Finish**: ffmpeg removes that delay, keeps the exact source length, lifts the level to
 //!    the target with a limiter, and writes a 24-bit Broadcast WAV stamped with the start time,
 //!    with the voice on both channels (jive-vocals' loudness assumes that, and so does video).
+use metocast_core::best_effort::{LogFailed, LogGone};
 use std::path::{Path as FsPath, PathBuf};
 use std::process::Stdio;
 use std::time::{Duration, Instant};
@@ -548,7 +549,7 @@ pub(super) async fn process(state: &AppState, job: &Job) -> Result<(), String> {
     let (cancel_tx, cancel) = watch::channel(false);
     let cancel_relay = tokio::spawn(async move {
         if stopped.await.is_ok() {
-            let _ = cancel_tx.send(true);
+            cancel_tx.send_replace(true);
         }
     });
     let heartbeat = {
@@ -575,7 +576,7 @@ pub(super) async fn process(state: &AppState, job: &Job) -> Result<(), String> {
     heartbeat.abort();
     cancel_relay.abort();
     state.media.running.lock().await.remove(&job.id);
-    let _ = std::fs::remove_dir_all(&work);
+    metocast_core::best_effort::remove_dir_all_if_present(&work);
 
     match result {
         Ok(report) => {
@@ -586,7 +587,7 @@ pub(super) async fn process(state: &AppState, job: &Job) -> Result<(), String> {
             Ok(())
         }
         Err(error) => {
-            let _ = std::fs::remove_file(&partial);
+            metocast_core::best_effort::remove_file_if_present(&partial);
             if error == CANCELLED {
                 reporter
                     .send(RenderState::Cancelled, None, None, None, None)
@@ -927,8 +928,8 @@ pub(super) async fn run_ffmpeg(
                 }
             }
             () = cancelled(&mut cancel) => {
-                let _ = child.start_kill();
-                let _ = child.wait().await;
+                child.start_kill().log_gone();
+                child.wait().await.log_failed();
                 return Err(CANCELLED.to_string());
             }
         }
@@ -975,12 +976,12 @@ pub(super) async fn run_jive_vocals(
         status = child.wait() => status.map_err(|e| format!("jive-vocals: {e}"))?,
         () = cancelled(&mut cancel) => {
             if let Some(group) = child.id() {
-                let _ = Command::new("/bin/kill")
+                Command::new("/bin/kill")
                     .args(["-KILL", "--", &format!("-{group}")])
                     .status()
-                    .await;
+                    .await.log_failed();
             }
-            let _ = child.wait().await;
+            child.wait().await.log_failed();
             return Err(CANCELLED.to_string());
         }
     };

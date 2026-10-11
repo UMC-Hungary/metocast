@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+use metocast_core::best_effort::{LogFailed, LogGone};
 use std::{collections::HashMap, fmt, time::Duration};
 
 use futures_util::{SinkExt, StreamExt};
@@ -870,7 +871,7 @@ impl WebSocketConnection {
     }
 
     pub fn close(&self) {
-        let _ = self.shutdown.send(true);
+        self.shutdown.send_replace(true);
     }
 }
 
@@ -885,7 +886,7 @@ async fn run_websocket(
         .get(match config.endpoint("api/events") {
             Ok(url) => url,
             Err(_) => {
-                let _ = state.send(ConnectionState::Closed);
+                state.send_replace(ConnectionState::Closed);
                 return;
             }
         })
@@ -898,26 +899,25 @@ async fn run_websocket(
             StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN
         )
     }) {
-        let _ = state.send(ConnectionState::AuthenticationFailed);
+        state.send_replace(ConnectionState::AuthenticationFailed);
         return;
     }
 
     let Ok(url) = config.websocket_url() else {
-        let _ = state.send(ConnectionState::Closed);
+        state.send_replace(ConnectionState::Closed);
         return;
     };
     let mut reconnecting = false;
 
     loop {
-        let _ = state.send(if reconnecting {
+        state.send_replace(if reconnecting {
             ConnectionState::Reconnecting
         } else {
             ConnectionState::Connecting
         });
         let socket = tokio::select! {
             socket = tokio_tungstenite::connect_async(url.as_str()) => socket,
-            result = shutdown.changed() => {
-                let _ = result;
+            _ = shutdown.changed() => {
                 break;
             }
         };
@@ -925,13 +925,12 @@ async fn run_websocket(
             reconnecting = true;
             tokio::select! {
                 () = tokio::time::sleep(Duration::from_secs(1)) => continue,
-                result = shutdown.changed() => {
-                    let _ = result;
+                _ = shutdown.changed() => {
                     break;
                 }
             }
         };
-        let _ = state.send(ConnectionState::Connected);
+        state.send_replace(ConnectionState::Connected);
         let (mut sink, mut stream) = socket.split();
 
         loop {
@@ -948,7 +947,7 @@ async fn run_websocket(
                                     break;
                                 }
                             } else if let Ok(event) = serde_json::from_str(&text) {
-                                let _ = events.send(event);
+                                events.send(event).log_gone();
                             }
                         }
                         Some(Ok(Message::Ping(payload))) => {
@@ -958,17 +957,16 @@ async fn run_websocket(
                         _ => {}
                     }
                 }
-                result = shutdown.changed() => {
-                    let _ = result;
-                    let _ = sink.close().await;
-                    let _ = state.send(ConnectionState::Closed);
+                _ = shutdown.changed() => {
+                    sink.close().await.log_failed();
+                    state.send_replace(ConnectionState::Closed);
                     return;
                 }
             }
         }
         reconnecting = true;
     }
-    let _ = state.send(ConnectionState::Closed);
+    state.send_replace(ConnectionState::Closed);
 }
 
 /// The server pings with `pingId` but reads the reply's field as `ping_id`.

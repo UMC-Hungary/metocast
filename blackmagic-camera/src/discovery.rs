@@ -102,8 +102,15 @@ pub async fn browse_raw(service: &str, timeout: Duration) -> Result<Vec<String>,
         seen.push(line);
     }
 
-    let _ = daemon.shutdown();
+    shut_down(&daemon);
     Ok(seen)
+}
+
+/// The results are already in hand, so a daemon that will not stop is reported, not returned.
+fn shut_down(daemon: &ServiceDaemon) {
+    if let Err(error) = daemon.shutdown() {
+        tracing::warn!(%error, "the mDNS daemon did not shut down");
+    }
 }
 
 pub async fn browse(service: &str, timeout: Duration) -> Result<Vec<Discovered>, String> {
@@ -122,7 +129,7 @@ pub async fn browse(service: &str, timeout: Duration) -> Result<Vec<Discovered>,
         }
     }
 
-    let _ = daemon.shutdown();
+    shut_down(&daemon);
     Ok(found)
 }
 

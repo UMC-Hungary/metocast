@@ -2,6 +2,7 @@
 //! (`closedCaptionsHttpPost`). Each POST carries `seq`, which must keep rising for the stream,
 //! and a body of `YYYY-MM-DDTHH:MM:SS.mmm` (UTC) plus the caption, lines joined by `<br>`.
 
+use metocast_core::best_effort::LogFailed;
 use std::time::Duration;
 
 use chrono::{DateTime, NaiveDateTime, TimeDelta, Utc};
@@ -77,11 +78,12 @@ pub fn spawn(
                     status.last_error = Some(error);
                 }
             }
-            let _ = sqlx::query("UPDATE transcript_sessions SET caption_seq = $1 WHERE id = $2")
+            sqlx::query("UPDATE transcript_sessions SET caption_seq = $1 WHERE id = $2")
                 .bind(i64::try_from(seq).unwrap_or(i64::MAX))
                 .bind(session_id)
                 .execute(&pool)
-                .await;
+                .await
+                .log_failed();
             report(status.clone());
         }
     });

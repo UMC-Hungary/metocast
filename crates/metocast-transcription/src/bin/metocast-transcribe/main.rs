@@ -364,7 +364,11 @@ fn feed(
             None => (resampler.finish(), true),
         };
         for onset in onsets.push(&samples) {
-            let _ = onset_tx.send(onset);
+            if onset_tx.send(onset).is_err() {
+                // The session loop is gone: nobody is left to feed.
+                open = false;
+                break;
+            }
         }
         pending.extend(to_pcm16(&samples));
         while open && pending.len() >= FRAME_SAMPLES {
@@ -556,7 +560,9 @@ fn write_outputs(
 }
 
 fn write_log(log: &mut BufWriter<File>, value: &Value) {
-    let _ = writeln!(log, "{value}");
+    if let Err(error) = writeln!(log, "{value}") {
+        eprintln!("metocast-transcribe: the events log could not be written: {error}");
+    }
 }
 
 fn output_stem(args: &Args) -> String {
@@ -629,7 +635,9 @@ impl TerminalView {
             chars[chars.len().saturating_sub(110)..].iter().collect()
         };
         print!("\r\x1b[2K\x1b[2m… {tail}\x1b[0m");
-        let _ = std::io::stdout().flush();
+        if let Err(error) = std::io::stdout().flush() {
+            eprintln!("metocast-transcribe: stdout could not be flushed: {error}");
+        }
     }
 
     fn progress(&mut self, at_ms: u64) {

@@ -1,3 +1,4 @@
+use metocast_core::best_effort::LogGone;
 use std::collections::HashSet;
 use std::fs::{self, File, OpenOptions};
 use std::path::{Path, PathBuf};
@@ -216,14 +217,18 @@ impl RodecasterAudioRecorder {
         if let Err(error) = ready {
             drop(stream);
             drop(samples_tx);
-            let _ = writer.join();
+            if writer.join().is_err() {
+                tracing::warn!("the recording writer thread panicked");
+            }
             remove_failed_start_files(&partial_files);
             return Err(error);
         }
         if let Err(error) = stream.play() {
             drop(stream);
             drop(samples_tx);
-            let _ = writer.join();
+            if writer.join().is_err() {
+                tracing::warn!("the recording writer thread panicked");
+            }
             remove_failed_start_files(&partial_files);
             return Err(format!("recording_stream_start_failed: {error}"));
         }
@@ -240,7 +245,7 @@ impl RodecasterAudioRecorder {
             finalized_files: Vec::new(),
         };
         *self.state.write().expect("recorder state lock") = state.clone();
-        let _ = self.state_tx.send(state.clone());
+        self.state_tx.send(state.clone()).log_gone();
         *session_guard = Some(ActiveSession {
             stream,
             samples_tx,
@@ -273,7 +278,7 @@ impl RodecasterAudioRecorder {
                 state.finalized_files.clone_from(&files);
                 let snapshot = state.clone();
                 drop(state);
-                let _ = self.state_tx.send(snapshot);
+                self.state_tx.send(snapshot).log_gone();
                 Ok(files)
             }
             Err(error) => {
@@ -282,7 +287,7 @@ impl RodecasterAudioRecorder {
                 state.error = Some(error.clone());
                 let snapshot = state.clone();
                 drop(state);
-                let _ = self.state_tx.send(snapshot);
+                self.state_tx.send(snapshot).log_gone();
                 Err(error)
             }
         }
@@ -723,7 +728,7 @@ fn mark_failed_once(
     state.error = Some(error.to_string());
     let snapshot = state.clone();
     drop(state);
-    let _ = state_tx.send(snapshot);
+    state_tx.send(snapshot).log_gone();
 }
 
 fn writer_loop(
@@ -741,11 +746,11 @@ fn writer_loop(
     {
         Ok(writers) => writers,
         Err(error) => {
-            let _ = ready_tx.send(Err(error.clone()));
+            ready_tx.send(Err(error.clone())).log_gone();
             return Err(error);
         }
     };
-    let _ = ready_tx.send(Ok(()));
+    ready_tx.send(Ok(())).log_gone();
     for samples in samples_rx {
         if failed.load(Ordering::SeqCst) {
             return Err("recording_failed; partial files retained".to_string());
@@ -889,7 +894,7 @@ fn route_samples(route: &Route, input: &[i32], input_channels: usize) -> Result<
 
 fn remove_failed_start_files(paths: &[String]) {
     for path in paths {
-        let _ = fs::remove_file(path);
+        metocast_core::best_effort::remove_file_if_present(path);
     }
 }
 

@@ -15,6 +15,7 @@ pub mod matching;
 pub mod run;
 pub mod store;
 
+use metocast_core::best_effort::LogGone;
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -202,7 +203,9 @@ impl AutomationService {
     async fn broadcast(&self, message: String) {
         let clients = self.ws_clients.read().await;
         for client in clients.values() {
-            let _ = client.send(Message::Text(message.clone().into()));
+            client
+                .send(Message::Text(message.clone().into()))
+                .log_gone();
         }
     }
 
@@ -340,13 +343,15 @@ impl AutomationService {
         tracing::info!(automation = %rule.name, cause = %cause.describe(), "automation fired");
         let mut chain = chain;
         chain.push(rule.id);
-        let _ = self.queue.send(Job {
-            automation: rule,
-            cause,
-            chain,
-            manual: false,
-            reply: None,
-        });
+        self.queue
+            .send(Job {
+                automation: rule,
+                cause,
+                chain,
+                manual: false,
+                reply: None,
+            })
+            .log_gone();
     }
 
     async fn on_preset(&self, finished: PresetFinished) {
@@ -535,7 +540,7 @@ impl AutomationService {
             };
             self.finish(&finished).await;
             if let Some(reply) = job.reply {
-                let _ = reply.send(finished);
+                reply.send(finished).log_gone();
             }
         }
     }

@@ -20,6 +20,7 @@ symphonia = { version = "0.5.4", default-features = false, features = ["isomp4",
 thiserror.workspace = true
 tokio.workspace = true
 tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect", "rustls-tls-webpki-roots"] }
+tracing.workspace = true
 
 [lints]
 workspace = true

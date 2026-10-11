@@ -17,6 +17,7 @@ use axum::{
     Router, middleware,
     routing::{delete, get, post, put},
 };
+use metocast_core::best_effort::{LogFailed, LogGone};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -302,7 +303,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
                 .to_string();
                 let guard = clients.read().await;
                 for tx in guard.values() {
-                    let _ = tx.send(Message::Text(msg.clone().into()));
+                    tx.send(Message::Text(msg.clone().into())).log_gone();
                 }
             }
         });
@@ -323,7 +324,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
                 .to_string();
                 let guard = clients.read().await;
                 for tx in guard.values() {
-                    let _ = tx.send(Message::Text(msg.clone().into()));
+                    tx.send(Message::Text(msg.clone().into())).log_gone();
                 }
             }
         });
@@ -343,7 +344,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
                 .to_string();
                 let guard = clients.read().await;
                 for tx in guard.values() {
-                    let _ = tx.send(Message::Text(msg.clone().into()));
+                    tx.send(Message::Text(msg.clone().into())).log_gone();
                 }
             }
         });
@@ -364,7 +365,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
                 .to_string();
                 let guard = clients.read().await;
                 for tx in guard.values() {
-                    let _ = tx.send(Message::Text(msg.clone().into()));
+                    tx.send(Message::Text(msg.clone().into())).log_gone();
                 }
             }
         });
@@ -384,7 +385,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
                 .to_string();
                 let guard = clients.read().await;
                 for tx in guard.values() {
-                    let _ = tx.send(Message::Text(msg.clone().into()));
+                    tx.send(Message::Text(msg.clone().into())).log_gone();
                 }
             }
         });
@@ -403,7 +404,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
                 .to_string();
                 let guard = clients.read().await;
                 for tx in guard.values() {
-                    let _ = tx.send(Message::Text(msg.clone().into()));
+                    tx.send(Message::Text(msg.clone().into())).log_gone();
                 }
             }
         });
@@ -422,7 +423,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
                 .to_string();
                 let guard = clients.read().await;
                 for tx in guard.values() {
-                    let _ = tx.send(Message::Text(msg.clone().into()));
+                    tx.send(Message::Text(msg.clone().into())).log_gone();
                 }
             }
         });
@@ -441,7 +442,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
                 .to_string();
                 let guard = clients.read().await;
                 for tx in guard.values() {
-                    let _ = tx.send(Message::Text(msg.clone().into()));
+                    tx.send(Message::Text(msg.clone().into())).log_gone();
                 }
             }
         });
@@ -460,7 +461,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
                 .to_string();
                 let guard = clients.read().await;
                 for tx in guard.values() {
-                    let _ = tx.send(Message::Text(msg.clone().into()));
+                    tx.send(Message::Text(msg.clone().into())).log_gone();
                 }
             }
         });
@@ -474,7 +475,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
                 let msg = json!({ "type": "rodecaster.profile", "profile": profile }).to_string();
                 let guard = clients.read().await;
                 for tx in guard.values() {
-                    let _ = tx.send(Message::Text(msg.clone().into()));
+                    tx.send(Message::Text(msg.clone().into())).log_gone();
                 }
             }
         });
@@ -496,7 +497,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
                 .to_string();
                 let guard = clients.read().await;
                 for tx in guard.values() {
-                    let _ = tx.send(Message::Text(msg.clone().into()));
+                    tx.send(Message::Text(msg.clone().into())).log_gone();
                 }
             }
         });
@@ -514,7 +515,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
                 .to_string();
                 let guard = clients.read().await;
                 for tx in guard.values() {
-                    let _ = tx.send(Message::Text(msg.clone().into()));
+                    tx.send(Message::Text(msg.clone().into())).log_gone();
                 }
             }
         });
@@ -533,7 +534,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
                 .to_string();
                 let guard = clients.read().await;
                 for tx in guard.values() {
-                    let _ = tx.send(Message::Text(msg.clone().into()));
+                    tx.send(Message::Text(msg.clone().into())).log_gone();
                 }
             }
         });
@@ -553,7 +554,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
                 .to_string();
                 let guard = clients.read().await;
                 for tx in guard.values() {
-                    let _ = tx.send(Message::Text(msg.clone().into()));
+                    tx.send(Message::Text(msg.clone().into())).log_gone();
                 }
             }
         });
@@ -573,7 +574,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
                 .to_string();
                 let guard = clients.read().await;
                 for tx in guard.values() {
-                    let _ = tx.send(Message::Text(msg.clone().into()));
+                    tx.send(Message::Text(msg.clone().into())).log_gone();
                 }
             }
         });
@@ -593,7 +594,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
                 .to_string();
                 let guard = clients.read().await;
                 for tx in guard.values() {
-                    let _ = tx.send(Message::Text(msg.clone().into()));
+                    tx.send(Message::Text(msg.clone().into())).log_gone();
                 }
             }
         });
@@ -613,7 +614,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
                 .to_string();
                 let guard = clients.read().await;
                 for tx in guard.values() {
-                    let _ = tx.send(Message::Text(msg.clone().into()));
+                    tx.send(Message::Text(msg.clone().into())).log_gone();
                 }
             }
         });
@@ -633,7 +634,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
                 .to_string();
                 let guard = clients.read().await;
                 for tx in guard.values() {
-                    let _ = tx.send(Message::Text(msg.clone().into()));
+                    tx.send(Message::Text(msg.clone().into())).log_gone();
                 }
             }
         });
@@ -657,7 +658,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
                 .to_string();
                 let guard = clients.read().await;
                 for tx in guard.values() {
-                    let _ = tx.send(Message::Text(msg.clone().into()));
+                    tx.send(Message::Text(msg.clone().into())).log_gone();
                 }
             }
         });
@@ -705,7 +706,8 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
                 .to_string();
                 let guard = clients_c.read().await;
                 for tx in guard.values() {
-                    let _ = tx.send(axum::extract::ws::Message::Text(msg.clone().into()));
+                    tx.send(axum::extract::ws::Message::Text(msg.clone().into()))
+                        .log_gone();
                 }
             }
         });
@@ -1041,13 +1043,14 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
             tokio::spawn(async move {
                 let server = axum::serve(cb_listener, cb_app);
                 if let Some(mut shutdown) = callback_shutdown {
-                    let _ = server
+                    server
                         .with_graceful_shutdown(async move {
                             while !*shutdown.borrow() && shutdown.changed().await.is_ok() {}
                         })
-                        .await;
+                        .await
+                        .log_failed();
                 } else {
-                    let _ = server.await;
+                    server.await.log_failed();
                 }
             });
         }
@@ -1061,14 +1064,14 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
         Ok(listener) => listener,
         Err(error) => {
             if let Some(ready) = ready {
-                let _ = ready.send(Err(error.to_string()));
+                ready.send(Err(error.to_string())).log_gone();
             }
             return Err(error.into());
         }
     };
     let bound_address = listener.local_addr()?;
     if let Some(ready) = ready {
-        let _ = ready.send(Ok(bound_address));
+        ready.send(Ok(bound_address)).log_gone();
     }
     tracing::info!("Axum server listening on {bound_address}");
     // ConnectInfo lets the secret-reveal route verify the caller is on loopback.

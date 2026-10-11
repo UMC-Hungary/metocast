@@ -1,3 +1,4 @@
+use metocast_core::best_effort::LogGone;
 use std::sync::Arc;
 
 use crate::HostHandle;
@@ -97,7 +98,7 @@ impl BlackmagicCameraConnector {
     async fn stop_internal(&self) {
         let mut guard = self.stop_tx.lock().await;
         if let Some(tx) = guard.take() {
-            let _ = tx.send(true);
+            tx.send_replace(true);
         }
     }
 
@@ -303,8 +304,7 @@ impl Worker {
 
             tokio::select! {
                 () = tokio::time::sleep(backoff) => {}
-                result = stop_rx.changed() => {
-                    let _ = result;
+                _ = stop_rx.changed() => {
                     self.set_status(ConnectorStatus::Disconnected).await;
                     return;
                 }
@@ -368,8 +368,7 @@ impl Worker {
                         return Ended::ByError(e.to_string());
                     }
                 }
-                result = stop_rx.changed() => {
-                    let _ = result;
+                _ = stop_rx.changed() => {
                     return Ended::ByCaller;
                 }
             }
@@ -381,7 +380,7 @@ impl Worker {
         let current = read_state(camera).await?;
         let mut guard = self.state.write().await;
         if guard.as_ref() != Some(&current) {
-            let _ = self.state_tx.send(current.clone());
+            self.state_tx.send(current.clone()).log_gone();
             *guard = Some(current);
         }
         Ok(())
@@ -413,7 +412,7 @@ impl Worker {
             _ => return,
         }
         if guard.as_ref() != Some(&current) {
-            let _ = self.state_tx.send(current.clone());
+            self.state_tx.send(current.clone()).log_gone();
             *guard = Some(current);
         }
     }
@@ -422,7 +421,7 @@ impl Worker {
         tracing::info!(connector = "blackmagic-camera", status = ?new_status, "connector status");
         *self.status.write().await = new_status;
         let current = self.status.read().await.clone();
-        let _ = self.status_tx.send(current.clone());
+        self.status_tx.send(current.clone()).log_gone();
         if let Some(host) = &self.host
             && let Err(e) = crate::emit(host, "connector://blackmagic-camera-status", &current)
         {

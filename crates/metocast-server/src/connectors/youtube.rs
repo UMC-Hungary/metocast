@@ -1,3 +1,4 @@
+use metocast_core::best_effort::{LogFailed, LogGone};
 use std::sync::Arc;
 
 use crate::HostHandle;
@@ -95,7 +96,7 @@ impl YouTubeConnector {
     async fn stop_internal(&self) {
         let mut guard = self.stop_tx.lock().await;
         if let Some(tx) = guard.take() {
-            let _ = tx.send(true);
+            tx.send_replace(true);
         }
     }
 
@@ -121,7 +122,7 @@ async fn set_status(
     tracing::info!(connector = "youtube", status = ?new_status, "connector status");
     *status.write().await = new_status;
     let current = status.read().await.clone();
-    let _ = status_tx.send(current.clone());
+    status_tx.send(current.clone()).log_gone();
     if let Some(host) = host
         && let Err(e) = crate::emit(host, "connector://youtube-status", &current)
     {
@@ -317,7 +318,7 @@ async fn run_token_loop(
             Err(e) => {
                 tracing::error!("YouTube startup token refresh failed: {e}");
                 if e.is::<AuthRequired>() {
-                    let _ = delete_tokens(&pool).await;
+                    delete_tokens(&pool).await.log_failed();
                 }
                 set_status(
                     &status,
@@ -344,8 +345,7 @@ async fn run_token_loop(
     loop {
         tokio::select! {
             () = tokio::time::sleep(Duration::from_secs(300)) => {}
-            result = stop_rx.changed() => {
-                let _ = result;
+            _ = stop_rx.changed() => {
                 set_status(&status, &status_tx, host.as_ref(), ConnectorStatus::Disconnected).await;
                 return;
             }
@@ -375,7 +375,7 @@ async fn run_token_loop(
                 Err(e) => {
                     tracing::error!("YouTube token refresh failed: {e}");
                     if e.is::<AuthRequired>() {
-                        let _ = delete_tokens(&pool).await;
+                        delete_tokens(&pool).await.log_failed();
                     }
                     set_status(
                         &status,
@@ -398,7 +398,6 @@ async fn run_token_loop(
 /// Create or update a YouTube live broadcast for the given event.
 /// Returns `(broadcast_id, watch_url)` on success.
 pub async fn schedule_event(
-    event_id: &str,
     event_title: &str,
     event_time: &DateTime<Utc>,
     access_token: &str,
@@ -496,7 +495,6 @@ pub async fn schedule_event(
 
     let resp = resp.json::<YtBroadcastInsertResponse>().await?;
 
-    let _ = event_id; // suppress unused-variable warning
     Ok(BroadcastResult {
         watch_url: format!("https://www.youtube.com/watch?v={}", resp.id),
         broadcast_id: resp.id,
@@ -712,7 +710,7 @@ pub async fn fetch_channel_content(
                 // Tokens are now invalid — remove them so the connector won't
                 // appear connected on the next startup.
                 if e.is::<AuthRequired>() {
-                    let _ = delete_tokens(pool).await;
+                    delete_tokens(pool).await.log_failed();
                 }
                 return Err(e);
             }

@@ -218,7 +218,7 @@ async fn connect_and_receive(
                     tx,
                     dims,
                     &mut svg_frame_cache,
-                );
+                )?;
             }
             ServerMsg::PresenterState { state } => {
                 presenter_state = state;
@@ -230,7 +230,7 @@ async fn connect_and_receive(
                     tx,
                     dims,
                     &mut svg_frame_cache,
-                );
+                )?;
             }
             ServerMsg::SlideChanged {
                 current_slide: new_slide,
@@ -249,7 +249,7 @@ async fn connect_and_receive(
                     tx,
                     dims,
                     &mut svg_frame_cache,
-                );
+                )?;
             }
             ServerMsg::Ping { ping_id } => {
                 write
@@ -278,16 +278,16 @@ fn log_presenter_state(source: &str, state: &PresenterState) {
 
 // ── Render + send ─────────────────────────────────────────────────────────────
 
+/// Fails when the display thread is gone and nothing is left to show the frame.
 fn render_state(
     state: &PresenterState,
     theme: PresenterTheme,
     tx: &std::sync::mpsc::Sender<Frame>,
     dims: DisplayDims,
     svg_frame_cache: &mut HashMap<u32, Frame>,
-) {
+) -> Result<(), std::sync::mpsc::SendError<Frame>> {
     if state.muted {
-        let _ = tx.send(vec![0u32; (dims.width * dims.height) as usize]);
-        return;
+        return tx.send(vec![0u32; (dims.width * dims.height) as usize]);
     }
 
     if theme == PresenterTheme::Classic && state.render_mode == PresenterRenderMode::Svg {
@@ -311,8 +311,7 @@ fn render_state(
                     .unwrap_or_else(|_| vec![0u32; (dims.width * dims.height) as usize])
             })
             .clone();
-        let _ = tx.send(frame);
-        return;
+        return tx.send(frame);
     }
 
     let owned: Vec<(String, String, f64)> = state
@@ -339,5 +338,5 @@ fn render_state(
         dims.width,
         dims.height,
     );
-    let _ = tx.send(crate::renderer::rgb_to_u32(&rgb));
+    tx.send(crate::renderer::rgb_to_u32(&rgb))
 }

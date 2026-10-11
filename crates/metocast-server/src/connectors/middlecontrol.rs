@@ -1,3 +1,4 @@
+use metocast_core::best_effort::LogGone;
 use std::collections::BTreeSet;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
@@ -90,7 +91,7 @@ impl MiddlecontrolConnector {
         };
         tokio::spawn(async move {
             worker.run(stop_rx).await;
-            let _ = done_tx.send(());
+            done_tx.send(()).log_gone();
         });
     }
 
@@ -185,7 +186,7 @@ impl MiddlecontrolConnector {
                 message: message.clone(),
             })
             .await;
-            let _ = self.reconnect_tx.send(message.clone());
+            self.reconnect_tx.send(message.clone()).log_gone();
             return Err(message);
         }
         Ok(())
@@ -194,8 +195,8 @@ impl MiddlecontrolConnector {
     async fn stop_internal(&self) {
         let control = self.stop_tx.lock().await.take();
         if let Some((tx, done_rx)) = control {
-            let _ = tx.send(true);
-            let _ = done_rx.await;
+            tx.send_replace(true);
+            done_rx.await.log_gone();
         }
     }
 
@@ -210,7 +211,7 @@ impl MiddlecontrolConnector {
         let mut status = self.status.write().await;
         if *status != new_status {
             *status = new_status.clone();
-            let _ = self.status_tx.send(new_status);
+            self.status_tx.send(new_status).log_gone();
         }
     }
 }
@@ -329,8 +330,7 @@ impl Worker {
             }
             tokio::select! {
                 () = tokio::time::sleep(backoff) => {}
-                result = stop_rx.changed() => {
-                    let _ = result;
+                _ = stop_rx.changed() => {
                     self.set_status(ConnectorStatus::Disconnected).await;
                     return;
                 }
@@ -367,8 +367,7 @@ impl Worker {
                     let message = result.unwrap_or_else(|_| "Middle Control command write failed".to_string());
                     return (Ended::ByError(message), was_connected);
                 }
-                result = stop_rx.changed() => {
-                    let _ = result;
+                _ = stop_rx.changed() => {
                     return (Ended::ByCaller, was_connected);
                 }
             }
@@ -397,11 +396,11 @@ impl Worker {
         }
         if state.as_ref() != Some(&new_state) {
             *state = Some(new_state.clone());
-            let _ = self.state_tx.send(new_state);
+            self.state_tx.send(new_state).log_gone();
         }
         drop(state);
         for event in events {
-            let _ = self.preset_tx.send(event);
+            self.preset_tx.send(event).log_gone();
         }
     }
 
@@ -410,7 +409,7 @@ impl Worker {
         if *status != new_status {
             tracing::info!(connector = "middlecontrol", status = ?new_status, "connector status");
             *status = new_status.clone();
-            let _ = self.status_tx.send(new_status);
+            self.status_tx.send(new_status).log_gone();
         }
     }
 }

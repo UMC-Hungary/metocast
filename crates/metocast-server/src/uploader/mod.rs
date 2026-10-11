@@ -1,6 +1,7 @@
 pub mod facebook;
 pub mod youtube;
 
+use metocast_core::best_effort::LogFailed;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -127,14 +128,15 @@ impl UploadService {
             tracing::info!("UploadService: OBS is streaming — pausing uploads");
             for row in &rows {
                 if row.state == "uploading" {
-                    let _ = sqlx::query(
+                    sqlx::query(
                         "UPDATE recording_uploads SET state = 'paused', updated_at = NOW() \
                          WHERE recording_id = $1 AND platform = $2",
                     )
                     .bind(row.recording_id)
                     .bind(&row.platform)
                     .execute(&self.pool)
-                    .await;
+                    .await
+                    .log_failed();
 
                     broadcast_upload_paused(&self.ws_clients, row.recording_id, "OBS is streaming")
                         .await;
