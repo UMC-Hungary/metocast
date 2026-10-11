@@ -952,7 +952,8 @@ pub(super) async fn run_jive_vocals(
     work: &FsPath,
     mut cancel: watch::Receiver<bool>,
 ) -> Result<(), String> {
-    let mut child = Command::new("/usr/bin/script")
+    let mut command = Command::new("/usr/bin/script");
+    command
         .arg("-q")
         .arg("/dev/null")
         .arg(jive)
@@ -962,8 +963,11 @@ pub(super) async fn run_jive_vocals(
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .process_group(0)
-        .kill_on_drop(true)
+        .kill_on_drop(true);
+    // Process groups are a Unix concept; the Windows build still has to compile this.
+    #[cfg(unix)]
+    command.process_group(0);
+    let mut child = command
         .spawn()
         .map_err(|e| format!("could not start jive-vocals: {e}"))?;
     let screen = child.stdout.take().map(|stdout| tokio::spawn(tail(stdout)));
