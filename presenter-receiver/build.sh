@@ -44,7 +44,7 @@ echo "==> Platform: $PLATFORM"
 if [[ "$OS" == "Darwin" ]]; then
     echo "==> Checking Homebrew dependencies..."
     for pkg in cairo pango pkg-config; do
-        brew list "$pkg" &>/dev/null || brew install "$pkg"
+        brew list --versions "$pkg" || brew install "$pkg"
     done
 fi
 
@@ -52,7 +52,9 @@ if [[ "$OS" == "Linux" ]]; then
     echo "==> Checking apt dependencies..."
     MISSING=()
     for pkg in libcairo2-dev libpango1.0-dev pkg-config; do
-        dpkg -s "$pkg" &>/dev/null || MISSING+=("$pkg")
+        if [ "$(dpkg-query -W -f='${db:Status-Status}' "$pkg")" != installed ]; then
+            MISSING+=("$pkg")
+        fi
     done
     if [[ ${#MISSING[@]} -gt 0 ]]; then
         echo "    Installing: ${MISSING[*]}"

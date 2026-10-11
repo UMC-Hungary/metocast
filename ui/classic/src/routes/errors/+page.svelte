@@ -34,42 +34,41 @@
     }
   }
 
-  /** Minimal markdown-to-HTML converter for the infoMarkdown field. */
-  function renderMarkdown(md: string): string {
-    return md
-      .split('\n')
-      .map((line) => {
-        if (line.startsWith('## ')) {
-          return `<h3>${escapeHtml(line.slice(3))}</h3>`;
-        }
-        if (line.startsWith('# ')) {
-          return `<h2>${escapeHtml(line.slice(2))}</h2>`;
-        }
-        if (line.startsWith('- ') || line.match(/^\d+\. /)) {
-          return `<li>${inlineMarkdown(line.replace(/^[-\d]+[.) ] */, ''))}</li>`;
-        }
-        if (line.trim() === '') return '<br>';
-        return `<p>${inlineMarkdown(line)}</p>`;
-      })
-      .join('');
+  type MarkdownPart = { text: string; bold: boolean };
+  type MarkdownBlock = { kind: 'h2' | 'h3' | 'li' | 'p' | 'br'; parts: MarkdownPart[] };
+
+  /** The infoMarkdown field as blocks the template renders, so no HTML string is ever built. */
+  function parseMarkdown(md: string): MarkdownBlock[] {
+    return md.split('\n').map((line): MarkdownBlock => {
+      if (line.startsWith('## '))
+        return { kind: 'h3', parts: [{ text: line.slice(3), bold: false }] };
+      if (line.startsWith('# '))
+        return { kind: 'h2', parts: [{ text: line.slice(2), bold: false }] };
+      if (line.startsWith('- ') || /^\d+\. /.test(line)) {
+        return { kind: 'li', parts: boldParts(line.replace(/^[-\d]+[.) ] */, '')) };
+      }
+      if (line.trim() === '') return { kind: 'br', parts: [] };
+      return { kind: 'p', parts: boldParts(line) };
+    });
   }
 
-  function inlineMarkdown(text: string): string {
-    return escapeHtml(text).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  }
-
-  function escapeHtml(text: string): string {
+  /** `**bold**` runs: splitting on a capture group puts the bold text at the odd positions. */
+  function boldParts(text: string): MarkdownPart[] {
     return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+      .split(/\*\*(.+?)\*\*/)
+      .map((chunk, i) => ({ text: chunk, bold: i % 2 === 1 }))
+      .filter((part) => part.text !== '');
   }
 </script>
 
 <svelte:head>
   <title>{$_('errorsPage.title')} — Metocast</title>
 </svelte:head>
+
+{#snippet inline(parts: MarkdownPart[])}
+  {#each parts as part, i (i)}{#if part.bold}<strong>{part.text}</strong
+      >{:else}{part.text}{/if}{/each}
+{/snippet}
 
 <h1>{$_('errorsPage.title')}</h1>
 
@@ -111,8 +110,19 @@
 
         {#if def?.infoMarkdown && expandedInfoIds.has(err.id)}
           <div class="info-panel">
-            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-            {@html renderMarkdown(def.infoMarkdown)}
+            {#each parseMarkdown(def.infoMarkdown) as block, i (i)}
+              {#if block.kind === 'br'}
+                <br />
+              {:else if block.kind === 'h2'}
+                <h2>{@render inline(block.parts)}</h2>
+              {:else if block.kind === 'h3'}
+                <h3>{@render inline(block.parts)}</h3>
+              {:else if block.kind === 'li'}
+                <li>{@render inline(block.parts)}</li>
+              {:else}
+                <p>{@render inline(block.parts)}</p>
+              {/if}
+            {/each}
           </div>
         {/if}
       </div>

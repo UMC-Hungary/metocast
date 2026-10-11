@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import { onMount, onDestroy } from 'svelte';
   import { goto } from '$app/navigation';
   import {
@@ -108,7 +109,7 @@
       const mode = await getAppMode();
 
       if (mode === null) {
-        await goto('/setup');
+        await goto(resolve('/setup'));
         return;
       }
 

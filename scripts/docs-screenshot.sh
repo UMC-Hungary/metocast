@@ -18,11 +18,11 @@ repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 out="$repo_root/docs/images/$feature/$name.png"
 
 # Only the copy launched with redaction on, never another Metocast that is running.
-pid=$(pgrep -f "Metocast.app/Contents/MacOS/Metocast .*MetocastRedact" | head -1 || true)
-if [ -z "$pid" ]; then
+if ! pids=$(pgrep -f "Metocast.app/Contents/MacOS/Metocast .*MetocastRedact"); then
   echo "No Metocast window is running with -MetocastRedact YES; refusing to capture." >&2
   exit 1
 fi
+pid=${pids%%$'\n'*}
 
 window=$(PID="$pid" swift - <<'SWIFT'
 import CoreGraphics

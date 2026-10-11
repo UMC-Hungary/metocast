@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import { onMount } from 'svelte';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
@@ -129,7 +130,7 @@
     deletingEvent = true;
     try {
       await deleteEvent(id);
-      await goto('/events');
+      await goto(resolve('/events'));
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
       deletingEvent = false;
@@ -147,10 +148,10 @@
 </svelte:head>
 
 <div class="nav">
-  <a href="/events" class="back">&larr; Events</a>
+  <a href={resolve('/events')} class="back">&larr; Events</a>
   {#if event}
     <div class="nav__actions">
-      <a href="/events/{id}/edit" class="btn-edit">Edit</a>
+      <a href={resolve('/events/[id]/edit', { id })} class="btn-edit">Edit</a>
       <button class="btn-danger" onclick={handleDeleteEvent} disabled={deletingEvent}>
         {deletingEvent ? 'Deleting…' : 'Delete Event'}
       </button>
@@ -226,7 +227,7 @@
           <a
             href={conn('youtube')?.streamUrl}
             target="_blank"
-            rel="noopener noreferrer"
+            rel="external noopener noreferrer"
             class="view-link"
           >
             View on YouTube
@@ -269,7 +270,7 @@
           <a
             href={conn('facebook')?.eventUrl}
             target="_blank"
-            rel="noopener noreferrer"
+            rel="external noopener noreferrer"
             class="view-link"
           >
             View on Facebook

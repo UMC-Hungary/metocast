@@ -24,8 +24,8 @@ export class WsTestClient {
   private ws: WebSocket;
   private messageQueue: WsClientMessage[] = [];
   private pending: PendingListener[] = [];
-  private connectResolve?: () => void;
-  private connectReject?: (err: Error) => void;
+  private connectResolve: (() => void) | undefined;
+  private connectReject: ((err: Error) => void) | undefined;
   private connected = false;
 
   constructor() {
@@ -49,8 +49,8 @@ export class WsTestClient {
       }
 
       const idx = this.pending.findIndex((p) => p.type === msg['type']);
-      if (idx !== -1) {
-        const [listener] = this.pending.splice(idx, 1);
+      const listener = idx === -1 ? undefined : this.pending.splice(idx, 1)[0];
+      if (listener) {
         listener.resolve(msg);
       } else {
         this.messageQueue.push(msg);

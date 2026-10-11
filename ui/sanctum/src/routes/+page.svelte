@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import { onMount } from 'svelte';
   import { _, locale } from 'svelte-i18n';
   import {
@@ -263,7 +264,7 @@
         <div class="action">
           {#if transcript.status === 'notConfigured'}
             <p class="hint">{$_('transcript.notConfigured')}</p>
-            <Button variant="primary" block href="/settings/connectors/openai"
+            <Button variant="primary" block href={resolve('/settings/connectors/openai')}
               >{$_('transcript.configure')}</Button
             >
           {:else}
@@ -294,7 +295,9 @@
             </p>
           {/if}
           <CreditLine />
-          <p class="hint"><a href="/transcript" target="_blank">{$_('transcript.open')}</a></p>
+          <p class="hint">
+            <a href={resolve('/transcript')} target="_blank">{$_('transcript.open')}</a>
+          </p>
         </div>
       </article>
     </section>
@@ -339,20 +342,20 @@
   <aside class="side-col">
     <SectionLabel>{$_('dash.quickActions')}</SectionLabel>
     <List>
-      <Row title={$_('dash.newEvent')} meta={$_('dash.newEventMeta')} href="/events/new">
+      <Row title={$_('dash.newEvent')} meta={$_('dash.newEventMeta')} href={resolve('/events/new')}>
         {#snippet icon()}<TextIcon char="+" />{/snippet}
       </Row>
       <Row
         title={$_('dash.presentations')}
         meta={$_('dash.presentationsMeta')}
-        href="/presentations"
+        href={resolve('/presentations')}
       >
         {#snippet icon()}<TextIcon char="▥" />{/snippet}
       </Row>
       <Row
         title={$_('dash.connectors')}
         meta={$_('dash.connectorsMeta', { values: { n: connected } })}
-        href="/settings/connectors"
+        href={resolve('/settings/connectors')}
         last
       >
         {#snippet icon()}<TextIcon char="↳" />{/snippet}

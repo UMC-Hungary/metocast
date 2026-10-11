@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { SvelteSet } from 'svelte/reactivity';
   import { addCommand, type BroadlinkDevice } from '@metocast/core-client';
 
   interface Props {
@@ -75,17 +76,18 @@
     return slug;
   }
 
-  let selected = $state<Set<string>>(new Set(PRESETS.map((p) => p.filename)));
+  const selected = new SvelteSet<string>(PRESETS.map((p) => p.filename));
   let importing = $state(false);
   let error = $state('');
   let result = $state<{ imported: number; skipped: number } | null>(null);
 
   function toggle(filename: string) {
-    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- copy-then-assign; reactivity comes from the $state assignment
-    const next = new Set(selected);
-    if (next.has(filename)) next.delete(filename);
-    else next.add(filename);
-    selected = next;
+    if (selected.has(filename)) selected.delete(filename);
+    else selected.add(filename);
+  }
+
+  function selectAll() {
+    for (const preset of PRESETS) selected.add(preset.filename);
   }
 
   async function handleImport() {
@@ -171,12 +173,9 @@
       <div class="controls-row">
         <span class="selected-count">{selected.size} / {PRESETS.length} selected</span>
         <div class="select-links">
-          <button
-            class="link-btn"
-            onclick={() => (selected = new Set(PRESETS.map((p) => p.filename)))}>All</button
-          >
+          <button class="link-btn" onclick={selectAll}>All</button>
           <span>·</span>
-          <button class="link-btn" onclick={() => (selected = new Set())}>None</button>
+          <button class="link-btn" onclick={() => selected.clear()}>None</button>
         </div>
       </div>
 

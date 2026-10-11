@@ -1,10 +1,11 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import { goto } from '$app/navigation';
   import CreateEventForm from '$lib/components/events/CreateEventForm.svelte';
   import type { Event } from '@metocast/core-client/schemas/event';
 
   function handleCreated(event: Event) {
-    goto(`/events/${event.id}`);
+    goto(resolve('/events/[id]', { id: event.id }));
   }
 </script>
 

@@ -33,10 +33,9 @@ define_class!(
 
     unsafe impl NSObjectProtocol for NavDelegate {}
 
-    #[allow(non_snake_case)]
     unsafe impl NSToolbarDelegate for NavDelegate {
         #[unsafe(method_id(toolbar:itemForItemIdentifier:willBeInsertedIntoToolbar:))]
-        fn toolbar_itemForItemIdentifier_willBeInsertedIntoToolbar(
+        fn toolbar_item_for_identifier(
             &self,
             _toolbar: &NSToolbar,
             item_identifier: &NSToolbarItemIdentifier,
@@ -46,7 +45,7 @@ define_class!(
         }
 
         #[unsafe(method_id(toolbarDefaultItemIdentifiers:))]
-        fn toolbarDefaultItemIdentifiers(
+        fn toolbar_default_item_identifiers(
             &self,
             _toolbar: &NSToolbar,
         ) -> Retained<NSArray<NSToolbarItemIdentifier>> {
@@ -54,7 +53,7 @@ define_class!(
         }
 
         #[unsafe(method_id(toolbarAllowedItemIdentifiers:))]
-        fn toolbarAllowedItemIdentifiers(
+        fn toolbar_allowed_item_identifiers(
             &self,
             _toolbar: &NSToolbar,
         ) -> Retained<NSArray<NSToolbarItemIdentifier>> {

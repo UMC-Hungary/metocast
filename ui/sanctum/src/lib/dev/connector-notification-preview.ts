@@ -1,5 +1,6 @@
+import { resolve } from '$app/paths';
 import { goto } from '$app/navigation';
-import { siBlackmagicdesign } from 'simple-icons';
+import { siBlackmagicdesign } from '../brand-marks';
 import { dismissRail, notify, resolveByKey } from '$lib/notifications.svelte';
 
 const CAMERA_KEY = 'preview:connector:blackmagic-camera';
@@ -22,7 +23,7 @@ const cameraBase = {
 
 const editCamera = {
   label: 'Edit',
-  run: () => void goto('/settings/connectors?open=blackmagic-camera'),
+  run: () => void goto(resolve('/settings/connectors?open=blackmagic-camera')),
 };
 
 async function reconnectCamera(): Promise<void> {
@@ -70,7 +71,7 @@ export function seedConnectorNotificationPreview(): void {
       {
         label: 'Open connector settings',
         primary: true,
-        run: () => void goto('/settings/connectors'),
+        run: () => void goto(resolve('/settings/connectors')),
       },
     ],
     key: DESTINATIONS_KEY,

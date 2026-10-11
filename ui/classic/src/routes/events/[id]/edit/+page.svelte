@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
@@ -23,7 +24,7 @@
   });
 
   function handleUpdated(updated: Event) {
-    goto(`/events/${updated.id}`);
+    goto(resolve('/events/[id]', { id: updated.id }));
   }
 </script>
 

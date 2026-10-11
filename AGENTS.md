@@ -107,6 +107,14 @@ Two SystemStatus definitions exist:
 - Always fix all `pnpm check` errors before finishing, even if they are unrelated to your changes.
 - UI code (anything under `ui/**`) reaches the core only through `@metocast/core-client`. No `@tauri-apps/*` imports, no raw `fetch`, no `new WebSocket` — ESLint enforces this for every UI, and only `packages/core-client` is exempt. A UI must not import from another UI's directory; shared code goes in a workspace package. Desktop-only features are host capabilities: gate them on `hostCapabilities` and degrade when absent. See `ui/README.md` for the UI authoring contract.
 - Always finish with zero warnings and zero errors from relevant Rust and frontend checks. Do not add `#[allow(dead_code)]`, `#![allow(dead_code)]`, or similar warning suppressions; remove or restructure unused code instead.
+- **Never suppress anything, anywhere.** A warning, lint, type error, deprecation or build message is fixed at its cause or it stays visible; it is never hidden, silenced, downgraded or filtered out. That rules out, in any language, config file, script or workflow:
+  - directives: `#[allow(...)]` and `#[expect(...)]`, `// eslint-disable` and `<!-- eslint-disable -->`, `@ts-ignore`, `@ts-expect-error` and `@ts-nocheck`, `svelte-ignore`, `swiftlint:disable`, `-Wno-*` and `#pragma ... ignored`;
+  - weakened settings: a lint rule set to `off`, `warn` or an ignore list that covers source, `skipLibCheck` or any other relaxed compiler setting, a build setting that skips a diagnostic (for example `LM_SKIP_METADATA_EXTRACTION`);
+  - hidden output or failures: `|| true`, `2>/dev/null`, `>/dev/null` on a command that can warn, `--silent` and `--quiet`, `continue-on-error`, and `if-no-files-found` set to `warn` or `ignore`;
+  - casts, stubs or wrappers whose only job is to make a type error go away.
+
+  Fix the cause: change the code, or the data, or use the API the rule asks for (`resolve()` for navigation, `SvelteSet` for a reactive set). If the cause is in a third-party package or the toolchain and cannot be fixed here, leave the diagnostic visible, say so in the pull request, and do not weaken the check to get past it. Run the whole check after the change and read all of it, never only the last line.
+
 - Always build the native Apple app, for the Mac and for the iPhone Simulator, before finishing a change that can reach it, and read the whole output, not only the last line. That is any change under `apple-app/`, `apple/`, `crates/metocast-apple/`, `crates/metocast-server/` (its binary is the helper embedded in the Mac app), `scripts/embed-apple-server.sh` or `scripts/mcpb/`, and any REST, WebSocket or MCP contract change the app consumes. `** BUILD SUCCEEDED **` is not enough: the build must print **no `error:`, no `warning:`, no `WARNING` and no `note:`**, apart from the one listed below. Fix the cause; do not suppress a warning, lower a deployment target or add `-quiet`. The commands are the ones CI runs (`.github/workflows/rust-libraries.yml`), with the architecture pinned so Xcode does not warn about two matching destinations:
 
   ```bash
@@ -116,13 +124,18 @@ Two SystemStatus definitions exist:
   # iPhone Simulator
   xcodebuild -project apple-app/Metocast.xcodeproj -scheme Metocast \
     -destination 'generic/platform=iOS Simulator' -derivedDataPath target/apple-app-derived \
-    ARCHS=arm64 CODE_SIGNING_ALLOWED=NO build 2>&1 | tee /tmp/ios-build.log
-  # Must print nothing but the accepted note below:
+    CODE_SIGNING_ALLOWED=NO build 2>&1 | tee /tmp/ios-build.log
+  # Must print nothing but the two accepted messages below:
   grep -nE "error:|warning:|WARNING|note: " /tmp/mac-build.log /tmp/ios-build.log \
     | grep -vE "Target dependency graph|Building targets in dependency order|Emplaced|Using stub executor"
   ```
 
-  The one accepted message is `note: Run script build phase 'Embed Metocast Server' will be run during every build…`: that phase has to run every build because it copies the helper, so it cannot declare outputs. Any other line, in either log, fails the change. When `crates/metocast-apple` changed, run `scripts/build-apple.sh` first so the Swift bindings and XCFramework are regenerated. Because that phase rewrites the helper on every build, an *incremental* build can leave the app's seal stale (`codesign --verify` says "a sealed resource is missing or invalid"); verify the signature on a build into a fresh `-derivedDataPath`, and expect it to be silent: `codesign --verify --deep --strict <Metocast.app>`. A new Swift warning, a new Xcode build setting that prints a message, or a new build phase that prints one is a regression to fix in the same change, and a message that cannot be fixed must be added to the accepted list in this rule with its reason.
+  Two messages are accepted. Both are printed on every build and stay in the log: an accepted message is documented, never filtered out or hidden.
+  1. `note: Run script build phase 'Embed Metocast Server' will be run during every build…`: that phase has to run every build because it copies the helper, so it cannot declare outputs.
+  2. `warning: Metadata extraction skipped. No AppIntents.framework dependency found.`, printed once per build by Xcode's own `appintentsmetadataprocessor`. The app declares no App Intents, so the step has nothing to extract. The only ways to remove the message are an undocumented build setting (`LM_SKIP_METADATA_EXTRACTION`, which would hide it) or a dependency on `AppIntents.framework` that the app does not use, and both are worse than seeing it. When the app first adds an App Intent or App Shortcut the message goes away: delete this entry then, and it must not be re-added by a setting.
+
+  Any other line, in either log, fails the change. When `crates/metocast-apple` changed, run `scripts/build-apple.sh` first so the Swift bindings and XCFramework are regenerated. Because that phase rewrites the helper on every build, an *incremental* build can leave the app's seal stale (`codesign --verify` says "a sealed resource is missing or invalid"); verify the signature on a build into a fresh `-derivedDataPath`, and expect it to be silent: `codesign --verify --deep --strict <Metocast.app>`. A new Swift warning, a new Xcode build setting that prints a message, or a new build phase that prints one is a regression to fix in the same change, and a message that cannot be fixed must be added to the accepted list in this rule with its reason.
+- Links and `goto()` in a UI go through `resolve()` from `$app/paths` (the ESLint rule `svelte/no-navigation-without-resolve` is on): `href={resolve('/events/[id]', { id })}`. A link to an external URL carries `rel="external"`. No HTML string is ever built for `{@html}`: parse into data and render it with the template.
 - Always name plan files with the format: PLAN-{feature-name}.md under the `plans` folder.
 - Always use Zod for runtime validation of external, persisted, IPC, API, and WebSocket data.
 - Always keep strict TypeScript types. Do not use `any`, broad casts, or relaxed compiler settings to bypass type errors.

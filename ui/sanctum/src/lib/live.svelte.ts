@@ -1,4 +1,5 @@
 import { goto } from '$app/navigation';
+import { resolve } from '$app/paths';
 import { get } from 'svelte/store';
 import { _ } from 'svelte-i18n';
 import {
@@ -26,7 +27,7 @@ import type {
 } from '@metocast/core-client/schemas/ws-messages';
 import type { EventSummary, OrderPosition } from '@metocast/core-client/schemas/event';
 import type { CreditStatus, TranscriptionState } from '@metocast/core-client';
-import { siObsstudio, siYoutube, siFacebook, siBlackmagicdesign, siDiscord } from 'simple-icons';
+import { siObsstudio, siYoutube, siFacebook, siBlackmagicdesign, siDiscord } from './brand-marks';
 import { rode } from './rode';
 import { notify, resolveByKey } from './notifications.svelte';
 
@@ -74,7 +75,11 @@ const CONNECTOR_META: Record<
  *  recovery it supports — a reconnect (the core dials out again) or an OAuth re-login. */
 const RECOVERY: Record<
   string,
-  { open: string; reconnect?: () => Promise<unknown>; login?: () => Promise<string> }
+  {
+    open: '' | `?open=${string}`;
+    reconnect?: () => Promise<unknown>;
+    login?: () => Promise<string>;
+  }
 > = {
   obs: { open: '', reconnect: connectObs },
   'blackmagic-camera': { open: '?open=blackmagic-camera', reconnect: connectCamera },
@@ -264,7 +269,7 @@ export function handleWs(msg: WsMessage): void {
       const editFor = recovery
         ? {
             label: t('notif.action.edit'),
-            run: () => void goto(`/settings/connectors${recovery.open}`),
+            run: () => void goto(resolve(`/settings/connectors${recovery.open}`)),
           }
         : null;
       // The backend restart only reports a status edge the card can already be sitting

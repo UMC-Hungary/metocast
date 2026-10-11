@@ -2,7 +2,13 @@
   import { onMount, onDestroy } from 'svelte';
   import { page } from '$app/state';
   import { _ } from 'svelte-i18n';
-  import { siObsstudio, siYoutube, siFacebook, siBlackmagicdesign, siDiscord } from 'simple-icons';
+  import {
+    siObsstudio,
+    siYoutube,
+    siFacebook,
+    siBlackmagicdesign,
+    siDiscord,
+  } from '$lib/brand-marks';
   import {
     PageHeader,
     SectionLabel,

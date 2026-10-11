@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { getAppMode, resetSetup, hostCapabilities } from '@metocast/core-client';
@@ -24,7 +25,7 @@
     try {
       await resetSetup();
       appMode.set('server');
-      await goto('/setup');
+      await goto(resolve('/setup'));
     } catch (e) {
       errorMessage = String(e);
       resetting = false;

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import type { EventSummary } from '@metocast/core-client/schemas/event';
   import EventCard from './EventCard.svelte';
 
@@ -13,7 +14,7 @@
 {#if loading}
   <p>Loading events…</p>
 {:else if events.length === 0}
-  <p class="empty">No events yet. <a href="/events/new">Create one</a>.</p>
+  <p class="empty">No events yet. <a href={resolve('/events/new')}>Create one</a>.</p>
 {:else}
   <ul class="list">
     {#each events as event (event.id)}

@@ -2562,6 +2562,17 @@ impl From<UntrackedRecording> for UntrackedRecordingRecord {
     }
 }
 
+/// " 42%" for an upload of known size, empty otherwise. The nearest whole percent, in integers so
+/// no float cast is involved; a count past the total reads as 100%.
+fn progress_label(progress_bytes: i64, total_bytes: i64) -> String {
+    if total_bytes <= 0 {
+        return String::new();
+    }
+    let done = i128::from(progress_bytes.max(0)) * 100;
+    let total = i128::from(total_bytes);
+    format!(" {}%", ((done + total / 2) / total).min(100))
+}
+
 impl From<Recording> for RecordingRecord {
     fn from(recording: Recording) -> Self {
         Self {
@@ -2578,15 +2589,7 @@ impl From<Recording> for RecordingRecord {
                 .uploads
                 .into_iter()
                 .map(|upload| {
-                    let percent = if upload.total_bytes > 0 {
-                        #[allow(clippy::cast_precision_loss)]
-                        let share = upload.progress_bytes as f64 / upload.total_bytes as f64;
-                        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                        let percent = (share * 100.0).round() as u8;
-                        format!(" {percent}%")
-                    } else {
-                        String::new()
-                    };
+                    let percent = progress_label(upload.progress_bytes, upload.total_bytes);
                     format!("{}: {}{percent}", upload.platform, upload.state)
                 })
                 .collect(),
@@ -2885,6 +2888,19 @@ pub fn bridge_version() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn upload_progress_reads_as_the_nearest_whole_percent() {
+        assert_eq!(progress_label(0, 0), "");
+        assert_eq!(progress_label(5, -1), "");
+        assert_eq!(progress_label(0, 200), " 0%");
+        assert_eq!(progress_label(1, 3), " 33%");
+        assert_eq!(progress_label(2, 3), " 67%");
+        assert_eq!(progress_label(200, 200), " 100%");
+        assert_eq!(progress_label(900, 200), " 100%");
+        assert_eq!(progress_label(-4, 200), " 0%");
+        assert_eq!(progress_label(i64::MAX, i64::MAX), " 100%");
+    }
 
     #[test]
     fn drafts_become_the_create_event_body_the_server_reads() {

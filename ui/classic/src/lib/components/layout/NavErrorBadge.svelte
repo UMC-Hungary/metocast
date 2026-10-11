@@ -1,10 +1,11 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import { errorCount } from '$lib/stores/errors.js';
   import { _ } from 'svelte-i18n';
 </script>
 
 {#if $errorCount > 0}
-  <a href="/errors" class="error-badge">
+  <a href={resolve('/errors')} class="error-badge">
     {$_('errorsPage.title')}: {$errorCount}
   </a>
 {/if}

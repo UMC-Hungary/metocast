@@ -13,8 +13,8 @@ type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
 
 interface ApiRequestOptions {
   method?: HttpMethod;
-  body?: Record<string, unknown>;
-  query?: Record<string, string>;
+  body?: Record<string, unknown> | undefined;
+  query?: Record<string, string> | undefined;
 }
 
 interface ApiResponse<T> {
@@ -38,7 +38,7 @@ async function request<T>(
       Authorization: `Bearer ${TOKEN}`,
       'Content-Type': 'application/json',
     },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    ...(body !== undefined && { body: JSON.stringify(body) }),
   });
 
   let responseBody: T;

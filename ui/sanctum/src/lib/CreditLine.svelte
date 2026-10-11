@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import { _ } from 'svelte-i18n';
   import { live } from '$lib/live.svelte';
 
@@ -22,7 +23,7 @@
   </p>
 {:else}
   <p class="credit">
-    <a href="/settings/connectors/openai">{$_('transcript.addAdminKey')}</a>
+    <a href={resolve('/settings/connectors/openai')}>{$_('transcript.addAdminKey')}</a>
   </p>
 {/if}
 

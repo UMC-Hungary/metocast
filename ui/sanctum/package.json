@@ -15,7 +15,6 @@
     "@metocast/design-system": "workspace:*",
     "jsqr": "^1.4.0",
     "qrcode": "^1.5.4",
-    "simple-icons": "^16.28.0",
     "svelte-i18n": "^4.0.1"
   },
   "devDependencies": {
