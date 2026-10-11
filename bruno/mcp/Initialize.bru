@@ -1,0 +1,47 @@
+meta {
+  name: MCP - Initialize
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/mcp
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+headers {
+  Accept: application/json, text/event-stream
+}
+
+body:json {
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2025-06-18",
+      "capabilities": {},
+      "clientInfo": { "name": "bruno", "version": "1" }
+    }
+  }
+}
+
+docs {
+  MCP (Model Context Protocol) over Streamable HTTP. Off until `PUT /api/connectors/mcp/config`
+  sets `enabled: true` (503 until then). Loopback callers only unless `allowLan` is true.
+  The reply carries an `Mcp-Session-Id` header; send it on later calls. Tool list: `tools/list`.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("names the server", function() {
+    expect(res.body.result.serverInfo.name).to.equal('metocast');
+  });
+}

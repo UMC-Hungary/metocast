@@ -46,7 +46,9 @@ pub struct SvgSlideContent {
     pub height_px: u32,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, schemars::JsonSchema, PartialEq, Eq, Default,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum PresenterRenderMode {
     #[default]
@@ -56,7 +58,7 @@ pub enum PresenterRenderMode {
 
 pub use metocast_core::protocol::PresenterTheme;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, schemars::JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum BibleReferenceType {
     Textus,
@@ -962,6 +964,99 @@ mod tests {
         );
     }
 
+    /// PowerPoint offers to "repair" a deck when a `p:txBody` has no `a:p`.
+    fn assert_text_bodies_have_paragraphs(xml: &str) {
+        use quick_xml::{Reader, events::Event};
+
+        let mut reader = Reader::from_str(xml);
+        let mut in_body = false;
+        let mut has_paragraph = false;
+        loop {
+            match reader.read_event().unwrap() {
+                Event::Start(e) => match e.name().into_inner() {
+                    b"p:txBody" => {
+                        in_body = true;
+                        has_paragraph = false;
+                    }
+                    b"a:p" if in_body => has_paragraph = true,
+                    _ => {}
+                },
+                Event::End(e) if e.name().into_inner() == b"p:txBody" => {
+                    assert!(has_paragraph, "p:txBody without a:p in {xml}");
+                    in_body = false;
+                }
+                Event::Eof => break,
+                _ => {}
+            }
+        }
+    }
+
+    #[test]
+    fn song_decks_never_write_an_empty_text_body() {
+        let slides = song_slides("Song title", "First line\nSecond line\n\n\nChorus line");
+        for (label, theme) in [
+            ("classic", PresenterTheme::Classic),
+            ("editorial", PresenterTheme::Editorial),
+        ] {
+            let path = std::env::temp_dir().join(format!(
+                "metocast-{label}-empty-body-test-{}.pptx",
+                std::process::id()
+            ));
+            write_pptx(&path, &slides, 12_192_000, 6_858_000, theme).unwrap();
+            let mut archive = zip::ZipArchive::new(std::fs::File::open(&path).unwrap()).unwrap();
+            for number in 1..=slides.len() {
+                let mut xml = String::new();
+                std::io::Read::read_to_string(
+                    &mut archive
+                        .by_name(&format!("ppt/slides/slide{number}.xml"))
+                        .unwrap(),
+                    &mut xml,
+                )
+                .unwrap();
+                assert_text_bodies_have_paragraphs(&xml);
+            }
+            drop(archive);
+            std::fs::remove_file(&path).ok();
+        }
+    }
+
+    #[test]
+    fn only_paragraphs_wrap_and_lyric_lines_never_do() {
+        let long = vec!["word ".repeat(46).trim().to_string()];
+        let (size, wrap) = song_text_fit(&long, 10_160_000, 5_715_000, SONG_FONT_SIZE_PT);
+        assert_eq!(wrap, "square");
+        assert!(
+            size >= 24.0,
+            "wrapped text should stay readable, got {size}"
+        );
+
+        let short = vec!["A short lyric line".to_string()];
+        let (size, wrap) = song_text_fit(&short, 10_160_000, 5_715_000, SONG_FONT_SIZE_PT);
+        assert_eq!(wrap, "none");
+        assert_eq!(size, SONG_FONT_SIZE_PT);
+
+        // Up to 150 characters a line is a lyric, however long: it never wraps.
+        let lyric = vec!["a".repeat(150)];
+        let (size, wrap) = song_text_fit(&lyric, 10_160_000, 5_715_000, SONG_FONT_SIZE_PT);
+        assert_eq!(wrap, "none");
+        assert!(
+            size < 24.0,
+            "an unwrapped lyric keeps shrinking to fit, got {size}"
+        );
+        let paragraph = vec!["a".repeat(151)];
+        let (_, wrap) = song_text_fit(&paragraph, 10_160_000, 5_715_000, SONG_FONT_SIZE_PT);
+        assert_eq!(wrap, "square");
+
+        let slides = song_slides("Title", &long[0]);
+        let xml = classic_slide_xml(&slides[1], 12_192_000, 6_858_000);
+        assert!(xml.contains(r#"wrap="square""#));
+        assert_eq!(
+            parse_slide_xml(xml.as_bytes())[0].lines,
+            long,
+            "wrapping must not split the entered line"
+        );
+    }
+
     #[test]
     fn editorial_song_pptx_keeps_lines_and_bookends() {
         let slides = song_slides(
@@ -1059,7 +1154,24 @@ fn pptx_align(css: &str) -> &'static str {
 fn classic_slide_xml(slide: &SlideContent, width_emu: u64, height_emu: u64) -> String {
     let margin_x = width_emu / 12;
     let margin_y = height_emu / 12;
-    let wrap = if slide_counter_index(slide).is_some() {
+    let is_bible = slide_counter_index(slide).is_some();
+    let fits: Vec<(f32, &str)> = slide
+        .paragraphs
+        .iter()
+        .map(|p| {
+            if is_bible {
+                (p.font_size_pt, "square")
+            } else {
+                song_text_fit(
+                    &p.lines,
+                    width_emu - 2 * margin_x,
+                    height_emu - 2 * margin_y,
+                    p.font_size_pt,
+                )
+            }
+        })
+        .collect();
+    let wrap = if fits.iter().any(|(_, wrap)| *wrap == "square") {
         "square"
     } else {
         "none"
@@ -1067,17 +1179,8 @@ fn classic_slide_xml(slide: &SlideContent, width_emu: u64, height_emu: u64) -> S
     let paragraphs = slide
         .paragraphs
         .iter()
-        .map(|p| {
-            let font_size_pt = if wrap == "none" {
-                song_font_size(
-                    &p.lines,
-                    width_emu - 2 * margin_x,
-                    height_emu - 2 * margin_y,
-                    p.font_size_pt,
-                )
-            } else {
-                p.font_size_pt
-            };
+        .zip(&fits)
+        .map(|(p, (font_size_pt, _))| {
             let sz = (font_size_pt * 100.0).round().max(100.0) as u32;
             let algn = pptx_align(&p.align);
             let runs = p
@@ -1096,11 +1199,20 @@ fn classic_slide_xml(slide: &SlideContent, width_emu: u64, height_emu: u64) -> S
         })
         .collect::<String>();
 
+    // A `txBody` must hold at least one `a:p`, so a blank slide gets no body shape.
+    let body = if slide.paragraphs.is_empty() {
+        String::new()
+    } else {
+        format!(
+            r#"<p:sp><p:nvSpPr><p:cNvPr id="2" name="Body"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="{margin_x}" y="{margin_y}"/><a:ext cx="{}" cy="{}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr wrap="{wrap}" anchor="ctr"><a:normAutofit/></a:bodyPr><a:lstStyle/>{paragraphs}</p:txBody></p:sp>"#,
+            width_emu - 2 * margin_x,
+            height_emu - 2 * margin_y,
+        )
+    };
+
     format!(
         r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<p:sld {NS}><p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="000000"/></a:solidFill><a:effectLst/></p:bgPr></p:bg><p:spTree>{EMPTY_TREE}<p:sp><p:nvSpPr><p:cNvPr id="2" name="Body"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="{margin_x}" y="{margin_y}"/><a:ext cx="{}" cy="{}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr wrap="{wrap}" anchor="ctr"><a:normAutofit/></a:bodyPr><a:lstStyle/>{paragraphs}</p:txBody></p:sp></p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>"#,
-        width_emu - 2 * margin_x,
-        height_emu - 2 * margin_y,
+<p:sld {NS}><p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="000000"/></a:solidFill><a:effectLst/></p:bgPr></p:bg><p:spTree>{EMPTY_TREE}{body}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>"#
     )
 }
 
@@ -1194,18 +1306,59 @@ fn bible_verse_number(counter: &str) -> String {
         .unwrap_or_default()
 }
 
-fn song_font_size(lines: &[String], width_emu: u64, height_emu: u64, preferred: f32) -> f32 {
+/// Font size and `wrap` mode for song text. Entered lines stay intact on one
+/// line, however long, so the author's line breaks are the only ones. The one
+/// exception is a paragraph: a line over `PARAGRAPH_CHARS` wraps inside the box
+/// and shrinks only until the wrapped block fits, instead of becoming a 12 pt
+/// strip running off both edges of the slide.
+fn song_text_fit(
+    lines: &[String],
+    width_emu: u64,
+    height_emu: u64,
+    preferred: f32,
+) -> (f32, &'static str) {
     const EMU_PER_POINT: f32 = 12_700.0;
-    let longest = lines
+    const PARAGRAPH_CHARS: f32 = 150.0;
+    const MIN_PT: f32 = 12.0;
+    const CHAR_WIDTH_EM: f32 = 0.54;
+    // Word wrapping leaves ragged line ends, so wrapped text needs wider estimates.
+    const WRAPPED_CHAR_WIDTH_EM: f32 = 0.6;
+    const LINE_HEIGHT_EM: f32 = 1.2;
+
+    let width_pt = width_emu as f32 / EMU_PER_POINT;
+    let height_pt = height_emu as f32 / EMU_PER_POINT;
+    let char_counts: Vec<f32> = lines
         .iter()
-        .map(|line| line.chars().count())
-        .max()
-        .unwrap_or(1)
-        .max(1) as f32;
-    let line_count = lines.len().max(1) as f32;
-    let width_limit = width_emu as f32 / EMU_PER_POINT / (longest * 0.54);
-    let height_limit = height_emu as f32 / EMU_PER_POINT / (line_count * 1.2);
-    preferred.min(width_limit).min(height_limit).max(12.0)
+        .map(|line| line.chars().count().max(1) as f32)
+        .collect();
+    let longest = char_counts.iter().copied().fold(1.0_f32, f32::max);
+    let line_count = char_counts.len().max(1) as f32;
+
+    let width_limit = width_pt / (longest * CHAR_WIDTH_EM);
+    let height_limit = height_pt / (line_count * LINE_HEIGHT_EM);
+    if longest <= PARAGRAPH_CHARS {
+        return (
+            preferred.min(width_limit).min(height_limit).max(MIN_PT),
+            "none",
+        );
+    }
+
+    let mut size = preferred.max(MIN_PT);
+    while size > MIN_PT {
+        let rows: f32 = char_counts
+            .iter()
+            .map(|chars| {
+                (chars * size * WRAPPED_CHAR_WIDTH_EM / width_pt)
+                    .ceil()
+                    .max(1.0)
+            })
+            .sum();
+        if rows * size * LINE_HEIGHT_EM <= height_pt {
+            break;
+        }
+        size -= 1.0;
+    }
+    (size, "square")
 }
 
 fn editorial_slide_xml(
@@ -1241,8 +1394,8 @@ fn editorial_slide_xml(
         .is_some_and(|text| text.starts_with("Textus") || text.starts_with("Lekció"));
     let is_title = !is_bible && slide.index == 1;
     let text_length = main.lines.iter().map(String::len).sum::<usize>();
-    let body_size = if !is_bible {
-        song_font_size(
+    let song_fit = (!is_bible).then(|| {
+        song_text_fit(
             &main.lines,
             width_emu * 86 / 100,
             height_emu * 54 / 100,
@@ -1252,6 +1405,10 @@ fn editorial_slide_xml(
                 46.0
             },
         )
+    });
+    let song_wrap = song_fit.map_or("none", |(_, wrap)| wrap);
+    let body_size = if let Some((size, _)) = song_fit {
+        size
     } else if text_length > 300 {
         30.0
     } else if text_length > 180 {
@@ -1386,7 +1543,7 @@ fn editorial_slide_xml(
                     color: "F4EFE3",
                     align: "center",
                     anchor: "ctr",
-                    wrap: "none",
+                    wrap: song_wrap,
                     bold: false,
                 },
             ),

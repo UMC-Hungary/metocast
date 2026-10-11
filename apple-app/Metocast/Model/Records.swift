@@ -59,6 +59,14 @@ enum EventSchedule {
     }
 }
 
+/// Launching with `-MetocastRedact YES` swaps what identifies this Mac (computer name, LAN
+/// address, token) for placeholders on screen, so documentation screenshots are safe to commit.
+/// `scripts/docs-screenshot.sh` sets it; nothing stored or sent changes.
+enum Redaction {
+    static let isOn = UserDefaults.standard.bool(forKey: "MetocastRedact")
+    static let host = "studio-mac"
+}
+
 /// Display names and symbols for the connectors the core reports.
 struct ConnectorInfo {
     let id: String
@@ -77,6 +85,8 @@ struct ConnectorInfo {
         case "keynote": "Keynote"
         case "discord": "Discord"
         case "szentiras": "Szentírás"
+        case "openai": "OpenAI"
+        case "mcp": "AI Agents"
         default: id.capitalized
         }
     }
@@ -95,12 +105,52 @@ struct ConnectorInfo {
         case "keynote": "play.display"
         case "discord": "bubble.left.and.bubble.right"
         case "szentiras": "book"
+        case "openai": "captions.bubble"
+        case "mcp": "sparkles"
         default: "puzzlepiece.extension"
+        }
+    }
+
+    var category: ConnectorCategory {
+        switch id {
+        case "atem", "blackmagic-camera", "obs", "vmix", "rodecaster": .production
+        case "middlecontrol", "broadlink": .control
+        case "keynote", "szentiras": .presentation
+        case "youtube", "facebook", "discord": .publishing
+        case "openai", "mcp": .services
+        default: .other
         }
     }
 
     static func sorted(_ statuses: [String: ConnectorStatusRecord]) -> [ConnectorStatusRecord] {
         statuses.values.sorted { ConnectorInfo(id: $0.connector).name < ConnectorInfo(id: $1.connector).name }
+    }
+}
+
+/// How the Connectors page groups connectors, in display order.
+enum ConnectorCategory: CaseIterable {
+    case production, control, presentation, publishing, services, other
+
+    var title: String {
+        switch self {
+        case .production: "Video & Audio"
+        case .control: "Controllers & Room"
+        case .presentation: "Presentation"
+        case .publishing: "Streaming & Sharing"
+        case .services: "AI Services"
+        case .other: "Other"
+        }
+    }
+
+    var footer: String {
+        switch self {
+        case .production: "Switchers, cameras, recording and the audio mixer."
+        case .control: "Control surfaces and infrared remotes for the room's equipment."
+        case .presentation: "Slides and Bible verses shown on screen."
+        case .publishing: "Where streams, recordings and announcements go."
+        case .services: "Transcription, captions and AI agents."
+        case .other: ""
+        }
     }
 }
 

@@ -24,7 +24,8 @@ import type {
   WsClientInfo,
   PptFile,
 } from '@metocast/core-client/schemas/ws-messages';
-import type { EventSummary } from '@metocast/core-client/schemas/event';
+import type { EventSummary, OrderPosition } from '@metocast/core-client/schemas/event';
+import type { CreditStatus, TranscriptionState } from '@metocast/core-client';
 import { siObsstudio, siYoutube, siFacebook, siBlackmagicdesign, siDiscord } from 'simple-icons';
 import { rode } from './rode';
 import { notify, resolveByKey } from './notifications.svelte';
@@ -115,8 +116,16 @@ let rodecasterAudioDiscovery = $state<RodecasterAudioDiscovery | null>(null);
 let rodecasterAudioRecorder = $state<RodecasterAudioRecorderState | null>(null);
 let middlecontrolState = $state<MiddlecontrolState | null>(null);
 let atemState = $state<AtemState | null>(null);
+let transcription = $state<TranscriptionState | null>(null);
+/** The open line, else the last committed one. */
+let transcriptLine = $state('');
+let transcriptCredit = $state<CreditStatus | null>(null);
 /** The event the core says is happening now — nobody in the UI decides this. */
 let currentEvent = $state<EventSummary | null>(null);
+/** The Order of Service step on screen, the same on every client. */
+let orderPosition = $state<OrderPosition | null>(null);
+/** Bumped when any event's Order of Service changes, so open views reload it. */
+let orderRevision = $state(0);
 
 export const live = {
   get streaming() {
@@ -172,6 +181,21 @@ export const live = {
   },
   get currentEvent() {
     return currentEvent;
+  },
+  get orderPosition() {
+    return orderPosition;
+  },
+  get orderRevision() {
+    return orderRevision;
+  },
+  get transcription() {
+    return transcription;
+  },
+  get transcriptLine() {
+    return transcriptLine;
+  },
+  get transcriptCredit() {
+    return transcriptCredit;
   },
 };
 
@@ -345,11 +369,34 @@ export function handleWs(msg: WsMessage): void {
     case 'event.changed':
       sendWsCommand('events.presenter_list');
       break;
+    case 'order.state':
+      orderPosition = msg.position;
+      break;
+    case 'event.order.changed':
+      orderRevision += 1;
+      break;
     case 'rodecaster.audio.discovery':
       rodecasterAudioDiscovery = msg.discovery;
       break;
     case 'rodecaster.audio.record.state':
       rodecasterAudioRecorder = msg.state;
+      break;
+    case 'transcription.snapshot':
+      transcription = msg.state;
+      transcriptLine = msg.partial || (msg.segments.at(-1)?.text ?? '');
+      transcriptCredit = msg.credit;
+      break;
+    case 'transcription.state':
+      transcription = msg.state;
+      break;
+    case 'transcription.partial':
+      if (msg.text) transcriptLine = msg.text;
+      break;
+    case 'transcription.segment':
+      transcriptLine = msg.segment.text;
+      break;
+    case 'transcription.credit':
+      transcriptCredit = msg.credit;
       break;
     case 'notification':
       notify({

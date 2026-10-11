@@ -1,0 +1,43 @@
+meta {
+  name: Start Audio
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/media/audio
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "paths": [
+      "/Volumes/WirelessPRO 1/00015_Wireless_PRO.WAV",
+      "/Volumes/WirelessPRO 1/00016_Wireless_PRO.WAV"
+    ],
+    "eventId": null,
+    "settings": { "channels": [], "targetLufs": -14 }
+  }
+}
+
+docs {
+  Queues an audio master on the `media` queue: join, mix to mono 48 kHz, clean
+  with jive-vocals, remove the delay its noise reduction adds, lift to the target
+  loudness, and write a 24-bit Broadcast WAV. Watch `media.audio.progress` on the
+  WebSocket; cancel with Cancel Render using the returned `jobId`.
+}
+
+tests {
+  test("status is 202", function() {
+    expect(res.status).to.equal(202);
+  });
+  test("response has the job and output", function() {
+    expect(res.body).to.have.property('jobId');
+    expect(res.body).to.have.property('outputPath');
+  });
+}

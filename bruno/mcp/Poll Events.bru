@@ -1,0 +1,42 @@
+meta {
+  name: MCP - Poll Events
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/mcp
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+headers {
+  Accept: application/json, text/event-stream
+}
+
+body:json {
+  {
+    "jsonrpc": "2.0",
+    "id": 4,
+    "method": "tools/call",
+    "params": {
+      "name": "events_poll",
+      "arguments": { "types": ["event.changed"], "wait_ms": 5000 }
+    }
+  }
+}
+
+docs {
+  What Metocast pushed to its clients. Pass the returned `next` as `since` on the next call.
+  Events are buffered while at least one agent is connected (send initialize first).
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+}

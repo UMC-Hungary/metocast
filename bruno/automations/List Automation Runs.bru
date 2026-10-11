@@ -1,0 +1,28 @@
+meta {
+  name: List Automation Runs
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/automations/runs
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  The last 50 runs, newest first (kept in memory; the core's log has the details across restarts).
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("response is array", function() {
+    expect(res.body).to.be.an('array');
+  });
+}

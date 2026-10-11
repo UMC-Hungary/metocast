@@ -17,6 +17,18 @@ export function GetFeedbacks(instance: ModuleInstance): CompanionFeedbackDefinit
 			},
 		},
 
+		order_running: {
+			type: 'boolean',
+			name: 'Order of Service: Step On Screen',
+			description: 'Lit while a step of an Order of Service is on screen',
+			defaultStyle: {
+				bgcolor: combineRgb(0, 120, 200),
+				color: combineRgb(255, 255, 255),
+			},
+			options: [],
+			callback: () => instance.orderStep !== null,
+		},
+
 		command_available: {
 			type: 'boolean',
 			name: 'Command Available',
@@ -101,6 +113,42 @@ export function GetFeedbacks(instance: ModuleInstance): CompanionFeedbackDefinit
 			callback: () => {
 				return instance.presentationStatus?.slideshowActive ?? false
 			},
+		},
+
+		transcribing: {
+			type: 'boolean',
+			name: 'Transcript: Transcribing',
+			description: 'Shows while the live English transcript is running',
+			defaultStyle: {
+				bgcolor: combineRgb(200, 0, 0),
+				color: combineRgb(255, 255, 255),
+			},
+			options: [],
+			callback: () => instance.transcriptionStatus === 'running' || instance.transcriptionStatus === 'connecting',
+		},
+
+		automations_armed: {
+			type: 'boolean',
+			name: 'Automations: Armed',
+			description: 'Shows while automations are armed. When they are disarmed nothing fires.',
+			defaultStyle: {
+				bgcolor: combineRgb(0, 150, 0),
+				color: combineRgb(255, 255, 255),
+			},
+			options: [],
+			callback: () => instance.automationsArmed,
+		},
+
+		rodecaster_desk_recording: {
+			type: 'boolean',
+			name: 'RØDECaster SD: Recording',
+			description: "Shows while the RØDECaster's own SD/USB recorder is recording",
+			defaultStyle: {
+				bgcolor: combineRgb(200, 0, 0),
+				color: combineRgb(255, 255, 255),
+			},
+			options: [],
+			callback: () => instance.deskRecording,
 		},
 
 		presentation_blanked: {

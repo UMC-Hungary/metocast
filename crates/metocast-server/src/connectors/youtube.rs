@@ -404,14 +404,25 @@ pub async fn schedule_event(
     access_token: &str,
     existing_broadcast_id: Option<&str>,
     privacy_status: &str,
+    closed_captions: bool,
 ) -> anyhow::Result<BroadcastResult> {
     let client = reqwest::Client::new();
 
     let scheduled_start = event_time.format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
+    // HTTP-POST captions are fed by the live transcript (`transcription::youtube_captions`).
+    let content_details = serde_json::json!({
+        "enableAutoStart": false,
+        "enableAutoStop": false,
+        "recordFromStart": true,
+        "enableDvr": true,
+        "closedCaptionsType": if closed_captions { "closedCaptionsHttpPost" } else { "closedCaptionsDisabled" },
+        "monitorStream": { "enableMonitorStream": true, "broadcastStreamDelayMs": 0 },
+    });
 
     if let Some(bid) = existing_broadcast_id {
-        // Update existing broadcast
-        let body = serde_json::json!({
+        // Update existing broadcast; contentDetails only when captions need switching on, since
+        // a contentDetails update replaces all of it.
+        let mut body = serde_json::json!({
             "id": bid,
             "snippet": {
                 "title": event_title,
@@ -421,10 +432,16 @@ pub async fn schedule_event(
                 "privacyStatus": privacy_status
             }
         });
+        let parts = if closed_captions {
+            body["contentDetails"] = content_details;
+            "snippet,status,contentDetails"
+        } else {
+            "snippet,status"
+        };
 
         let resp = client
             .put("https://www.googleapis.com/youtube/v3/liveBroadcasts")
-            .query(&[("part", "snippet,status")])
+            .query(&[("part", parts)])
             .bearer_auth(access_token)
             .json(&body)
             .send()
@@ -456,12 +473,7 @@ pub async fn schedule_event(
         "status": {
             "privacyStatus": privacy_status
         },
-        "contentDetails": {
-            "enableAutoStart": false,
-            "enableAutoStop": false,
-            "recordFromStart": true,
-            "enableDvr": true
-        }
+        "contentDetails": content_details,
     });
 
     let resp = client
@@ -880,6 +892,102 @@ impl Ingestion {
     pub fn rtmp_url(&self) -> String {
         format!("{}/{}", self.address.trim_end_matches('/'), self.key)
     }
+}
+
+/// The stream's signed `closedCaptionsIngestionUrl`, if YouTube reports one.
+pub async fn caption_ingestion_url(access_token: &str) -> anyhow::Result<Option<String>> {
+    let response = reqwest::Client::new()
+        .get("https://www.googleapis.com/youtube/v3/liveStreams")
+        .query(&[("part", "contentDetails"), ("mine", "true")])
+        .bearer_auth(access_token)
+        .send()
+        .await?;
+    if !response.status().is_success() {
+        anyhow::bail!("youtube_api_{}", response.status());
+    }
+    let list: serde_json::Value = response.json().await?;
+    Ok(list["items"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find_map(|item| item["contentDetails"]["closedCaptionsIngestionUrl"].as_str())
+        .filter(|url| !url.is_empty())
+        .map(str::to_string))
+}
+
+/// Uploads a WebVTT track in `language` (ISO 639-1) on `video_id`, replacing `existing` when it
+/// is still there. Returns the caption id.
+pub async fn upload_caption(
+    access_token: &str,
+    video_id: &str,
+    existing: Option<&str>,
+    vtt: &str,
+    language: &str,
+) -> anyhow::Result<String> {
+    const URL: &str = "https://www.googleapis.com/upload/youtube/v3/captions";
+    let client = reqwest::Client::new();
+    let send = |metadata: serde_json::Value, update: bool| {
+        let boundary = format!("metocast-{}", uuid::Uuid::new_v4().simple());
+        let body = format!(
+            "--{boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n{metadata}\r\n\
+             --{boundary}\r\nContent-Type: text/vtt\r\n\r\n{vtt}\r\n--{boundary}--\r\n"
+        );
+        let request = if update {
+            client.put(URL)
+        } else {
+            client.post(URL)
+        };
+        request
+            .query(&[("part", "snippet"), ("uploadType", "multipart")])
+            .bearer_auth(access_token)
+            .header(
+                reqwest::header::CONTENT_TYPE,
+                format!("multipart/related; boundary={boundary}"),
+            )
+            .body(body)
+            .send()
+    };
+    let name = match language {
+        "en" => "English",
+        "hu" => "Magyar",
+        other => other,
+    };
+    let insert = serde_json::json!({
+        "snippet": { "videoId": video_id, "language": language, "name": name, "isDraft": false }
+    });
+    let response = match existing {
+        Some(id) => {
+            let update = serde_json::json!({ "id": id, "snippet": { "isDraft": false } });
+            let response = send(update, true).await?;
+            // Deleted in YouTube Studio since: upload it again.
+            if response.status() == reqwest::StatusCode::NOT_FOUND {
+                send(insert, false).await?
+            } else {
+                response
+            }
+        }
+        None => send(insert, false).await?,
+    };
+    let status = response.status();
+    let body: serde_json::Value = response.json().await.unwrap_or_default();
+    if !status.is_success() {
+        let reason = body["error"]["errors"][0]["reason"].as_str().unwrap_or("");
+        if reason == "insufficientPermissions"
+            || body
+                .to_string()
+                .contains("insufficient authentication scopes")
+        {
+            anyhow::bail!("Reconnect YouTube to allow caption uploads");
+        }
+        anyhow::bail!(
+            "YouTube API {status} uploading captions: {}",
+            body["error"]["message"]
+        );
+    }
+    body["id"]
+        .as_str()
+        .map(str::to_string)
+        .ok_or_else(|| anyhow::anyhow!("YouTube returned no caption id"))
 }
 
 pub async fn live_stream_ingestion(access_token: &str) -> anyhow::Result<Ingestion> {

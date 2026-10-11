@@ -1,0 +1,35 @@
+meta {
+  name: Verify OpenAI Key
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/openai/verify
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "apiKey": ""
+  }
+}
+
+docs {
+  Lists OpenAI models with the key: `ok`, `invalid` (401) or `noAccess`.
+  A blank `apiKey` checks the one stored in the `openai` connector config.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("result is one of ok, invalid, noAccess", function() {
+    expect(['ok', 'invalid', 'noAccess']).to.include(res.body.result);
+  });
+}

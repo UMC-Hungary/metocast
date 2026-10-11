@@ -1,0 +1,72 @@
+meta {
+  name: Create Automation
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/automations
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "name": "Service start",
+    "enabled": true,
+    "triggers": [
+      { "kind": "middlecontrol.preset", "preset": 3, "cameraId": null },
+      {
+        "kind": "rodecaster.channel",
+        "channel": 2,
+        "label": "Wireless 1",
+        "live": true,
+        "source": "either",
+        "holdSeconds": 0
+      }
+    ],
+    "actions": [
+      { "kind": "middlecontrol.preset.recall", "preset": 3, "cameraId": null, "waitForArrival": true },
+      { "kind": "record.start", "target": { "device": "obs" } },
+      { "kind": "record.start", "target": { "device": "atem" } },
+      { "kind": "record.start", "target": { "device": "blackmagic-camera" } },
+      { "kind": "record.start", "target": { "device": "rodecaster" } },
+      { "kind": "record.start", "target": { "device": "rodecaster-audio" } }
+    ],
+    "cooldownSeconds": 5,
+    "requireEvent": false
+  }
+}
+
+docs {
+  Creates a rule. It fires when ANY trigger happens and runs ALL actions, in order:
+
+  - `middlecontrol.preset` fires when that preset's move has FINISHED, wherever it was clicked.
+  - `rodecaster.channel` fires when the channel goes live (or silent, `live: false`) and stays so for
+    `holdSeconds`. `source` is `either` (default: live only while both the desk and the Wireless PRO
+    transmitter are unmuted), `desk` or `transmitter`.
+  - `middlecontrol.preset.recall` moves a camera (`cameraId: null` is the selected one). With
+    `waitForArrival` the actions after it wait until the camera arrives.
+  - `record.start` / `record.stop` take a `target`: `obs`, `atem`, `blackmagic-camera`,
+    `middlecontrol` (+ optional `cameraId`), `rodecaster` (the desk's SD/USB recorder) or
+    `rodecaster-audio` (Metocast's FLAC recording, filed under the current event).
+
+  Set `automationId` to the returned `id` to try the other requests. Limits: names of 1–80
+  characters, presets 1–12, cameras 1–99, holds 0–60 s, cooldowns 1–600 s, at most 50 rules; a rule
+  that breaks one answers 400 `{ "error": "…" }`.
+}
+
+tests {
+  test("status is 201", function() {
+    expect(res.status).to.equal(201);
+  });
+  test("response has id and the rule", function() {
+    expect(res.body).to.have.property('id');
+    expect(res.body.triggers).to.have.length(2);
+    expect(res.body.actions).to.have.length(6);
+  });
+}

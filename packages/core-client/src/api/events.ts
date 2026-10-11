@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import { apiFetch } from './client.js';
+import { sendWsCommand } from '../ws/client.js';
 import {
+  EventOrderSchema,
+  type OrderItem,
   EventSchema,
   EventSummarySchema,
   type Event,
@@ -34,4 +37,28 @@ export function createEventSlides(id: string): Promise<{ files: string[] }> {
   return apiFetch(`/api/events/${id}/slides`, z.object({ files: z.array(z.string()) }), {
     method: 'POST',
   });
+}
+
+// ── Order of Service ──────────────────────────────────────────────────────────
+
+export function getEventOrder(id: string): Promise<OrderItem[]> {
+  return apiFetch(`/api/events/${id}/order`, EventOrderSchema).then((order) => order.items);
+}
+
+/** Replaces the whole list. Keep each step's `id` so the step on screen stays current. */
+export function setEventOrder(id: string, items: OrderItem[]): Promise<OrderItem[]> {
+  return apiFetch(`/api/events/${id}/order`, EventOrderSchema, {
+    method: 'PUT',
+    body: { items },
+  }).then((order) => order.items);
+}
+
+/** Shows a step on the output screen; the result arrives as `order.state`. */
+export function orderGo(eventId: string, itemId: string): boolean {
+  return sendWsCommand('order.go', { event_id: eventId, item_id: itemId });
+}
+
+/** Moves from the step on screen. With none, `eventId` names the event and `next` starts it. */
+export function orderStep(direction: 'next' | 'previous', eventId: string | null = null): boolean {
+  return sendWsCommand(`order.${direction}`, { event_id: eventId });
 }

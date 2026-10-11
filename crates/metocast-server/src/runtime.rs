@@ -140,7 +140,7 @@ async fn run(
     ready: Option<tokio::sync::oneshot::Sender<Result<std::net::SocketAddr, String>>>,
 ) -> anyhow::Result<()> {
     tracing::info!("Starting embedded PostgreSQL in {:?}", options.data_dir);
-    let embedded = database::embedded::EmbeddedDb::start(options.data_dir).await?;
+    let embedded = database::embedded::EmbeddedDb::start(options.data_dir.clone()).await?;
     let connection_url = embedded.connection_url.clone();
 
     tracing::info!("Connecting pool to embedded PostgreSQL");
@@ -229,6 +229,7 @@ async fn run(
         pool,
         auth_token: options.auth_token,
         connection_url,
+        data_dir: options.data_dir,
         port: options.port,
         static_dir: options.static_dir,
         obs_connector: options.obs_connector,

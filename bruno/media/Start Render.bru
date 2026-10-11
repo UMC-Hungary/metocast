@@ -1,0 +1,40 @@
+meta {
+  name: Start Render
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/media/renders
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "path": "/Volumes/A002/A002_09160323_C001.braw",
+    "eventId": null,
+    "settings": null
+  }
+}
+
+docs {
+  Queues a render on the `media` job queue (watch it with
+  `GET /api/queues/media/jobs`, or the `media.render.progress` WebSocket message).
+  `settings: null` uses the stored defaults; send a full RenderSettings object
+  (as returned in a probe's `defaults`) to change them for this file only.
+  Without `eventId` the finished file is listed with the untracked recordings.
+}
+
+tests {
+  test("status is 202", function() {
+    expect(res.status).to.equal(202);
+  });
+  test("response has the job id", function() {
+    expect(res.body).to.have.property('jobId');
+  });
+}

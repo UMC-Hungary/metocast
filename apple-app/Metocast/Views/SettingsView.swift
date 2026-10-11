@@ -9,9 +9,6 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @AppStorage("appearance") private var appearance = Appearance.system
     @State private var isConfirmingReset = false
-    @State private var isShowingDevices = false
-    @State private var isShowingConnectors = false
-    @State private var isShowingTools = false
 
     var body: some View {
         Form {
@@ -40,17 +37,20 @@ struct SettingsView: View {
                     if let session = model.session { ConnectorsView(session: session) }
                 }
                 .disabled(model.session == nil)
+                NavigationLink("Automations") {
+                    if let session = model.session { AutomationsView(session: session) }
+                }
+                .disabled(model.session == nil)
                 NavigationLink("Server Tools") {
                     if let session = model.session { ServerToolsView(session: session) }
                 }
                 .disabled(model.session == nil)
                 #else
-                Button("Connectors…", systemImage: "puzzlepiece.extension") { isShowingConnectors = true }
-                    .disabled(model.session == nil)
-                Button("Server Tools…", systemImage: "wrench.and.screwdriver") { isShowingTools = true }
-                    .disabled(model.session == nil)
-                Button("Discover Devices…", systemImage: "network") { isShowingDevices = true }
-                    .disabled(model.session == nil)
+                // Each opens in the window's content column, like a sidebar item.
+                equipmentButton("Connectors", systemImage: "puzzlepiece.extension", page: .connectors)
+                equipmentButton("Automations", systemImage: "bolt", page: .automations)
+                equipmentButton("Server Tools", systemImage: "wrench.and.screwdriver", page: .serverTools)
+                equipmentButton("Discover Devices", systemImage: "network", page: .devices)
                 #endif
             }
 
@@ -112,38 +112,6 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        #if os(macOS)
-        .sheet(isPresented: $isShowingDevices) {
-            if let session = model.session { DevicesView(session: session) }
-        }
-        .sheet(isPresented: $isShowingTools) {
-            if let session = model.session {
-                NavigationStack {
-                    ServerToolsView(session: session)
-                        .toolbar {
-                            ToolbarItem(placement: .confirmationAction) {
-                                Button("Done") { isShowingTools = false }
-                            }
-                        }
-                }
-                .frame(minWidth: 560, minHeight: 460)
-            }
-        }
-        // The Mac's settings live in an inspector, which has no navigation stack of its own.
-        .sheet(isPresented: $isShowingConnectors) {
-            if let session = model.session {
-                NavigationStack {
-                    ConnectorsView(session: session)
-                        .toolbar {
-                            ToolbarItem(placement: .confirmationAction) {
-                                Button("Done") { isShowingConnectors = false }
-                            }
-                        }
-                }
-                .frame(minWidth: 520, minHeight: 420)
-            }
-        }
-        #endif
         .confirmationDialog(resetTitle + "?", isPresented: $isConfirmingReset) {
             Button(resetTitle, role: .destructive) { Task { await model.reset() } }
         }
@@ -151,6 +119,26 @@ struct SettingsView: View {
 
     private var resetTitle: String {
         model.mode == .server ? "Stop Hosting" : "Remove Access"
+    }
+
+    #if os(macOS)
+    private func equipmentButton(_ title: String, systemImage: String, page: EquipmentPage) -> some View {
+        Button(title, systemImage: systemImage) { model.equipment = page }
+            .fontWeight(model.equipment == page ? .semibold : nil)
+            .accessibilityAddTraits(model.equipment == page ? .isSelected : [])
+            .disabled(model.session == nil)
+    }
+    #endif
+}
+
+extension View {
+    /// The pointing hand over a clickable control, as on the web; iPhone has no pointer.
+    @ViewBuilder func pointingHand() -> some View {
+        #if os(macOS)
+        pointerStyle(.link)
+        #else
+        self
+        #endif
     }
 }
 
@@ -170,9 +158,11 @@ private struct ServerSection: View {
             }
             LabeledContent("Token") {
                 HStack {
-                    Text(isShowingToken ? server.token : String(repeating: "•", count: 12))
+                    Text(isShowingToken && !Redaction.isOn ? server.token : String(repeating: "•", count: 12))
                         .textSelection(.enabled)
                         .monospaced()
+                        // Not "bullet" twelve times.
+                        .accessibilityLabel(isShowingToken && !Redaction.isOn ? server.token : "Hidden")
                     Button(isShowingToken ? "Hide Token" : "Show Token", systemImage: isShowingToken ? "eye.slash" : "eye") {
                         isShowingToken.toggle()
                     }
@@ -204,6 +194,7 @@ private struct ServerSection: View {
                     .frame(maxWidth: 200)
                     .frame(maxWidth: .infinity)
                     .accessibilityLabel("Connection code")
+                    .accessibilityHint("Scan it with an iPhone's camera to connect the iPhone to this server.")
             }
         }
     }
@@ -239,7 +230,7 @@ private func qrCode(_ text: String) -> Image? {
     guard let output = filter.outputImage,
           let image = CIContext().createCGImage(output, from: output.extent)
     else { return nil }
-    return Image(decorative: image, scale: 1)
+    return Image(image, scale: 1, label: Text("Connection code"))
 }
 #endif
 
@@ -284,18 +275,18 @@ private struct SlidesSettingsSection: View {
                     .labelsHidden()
                 }
                 LabeledContent("Bible Slides Folder") {
-                    TextField("Path on the server", text: Binding(
+                    TextField("Bible Slides Folder", text: Binding(
                         get: { current.slideFolder },
                         set: { current.slideFolder = $0; binding.wrappedValue = current }
-                    ))
+                    ), prompt: Text("Path on the server"))
                     .multilineTextAlignment(.trailing)
                     .labelsHidden()
                 }
                 LabeledContent("Song Slides Folder") {
-                    TextField("Path on the server", text: Binding(
+                    TextField("Song Slides Folder", text: Binding(
                         get: { current.songSlideFolder },
                         set: { current.songSlideFolder = $0; binding.wrappedValue = current }
-                    ))
+                    ), prompt: Text("Path on the server"))
                     .multilineTextAlignment(.trailing)
                     .labelsHidden()
                 }

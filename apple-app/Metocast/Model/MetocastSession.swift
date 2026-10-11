@@ -29,14 +29,41 @@ final class MetocastSession {
     private(set) var middlecontrol: MiddlecontrolState?
     private(set) var rodecaster: RodecasterProfile?
     private(set) var recorder: RecorderStateRecord?
+    /// The desk's own SD or USB recorder, which is not Metocast's audio recording above.
+    private(set) var deskRecorder: RodecasterDeskRecorder?
+    /// The live English transcript, its newest line and the OpenAI credit left.
+    private(set) var transcription: TranscriptionRecord?
+    private(set) var transcriptLine = ""
+    private(set) var transcriptCredit: CreditRecord?
+    /// Why the server turned down the last transcript start; the next start clears it.
+    private(set) var transcriptRefusal: String?
     private(set) var camera: CameraState?
     /// The OBS sources the server warns about.
     private(set) var deviceAlerts: [DeviceListenerRecord] = []
+    /// Rules that run inside the server: when one device does something, it does something on
+    /// others. Every client sees the same ones.
+    private(set) var automations: [AutomationRecord] = []
+    /// The master switch: nothing fires while it is off.
+    private(set) var automationsArmed = true
+    /// The last 50 runs, newest first.
+    private(set) var automationRuns: [AutomationRunRecord] = []
     // Slides. The server decides whether a presentation opens in the web presenter or Keynote.
     private(set) var usesWebPresenter = true
     private(set) var presenterTheme: PresenterTheme = .classic
     private(set) var presentationStatus: PresentationStatus?
+    /// The Order of Service step on screen, as (event id, step id), on every client alike.
+    private(set) var orderPosition: (eventId: String, itemId: String)?
+    /// Bumped when any event's Order of Service changes, so open screens reload it.
+    private(set) var orderRevision = 0
     private(set) var clients: [ConnectedClientRecord] = []
+    /// Video renders this session has queued or heard about, by job id.
+    private(set) var renders: [String: RenderProgressRecord] = [:]
+    /// Audio masters this session has queued or heard about, by job id.
+    private(set) var audioJobs: [String: AudioProgressRecord] = [:]
+    /// Programs (a video with its audio, synced) this session has queued or heard about, by job id.
+    private(set) var programJobs: [String: ProgramProgressRecord] = [:]
+    /// The event each video job was filed under, by job id; a job with none isn't listed.
+    private(set) var jobEvents: [String: String] = [:]
 
     /// Receives server notifications and connection or connector changes worth one.
     var onActivity: (ActivityItem) -> Void = { _ in }
@@ -63,6 +90,7 @@ final class MetocastSession {
             return
         }
         guard await refresh() else { return }
+        await loadAutomations()
 
         let (stream, continuation) = AsyncStream.makeStream(of: SessionSignal.self)
         signals = Task { [weak self] in
@@ -124,6 +152,49 @@ final class MetocastSession {
         Task { try? await client.deviceAlertControl(command: command) }
     }
 
+    // ── Automations ──────────────────────────────────────────────────────────
+
+    /// Loads the rules and the run history. After this, changes arrive as events.
+    func loadAutomations() async {
+        if let list = try? await client.automations() {
+            automations = list.automations
+            automationsArmed = list.armed
+        }
+        if let runs = try? await client.automationRuns() {
+            automationRuns = runs
+        }
+    }
+
+    /// Creates the rule when its id is empty, otherwise replaces it. A rule the server refuses
+    /// throws with the server's own words.
+    @discardableResult
+    func saveAutomation(_ rule: AutomationRecord) async throws -> AutomationRecord {
+        let saved = try await client.saveAutomation(automation: rule)
+        await loadAutomations()
+        return saved
+    }
+
+    func deleteAutomation(id: String) async throws {
+        try await client.deleteAutomation(id: id)
+        await loadAutomations()
+    }
+
+    /// Runs the rule now, whatever its cooldown and the master switch say. It really records and
+    /// moves cameras. Returns when the run ends.
+    func runAutomation(id: String) async throws -> AutomationRunRecord {
+        try await client.runAutomation(id: id)
+    }
+
+    func setAutomationsArmed(_ armed: Bool) async throws {
+        try await client.setAutomationsArmed(armed: armed)
+        automationsArmed = armed
+    }
+
+    /// The newest run of a rule, for its row in the list.
+    func lastRun(of automationId: String) -> AutomationRunRecord? {
+        automationRuns.first { $0.automationId == automationId }
+    }
+
     func cronJobs() async throws -> [CronJobRecord] { try await client.cronJobs() }
 
     @discardableResult
@@ -160,6 +231,85 @@ final class MetocastSession {
     }
 
     func deleteUntracked(id: String) async throws { try await client.deleteUntracked(id: id) }
+
+    // ── Video ────────────────────────────────────────────────────────────────
+
+    /// A video file on the server's disk and the render the stored settings would make of it.
+    /// With a `.sidecar` (such as Resolve's), its settings become the defaults.
+    func probeMedia(path: String, sidecarPath: String?) async throws -> MediaProbeRecord {
+        try await client.probeMedia(path: path, sidecarPath: sidecarPath)
+    }
+
+    /// One frame as recorded (`settings` nil) or graded, for the Media viewer.
+    func previewMedia(path: String, frame: UInt64, settings: RenderSettings?) async throws -> PreviewFrame {
+        try await client.previewMedia(path: path, frame: frame, settings: settings, maxWidth: 1600)
+    }
+
+    /// Queues a render; its progress then arrives in `renders`.
+    func startRender(path: String, eventId: String?, settings: RenderSettings?) async throws {
+        let queued = try await client.startRender(path: path, eventId: eventId, settings: settings)
+        jobEvents[queued.jobId] = eventId
+        renders[queued.jobId] = RenderProgressRecord(
+            jobId: queued.jobId,
+            state: .running,
+            frame: 0,
+            totalFrames: 0,
+            fps: 0,
+            outputPath: queued.outputPath,
+            error: nil
+        )
+    }
+
+    /// Stops a queued or running render, audio or program job.
+    func cancelRender(jobId: String) async throws { try await client.cancelRender(jobId: jobId) }
+
+    // ── Audio ────────────────────────────────────────────────────────────────
+
+    /// Audio files on the server's disk, joined in the order given.
+    func probeAudio(paths: [String]) async throws -> AudioProbeRecord {
+        try await client.probeAudio(paths: paths)
+    }
+
+    /// Queues an audio master; its progress then arrives in `audioJobs`.
+    func startAudio(paths: [String], eventId: String?, settings: AudioSettings?) async throws {
+        let queued = try await client.startAudio(paths: paths, eventId: eventId, settings: settings)
+        audioJobs[queued.jobId] = AudioProgressRecord(
+            jobId: queued.jobId,
+            state: .running,
+            step: nil,
+            fraction: nil,
+            outputPath: queued.outputPath,
+            error: nil,
+            report: nil
+        )
+    }
+
+    // ── Video + audio ────────────────────────────────────────────────────────
+
+    /// A video and its audio (none: the video's own sound), and how the server would sync them.
+    func probeProgram(videoPath: String, audioPaths: [String]) async throws -> ProgramProbeRecord {
+        try await client.probeProgram(videoPath: videoPath, audioPaths: audioPaths)
+    }
+
+    /// Queues a program; its progress then arrives in `programJobs`.
+    func startProgram(_ request: ProgramRequestRecord) async throws {
+        let queued = try await client.startProgram(request: request)
+        jobEvents[queued.jobId] = request.eventId
+        programJobs[queued.jobId] = ProgramProgressRecord(
+            jobId: queued.jobId,
+            state: .running,
+            step: nil,
+            fraction: nil,
+            outputPath: queued.outputPath,
+            error: nil,
+            report: nil
+        )
+    }
+
+    /// Moves a finished program's sound by whole frames (positive: later).
+    func nudgeProgram(jobId: String, frames: Int32) async throws {
+        try await client.nudgeProgram(jobId: jobId, frames: frames)
+    }
 
     /// Book and chapter autocomplete for a Bible reference.
     func bibleSuggestions(_ term: String) async throws -> [BibleSuggestionRecord] {
@@ -255,11 +405,30 @@ final class MetocastSession {
     /// `metocast_core::events::DEFAULT_TITLE_TEMPLATE`, for when the server can't be asked.
     static let defaultTitleTemplate = "{date|YYYY.MM.DD.} {title}[ | Textus: {textus}][ Lekció: {leckio}][ | {speaker}]"
 
-    /// The translation the event editor looks references up in, as in Sanctum.
-    static let bibleTranslation = "RUF_v2"
+    /// A Bible translation to look a reference up in. The `_v2` ones come from our own API; the others from
+    /// szentiras.eu, which needs the key held by the Szentírás connector. Mirrors `TRANSLATIONS` in core-client.
+    struct BibleTranslationOption: Hashable {
+        let code: String
+        let name: String
+        var isOurs: Bool { code.hasSuffix("_v2") }
+    }
 
-    func verses(for reference: String) async throws -> [BibleVerseRecord] {
-        try await client.bibleVerses(reference: reference, translation: Self.bibleTranslation)
+    static let bibleTranslations = [
+        BibleTranslationOption(code: "UF_v2", name: "UF (v2)"),
+        BibleTranslationOption(code: "RUF_v2", name: "RUF (v2)"),
+        BibleTranslationOption(code: "RUF", name: "RUF"),
+        BibleTranslationOption(code: "KG", name: "KG"),
+        BibleTranslationOption(code: "KNB", name: "KNB"),
+        BibleTranslationOption(code: "SZIT", name: "SZIT"),
+        BibleTranslationOption(code: "BD", name: "BD"),
+        BibleTranslationOption(code: "STL", name: "STL"),
+    ]
+
+    /// What a new reference is looked up in, as in Sanctum.
+    static let defaultBibleTranslation = "RUF_v2"
+
+    func verses(for reference: String, translation: String) async throws -> [BibleVerseRecord] {
+        try await client.bibleVerses(reference: reference, translation: translation)
     }
 
     /// Sends a presentation command. The server routes it to the web presenter or to Keynote.
@@ -277,9 +446,28 @@ final class MetocastSession {
         try await client.createEventSlides(id: eventId)
     }
 
-    /// Folder id to name, for labelling search results.
-    func folderNames() async throws -> [(String, String)] {
-        try await client.pptFolders().map { ($0.id, $0.name) }
+    /// The folders the server watches for decks.
+    func slideFolders() async throws -> [PptFolderRecord] {
+        try await client.pptFolders()
+    }
+
+    /// Watches a folder on the server's disk; the server refuses a path that isn't a folder there.
+    func addSlideFolder(path: String) async throws {
+        try await client.addPptFolder(path: path, name: URL(filePath: path).lastPathComponent)
+    }
+
+    func removeSlideFolder(id: String) async throws {
+        try await client.removePptFolder(id: id)
+    }
+
+    /// An event's Order of Service, in order.
+    func order(eventId: String) async throws -> [OrderItemRecord] {
+        try await client.eventOrder(id: eventId)
+    }
+
+    /// Replaces an event's Order of Service. Steps that keep their id stay the live step.
+    func saveOrder(eventId: String, items: [OrderItemRecord]) async throws -> [OrderItemRecord] {
+        try await client.setEventOrder(id: eventId, items: items)
     }
 
     func createSongSlides(title: String, lyrics: String) async throws -> SongSlides {
@@ -289,7 +477,7 @@ final class MetocastSession {
     /// How this device names itself in everyone's connected-devices list.
     static var deviceLabel: String {
         #if os(macOS)
-        "Metocast on " + ProcessInfo.processInfo.hostName.replacingOccurrences(of: ".local", with: "")
+        "Metocast on " + (Redaction.isOn ? Redaction.host : ProcessInfo.processInfo.hostName.replacingOccurrences(of: ".local", with: ""))
         #else
         "Metocast on " + UIDevice.current.name
         #endif
@@ -298,7 +486,25 @@ final class MetocastSession {
     /// Sends a live production command. Its effect arrives as a state update, and a refusal
     /// arrives as a notification.
     func control(_ control: ProductionControl) {
+        if case .transcriptionStart = control { transcriptRefusal = nil }
         Task { try? await client.productionControl(control: control) }
+    }
+
+    /// A refused command's server code, in words.
+    private static func refusalText(_ message: String) -> String {
+        if message.contains("rodecaster_multitrack_endpoint_missing") {
+            return "The RØDECaster's multitrack USB audio isn't reaching this Mac. Connect USB 1 and enable multitrack."
+        }
+        if message.hasPrefix("transcription_not_configured") {
+            return "Add an OpenAI API key in Settings → Connectors."
+        }
+        if message.hasPrefix("rodecaster_audio_recording_disabled") {
+            return "Audio recording is off. Turn on Record Audio and choose a folder in Settings → Connectors → RØDECaster."
+        }
+        if message.hasPrefix("recording_directory_not_found") {
+            return "The recording folder doesn't exist on the server's Mac. Set it in Settings → Connectors → RØDECaster."
+        }
+        return message.replacingOccurrences(of: "_", with: " ")
     }
 
     /// The event happening now or next, by the same rule as `metocast_core::events::current_event`.
@@ -323,10 +529,14 @@ final class MetocastSession {
             presenter?.totalSlides = total
         case .event(.eventChanged):
             Task { await refresh() }
+        case .event(.orderState(let eventId, let itemId)):
+            orderPosition = eventId.flatMap { event in itemId.map { (event, $0) } }
+        case .event(.eventOrderChanged):
+            orderRevision += 1
         case .event(.notification(let level, let message)):
             let icon = switch level {
             case "error": "exclamationmark.triangle"
-            case "warning": "exclamationmark.circle"
+            case "warn": "exclamationmark.circle"
             default: "info.circle"
             }
             onActivity(ActivityItem(icon: icon, title: message))
@@ -352,10 +562,84 @@ final class MetocastSession {
             }
         case .event(.rodecasterRecorder(let state)):
             recorder = state
+        case .event(.rodecasterDeskRecorder(let state)):
+            deskRecorder = state
+        case .event(.automationsChanged(let armed, let automations)):
+            automationsArmed = armed
+            self.automations = automations
+        case .event(.automationRun(let run)):
+            // The caller of Run Now gets the run back too, so it may be here already.
+            if !automationRuns.contains(where: { $0.id == run.id }) {
+                automationRuns.insert(run, at: 0)
+                if automationRuns.count > 50 { automationRuns.removeLast(automationRuns.count - 50) }
+            }
+            // A failure already reached the Notifications list as the server's own warning.
+            if !run.didFail {
+                onActivity(ActivityItem(icon: "bolt.circle", title: "\(run.name) ran: \(run.cause)"))
+            }
+        case .event(.transcription(let state)):
+            transcription = state
+            if state.status == .connecting || state.status == .running { transcriptRefusal = nil }
+        case .event(.transcriptionSnapshot(let state, let line, let credit)):
+            transcription = state
+            transcriptLine = line
+            transcriptCredit = credit
+        case .event(.transcriptLine(let text)):
+            transcriptLine = text
+        case .event(.transcriptionCredit(let credit)):
+            transcriptCredit = credit
         case .event(.cameraState(let streaming, let recording, let status)):
             camera = CameraState(streaming: streaming, recording: recording, streamStatus: status)
         case .event(.deviceAlerts(let listeners)):
             deviceAlerts = listeners
+        case .event(.mediaRenderProgress(let progress)):
+            renders[progress.jobId] = progress
+            let file = URL(fileURLWithPath: progress.outputPath).lastPathComponent
+            switch progress.state {
+            case .succeeded:
+                onActivity(ActivityItem(icon: "film", title: "Render finished: \(file)"))
+            case .failed:
+                onActivity(ActivityItem(icon: "exclamationmark.triangle", title: "Render failed: \(progress.error ?? file)"))
+            case .running, .cancelled:
+                break
+            }
+        case .event(.mediaAudioProgress(let progress)):
+            // A pending job cancelled before it ran reports no output path; keep the one we know.
+            var progress = progress
+            if progress.outputPath.isEmpty, let known = audioJobs[progress.jobId] {
+                progress.outputPath = known.outputPath
+            }
+            audioJobs[progress.jobId] = progress
+            let file = URL(fileURLWithPath: progress.outputPath).lastPathComponent
+            switch progress.state {
+            case .succeeded:
+                onActivity(ActivityItem(icon: "waveform", title: "Audio ready: \(file)"))
+            case .failed:
+                onActivity(ActivityItem(icon: "exclamationmark.triangle", title: "Audio failed: \(progress.error ?? file)"))
+            case .running, .cancelled:
+                break
+            }
+        case .event(.mediaProgramProgress(let progress)):
+            // A cancelled pending job reports no output path, and a nudge in progress no report:
+            // keep the ones we know, so the row still says what the program is.
+            var progress = progress
+            let known = programJobs[progress.jobId]
+            if progress.outputPath.isEmpty, let known {
+                progress.outputPath = known.outputPath
+            }
+            if progress.report == nil, let report = known?.report {
+                progress.report = report
+            }
+            programJobs[progress.jobId] = progress
+            let file = URL(fileURLWithPath: progress.outputPath).lastPathComponent
+            switch progress.state {
+            case .succeeded:
+                onActivity(ActivityItem(icon: "film.stack", title: "Video with audio ready: \(file)"))
+            case .failed:
+                onActivity(ActivityItem(icon: "exclamationmark.triangle", title: "Video with audio failed: \(progress.error ?? file)"))
+            case .running, .cancelled:
+                break
+            }
         case .event(.presentationSettings(let useWebPresenter, let theme)):
             usesWebPresenter = useWebPresenter
             presenterTheme = theme
@@ -366,9 +650,11 @@ final class MetocastSession {
         case .event(.discovery(let tool, let devices, let message)):
             discoveryResults[tool] = DiscoverySnapshot(devices: devices, message: message)
         case .event(.commandFailed(let message)):
+            let words = Self.refusalText(message)
+            if message.hasPrefix("transcription_") { transcriptRefusal = words }
             discoveryFailure = message.replacingOccurrences(of: "_", with: " ")
             // ponytail: codes show as words ("atem not connected"); map them to prose if they read badly.
-            onActivity(ActivityItem(icon: "exclamationmark.triangle", title: "Couldn't do that: \(message.replacingOccurrences(of: "_", with: " "))"))
+            onActivity(ActivityItem(icon: "exclamationmark.triangle", title: "Couldn't do that: \(words)", isAlert: true))
         case .event(.connected), .event(.event), .event(.unknown):
             break
         }
@@ -386,7 +672,10 @@ final class MetocastSession {
             if previous == .reconnecting {
                 onActivity(ActivityItem(icon: "checkmark.circle", title: "Reconnected to \(ServerAddress.displayName(baseURL))"))
                 // Anything could have changed while the socket was down.
-                Task { await refresh() }
+                Task {
+                    await refresh()
+                    await loadAutomations()
+                }
             }
         case .reconnecting:
             status = .reconnecting
@@ -417,7 +706,9 @@ final class MetocastSession {
             case "obs": obs = nil
             case "atem": atem = nil
             case "middlecontrol": middlecontrol = nil
-            case "rodecaster": rodecaster = nil
+            case "rodecaster":
+                rodecaster = nil
+                deskRecorder = nil
             case "blackmagic-camera": camera = nil
             default: break
             }
@@ -487,6 +778,8 @@ struct ActivityItem: Identifiable {
     var title: String
     var date = Date.now
     var isRead = false
+    /// Something the operator has to act on, so it also goes out as a system notification.
+    var isAlert = false
 }
 
 struct DiscoverySnapshot {

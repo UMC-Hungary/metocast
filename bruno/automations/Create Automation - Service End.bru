@@ -1,0 +1,57 @@
+meta {
+  name: Create Automation - Service End
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/automations
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "name": "Service end",
+    "enabled": true,
+    "triggers": [
+      { "kind": "middlecontrol.preset", "preset": 1, "cameraId": null },
+      {
+        "kind": "rodecaster.channel",
+        "channel": 2,
+        "label": "Wireless 1",
+        "live": false,
+        "source": "either",
+        "holdSeconds": 5
+      }
+    ],
+    "actions": [
+      { "kind": "record.stop", "target": { "device": "rodecaster-audio" } },
+      { "kind": "record.stop", "target": { "device": "rodecaster" } },
+      { "kind": "record.stop", "target": { "device": "blackmagic-camera" } },
+      { "kind": "record.stop", "target": { "device": "atem" } },
+      { "kind": "record.stop", "target": { "device": "obs" } },
+      { "kind": "middlecontrol.preset.recall", "preset": 1, "cameraId": null, "waitForArrival": false }
+    ],
+    "cooldownSeconds": 5,
+    "requireEvent": false
+  }
+}
+
+docs {
+  The reverse of Service start: stop recording first, so the recording doesn't end on a camera move,
+  then (optionally) move the camera to preset 1. The channel trigger goes silent for at least 5 s, so
+  a cough-mute doesn't split the recording. A "goes silent" stop fires at every long mute (hymns,
+  prayers): it fits a channel that is live only for the part being recorded, such as the sermon. To
+  record a whole service, stop on a preset or use a longer hold.
+}
+
+tests {
+  test("status is 201", function() {
+    expect(res.status).to.equal(201);
+  });
+}

@@ -1,18 +1,22 @@
 #![forbid(unsafe_code)]
-#![recursion_limit = "256"]
+#![recursion_limit = "512"]
 
 use std::{net::SocketAddr, sync::Arc};
 
+pub mod automations;
 pub mod bible;
 mod broadlink;
 pub mod connectors;
 pub mod database;
+pub mod media;
 mod models;
 mod obs_devices;
 pub mod queue;
+pub mod recording_control;
 pub mod runtime;
 pub mod scheduler;
 pub mod server;
+pub mod transcription;
 mod uploader;
 
 #[derive(Debug, Clone)]

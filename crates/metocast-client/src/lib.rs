@@ -4,9 +4,16 @@ use std::{collections::HashMap, fmt, time::Duration};
 
 use futures_util::{SinkExt, StreamExt};
 use metocast_core::{
+    automations::{Automation, AutomationDraft, AutomationList, AutomationRun},
     connectors::ConnectorStatus,
     events::{
-        BiblePassage, CreateEvent, Event, EventSummary, SlideFolder, TitleTemplate, UpdateEvent,
+        BiblePassage, CreateEvent, Event, EventOrder, EventSummary, OrderItem, SlideFolder,
+        TitleTemplate, UpdateEvent,
+    },
+    media::{
+        AudioProbe, AudioProbeRequest, AudioRequest, MediaProbe, NudgeRequest, PreviewFrame,
+        PreviewRequest, ProbeRequest, ProgramProbe, ProgramProbeRequest, ProgramRequest,
+        RenderQueued, RenderRequest,
     },
     operations::{
         ApplicationLog, BibleSuggestion, BroadlinkCommand, CronJob, CronJobDraft, QueueJob,
@@ -430,6 +437,61 @@ impl MetocastClient {
         self.delete(&format!("api/cron-jobs/{id}")).await
     }
 
+    // ── Automations ──────────────────────────────────────────────────────────
+
+    /// The rules and the master switch.
+    pub async fn automations(&self) -> Result<AutomationList, ClientError> {
+        self.get_json("api/automations").await
+    }
+
+    /// A rule that breaks a limit is refused with the server's own words in `ClientError::Http`.
+    pub async fn create_automation(
+        &self,
+        draft: &AutomationDraft,
+    ) -> Result<Automation, ClientError> {
+        let url = self.config.endpoint("api/automations")?;
+        self.send_json(self.http.post(url).json(draft)).await
+    }
+
+    /// Replaces the whole rule.
+    pub async fn update_automation(
+        &self,
+        id: Uuid,
+        draft: &AutomationDraft,
+    ) -> Result<Automation, ClientError> {
+        let url = self.config.endpoint(&format!("api/automations/{id}"))?;
+        self.send_json(self.http.put(url).json(draft)).await
+    }
+
+    pub async fn delete_automation(&self, id: Uuid) -> Result<(), ClientError> {
+        self.delete(&format!("api/automations/{id}")).await
+    }
+
+    /// Runs the rule's actions now, ignoring its cooldown, its event check and the master
+    /// switch, and returns when the run ends. It really records and really moves cameras.
+    pub async fn run_automation(&self, id: Uuid) -> Result<AutomationRun, ClientError> {
+        let url = self.config.endpoint(&format!("api/automations/{id}/run"))?;
+        self.send_json(self.http.post(url)).await
+    }
+
+    /// The last 50 runs, newest first.
+    pub async fn automation_runs(&self) -> Result<Vec<AutomationRun>, ClientError> {
+        self.get_json("api/automations/runs").await
+    }
+
+    /// The master switch: nothing fires while it is off.
+    pub async fn set_automations_armed(&self, armed: bool) -> Result<(), ClientError> {
+        let url = self.config.endpoint("api/automations/armed")?;
+        self.response(
+            self.http
+                .put(url)
+                .bearer_auth(self.config.token.expose())
+                .json(&serde_json::json!({ "armed": armed })),
+        )
+        .await?;
+        Ok(())
+    }
+
     pub async fn queues(&self) -> Result<Vec<QueueSummary>, ClientError> {
         self.get_json("api/queues").await
     }
@@ -472,6 +534,96 @@ impl MetocastClient {
 
     pub async fn untracked_recordings(&self) -> Result<Vec<UntrackedRecording>, ClientError> {
         self.get_json("api/recordings/untracked").await
+    }
+
+    /// Describes a video file on the server's disk and the render the stored settings would make.
+    pub async fn probe_media(
+        &self,
+        path: &str,
+        sidecar_path: Option<&str>,
+    ) -> Result<MediaProbe, ClientError> {
+        let url = self.config.endpoint("api/media/probe")?;
+        let body = ProbeRequest {
+            path: path.to_string(),
+            sidecar_path: sidecar_path.map(str::to_string),
+        };
+        self.send_json(self.http.post(url).json(&body)).await
+    }
+
+    /// One frame as a JPEG: as recorded without `request.settings`, else graded with them.
+    pub async fn preview_media(
+        &self,
+        request: &PreviewRequest,
+    ) -> Result<PreviewFrame, ClientError> {
+        let url = self.config.endpoint("api/media/preview")?;
+        self.send_json(self.http.post(url).json(request)).await
+    }
+
+    /// Queues a render on the server's `media` queue.
+    pub async fn start_render(&self, request: &RenderRequest) -> Result<RenderQueued, ClientError> {
+        let url = self.config.endpoint("api/media/renders")?;
+        self.send_json(self.http.post(url).json(request)).await
+    }
+
+    /// Describes audio files on the server's disk, joined in the order given.
+    pub async fn probe_audio(&self, paths: &[String]) -> Result<AudioProbe, ClientError> {
+        let url = self.config.endpoint("api/media/audio/probe")?;
+        let body = AudioProbeRequest {
+            paths: paths.to_vec(),
+        };
+        self.send_json(self.http.post(url).json(&body)).await
+    }
+
+    /// Queues an audio master on the server's `media` queue.
+    pub async fn start_audio(&self, request: &AudioRequest) -> Result<RenderQueued, ClientError> {
+        let url = self.config.endpoint("api/media/audio")?;
+        self.send_json(self.http.post(url).json(request)).await
+    }
+
+    /// Describes a video and its audio (none: the video's own sound) and how they'd be synced.
+    pub async fn probe_program(
+        &self,
+        video_path: &str,
+        audio_paths: &[String],
+    ) -> Result<ProgramProbe, ClientError> {
+        let url = self.config.endpoint("api/media/programs/probe")?;
+        let body = ProgramProbeRequest {
+            video_path: video_path.to_string(),
+            audio_paths: audio_paths.to_vec(),
+        };
+        self.send_json(self.http.post(url).json(&body)).await
+    }
+
+    /// Queues a program (a video with its audio, synced) on the server's `media` queue.
+    pub async fn start_program(
+        &self,
+        request: &ProgramRequest,
+    ) -> Result<RenderQueued, ClientError> {
+        let url = self.config.endpoint("api/media/programs")?;
+        self.send_json(self.http.post(url).json(request)).await
+    }
+
+    /// Moves a finished program's audio by whole frames (positive: later).
+    pub async fn nudge_program(
+        &self,
+        job_id: Uuid,
+        frames: i32,
+    ) -> Result<RenderQueued, ClientError> {
+        let url = self
+            .config
+            .endpoint(&format!("api/media/programs/{job_id}/nudge"))?;
+        self.send_json(self.http.post(url).json(&NudgeRequest { frames }))
+            .await
+    }
+
+    /// Stops a queued or running render, audio or program job.
+    pub async fn cancel_render(&self, job_id: Uuid) -> Result<(), ClientError> {
+        let url = self
+            .config
+            .endpoint(&format!("api/media/renders/{job_id}/cancel"))?;
+        self.response(self.http.post(url).bearer_auth(self.config.token.expose()))
+            .await?;
+        Ok(())
     }
 
     /// Moves a stray recording onto an event.
@@ -560,10 +712,46 @@ impl MetocastClient {
         Ok(envelope.data)
     }
 
+    /// Watches a folder on the server's disk; the server refuses a path that isn't a folder.
+    pub async fn add_ppt_folder(&self, path: &str, name: &str) -> Result<PptFolder, ClientError> {
+        let url = self.config.endpoint("api/ppt/folders")?;
+        let envelope: PptEnvelope<PptFolder> = self
+            .send_json(
+                self.http
+                    .post(url)
+                    .json(&serde_json::json!({ "path": path, "name": name })),
+            )
+            .await?;
+        Ok(envelope.data)
+    }
+
+    pub async fn remove_ppt_folder(&self, id: Uuid) -> Result<(), ClientError> {
+        self.delete(&format!("api/ppt/folders/{id}")).await
+    }
+
     /// Writes one deck per Bible reference on the event into the configured slide folder.
     pub async fn create_event_slides(&self, id: Uuid) -> Result<EventSlides, ClientError> {
         let url = self.config.endpoint(&format!("api/events/{id}/slides"))?;
         self.send_json(self.http.post(url)).await
+    }
+
+    /// An event's Order of Service, in order.
+    pub async fn event_order(&self, id: Uuid) -> Result<Vec<OrderItem>, ClientError> {
+        let order: EventOrder = self.get_json(&format!("api/events/{id}/order")).await?;
+        Ok(order.items)
+    }
+
+    /// Replaces an event's Order of Service; steps that keep their id stay the live step.
+    pub async fn set_event_order(
+        &self,
+        id: Uuid,
+        items: Vec<OrderItem>,
+    ) -> Result<Vec<OrderItem>, ClientError> {
+        let url = self.config.endpoint(&format!("api/events/{id}/order"))?;
+        let order: EventOrder = self
+            .send_json(self.http.put(url).json(&EventOrder { items }))
+            .await?;
+        Ok(order.items)
     }
 
     /// Turns pasted lyrics into a deck in the configured song folder.

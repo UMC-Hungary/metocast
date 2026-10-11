@@ -3,10 +3,10 @@ import Metocast
 
 /// A stream or recording on one device, as the Live tab and the Dashboard's On Air card show it.
 struct LiveOutput: Identifiable {
-    enum Kind { case stream, recording }
+    enum Kind { case stream, recording, transcript }
     enum State { case off, starting, on, stopping, failed }
 
-    var id: String { "\(connector).\(kind)" }
+    var id: String { "\(connector).\(kind).\(title ?? "")" }
     /// The connector it belongs to, which is also the Live section it shows in.
     let connector: String
     let kind: Kind
@@ -16,9 +16,17 @@ struct LiveOutput: Identifiable {
     /// What it's for, such as the event an audio recording belongs to.
     var detail: String?
     var since: Date?
+    /// Names it where one connector has two of a kind, such as the RØDECaster's own SD recorder
+    /// next to Metocast's audio recording.
+    var title: String?
+    /// The outputs that run with or without an event, which the Mac toolbar keeps within reach
+    /// from every page.
+    var showsInToolbar = false
 
     /// "OBS stream", "ATEM recording".
     var name: String {
+        if kind == .transcript { return "English transcript" }
+        if let title { return "\(ConnectorInfo(id: connector).name) \(title)" }
         let device = connector == "middlecontrol" ? "Camera" : ConnectorInfo(id: connector).name
         return "\(device) \(kind == .stream ? "stream" : "recording")"
     }
@@ -49,11 +57,64 @@ extension MetocastSession {
         if let recorder, rodecaster != nil || recorder.status != .idle {
             outputs.append(audioRecording(recorder))
         }
+        if let deskRecorder {
+            outputs.append(deskRecording(deskRecorder))
+        }
+        if let transcription, transcription.status != .notConfigured {
+            outputs.append(transcript(transcription))
+        }
         return outputs
     }
 
+    /// Like the audio recording: a running transcript names its event, an idle one offers the
+    /// current event, or runs with none. It needs the RØDECaster, so it can't start while the
+    /// server reports it offline.
+    private func transcript(_ state: TranscriptionRecord) -> LiveOutput {
+        let running = state.status == .running || state.status == .connecting
+        let event = running ? events.first { $0.id == state.eventId } : upNext
+        let outputState: LiveOutput.State = switch state.status {
+        case .connecting: .starting
+        case .running: .on
+        case .error: .failed
+        default: .off
+        }
+        var output = LiveOutput(
+            connector: "openai",
+            kind: .transcript,
+            state: outputState,
+            detail: event?.title ?? "No event",
+            since: running ? state.startedAt.flatMap(Date.init(rfc3339:)) : nil,
+            showsInToolbar: true
+        )
+        if running {
+            output.control = { _ in .transcriptionStop }
+        } else if state.status == .ready || state.status == .error {
+            output.control = { _ in .transcriptionStart(eventId: event?.id) }
+        }
+        return output
+    }
+
+    /// The RØDECaster's own recorder writes to its SD card or a USB drive, so it can't start
+    /// without one.
+    private func deskRecording(_ desk: RodecasterDeskRecorder) -> LiveOutput {
+        var output = LiveOutput(
+            connector: "rodecaster",
+            kind: .recording,
+            state: desk.status == .recording ? .on : .off,
+            detail: desk.status == .paused ? "Paused" : desk.mediaPresent || desk.status != .stopped ? nil : "No SD card or USB drive",
+            title: "SD recording"
+        )
+        if desk.status != .stopped {
+            output.control = { _ in .rodecasterDeskRecording(on: false) }
+        } else if desk.mediaPresent {
+            output.control = { _ in .rodecasterDeskRecording(on: true) }
+        }
+        return output
+    }
+
     /// A running recording names the event it's bound to; an idle one offers the current event,
-    /// the one the server records for, like Sanctum.
+    /// the one the server records for, like Sanctum. With none, the server keeps the files as
+    /// untracked recordings, to assign to an event later.
     private func audioRecording(_ recorder: RecorderStateRecord) -> LiveOutput {
         let recording = recorder.status == .recording
         let event = recording ? events.first { $0.id == recorder.eventId } : upNext
@@ -61,13 +122,14 @@ extension MetocastSession {
             connector: "rodecaster",
             kind: .recording,
             state: recording ? .on : recorder.status == .failed ? .failed : .off,
-            detail: event?.title ?? (recording ? nil : "No event to record for"),
-            since: recording ? recorder.startedAt.flatMap(Date.init(rfc3339:)) : nil
+            detail: event?.title ?? "No event: saved as untracked",
+            since: recording ? recorder.startedAt.flatMap(Date.init(rfc3339:)) : nil,
+            showsInToolbar: true
         )
         if recording {
             output.control = { _ in .rodecasterRecordStop }
-        } else if let event, rodecaster != nil {
-            output.control = { _ in .rodecasterRecordStart(eventId: event.id) }
+        } else if rodecaster != nil {
+            output.control = { _ in .rodecasterRecordStart(eventId: event?.id) }
         }
         return output
     }
@@ -87,6 +149,10 @@ extension LiveOutput {
         case (.recording, .starting): "Starting…"
         case (.recording, .on): "Recording"
         case (.recording, .stopping): "Stopping…"
+        case (.transcript, .off): "Not running"
+        case (.transcript, .starting): "Connecting…"
+        case (.transcript, .on): "Transcribing"
+        case (.transcript, .stopping): "Stopping…"
         case (_, .failed): "Failed"
         }
     }
@@ -100,9 +166,40 @@ extension LiveOutput {
         }
     }
 
-    var symbol: String { kind == .stream ? "dot.radiowaves.left.and.right" : "record.circle" }
-    var startTitle: String { kind == .stream ? "Go Live" : "Record" }
-    var stopTitle: String { kind == .stream ? "End Stream" : "Stop Recording" }
+    var kindTitle: String {
+        if let title { return title }
+        return switch kind {
+        case .stream: "Stream"
+        case .recording: "Recording"
+        case .transcript: "Transcript"
+        }
+    }
+    var symbol: String {
+        switch kind {
+        case .stream: "dot.radiowaves.left.and.right"
+        case .recording: "record.circle"
+        case .transcript: "captions.bubble"
+        }
+    }
+    /// "Record: RØDECaster recording" or "Stop Recording: RØDECaster recording".
+    var actionName: String {
+        "\(isOn ? stopTitle : startTitle): \(name)"
+    }
+
+    var startTitle: String {
+        switch kind {
+        case .stream: "Go Live"
+        case .recording: "Record"
+        case .transcript: "Start"
+        }
+    }
+    var stopTitle: String {
+        switch kind {
+        case .stream: "End Stream"
+        case .recording: "Stop Recording"
+        case .transcript: "Stop Transcript"
+        }
+    }
 }
 
 extension LiveOutput.State {

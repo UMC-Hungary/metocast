@@ -1,0 +1,42 @@
+meta {
+  name: Probe Program
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/media/programs/probe
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "videoPath": "/Volumes/A002/Untitled CAM 1 05.braw",
+    "audioPaths": ["/Volumes/WirelessPRO 1/00015_Wireless_PRO.WAV"]
+  }
+}
+
+docs {
+  Describes a video and its audio recording (leave `audioPaths` empty to use the
+  video's own sound): the video and audio facts, whether the video's sound is
+  usable or silent (`videoSound`), how the sync will be found (`syncMethod`:
+  `none`, `waveform` or `lips`), where the clocks put the start (`clock`, raw or
+  `learned` from a recent sync of the same camera), the picture's default
+  treatment (`grade` or `copy`), `warnings`, a `blocker` when the job can't run,
+  and `missing` tools.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("response says how it would sync", function() {
+    expect(res.body).to.have.property('syncMethod');
+    expect(res.body).to.have.property('videoSound');
+  });
+}

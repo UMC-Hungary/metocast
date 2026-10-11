@@ -1,0 +1,42 @@
+meta {
+  name: MCP - List Tools
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/mcp
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+headers {
+  Accept: application/json, text/event-stream
+}
+
+body:json {
+  {
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/list"
+  }
+}
+
+docs {
+  Every tool with its input schema and readOnlyHint, destructiveHint and idempotentHint.
+  In read-only mode (readOnly: true in the MCP config) only the read-only tools are listed.
+  The same list, as a table, is docs/mcp/TOOLS.md.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("lists tools", function() {
+    expect(res.body.result.tools.length).to.be.greaterThan(100);
+  });
+}

@@ -1,0 +1,53 @@
+meta {
+  name: Start Program
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/media/programs
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "videoPath": "/Volumes/A002/Untitled CAM 1 05.braw",
+    "audioPaths": ["/Volumes/WirelessPRO 1/00015_Wireless_PRO.WAV"],
+    "eventId": null,
+    "picture": null,
+    "settings": null,
+    "audioSettings": null,
+    "startSeconds": null,
+    "subtitles": [{ "path": "/Users/me/Desktop/sermon.hu.srt", "language": "hu" }]
+  }
+}
+
+docs {
+  Queues a program on the `media` queue: the picture graded (or copied), the
+  audio joined and synced to it (by the video's own sound, else the speaker's
+  lips, else the clocks), only the needed stretch cleaned by jive-vocals and
+  lifted to the target loudness, then placed under the picture so it lasts
+  exactly as long. Writes `<name>.mov` and `<name>.wav` in `Metocast Renders`.
+  Set `startSeconds` to where the video starts in the recording to skip the
+  search (the sync method is then `manual`). Each of `subtitles` (an .srt or
+  .vtt, timed to the video or to the recording) is moved onto the program's
+  voice, written beside it as `<name>.<lang>.srt`, and, when filed under an
+  event, sent with its YouTube and Facebook uploads as captions.
+  Watch `media.program.progress` on the WebSocket; cancel with Cancel Render
+  using the returned `jobId`.
+}
+
+tests {
+  test("status is 202", function() {
+    expect(res.status).to.equal(202);
+  });
+  test("response has the job and output", function() {
+    expect(res.body).to.have.property('jobId');
+    expect(res.body).to.have.property('outputPath');
+  });
+}

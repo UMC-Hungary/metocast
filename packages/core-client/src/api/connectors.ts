@@ -154,12 +154,25 @@ export function requestRodecasterAudioRecordingState(): boolean {
   return sendWsCommand('rodecaster.audio.record.state');
 }
 
-export function startRodecasterAudioRecording(eventId: string): boolean {
-  return sendWsCommand('rodecaster.audio.record.start', { event_id: eventId });
+/** Without an event the files are kept as untracked recordings, to assign to an event later. */
+export function startRodecasterAudioRecording(eventId?: string): boolean {
+  return sendWsCommand('rodecaster.audio.record.start', eventId ? { event_id: eventId } : {});
 }
 
 export function stopRodecasterAudioRecording(): boolean {
   return sendWsCommand('rodecaster.audio.record.stop');
+}
+
+/**
+ * Starts (or resumes) the desk's own SD/USB recorder. Answered by `ok`, or an `error`
+ * (`rodecaster_not_connected`, `rodecaster_no_media`); the result arrives as `rodecaster.record.state`.
+ */
+export function startRodecasterDeskRecording(): boolean {
+  return sendWsCommand('rodecaster.record.start');
+}
+
+export function stopRodecasterDeskRecording(): boolean {
+  return sendWsCommand('rodecaster.record.stop');
 }
 
 export function selectMiddlecontrolCamera(cameraId: number): boolean {

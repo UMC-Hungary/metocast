@@ -1,0 +1,38 @@
+meta {
+  name: Probe Media
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/media/probe
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "path": "/Volumes/A002/A002_09160323_C001.braw"
+  }
+}
+
+docs {
+  Describes a .braw, .mov or .mp4 file on the server's disk: camera metadata,
+  start timecode, audio, the stored Media Processing defaults (`media` connector
+  config), the frame they produce, and `missing` tools (ffmpeg, braw-decode,
+  blackmagic-raw-sdk) the server still needs before it can render the file.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("response has the render defaults", function() {
+    expect(res.body).to.have.property('defaults');
+    expect(res.body).to.have.property('missing');
+  });
+}

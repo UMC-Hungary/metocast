@@ -26,6 +26,10 @@ export function GetVariableDefinitions(_instance: ModuleInstance): CompanionVari
 		{ variableId: 'ppt_document', name: 'Current Presentation File Name' },
 		{ variableId: 'presenter_event_count', name: 'Presenter Event Count' },
 		{ variableId: 'presenter_selected_event', name: 'Backend Selected Presenter Event' },
+		{ variableId: 'automations_armed', name: 'Automations Armed (ON/OFF)' },
+		{ variableId: 'last_automation', name: 'Last Automation Run' },
+		{ variableId: 'order_step', name: 'Order of Service Step On Screen' },
+		{ variableId: 'order_step_number', name: 'Order of Service Step Number (3/13)' },
 	]
 }
 
@@ -57,5 +61,9 @@ export function GetDefaultVariableValues(instance: ModuleInstance): Record<strin
 		presenter_event_count: instance.presenterEvents.length,
 		presenter_selected_event:
 			instance.presenterEvents.find((event) => event.id === instance.selectedPresenterEventId)?.title ?? '',
+		automations_armed: instance.automationsArmed ? 'ON' : 'OFF',
+		last_automation: instance.lastAutomation,
+		order_step: instance.orderStep?.title ?? '',
+		order_step_number: instance.orderStep ? `${instance.orderStep.number}/${instance.orderStep.count}` : '',
 	}
 }

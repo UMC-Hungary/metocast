@@ -1,0 +1,42 @@
+meta {
+  name: Order of Service - WebSocket
+  type: http
+  seq: 3
+}
+
+# WebSocket commands — use a WS client connected to:
+# ws://{{host}}/ws?token={{authToken}}
+
+get {
+  url: {{baseUrl}}/ws
+  body: none
+  auth: none
+}
+
+docs {
+  ## Stepping through an Order of Service
+
+  ```json
+  { "type": "order.go", "event_id": "…", "item_id": "…" }
+  { "type": "order.next", "event_id": null }
+  { "type": "order.previous", "event_id": null }
+  { "type": "order.status" }
+  ```
+
+  - `order.go` shows a step: a song opens its deck, a Bible step loads the event's reading, a block
+    leaves the screen as it is. Answers `ok`, or `error` with the reason.
+  - `order.next` / `order.previous` move from the step on screen. With none, `event_id` names the
+    event and `order.next` shows its first step.
+  - `order.status` answers `order.state`.
+
+  ### Broadcasts
+
+  ```json
+  { "type": "order.state", "position": { "eventId": "…", "itemId": "…" }, "items": [ { "id": "…", "kind": "block", "title": "Fohász", … } ] }
+  { "type": "event.order.changed", "eventId": "…", "items": [ { "id": "…", "kind": "song", … } ] }
+  ```
+
+  `order.state` is also sent on connect; `position` is `null` and `items` empty when no step is on
+  screen. `order.status` works without the token too, so the read-only shared view
+  (`/ui/sanctum/presenter?view=order`) needs no login.
+}

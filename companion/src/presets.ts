@@ -680,6 +680,89 @@ export function GetPresets(instance: ModuleInstance): CompanionPresetDefinitions
 		],
 	}
 
+	presets['automations_armed'] = {
+		type: 'button',
+		category: 'Automations',
+		name: 'Automations: Armed',
+		style: {
+			text: `Auto\\n$(${variablePrefix}:automations_armed)`,
+			size: 'auto',
+			color: combineRgb(255, 255, 255),
+			bgcolor: combineRgb(120, 0, 0),
+		},
+		steps: [
+			{
+				down: [{ actionId: 'automations_arm', options: { operation: 'toggle' } }],
+				up: [],
+			},
+		],
+		feedbacks: [
+			{
+				feedbackId: 'automations_armed',
+				options: {},
+				style: { bgcolor: combineRgb(0, 120, 0) },
+			},
+		],
+	}
+
+	presets['rodecaster_desk_record'] = {
+		type: 'button',
+		category: 'Automations',
+		name: 'RØDECaster SD: Record',
+		style: {
+			text: 'SD\\n⏺ Rec',
+			size: 'auto',
+			color: combineRgb(255, 255, 255),
+			bgcolor: combineRgb(60, 60, 60),
+		},
+		steps: [
+			{
+				down: [{ actionId: 'rodecaster_desk_record', options: { operation: 'start' } }],
+				up: [],
+			},
+		],
+		feedbacks: [
+			{
+				feedbackId: 'rodecaster_desk_recording',
+				options: {},
+				style: { bgcolor: combineRgb(200, 0, 0) },
+			},
+		],
+	}
+
+	presets['rodecaster_desk_stop'] = {
+		type: 'button',
+		category: 'Automations',
+		name: 'RØDECaster SD: Stop',
+		style: {
+			text: 'SD\\n⏹ Stop',
+			size: 'auto',
+			color: combineRgb(255, 255, 255),
+			bgcolor: combineRgb(60, 60, 60),
+		},
+		steps: [
+			{
+				down: [{ actionId: 'rodecaster_desk_record', options: { operation: 'stop' } }],
+				up: [],
+			},
+		],
+		feedbacks: [],
+	}
+
+	presets['automation_last_run'] = {
+		type: 'button',
+		category: 'Automations',
+		name: 'Automations: Last Run',
+		style: {
+			text: `$(${variablePrefix}:last_automation)`,
+			size: '14',
+			color: combineRgb(255, 255, 255),
+			bgcolor: combineRgb(40, 40, 40),
+		},
+		steps: [{ down: [], up: [] }],
+		feedbacks: [],
+	}
+
 	presets['ppt_open_target'] = {
 		type: 'button',
 		category: 'PPT Selector',

@@ -99,6 +99,63 @@ export const SzentirasConfigSchema = z.object({
   apiKeySet: secretSet,
 });
 
+/** Media processing defaults (`media`); see `metocast_core::media::MediaConfig`. Text fields stay
+ * strings because the generic connector form sends them that way; blank or 0 keeps what was shot. */
+export const MediaConfigSchema = z.object({
+  enabled: z.boolean(),
+  ffmpegPath: z.string(),
+  brawSdkPath: z.string(),
+  outputFolder: z.string(),
+  gamma: z.string(),
+  gamut: z.string(),
+  iso: z.number().int(),
+  kelvin: z.number().int(),
+  tint: z.string(),
+  exposure: z.string(),
+  highlightRecovery: z.boolean(),
+  gamutCompression: z.boolean(),
+  lutMode: z.enum(['embedded', 'file', 'sidecar', 'none']),
+  lutPath: z.string(),
+  /** A Blackmagic RAW `.sidecar` (such as Resolve's) applied before the rest; blank for none. */
+  sidecarPath: z.string(),
+  aspect: z.enum(['16:9', 'native']),
+  cropShiftY: z.string(),
+  bitrateMbps: z.number().int(),
+  audioChannels: z.string(),
+  /** Audio masters' loudness in LUFS, as text; −14 by default. */
+  audioTargetLufs: z.string(),
+  audioOutputFolder: z.string(),
+  jiveVocalsPath: z.string(),
+});
+
+/** The `openai` connector; see `metocast_core::transcription::OpenAiConfig`. */
+export const OpenAiConfigSchema = z.object({
+  enabled: z.boolean(),
+  apiKey: z.string(),
+  apiKeySet: secretSet,
+  adminKey: z.string(),
+  adminKeySet: secretSet,
+  topUps: z.array(z.object({ amountUsd: z.number(), date: z.string() })),
+  source: RodecasterAudioSourceSchema,
+  lagMs: z.number().int().nonnegative(),
+  youtubeLiveCaptions: z.boolean(),
+  captionIngestionUrl: z.string(),
+  captionIngestionUrlSet: secretSet,
+  autoYoutubeCaptions: z.boolean(),
+});
+
+/**
+ * The MCP endpoint for AI agents (`mcp`); see `McpConfig` in `server/mcp.rs`. Not a device: it is
+ * off until the operator turns it on, and an agent can't change it.
+ */
+export const McpConfigSchema = z.object({
+  enabled: z.boolean(),
+  /** Hides every tool that changes something, and refuses it if called anyway. */
+  readOnly: z.boolean(),
+  /** Accept callers that are not on the server's own machine. */
+  allowLan: z.boolean(),
+});
+
 /** Every connector whose config the core stores, keyed by its API path segment. */
 export const ConnectorConfigSchemas = {
   obs: ObsConfigSchema,
@@ -112,6 +169,9 @@ export const ConnectorConfigSchemas = {
   facebook: FacebookConfigSchema,
   discord: DiscordConfigSchema,
   szentiras: SzentirasConfigSchema,
+  media: MediaConfigSchema,
+  openai: OpenAiConfigSchema,
+  mcp: McpConfigSchema,
 } as const;
 
 export type ConnectorName = keyof typeof ConnectorConfigSchemas;
@@ -119,16 +179,33 @@ export type ConnectorConfigMap = {
   [K in ConnectorName]: z.infer<(typeof ConnectorConfigSchemas)[K]>;
 };
 
+/** The last preset move Metocast watched run to its end. */
+export const LastPresetSchema = z.object({
+  preset: z.number().int().min(1).max(12),
+  cameraId: z.number().int().min(1).max(99),
+  at: z.string(),
+});
+
 export const MiddlecontrolStateSchema = z.object({
   selectedCamera: z.number().int().min(1).max(99).nullable(),
   recording: z.boolean().nullable(),
   recordingCameraIds: z.array(z.number().int().min(1).max(99)).nullable(),
   connectedCameraIds: z.array(z.number().int().min(1).max(99)).nullable(),
   connectedApcrIds: z.array(z.number().int().min(1).max(99)).nullable(),
+  /** Whether a preset is moving the selected camera; derived from `runningPreset`. */
   presetMoveActive: z.boolean().nullable(),
+  /**
+   * The preset (1–12) moving the selected camera, `null` at rest. Middle Control 4.0.4 reports
+   * the preset's number in `PRES_ACTIVE`, not the 1/0 its API page describes. Absent from older
+   * cores.
+   */
+  runningPreset: z.number().int().min(1).max(12).nullable().default(null),
+  /** The last move whose start Metocast saw and that ran to its end. Absent from older cores. */
+  lastPreset: LastPresetSchema.nullable().default(null),
 });
 
 export type MiddlecontrolState = z.infer<typeof MiddlecontrolStateSchema>;
+export type LastPreset = z.infer<typeof LastPresetSchema>;
 
 export const DiscoveredMiddlecontrolSchema = z.object({
   host: z.string().min(1),
@@ -409,9 +486,22 @@ export const RodecasterAudioRecorderStateSchema = z
   })
   .strict();
 
+/**
+ * The RØDECaster's OWN SD or USB recorder — not Metocast's FLAC recording of the desk's USB audio
+ * (`RodecasterAudioRecorderState`).
+ */
+export const RodecasterDeskRecorderSchema = z.object({
+  status: z.enum(['stopped', 'paused', 'recording']),
+  /** An SD card or USB drive is there to write to. */
+  mediaPresent: z.boolean(),
+});
+
+export type RodecasterDeskRecorder = z.infer<typeof RodecasterDeskRecorderSchema>;
 export type RodecasterChannel = z.infer<typeof RodecasterChannelSchema>;
 export type RodecasterProfile = z.infer<typeof RodecasterProfileSchema>;
 export type RodecasterMuteEvent = z.infer<typeof RodecasterMuteEventSchema>;
+export type OpenAiConfig = z.infer<typeof OpenAiConfigSchema>;
+export type McpConfig = z.infer<typeof McpConfigSchema>;
 export type RodecasterAudioSource = z.infer<typeof RodecasterAudioSourceSchema>;
 export type RodecasterAudioRecordingConfig = z.infer<typeof RodecasterAudioRecordingConfigSchema>;
 export type RodecasterAudioDiscovery = z.infer<typeof RodecasterAudioDiscoverySchema>;

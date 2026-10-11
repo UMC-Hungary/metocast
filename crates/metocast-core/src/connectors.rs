@@ -49,6 +49,16 @@ pub struct AtemState {
     pub stream_service: Option<String>,
 }
 
+/// The last preset move Metocast watched run to its end.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LastPreset {
+    pub preset: u8,
+    pub camera_id: u8,
+    /// RFC 3339, when the move finished. A string, so the native bridges can carry the record.
+    pub at: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MiddlecontrolState {
@@ -57,7 +67,15 @@ pub struct MiddlecontrolState {
     pub recording_camera_ids: Option<Vec<u8>>,
     pub connected_camera_ids: Option<Vec<u8>>,
     pub connected_apcr_ids: Option<Vec<u8>>,
+    /// Whether a preset is moving the selected camera; derived from `running_preset`.
     pub preset_move_active: Option<bool>,
+    /// The preset (1–12) moving the selected camera, `None` at rest. Middle Control 4.0.4
+    /// reports the preset's number in `PRES_ACTIVE`, not the 1/0 its API page describes.
+    #[serde(default)]
+    pub running_preset: Option<u8>,
+    /// The last move whose start Metocast saw and that ran to its end.
+    #[serde(default)]
+    pub last_preset: Option<LastPreset>,
 }
 
 /// `connector.state`: one connector's live state, tagged by `connector`.
@@ -123,6 +141,25 @@ pub struct RodecasterRecorderState {
     pub event_id: Option<Uuid>,
     pub started_at: Option<DateTime<Utc>>,
     pub error: Option<String>,
+}
+
+/// What the RØDECaster's own recorder (its SD card or USB drive) is doing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DeskRecorderStatus {
+    Stopped,
+    Paused,
+    Recording,
+}
+
+/// `rodecaster.record.state`: the desk's own recorder, which is not Metocast's FLAC
+/// recording of the desk's USB audio (see [`RodecasterRecorderState`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RodecasterDeskRecorder {
+    pub status: DeskRecorderStatus,
+    /// An SD card or USB drive is there to write to.
+    pub media_present: bool,
 }
 
 pub trait ConnectorConfig {
@@ -337,9 +374,110 @@ impl ConnectorConfig for RodecasterConfig {
     }
 }
 
+impl RodecasterConfig {
+    /// Fills what a save leaves out of `audioRecording` from the stored settings, so a client
+    /// that doesn't show them, like the Mac app's connector form, can't reset them by saving.
+    pub fn keep_stored_audio_recording(
+        body: &mut serde_json::Value,
+        stored: &RodecasterAudioRecordingConfig,
+    ) {
+        let (Some(body), Ok(serde_json::Value::Object(stored))) =
+            (body.as_object_mut(), serde_json::to_value(stored))
+        else {
+            return;
+        };
+        let given = body
+            .entry("audioRecording")
+            .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
+        if let serde_json::Value::Object(given) = given {
+            for (key, value) in stored {
+                given.entry(key).or_insert(value);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_save_that_omits_the_audio_recording_keeps_the_stored_one() {
+        let stored = RodecasterAudioRecordingConfig {
+            enabled: true,
+            directory: "/Volumes/Audio".to_string(),
+            ..RodecasterAudioRecordingConfig::default()
+        };
+        // The Mac form: no `audioRecording` at all.
+        let mut flat = serde_json::json!({"enabled": true, "notifyOnMute": false});
+        RodecasterConfig::keep_stored_audio_recording(&mut flat, &stored);
+        let config: RodecasterConfig = serde_json::from_value(flat).unwrap();
+        assert!(config.audio_recording.enabled);
+        assert_eq!(config.audio_recording.directory, "/Volumes/Audio");
+
+        // A partial one: what it names wins, the rest stays.
+        let mut partial = serde_json::json!({"audioRecording": {"directory": "/Volumes/New"}});
+        RodecasterConfig::keep_stored_audio_recording(&mut partial, &stored);
+        let config: RodecasterConfig = serde_json::from_value(partial).unwrap();
+        assert!(config.audio_recording.enabled);
+        assert_eq!(config.audio_recording.directory, "/Volumes/New");
+
+        // Turning it off is a choice, not an omission.
+        let mut off = serde_json::json!({"audioRecording": {"enabled": false}});
+        RodecasterConfig::keep_stored_audio_recording(&mut off, &stored);
+        let config: RodecasterConfig = serde_json::from_value(off).unwrap();
+        assert!(!config.audio_recording.enabled);
+    }
+
+    #[test]
+    fn middlecontrol_state_without_the_preset_fields_still_decodes() {
+        let state: MiddlecontrolState = serde_json::from_str(
+            r#"{"selectedCamera":1,"recording":null,"recordingCameraIds":null,
+                "connectedCameraIds":[1],"connectedApcrIds":[1],"presetMoveActive":false}"#,
+        )
+        .unwrap();
+        assert_eq!(state.running_preset, None);
+        assert_eq!(state.last_preset, None);
+    }
+
+    #[test]
+    fn preset_progress_wire_format_is_stable() {
+        let state = MiddlecontrolState {
+            selected_camera: Some(1),
+            recording: None,
+            recording_camera_ids: None,
+            connected_camera_ids: Some(vec![1]),
+            connected_apcr_ids: Some(vec![1]),
+            preset_move_active: Some(true),
+            running_preset: Some(3),
+            last_preset: Some(LastPreset {
+                preset: 1,
+                camera_id: 1,
+                at: "2026-10-07T08:02:03Z".to_string(),
+            }),
+        };
+        assert_eq!(
+            serde_json::to_value(state).unwrap(),
+            serde_json::json!({
+                "selectedCamera": 1, "recording": null, "recordingCameraIds": null,
+                "connectedCameraIds": [1], "connectedApcrIds": [1],
+                "presetMoveActive": true, "runningPreset": 3,
+                "lastPreset": {"preset": 1, "cameraId": 1, "at": "2026-10-07T08:02:03Z"}
+            })
+        );
+    }
+
+    #[test]
+    fn desk_recorder_wire_format_is_stable() {
+        assert_eq!(
+            serde_json::to_value(RodecasterDeskRecorder {
+                status: DeskRecorderStatus::Recording,
+                media_present: true,
+            })
+            .unwrap(),
+            serde_json::json!({"status": "recording", "mediaPresent": true})
+        );
+    }
 
     #[test]
     fn status_wire_format_is_stable() {

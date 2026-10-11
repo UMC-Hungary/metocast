@@ -27,8 +27,10 @@ struct PendingUpload {
     visibility: String,
     file_path: String,
     file_size: i64,
-    custom_title: Option<String>,
-    custom_description: Option<String>,
+    /// The recording's own title, else its event's.
+    title: Option<String>,
+    /// The recording's own description, else its event's.
+    description: Option<String>,
 }
 
 struct UploadSource<'a> {
@@ -96,10 +98,11 @@ impl UploadService {
                 ru.visibility,
                 r.file_path,
                 r.file_size,
-                r.custom_title,
-                r.custom_description
+                COALESCE(r.custom_title, NULLIF(e.computed_title, ''), e.title) AS title,
+                COALESCE(r.custom_description, e.description) AS description
                FROM recording_uploads ru
                JOIN recordings r ON r.id = ru.recording_id
+               LEFT JOIN events e ON e.id = r.event_id
                WHERE ru.state IN ('pending', 'paused', 'uploading')
                ORDER BY r.detected_at ASC"#,
         )
@@ -156,11 +159,11 @@ impl UploadService {
 
     async fn process_upload(&self, row: &PendingUpload) -> anyhow::Result<()> {
         let title = row
-            .custom_title
+            .title
             .as_deref()
             .unwrap_or("Untitled Recording")
             .to_string();
-        let description = row.custom_description.as_deref().unwrap_or("").to_string();
+        let description = row.description.as_deref().unwrap_or("").to_string();
 
         match row.platform.as_str() {
             "youtube" => {

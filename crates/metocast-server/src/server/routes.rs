@@ -30,10 +30,13 @@ use crate::models::{
 };
 use crate::server::AppState;
 use crate::server::OAUTH_REDIRECT_URI;
+use crate::server::mcp::McpConfig;
 use crate::server::presenter::{self, BibleReferenceType, BibleVerseContent, PresenterState};
 use crate::server::websocket::{
     broadcast_event_changed, broadcast_untracked_removed, spawn_scheduling_tasks,
 };
+use metocast_core::media::MediaConfig;
+use metocast_core::transcription::{OPENAI_CONFIG_KEY, OpenAiConfig};
 
 const OAUTH_SUCCESS_HTML: &str = r#"<!DOCTYPE html>
 <html lang="en">
@@ -58,7 +61,7 @@ const OAUTH_SUCCESS_HTML: &str = r#"<!DOCTYPE html>
 </body>
 </html>"#;
 
-const BIBLE_SLIDE_FOLDER_KEY: &str = "slide_folder";
+pub(crate) const BIBLE_SLIDE_FOLDER_KEY: &str = "slide_folder";
 const SONG_SLIDE_FOLDER_KEY: &str = "song_slide_folder";
 
 const OAUTH_ERROR_HTML: &str = r#"<!DOCTYPE html>
@@ -126,8 +129,19 @@ pub async fn get_connector_statuses(State(state): State<AppState>) -> impl IntoR
             .await
             .is_configured(),
     );
+    let media = configured(
+        settings::get_json::<MediaConfig>(&state.pool, crate::media::CONFIG_KEY)
+            .await
+            .is_configured(),
+    );
+    let openai = configured(
+        settings::get_json::<OpenAiConfig>(&state.pool, OPENAI_CONFIG_KEY)
+            .await
+            .is_configured(),
+    );
     Json(json!({
         "obs": obs,
+        "openai": openai,
         "blackmagic-camera": blackmagic_camera,
         "middlecontrol": middlecontrol,
         "rodecaster": rodecaster,
@@ -138,6 +152,7 @@ pub async fn get_connector_statuses(State(state): State<AppState>) -> impl IntoR
         "facebook": fb,
         "discord": discord,
         "szentiras": szentiras,
+        "media": media,
     }))
 }
 
@@ -186,12 +201,15 @@ pub async fn get_bible_suggestions(Query(query): Query<BibleSuggestQuery>) -> im
 /// Credential fields that never leave the server. Reading a config blanks them
 /// and reports only whether one is stored; writing an empty one keeps what is
 /// already there, so a client can save a config it was never allowed to read.
-const SECRET_FIELDS: [&str; 5] = [
+const SECRET_FIELDS: [&str; 7] = [
     "password",
     "clientSecret",
     "appSecret",
     "apiKey",
     "webhookUrl",
+    "adminKey",
+    // YouTube's caption ingestion URL is signed: anyone holding it can caption the stream.
+    "captionIngestionUrl",
 ];
 
 /// Blanks every secret and adds a `<field>Set` boolean beside it.
@@ -343,8 +361,11 @@ pub async fn reveal_connector_secrets(
         }
         "szentiras" => Json(settings::get_json::<SzentirasConfig>(pool, "szentiras_config").await)
             .into_response(),
-        // vmix, atem, middlecontrol, broadlink and rodecaster hold no credentials.
-        "vmix" | "atem" | "middlecontrol" | "broadlink" | "rodecaster" => (
+        "openai" => {
+            Json(settings::get_json::<OpenAiConfig>(pool, OPENAI_CONFIG_KEY).await).into_response()
+        }
+        // vmix, atem, middlecontrol, broadlink, rodecaster and media hold no credentials.
+        "vmix" | "atem" | "middlecontrol" | "broadlink" | "rodecaster" | "media" | "mcp" => (
             StatusCode::NO_CONTENT,
             Json(json!({ "error": "This connector stores no secrets" })),
         )
@@ -370,6 +391,9 @@ pub async fn get_connector_config(
         "rodecaster" => stored_config::<RodecasterConfig>(pool, "rodecaster_config").await,
         "discord" => stored_config::<DiscordConfig>(pool, "discord_config").await,
         "szentiras" => stored_config::<SzentirasConfig>(pool, "szentiras_config").await,
+        "media" => stored_config::<MediaConfig>(pool, crate::media::CONFIG_KEY).await,
+        "mcp" => stored_config::<McpConfig>(pool, crate::server::mcp::CONFIG_KEY).await,
+        "openai" => stored_config::<OpenAiConfig>(pool, OPENAI_CONFIG_KEY).await,
         "youtube" => stored_config::<YouTubeConfig>(pool, "youtube_config").await,
         "facebook" => stored_config::<FacebookConfig>(pool, "facebook_config").await,
         _ => unknown_connector(&name),
@@ -471,7 +495,12 @@ pub async fn put_connector_config(
         "broadlink" => save_config::<BroadlinkConfig>(pool, "broadlink_config", body)
             .await
             .map(|_| ()),
-        "rodecaster" => match serde_json::from_value::<RodecasterConfig>(body) {
+        "rodecaster" => match serde_json::from_value::<RodecasterConfig>({
+            let mut body = body;
+            let stored: RodecasterConfig = settings::get_json(pool, "rodecaster_config").await;
+            RodecasterConfig::keep_stored_audio_recording(&mut body, &stored.audio_recording);
+            body
+        }) {
             Ok(config) => {
                 if config.audio_recording.enabled
                     && let Err(error) = crate::connectors::rodecaster_audio::validate_config(
@@ -503,6 +532,36 @@ pub async fn put_connector_config(
         "szentiras" => save_config::<SzentirasConfig>(pool, "szentiras_config", body)
             .await
             .map(|_| ()),
+        "mcp" => save_config::<McpConfig>(pool, crate::server::mcp::CONFIG_KEY, body)
+            .await
+            .map(|_| ()),
+        "media" => match serde_json::from_value::<MediaConfig>(body) {
+            Ok(config) => match crate::media::validate_config(&config) {
+                Ok(()) => settings::set_json(pool, crate::media::CONFIG_KEY, &config)
+                    .await
+                    .map_err(|e| e.to_string()),
+                Err(e) => Err(e),
+            },
+            Err(e) => Err(e.to_string()),
+        },
+        // Merged over the stored config, so a form that only knows the flat fields (the Apple
+        // app's) keeps the top-ups and the audio source.
+        "openai" => {
+            let mut merged = serde_json::to_value(
+                settings::get_json::<OpenAiConfig>(pool, OPENAI_CONFIG_KEY).await,
+            )
+            .unwrap_or_default();
+            if let (Some(merged), Some(body)) = (merged.as_object_mut(), body.as_object()) {
+                merged.extend(body.clone());
+            }
+            match save_config::<OpenAiConfig>(pool, OPENAI_CONFIG_KEY, merged).await {
+                Ok(_) => {
+                    state.transcription.config_changed().await;
+                    Ok(())
+                }
+                Err(e) => Err(e),
+            }
+        }
         _ => return unknown_connector(&name),
     };
 
@@ -510,6 +569,47 @@ pub async fn put_connector_config(
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => (StatusCode::BAD_REQUEST, Json(json!({ "error": e }))).into_response(),
     }
+}
+
+// ── OpenAI ────────────────────────────────────────────────────────────────────
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct OpenAiVerifyRequest {
+    /// Checks this key; blank checks the stored one.
+    pub api_key: String,
+}
+
+/// Lists models with the key: `ok`, `invalid` (401) or `noAccess` (anything else).
+pub async fn openai_verify(
+    State(state): State<AppState>,
+    body: Option<Json<OpenAiVerifyRequest>>,
+) -> impl IntoResponse {
+    let submitted = body.map(|Json(b)| b.api_key).unwrap_or_default();
+    let api_key = if submitted.trim().is_empty() {
+        settings::get_json::<OpenAiConfig>(&state.pool, OPENAI_CONFIG_KEY)
+            .await
+            .api_key
+    } else {
+        submitted.trim().to_string()
+    };
+    if api_key.is_empty() {
+        return Json(json!({ "result": "invalid", "message": "No API key" }));
+    }
+    let response = reqwest::Client::new()
+        .get("https://api.openai.com/v1/models")
+        .bearer_auth(&api_key)
+        .send()
+        .await;
+    let (result, message) = match response {
+        Ok(r) if r.status().is_success() => ("ok", String::new()),
+        Ok(r) if r.status() == reqwest::StatusCode::UNAUTHORIZED => {
+            ("invalid", "OpenAI rejected the key".to_string())
+        }
+        Ok(r) => ("noAccess", format!("OpenAI answered {}", r.status())),
+        Err(e) => ("noAccess", e.without_url().to_string()),
+    };
+    Json(json!({ "result": result, "message": message }))
 }
 
 // ── OBS connection control ────────────────────────────────────────────────────
@@ -840,7 +940,7 @@ pub async fn youtube_auth_url(State(state): State<AppState>) -> impl IntoRespons
     }
 
     let url = format!(
-        "https://accounts.google.com/o/oauth2/v2/auth?client_id={}&redirect_uri={}&response_type=code&scope=https://www.googleapis.com/auth/youtube&access_type=offline&prompt=consent&state={}",
+        "https://accounts.google.com/o/oauth2/v2/auth?client_id={}&redirect_uri={}&response_type=code&scope=https://www.googleapis.com/auth/youtube%20https://www.googleapis.com/auth/youtube.force-ssl&access_type=offline&prompt=consent&state={}",
         urlencoding::encode(&config.client_id),
         urlencoding::encode(OAUTH_REDIRECT_URI),
         urlencoding::encode(&state_token),
@@ -1002,6 +1102,7 @@ pub async fn trigger_youtube_schedule(
         &token.access_token,
         existing_id,
         privacy_status,
+        crate::transcription::live_captions_enabled(&state.pool).await,
     )
     .await
     {
@@ -2374,49 +2475,7 @@ pub async fn assign_untracked_recording(
     Path(id): Path<Uuid>,
     Json(body): Json<AssignRecordingBody>,
 ) -> impl IntoResponse {
-    let result: anyhow::Result<Recording> = async {
-        // Fetch the untracked row (404 if missing)
-        let untracked = sqlx::query_as::<_, untracked_recording::UntrackedRecording>(
-            "SELECT * FROM untracked_recordings WHERE id = $1",
-        )
-        .bind(id)
-        .fetch_optional(&state.pool)
-        .await?
-        .ok_or_else(|| anyhow::anyhow!("NOT_FOUND"))?;
-
-        // Verify event exists
-        let event_exists: bool =
-            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM events WHERE id = $1)")
-                .bind(body.event_id)
-                .fetch_one(&state.pool)
-                .await?;
-        if !event_exists {
-            return Err(anyhow::anyhow!("EVENT_NOT_FOUND"));
-        }
-
-        let mut tx = state.pool.begin().await?;
-        let recording = sqlx::query_as::<_, Recording>(
-            r#"INSERT INTO recordings (event_id, file_path, file_name, file_size, duration_seconds, detected_at)
-               VALUES ($1, $2, $3, $4, $5, $6) RETURNING *"#,
-        )
-        .bind(body.event_id)
-        .bind(&untracked.file_path)
-        .bind(&untracked.file_name)
-        .bind(untracked.file_size)
-        .bind(untracked.duration_seconds)
-        .bind(untracked.detected_at)
-        .fetch_one(&mut *tx)
-        .await?;
-
-        sqlx::query("DELETE FROM untracked_recordings WHERE id = $1")
-            .bind(id)
-            .execute(&mut *tx)
-            .await?;
-
-        tx.commit().await?;
-        Ok(recording)
-    }
-    .await;
+    let result = untracked_recording::assign(&state.pool, id, body.event_id).await;
 
     match result {
         Ok(recording) => {

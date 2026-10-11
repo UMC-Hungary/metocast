@@ -5,7 +5,6 @@ import Metocast
 /// All discovery runs on the connected server, including when this Mac is a client.
 struct DevicesView: View {
     let session: MetocastSession
-    @Environment(\.dismiss) private var dismiss
     @State private var selected: DiscoveryTool = .atem
     @State private var results: [DiscoveryTool: DiscoverySnapshot] = [:]
     @State private var scanning = false
@@ -28,101 +27,93 @@ struct DevicesView: View {
     }
 
     var body: some View {
-        NavigationSplitView {
-            List(tools, id: \.self, selection: $selected) { tool in
-                Label(tool.title, systemImage: tool.icon).tag(tool)
+        Form {
+            Section {
+                Picker("Device", selection: $selected) {
+                    ForEach(tools, id: \.self) { tool in
+                        Label(tool.title, systemImage: tool.icon).tag(tool)
+                    }
+                }
+                .disabled(scanning || saving)
+                Text(selected.explanation)
+                LabeledContent("Scanning from", value: ServerAddress.displayName(session.baseURL))
+                if let status = session.connectors[selected.connector] {
+                    LabeledContent("Connector", value: String(describing: status.status).capitalized)
+                    if let message = status.message { Text(message).foregroundStyle(.secondary) }
+                }
+                if !connected { Text("Reconnect to the server to discover devices.").foregroundStyle(.secondary) }
+                if !connectorReady { Text("Connect \(selected.title) before scanning its devices.").foregroundStyle(.secondary) }
             }
-            .disabled(scanning || saving)
-            .navigationSplitViewColumnWidth(190)
-        } detail: {
-            Form {
-                Section {
-                    Text(selected.explanation)
-                    LabeledContent("Scanning from", value: ServerAddress.displayName(session.baseURL))
-                    if let status = session.connectors[selected.connector] {
-                        LabeledContent("Connector", value: String(describing: status.status).capitalized)
-                        if let message = status.message { Text(message).foregroundStyle(.secondary) }
-                    }
-                    if !connected { Text("Reconnect to the server to discover devices.").foregroundStyle(.secondary) }
-                    if !connectorReady { Text("Connect \(selected.title) before scanning its devices.").foregroundStyle(.secondary) }
-                }
-                if let error {
-                    Section { Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.red) }
-                }
-                Section(selected == .broadlink ? "Saved Devices" : "Discovered Devices") {
-                    if scanning {
-                        ProgressView("Scanning…")
-                    } else if let result = results[selected] {
-                        if let message = result.message { Text(message).foregroundStyle(.secondary) }
-                        if result.devices.isEmpty {
-                            Text("No devices found. Check the equipment connection and try again.")
-                                .foregroundStyle(.secondary)
-                        }
-                        ForEach(result.devices, id: \.id) { device in
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(device.name.isEmpty ? device.host : device.name).font(.headline)
-                                    if !device.detail.isEmpty { Text(device.detail).font(.caption).foregroundStyle(.secondary) }
-                                    if !device.host.isEmpty {
-                                        Text(device.port == 0 ? device.host : "\(device.host):\(device.port)")
-                                            .font(.caption.monospaced()).textSelection(.enabled)
-                                    }
-                                }
-                                Spacer()
-                                if isNetwork {
-                                    Button("Use") {
-                                        host = device.host
-                                        port = String(device.port)
-                                        enabled = true
-                                        saved = false
-                                    }
-                                    .disabled(!configLoaded || saving)
-                                    .help("Fill the connection fields below")
-                                }
-                            }
-                        }
-                    } else {
-                        Text("Choose Scan to look for devices.").foregroundStyle(.secondary)
-                    }
-                    if selected == .broadlink {
-                        Button("Refresh Saved Devices") { refreshOnly = true; scanRequest += 1 }
-                            .disabled(scanning || !connected)
-                    }
-                }
-                if isNetwork {
-                    Section {
-                        Toggle("Enabled", isOn: $enabled)
-                        TextField("Host or IP address", text: $host)
-                        TextField("Port", text: $port)
-                        Button(saving ? "Saving…" : "Save Connection") { save() }
-                            .disabled(!configLoaded || !connected || saving || scanning || host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || UInt16(port) == nil || UInt16(port) == 0)
-                        if loadingConfig { ProgressView("Loading connection…") }
-                        if !loadingConfig && !configLoaded {
-                            Button("Retry Loading Connection") { configRequest += 1 }
-                        }
-                        if saved { Text("Connection saved. The connector status above shows its progress.").foregroundStyle(.secondary) }
-                    } header: {
-                        Text("Connection")
-                    } footer: {
-                        Text("Use a discovered device or enter its address manually. Saving applies these settings to the connected server.")
-                    }
-                    .disabled(loadingConfig || saving)
-                }
+            if let error {
+                Section { Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.red) }
             }
-            .formStyle(.grouped)
-            .navigationTitle(selected.title)
-        }
-        .frame(minWidth: 760, idealWidth: 820, minHeight: 560, idealHeight: 640)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            Section(selected == .broadlink ? "Saved Devices" : "Discovered Devices") {
                 Button("Scan", systemImage: "antenna.radiowaves.left.and.right") {
                     refreshOnly = false
                     scanRequest += 1
                 }
                 .disabled(scanning || saving || !connected || !connectorReady)
+                if scanning {
+                    ProgressView("Scanning…")
+                } else if let result = results[selected] {
+                    if let message = result.message { Text(message).foregroundStyle(.secondary) }
+                    if result.devices.isEmpty {
+                        Text("No devices found. Check the equipment connection and try again.")
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(result.devices, id: \.id) { device in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(device.name.isEmpty ? device.host : device.name).font(.headline)
+                                if !device.detail.isEmpty { Text(device.detail).font(.caption).foregroundStyle(.secondary) }
+                                if !device.host.isEmpty {
+                                    Text(device.port == 0 ? device.host : "\(device.host):\(device.port)")
+                                        .font(.caption.monospaced()).textSelection(.enabled)
+                                }
+                            }
+                            Spacer()
+                            if isNetwork {
+                                Button("Use") {
+                                    host = device.host
+                                    port = String(device.port)
+                                    enabled = true
+                                    saved = false
+                                }
+                                .disabled(!configLoaded || saving)
+                                .help("Fill the connection fields below")
+                            }
+                        }
+                    }
+                } else {
+                    Text("Choose Scan to look for devices.").foregroundStyle(.secondary)
+                }
+                if selected == .broadlink {
+                    Button("Refresh Saved Devices") { refreshOnly = true; scanRequest += 1 }
+                        .disabled(scanning || !connected)
+                }
             }
-            ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.disabled(saving) }
+            if isNetwork {
+                Section {
+                    Toggle("Enabled", isOn: $enabled)
+                    TextField("Host or IP address", text: $host)
+                    TextField("Port", text: $port)
+                    Button(saving ? "Saving…" : "Save Connection") { save() }
+                        .disabled(!configLoaded || !connected || saving || scanning || host.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || UInt16(port) == nil || UInt16(port) == 0)
+                    if loadingConfig { ProgressView("Loading connection…") }
+                    if !loadingConfig && !configLoaded {
+                        Button("Retry Loading Connection") { configRequest += 1 }
+                    }
+                    if saved { Text("Connection saved. The connector status above shows its progress.").foregroundStyle(.secondary) }
+                } header: {
+                    Text("Connection")
+                } footer: {
+                    Text("Use a discovered device or enter its address manually. Saving applies these settings to the connected server.")
+                }
+                .disabled(loadingConfig || saving)
+            }
         }
+        .formStyle(.grouped)
+        .navigationTitle("Discover Devices")
         .task(id: "\(selected)-\(configRequest)") { await loadConfig() }
         .task(id: scanRequest) {
             guard scanRequest > 0 else { return }

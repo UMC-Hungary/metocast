@@ -6,23 +6,42 @@ struct ConnectorsView: View {
     let session: MetocastSession
 
     var body: some View {
-        List(session.configurableConnectors, id: \.id) { connector in
-            NavigationLink {
-                ConnectorFormView(session: session, connector: connector.id, name: connector.name)
-            } label: {
-                LabeledContent {
-                    if let status = session.connectors[connector.id] {
-                        Label(status.status.title, systemImage: status.status.symbol)
-                            .foregroundStyle(status.status.color)
-                            .labelStyle(.titleAndIcon)
-                            .font(.subheadline)
+        let connectors = session.configurableConnectors
+        List {
+            ForEach(ConnectorCategory.allCases, id: \.self) { category in
+                let members = connectors.filter { ConnectorInfo(id: $0.id).category == category }
+                if !members.isEmpty {
+                    Section {
+                        ForEach(members, id: \.id) { row($0) }
+                    } header: {
+                        Text(category.title)
+                    } footer: {
+                        if !category.footer.isEmpty { Text(category.footer) }
                     }
-                } label: {
-                    Label(connector.name, systemImage: ConnectorInfo(id: connector.id).icon)
                 }
             }
         }
         .navigationTitle("Connectors")
+    }
+
+    private func row(_ connector: ConnectorNameRecord) -> some View {
+        NavigationLink {
+            ConnectorFormView(session: session, connector: connector.id, name: connector.name)
+                .windowActions()
+        } label: {
+            LabeledContent {
+                if let status = session.connectors[connector.id] {
+                    Label(status.status.title, systemImage: status.status.symbol)
+                        .foregroundStyle(status.status.color)
+                        .labelStyle(.titleAndIcon)
+                        .font(.subheadline)
+                }
+            } label: {
+                Label(connector.name, systemImage: ConnectorInfo(id: connector.id).icon)
+            }
+        }
+        // A Mac list row link is otherwise an element of unknown role.
+        .accessibilityAddTraits(.isButton)
     }
 }
 
@@ -115,6 +134,15 @@ struct ConnectorFormView: View {
                 }
             }
             #endif
+            #if os(macOS)
+            if connector == "mcp", model.mode == .server {
+                AgentSetupSection(
+                    url: model.server.localURL + "/mcp",
+                    token: model.server.token,
+                    agents: session.clients.filter { $0.label.hasPrefix("MCP") }
+                )
+            }
+            #endif
             if signsIn {
                 Section {
                     Button("Sign In…", systemImage: "person.badge.key") {
@@ -133,6 +161,7 @@ struct ConnectorFormView: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save") { Task { await save() } }
+                    .pointingHand()
                     .disabled(isLoading || isSaving)
             }
         }
@@ -175,6 +204,7 @@ struct ConnectorFormView: View {
                     SecureField(field.label, text: binding(field.key), prompt: Text(field.isSet && !cleared.contains(field.key) ? "Stored" : "None"))
                         .multilineTextAlignment(.trailing)
                         .labelsHidden()
+                        .accessibilityValue(field.isSet && !cleared.contains(field.key) ? "Stored" : "Not set")
                 }
                 if field.isSet, values[field.key].orEmpty.isEmpty {
                     Button(cleared.contains(field.key) ? "Keep Stored \(field.label)" : "Forget Stored \(field.label)") {
@@ -256,3 +286,58 @@ struct ConnectorFormView: View {
 extension Optional where Wrapped == String {
     var orEmpty: String { self ?? "" }
 }
+
+#if os(macOS)
+/// How to point an MCP client at this server, and who is connected. The copied text carries the
+/// access token, so it is never shown on screen.
+private struct AgentSetupSection: View {
+    let url: String
+    let token: String
+    let agents: [ConnectedClientRecord]
+    @State private var copied: String?
+
+    private var claudeCode: String {
+        "claude mcp add --transport http metocast \(url) --header \"Authorization: Bearer \(token)\""
+    }
+
+    private var claudeDesktop: String {
+        """
+        {"mcpServers":{"metocast":{"command":"npx","args":["-y","mcp-remote","\(url)","--header","Authorization:${AUTH_HEADER}"],"env":{"AUTH_HEADER":"Bearer \(token)"}}}}
+        """
+    }
+
+    var body: some View {
+        Section {
+            LabeledContent("Address") {
+                Text(url).font(.footnote.monospaced()).textSelection(.enabled)
+            }
+            copyButton("Copy Command for Claude Code", text: claudeCode)
+            copyButton("Copy Config for Claude Desktop", text: claudeDesktop)
+        } header: {
+            Text("Connect an Agent")
+        } footer: {
+            Text("The copied text contains this server's access token. Paste it into your agent's settings and nowhere else. Save the switches above first.")
+        }
+        Section("Connected Agents") {
+            if agents.isEmpty {
+                Text("No agent connected").foregroundStyle(.secondary)
+            }
+            ForEach(agents, id: \.id) { agent in
+                Text(agent.label)
+            }
+        }
+    }
+
+    private func copyButton(_ title: String, text: String) -> some View {
+        Button(copied == title ? "Copied" : title, systemImage: "doc.on.doc") {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+            copied = title
+            Task {
+                try? await Task.sleep(for: .seconds(2))
+                copied = nil
+            }
+        }
+    }
+}
+#endif

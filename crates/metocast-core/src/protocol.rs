@@ -5,7 +5,11 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    connectors::{ConnectorState, ConnectorStatus, RodecasterProfile, RodecasterRecorderState},
+    automations::{Automation, AutomationRun},
+    connectors::{
+        ConnectorState, ConnectorStatus, RodecasterDeskRecorder, RodecasterProfile,
+        RodecasterRecorderState,
+    },
     events::{Event, EventSummary},
 };
 
@@ -70,10 +74,20 @@ pub enum ProductionCommand {
     RodecasterProfile,
     #[serde(rename = "rodecaster.mute.set")]
     RodecasterMute { channel: u32, mute: bool },
+    /// Without an event the server keeps the files as untracked recordings.
     #[serde(rename = "rodecaster.audio.record.start")]
-    RodecasterRecordStart { event_id: Uuid },
+    RodecasterRecordStart {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        event_id: Option<Uuid>,
+    },
     #[serde(rename = "rodecaster.audio.record.stop")]
     RodecasterRecordStop,
+    /// The desk's own SD or USB recorder, not Metocast's audio recording. The result arrives
+    /// as `rodecaster.record.state`; `rodecaster_no_media` when no card or drive is there.
+    #[serde(rename = "rodecaster.record.start")]
+    RodecasterDeskRecordStart,
+    #[serde(rename = "rodecaster.record.stop")]
+    RodecasterDeskRecordStop,
     #[serde(rename = "blackmagic-camera.record.start")]
     CameraRecordStart,
     #[serde(rename = "blackmagic-camera.record.stop")]
@@ -88,6 +102,30 @@ pub enum ProductionCommand {
     /// The same for the ATEM's streaming service.
     #[serde(rename = "atem.stream.push_youtube")]
     AtemPushYoutube,
+    /// Answered by `transcription.state`, or `error` with `transcription_unavailable` /
+    /// `transcription_not_configured`.
+    #[serde(rename = "transcription.start")]
+    TranscriptionStart {
+        #[serde(rename = "eventId", skip_serializing_if = "Option::is_none")]
+        event_id: Option<Uuid>,
+    },
+    #[serde(rename = "transcription.stop")]
+    TranscriptionStop,
+}
+
+/// Automations. `automations.list` is answered by `automations.changed`; the others by `ok` or
+/// `error`, and a changed list or a finished run arrives as a broadcast.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "type")]
+pub enum AutomationCommand {
+    #[serde(rename = "automations.list")]
+    List,
+    /// Runs the rule now, ignoring its cooldown, its event check and the master switch. The
+    /// run arrives as `automation.run`.
+    #[serde(rename = "automations.run")]
+    Run { id: Uuid },
+    #[serde(rename = "automations.set_armed")]
+    SetArmed { armed: bool },
 }
 
 /// The OBS sources the server watches and warns about. Each is answered by
@@ -181,6 +219,14 @@ pub enum PresentationCommand {
     Mute,
     #[serde(rename = "presentation.unmute")]
     Unmute,
+    /// Shows a step of an event's Order of Service. Every client hears `order.state`.
+    #[serde(rename = "order.go")]
+    OrderGo { event_id: String, item_id: String },
+    /// Moves to the next step; with none on screen, `event_id` names the event to start.
+    #[serde(rename = "order.next")]
+    OrderNext { event_id: Option<String> },
+    #[serde(rename = "order.previous")]
+    OrderPrevious { event_id: Option<String> },
     /// Names this client in everyone's connected-devices list.
     #[serde(rename = "presenter.register")]
     Register {
@@ -316,6 +362,17 @@ pub enum ServerEvent {
     /// comes from a database trigger, so clients reload the list instead of reading it.
     #[serde(rename = "event.changed")]
     EventChanged {},
+    /// The step on screen; `position` is `null` when none is.
+    #[serde(rename = "order.state")]
+    OrderState {
+        position: Option<crate::events::OrderPosition>,
+    },
+    /// An event's Order of Service was replaced. Clients reload it.
+    #[serde(rename = "event.order.changed")]
+    EventOrderChanged {
+        #[serde(rename = "eventId")]
+        event_id: uuid::Uuid,
+    },
     #[serde(rename = "notification")]
     Notification { level: String, message: String },
     #[serde(rename = "connector.state")]
@@ -334,6 +391,18 @@ pub enum ServerEvent {
     },
     #[serde(rename = "rodecaster.audio.record.state")]
     RodecasterRecorder { state: RodecasterRecorderState },
+    /// The desk's own SD or USB recorder, as opposed to Metocast's audio recording above.
+    #[serde(rename = "rodecaster.record.state")]
+    RodecasterDeskRecorder { state: RodecasterDeskRecorder },
+    /// The rules or the master switch changed. Also the answer to `automations.list`.
+    #[serde(rename = "automations.changed")]
+    AutomationsChanged {
+        armed: bool,
+        automations: Vec<Automation>,
+    },
+    /// A rule ran: what fired it and what each action came to.
+    #[serde(rename = "automation.run")]
+    AutomationRun { run: AutomationRun },
     #[serde(rename = "obs.devices.available")]
     ObsDevices {
         devices: crate::discovery::ObsDevices,
@@ -365,6 +434,44 @@ pub enum ServerEvent {
     DeviceAlerts {
         listeners: Vec<crate::operations::DeviceListener>,
     },
+    /// A render's progress: about once a second while it runs, and once when it ends.
+    #[serde(rename = "media.render.progress")]
+    MediaRenderProgress {
+        progress: crate::media::RenderProgress,
+    },
+    /// An audio job's step and progress, and its report when it ends.
+    #[serde(rename = "media.audio.progress")]
+    MediaAudioProgress {
+        progress: crate::media::AudioProgress,
+    },
+    /// A program job's step and progress, and its report when it ends or is nudged.
+    #[serde(rename = "media.program.progress")]
+    MediaProgramProgress {
+        progress: crate::media::ProgramProgress,
+    },
+    #[serde(rename = "transcription.state")]
+    TranscriptionState {
+        state: crate::transcription::TranscriptionState,
+    },
+    /// The open line; empty clears it. Throttled to about one every 150 ms.
+    #[serde(rename = "transcription.partial")]
+    TranscriptionPartial { text: String },
+    #[serde(rename = "transcription.segment")]
+    TranscriptionSegment {
+        segment: crate::transcription::TranscriptSegment,
+    },
+    /// Sent on connect: the state, the last ~20 segments and the credit line.
+    #[serde(rename = "transcription.snapshot")]
+    TranscriptionSnapshot {
+        state: crate::transcription::TranscriptionState,
+        segments: Vec<crate::transcription::TranscriptSegment>,
+        partial: String,
+        credit: Option<crate::transcription::CreditStatus>,
+    },
+    #[serde(rename = "transcription.credit")]
+    TranscriptionCredit {
+        credit: crate::transcription::CreditStatus,
+    },
     #[serde(rename = "ping")]
     Ping {
         #[serde(rename = "pingId")]
@@ -389,6 +496,17 @@ mod tests {
     #[test]
     fn production_commands_match_the_server_wire_names() {
         let json = |command: ProductionCommand| serde_json::to_value(command).unwrap();
+        let event_id = Uuid::nil();
+        assert_eq!(
+            json(ProductionCommand::TranscriptionStart {
+                event_id: Some(event_id)
+            }),
+            serde_json::json!({"type": "transcription.start", "eventId": event_id})
+        );
+        assert_eq!(
+            json(ProductionCommand::TranscriptionStart { event_id: None }),
+            serde_json::json!({"type": "transcription.start"})
+        );
         assert_eq!(
             json(ProductionCommand::ObsStreamStart),
             serde_json::json!({"type": "obs.stream.start"})
@@ -410,9 +528,76 @@ mod tests {
         );
         let event_id = Uuid::nil();
         assert_eq!(
-            json(ProductionCommand::RodecasterRecordStart { event_id }),
+            json(ProductionCommand::RodecasterRecordStart {
+                event_id: Some(event_id)
+            }),
             serde_json::json!({"type": "rodecaster.audio.record.start", "event_id": event_id})
         );
+        assert_eq!(
+            json(ProductionCommand::RodecasterRecordStart { event_id: None }),
+            serde_json::json!({"type": "rodecaster.audio.record.start"})
+        );
+        assert_eq!(
+            json(ProductionCommand::RodecasterDeskRecordStart),
+            serde_json::json!({"type": "rodecaster.record.start"})
+        );
+        assert_eq!(
+            json(ProductionCommand::RodecasterDeskRecordStop),
+            serde_json::json!({"type": "rodecaster.record.stop"})
+        );
+    }
+
+    #[test]
+    fn automation_commands_match_the_server_wire_names() {
+        let json = |command: AutomationCommand| serde_json::to_value(command).unwrap();
+        assert_eq!(
+            json(AutomationCommand::List),
+            serde_json::json!({"type": "automations.list"})
+        );
+        assert_eq!(
+            json(AutomationCommand::Run { id: Uuid::nil() }),
+            serde_json::json!({"type": "automations.run", "id": Uuid::nil()})
+        );
+        assert_eq!(
+            json(AutomationCommand::SetArmed { armed: false }),
+            serde_json::json!({"type": "automations.set_armed", "armed": false})
+        );
+    }
+
+    #[test]
+    fn automation_messages_decode_the_server_shapes() {
+        let changed = r#"{"type":"automations.changed","armed":true,"automations":[{
+            "id":"6f2c1f8e-9a3e-4a8b-9f6e-2d8a1b7c3e10","name":"Service start","enabled":true,
+            "triggers":[{"kind":"middlecontrol.preset","preset":3,"cameraId":null}],
+            "actions":[{"kind":"record.start","target":{"device":"obs"}}],
+            "cooldownSeconds":5.0,"requireEvent":false,
+            "createdAt":"2026-10-07T08:00:00Z","updatedAt":"2026-10-07T08:00:00Z"}]}"#;
+        let ServerEvent::AutomationsChanged { armed, automations } =
+            serde_json::from_str(changed).unwrap()
+        else {
+            panic!("expected automations.changed");
+        };
+        assert!(armed);
+        assert_eq!(automations[0].name, "Service start");
+
+        let run = r#"{"type":"automation.run","run":{
+            "id":"0d9c4b7a-1e2f-4a3b-8c5d-6e7f8a9b0c1d",
+            "automationId":"6f2c1f8e-9a3e-4a8b-9f6e-2d8a1b7c3e10","name":"Service start",
+            "cause":"Preset 3 finished","manual":false,"startedAt":"2026-10-07T08:00:00Z",
+            "results":[{"action":"Start OBS","outcome":"done","message":null}]}}"#;
+        let ServerEvent::AutomationRun { run } = serde_json::from_str(run).unwrap() else {
+            panic!("expected automation.run");
+        };
+        assert_eq!(run.cause, "Preset 3 finished");
+        assert!(!run.failed());
+
+        let desk = r#"{"type":"rodecaster.record.state","state":{"status":"paused","mediaPresent":false}}"#;
+        let ServerEvent::RodecasterDeskRecorder { state } = serde_json::from_str(desk).unwrap()
+        else {
+            panic!("expected rodecaster.record.state");
+        };
+        assert_eq!(state.status, crate::connectors::DeskRecorderStatus::Paused);
+        assert!(!state.media_present);
     }
 
     #[test]
@@ -648,5 +833,32 @@ mod tests {
             (level.as_str(), message.as_str()),
             ("error", "Upload failed")
         );
+        let render = r#"{"type":"media.render.progress","progress":{"jobId":"6f2c1f8e-9a3e-4a8b-9f6e-2d8a1b7c3e10",
+            "state":"running","frame":240,"totalFrames":41412,"fps":11.5,
+            "outputPath":"/Volumes/A002/Metocast Renders/Untitled CAM 1 05.mov","error":null}}"#;
+        let ServerEvent::MediaRenderProgress { progress } = serde_json::from_str(render).unwrap()
+        else {
+            panic!("expected media.render.progress");
+        };
+        assert_eq!(progress.state, crate::media::RenderState::Running);
+        assert_eq!((progress.frame, progress.total_frames), (240, 41412));
+        let audio = r#"{"type":"media.audio.progress","progress":{"jobId":"6f2c1f8e-9a3e-4a8b-9f6e-2d8a1b7c3e10",
+            "state":"running","step":"clean","fraction":null,
+            "outputPath":"/Users/aron/Music/Metocast Audio/00015_Wireless_PRO.wav","error":null,"report":null}}"#;
+        let ServerEvent::MediaAudioProgress { progress } = serde_json::from_str(audio).unwrap()
+        else {
+            panic!("expected media.audio.progress");
+        };
+        assert_eq!(progress.step, Some(crate::media::AudioStep::Clean));
+        assert_eq!(progress.fraction, None);
+        let program = r#"{"type":"media.program.progress","progress":{"jobId":"6f2c1f8e-9a3e-4a8b-9f6e-2d8a1b7c3e10",
+            "state":"running","step":"sync","fraction":0.5,
+            "outputPath":"/Volumes/A002/Metocast Renders/Untitled CAM 1 05.mov","error":null,"report":null}}"#;
+        let ServerEvent::MediaProgramProgress { progress } = serde_json::from_str(program).unwrap()
+        else {
+            panic!("expected media.program.progress");
+        };
+        assert_eq!(progress.step, Some(crate::media::ProgramStep::Sync));
+        assert_eq!(progress.fraction, Some(0.5));
     }
 }

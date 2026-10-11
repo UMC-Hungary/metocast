@@ -6,7 +6,14 @@ import { GetPresets } from './presets.js'
 import { GetVariableDefinitions, GetDefaultVariableValues } from './variables.js'
 import { MetocastApi } from './api.js'
 import { PptSelector } from './ppt-selector.js'
-import type { EventSummary, ModuleConfig, PresentationStatus, RfIrCommand } from './types.js'
+import type {
+	AutomationSummary,
+	EventSummary,
+	ModuleConfig,
+	OrderStep,
+	PresentationStatus,
+	RfIrCommand,
+} from './types.js'
 
 export class ModuleInstance extends InstanceBase<ModuleConfig> {
 	public config: ModuleConfig = GetDefaultConfig()
@@ -18,6 +25,17 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 	public useWebPresenter = false
 	public presenterEvents: EventSummary[] = []
 	public selectedPresenterEventId: string | null = null
+	/** `transcription.state` status: notConfigured, unavailable, ready, connecting, running or error. */
+	public transcriptionStatus = ''
+	/** The master switch: nothing fires while automations are disarmed. */
+	public automationsArmed = true
+	public automations: AutomationSummary[] = []
+	/** The last automation run, in words: "Service start: ok" or "Service start: 2 failed". */
+	public lastAutomation = ''
+	/** The Order of Service step on screen, or null when none is. */
+	public orderStep: OrderStep | null = null
+	/** The RØDECaster's own SD/USB recorder is recording. */
+	public deskRecording = false
 
 	private pollTimer: ReturnType<typeof setInterval> | null = null
 	private presentationPollTimer: ReturnType<typeof setInterval> | null = null
@@ -59,6 +77,7 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 					void this.pptSelector.refreshFolders()
 					this.api.sendWsCommand('presentation.get_settings')
 					this.api.sendWsCommand('presentation.status')
+					this.api.sendWsCommand('automations.list')
 				}
 			},
 			onPptFoldersChanged: (folders) => {
@@ -98,6 +117,37 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 			},
 			onEventsChanged: () => {
 				void this.refreshPresenterEvents()
+			},
+			onTranscriptionStatusChanged: (status) => {
+				this.transcriptionStatus = status
+				this.checkFeedbacks('transcribing')
+			},
+			onAutomationsChanged: (armed, automations) => {
+				const listChanged =
+					automations.map((a) => `${a.id}:${a.name}`).join('|') !==
+					this.automations.map((a) => `${a.id}:${a.name}`).join('|')
+				this.automationsArmed = armed
+				this.automations = automations
+				this.setVariableValues({ automations_armed: armed ? 'ON' : 'OFF' })
+				this.checkFeedbacks('automations_armed')
+				// The Run action picks a rule by name from this list.
+				if (listChanged) this.updateDefinitions()
+			},
+			onAutomationRun: (name, _manual, failures) => {
+				this.lastAutomation = `${name}: ${failures > 0 ? `${failures} failed` : 'ok'}`
+				this.setVariableValues({ last_automation: this.lastAutomation })
+			},
+			onOrderStepChanged: (step) => {
+				this.orderStep = step
+				this.setVariableValues({
+					order_step: step?.title ?? '',
+					order_step_number: step ? `${step.number}/${step.count}` : '',
+				})
+				this.checkFeedbacks('order_running')
+			},
+			onDeskRecorderChanged: (status) => {
+				this.deskRecording = status === 'recording'
+				this.checkFeedbacks('rodecaster_desk_recording')
 			},
 		})
 

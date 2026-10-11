@@ -1,0 +1,29 @@
+meta {
+  name: List Automations
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/automations
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  The rules and the master switch (`armed`). Rules run inside the core, so they work with no UI open.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("has the master switch and the rules", function() {
+    expect(res.body).to.have.property('armed');
+    expect(res.body.automations).to.be.an('array');
+  });
+}

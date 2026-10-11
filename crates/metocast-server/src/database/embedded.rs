@@ -33,7 +33,11 @@ impl EmbeddedDb {
         let settings = Settings {
             releases_url: PG_RELEASES_URL.to_string(),
             version: (*V18).clone(),
-            port: PG_PORT,
+            // Tests set their own so they can run beside the app without killing its database.
+            port: std::env::var("METOCAST_PG_PORT")
+                .ok()
+                .and_then(|port| port.parse().ok())
+                .unwrap_or(PG_PORT),
             installation_dir,
             data_dir: data_dir.join("pg_data"),
             temporary: false,
@@ -88,10 +92,9 @@ async fn setup_and_start_postgres(pg: &mut PostgreSQL) -> Result<()> {
     // If start fails (stale process from a previous session left on the
     // port), kill whatever is using the port and retry once.
     if let Err(e) = pg.start().await {
-        tracing::warn!(
-            "PG start failed ({e}); killing stale process on port {PG_PORT} and retrying"
-        );
-        kill_on_port(PG_PORT).await;
+        let port = pg.settings().port;
+        tracing::warn!("PG start failed ({e}); killing stale process on port {port} and retrying");
+        kill_on_port(port).await;
         tokio::time::sleep(Duration::from_secs(2)).await;
         pg.start().await?;
     }

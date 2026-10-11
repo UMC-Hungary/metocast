@@ -1,0 +1,42 @@
+meta {
+  name: MCP - Read Resource
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/mcp
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+headers {
+  Accept: application/json, text/event-stream
+}
+
+body:json {
+  {
+    "jsonrpc": "2.0",
+    "id": 5,
+    "method": "resources/read",
+    "params": { "uri": "metocast://docs/mcp-tools.md" }
+  }
+}
+
+docs {
+  The manual as resources: metocast://docs/openapi.json, metocast://docs/websocket.md and
+  metocast://docs/mcp-tools.md. List them with resources/list.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("returns markdown", function() {
+    expect(res.body.result.contents[0].mimeType).to.equal('text/markdown');
+  });
+}

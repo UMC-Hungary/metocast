@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Blocks a commit that adds a documentation screenshot showing a computer name, user name, LAN
+# address or token. Turn it on once per clone:
+#
+#   git config core.hooksPath .githooks
+#
+# Vision's text recognition exists only on macOS, so elsewhere this does nothing; CI runs the
+# same check (rust-libraries.yml).
+set -euo pipefail
+
+if ! git diff --cached --name-only --diff-filter=AM | grep -qE '^docs/images/.*\.png$'; then
+  exit 0
+fi
+command -v swift >/dev/null 2>&1 || exit 0
+exec swift "$(git rev-parse --show-toplevel)/scripts/check-screenshots.swift" \
+  "$(git rev-parse --show-toplevel)/docs/images"

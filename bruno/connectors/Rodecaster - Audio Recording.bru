@@ -20,11 +20,13 @@ docs {
   { "type": "rodecaster.audio.discover" }
   { "type": "rodecaster.audio.record.state" }
   { "type": "rodecaster.audio.record.start", "event_id": "00000000-0000-0000-0000-000000000000" }
+  { "type": "rodecaster.audio.record.start" }
   { "type": "rodecaster.audio.record.stop" }
   ```
 
   Discovery replies with `rodecaster.audio.discovery`. Start, stop, state changes, and new
-  connections receive `rodecaster.audio.record.state`. The supplied event must exist and must not
-  be completed. Recording configuration is stored under the existing authenticated
+  connections receive `rodecaster.audio.record.state`. A supplied event must exist and must not
+  be completed. Without `event_id` the files are filed as untracked recordings when the recording
+  stops, and keep their source and media kind when assigned to an event later. Recording configuration is stored under the existing authenticated
   `/api/connectors/rodecaster/config` contract.
 }

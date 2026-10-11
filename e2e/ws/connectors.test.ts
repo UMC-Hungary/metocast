@@ -108,6 +108,16 @@ describe.skipIf(!isLive)('Connectors WebSocket Commands', () => {
     expect(msg['message']).toBe('rodecaster_not_connected');
   });
 
+  it('rodecaster.audio.record.start without an event is only refused for the missing desk', async () => {
+    const msg = await ws.command({ type: 'rodecaster.audio.record.start' }, 'error');
+    expect(msg['message']).toBe('rodecaster_not_connected');
+  });
+
+  it('transcription.start without an event is only refused for the missing setup', async () => {
+    const msg = await ws.command({ type: 'transcription.start' }, 'error');
+    expect(msg['message']).toMatch(/^transcription_(not_configured|unavailable)/);
+  });
+
   it('returns the authoritative idle RØDECaster recorder state', async () => {
     const msg = await ws.command(
       { type: 'rodecaster.audio.record.state' },

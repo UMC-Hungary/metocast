@@ -82,6 +82,20 @@ export const PresentationSettingsMessageSchema = z.object({
 	presenterTheme: z.enum(['classic', 'editorial']).default('classic'),
 })
 
+/** `order.state`: the Order of Service step on screen, with its event's steps. */
+export const OrderStateMessageSchema = z.object({
+	type: z.literal('order.state'),
+	position: z.object({ eventId: z.string(), itemId: z.string() }).nullable(),
+	items: z.array(z.object({ id: z.string().nullish(), kind: z.string(), title: z.string().default('') })).default([]),
+})
+
+/** The step on screen, as the module shows it. */
+export interface OrderStep {
+	title: string
+	number: number
+	count: number
+}
+
 export const EventSummarySchema = z.object({
 	id: z.string().uuid(),
 	title: z.string(),
@@ -99,6 +113,39 @@ export const PresenterEventListResponseSchema = z.object({
 	selectedEventId: z.string().uuid().nullable(),
 })
 
+/** A rule as Companion needs it: to name it and to run it. The rest of the rule is ignored. */
+export const AutomationSummarySchema = z.object({
+	id: z.string().uuid(),
+	name: z.string(),
+	enabled: z.boolean(),
+})
+
+/** Sent on connect, after any change, and in answer to `automations.list`. */
+export const AutomationsChangedMessageSchema = z.object({
+	type: z.literal('automations.changed'),
+	armed: z.boolean(),
+	automations: z.array(AutomationSummarySchema),
+})
+
+export const AutomationRunMessageSchema = z.object({
+	type: z.literal('automation.run'),
+	run: z.object({
+		name: z.string(),
+		manual: z.boolean(),
+		results: z.array(z.object({ outcome: z.enum(['done', 'skipped', 'failed']) })),
+	}),
+})
+
+/** The RØDECaster's own SD/USB recorder, not Metocast's FLAC recording of its USB audio. */
+export const DeskRecorderMessageSchema = z.object({
+	type: z.literal('rodecaster.record.state'),
+	state: z.object({
+		status: z.enum(['stopped', 'paused', 'recording']),
+		mediaPresent: z.boolean(),
+	}),
+})
+
+export type AutomationSummary = z.infer<typeof AutomationSummarySchema>
 export type EventSummary = z.infer<typeof EventSummarySchema>
 export type PresenterEventListResponse = z.infer<typeof PresenterEventListResponseSchema>
 export type BibleReferenceType = 'textus' | 'leckio'

@@ -2,10 +2,10 @@ use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 
-use rodecaster::{Device, Event, MuteChange, Profile};
+use rodecaster::{Device, Event, MuteChange, Profile, RecordState, Recorder};
 use tokio::sync::{broadcast, oneshot};
 
-use super::{ConnectorStatus, RodecasterConfig};
+use super::{ConnectorStatus, DeskRecorderStatus, RodecasterConfig, RodecasterDeskRecorder};
 
 const RETRY: Duration = Duration::from_secs(5);
 const POLL: Duration = Duration::from_millis(20);
@@ -19,12 +19,29 @@ pub struct MuteEvent {
     pub notify: bool,
 }
 
+/// The desk's own recorder as clients see it.
+#[must_use]
+pub fn desk_recorder(recorder: Recorder) -> RodecasterDeskRecorder {
+    RodecasterDeskRecorder {
+        status: match recorder.state {
+            RecordState::Stopped => DeskRecorderStatus::Stopped,
+            RecordState::Paused => DeskRecorderStatus::Paused,
+            RecordState::Recording => DeskRecorderStatus::Recording,
+        },
+        media_present: recorder.media_present,
+    }
+}
+
 enum Control {
     Start(RodecasterConfig),
     Stop,
     SetMute {
         channel: usize,
         mute: bool,
+        reply: oneshot::Sender<Result<(), String>>,
+    },
+    SetRecording {
+        on: bool,
         reply: oneshot::Sender<Result<(), String>>,
     },
 }
@@ -36,9 +53,12 @@ enum Control {
 pub struct RodecasterConnector {
     pub status: Arc<RwLock<ConnectorStatus>>,
     pub profile: Arc<RwLock<Option<Profile>>>,
+    /// The desk's own recorder; `None` while the desk is not connected.
+    pub recorder: Arc<RwLock<Option<Recorder>>>,
     pub status_tx: broadcast::Sender<ConnectorStatus>,
     pub profile_tx: broadcast::Sender<Profile>,
     pub mute_tx: broadcast::Sender<MuteEvent>,
+    pub recorder_tx: broadcast::Sender<Recorder>,
     control: Mutex<mpsc::Sender<Control>>,
 }
 
@@ -48,21 +68,26 @@ impl RodecasterConnector {
         let (status_tx, _) = broadcast::channel(16);
         let (profile_tx, _) = broadcast::channel(16);
         let (mute_tx, _) = broadcast::channel(64);
+        let (recorder_tx, _) = broadcast::channel(16);
         let (control, commands) = mpsc::channel();
 
         let shared = Shared {
             status: Arc::new(RwLock::new(ConnectorStatus::Disconnected)),
             profile: Arc::new(RwLock::new(None)),
+            recorder: Arc::new(RwLock::new(None)),
             status_tx: status_tx.clone(),
             profile_tx: profile_tx.clone(),
             mute_tx: mute_tx.clone(),
+            recorder_tx: recorder_tx.clone(),
         };
         let connector = Self {
             status: Arc::clone(&shared.status),
             profile: Arc::clone(&shared.profile),
+            recorder: Arc::clone(&shared.recorder),
             status_tx,
             profile_tx,
             mute_tx,
+            recorder_tx,
             control: Mutex::new(control),
         };
         std::thread::Builder::new()
@@ -91,6 +116,28 @@ impl RodecasterConnector {
     #[must_use]
     pub fn get_profile(&self) -> Option<Profile> {
         self.profile.read().expect("profile lock").clone()
+    }
+
+    #[must_use]
+    pub fn get_recorder(&self) -> Option<Recorder> {
+        *self.recorder.read().expect("recorder lock")
+    }
+
+    /// Starts (or resumes) or stops the desk's own recorder. The desk reports what it did as
+    /// `recorder_tx`; this returns once the request is written.
+    ///
+    /// # Errors
+    /// `rodecaster_not_connected`, `rodecaster_no_media` when starting with no card or drive
+    /// present, or the write's own error.
+    pub async fn set_recording(&self, on: bool) -> Result<(), String> {
+        if self.get_status() != ConnectorStatus::Connected {
+            return Err("rodecaster_not_connected".to_string());
+        }
+        let (reply, answer) = oneshot::channel();
+        self.send(Control::SetRecording { on, reply });
+        answer
+            .await
+            .unwrap_or_else(|_| Err("rodecaster_not_connected".to_string()))
     }
 
     /// # Errors
@@ -124,9 +171,11 @@ impl Default for RodecasterConnector {
 struct Shared {
     status: Arc<RwLock<ConnectorStatus>>,
     profile: Arc<RwLock<Option<Profile>>>,
+    recorder: Arc<RwLock<Option<Recorder>>>,
     status_tx: broadcast::Sender<ConnectorStatus>,
     profile_tx: broadcast::Sender<Profile>,
     mute_tx: broadcast::Sender<MuteEvent>,
+    recorder_tx: broadcast::Sender<Recorder>,
 }
 
 impl Shared {
@@ -170,6 +219,19 @@ impl Shared {
                     }
                     let _ = reply.send(result);
                 }
+                Ok(Control::SetRecording { on, reply }) => {
+                    let result = device.as_mut().map_or_else(
+                        || Err("rodecaster_not_connected".to_string()),
+                        |d| {
+                            // Starting needs somewhere to write; stopping never waits on that.
+                            if on && matches!(d.recorder(), Ok(r) if !r.media_present) {
+                                return Err("rodecaster_no_media".to_string());
+                            }
+                            d.set_recording(on).map_err(|e| e.to_string())
+                        },
+                    );
+                    let _ = reply.send(result);
+                }
                 Err(RecvTimeoutError::Timeout) => {}
                 Err(RecvTimeoutError::Disconnected) => return,
             }
@@ -183,12 +245,17 @@ impl Shared {
             };
             match open.poll(POLL) {
                 Event::Mute(change) => self.publish_mute(change, &config),
-                Event::Resynced => self.publish_profile(open),
+                Event::Recorder(recorder) => self.publish_recorder(recorder),
+                Event::Resynced => {
+                    self.publish_profile(open);
+                    self.publish_desk_recorder(open);
+                }
                 Event::Idle => {}
                 Event::Disconnected(reason) => {
                     tracing::warn!("rodecaster: {reason}");
                     device = None;
                     *self.profile.write().expect("profile lock") = None;
+                    *self.recorder.write().expect("recorder lock") = None;
                     self.set_status(ConnectorStatus::Error { message: reason });
                 }
             }
@@ -200,6 +267,7 @@ impl Shared {
             Ok(device) => {
                 self.set_status(ConnectorStatus::Connected);
                 self.publish_profile(&device);
+                self.publish_desk_recorder(&device);
                 Some(device)
             }
             Err(rodecaster::Error::NotFound) => {
@@ -217,7 +285,20 @@ impl Shared {
 
     fn clear(&self) {
         *self.profile.write().expect("profile lock") = None;
+        *self.recorder.write().expect("recorder lock") = None;
         self.set_status(ConnectorStatus::Disconnected);
+    }
+
+    fn publish_desk_recorder(&self, device: &Device) {
+        match device.recorder() {
+            Ok(recorder) => self.publish_recorder(recorder),
+            Err(e) => tracing::warn!("rodecaster: cannot read the recorder: {e}"),
+        }
+    }
+
+    fn publish_recorder(&self, recorder: Recorder) {
+        *self.recorder.write().expect("recorder lock") = Some(recorder);
+        let _ = self.recorder_tx.send(recorder);
     }
 
     fn publish_profile(&self, device: &Device) {
@@ -271,6 +352,34 @@ impl Shared {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn the_desks_recorder_is_refused_while_the_desk_is_not_connected() {
+        let connector = RodecasterConnector::new();
+        assert_eq!(
+            connector.set_recording(true).await,
+            Err("rodecaster_not_connected".to_string())
+        );
+        assert_eq!(
+            connector.set_recording(false).await,
+            Err("rodecaster_not_connected".to_string())
+        );
+        assert_eq!(connector.get_recorder(), None);
+    }
+
+    #[test]
+    fn the_desks_recorder_is_reported_to_clients_in_their_words() {
+        assert_eq!(
+            desk_recorder(Recorder {
+                state: RecordState::Paused,
+                media_present: false,
+            }),
+            RodecasterDeskRecorder {
+                status: DeskRecorderStatus::Paused,
+                media_present: false,
+            }
+        );
+    }
 
     #[tokio::test]
     async fn a_mute_is_refused_while_the_desk_is_not_connected() {

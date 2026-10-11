@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import Metocast
 
 struct EventsView: View {
@@ -32,7 +33,7 @@ struct EventsView: View {
         }
         .navigationTitle("Events")
         .searchable(text: $query, prompt: "Search")
-        .navigationDestination(for: EventSummaryRecord.self) { EventDetailView(summary: $0) }
+        .navigationDestination(for: EventSummaryRecord.self) { EventDetailView(summary: $0).windowActions() }
         .refreshable { await model.session?.refresh() }
     }
 
@@ -48,6 +49,8 @@ struct EventsView: View {
                 EventRow(event: event)
                     .padding(.vertical, 4)
             }
+            // A Mac list row link is otherwise an element of unknown role, which doesn't say it opens.
+            .accessibilityAddTraits(.isButton)
         }
     }
 }
@@ -62,6 +65,8 @@ struct EventDetailView: View {
     @State private var isConfirmingDelete = false
     @State private var isWritingSlides = false
     @State private var slidesResult: String?
+    @State private var isAskingForSlideFolder = false
+    @State private var isChoosingSlideFolder = false
 
     var body: some View {
         // The full record once loaded, so edits show without going back to the list.
@@ -103,11 +108,16 @@ struct EventDetailView: View {
                     }
                 }
                 ForEach(event.bibleReferences, id: \.referenceType) { reference in
-                    Section("\(reference.referenceType.capitalized) · \(reference.reference) (\(reference.translation))") {
+                    // "RUF (v2)", not the stored code "RUF_v2" that VoiceOver spells out.
+                    let translation = MetocastSession.bibleTranslations.first { $0.code == reference.translation }?.name ?? reference.translation
+                    Section("\(reference.referenceType.capitalized) · \(reference.reference) · \(translation)") {
                         ForEach(reference.verses, id: \.self) { verse in
                             Text("\(Text("\(verse.chapter):\(verse.verse)").foregroundStyle(.secondary)) \(verse.text)")
                         }
                     }
+                }
+                if let session = model.session {
+                    EventOrderSection(session: session, event: event)
                 }
                 RecordingsSection(eventId: summary.id)
                 if !event.bibleReferences.isEmpty {
@@ -162,6 +172,18 @@ struct EventDetailView: View {
         } message: {
             Text(slidesResult ?? "")
         }
+        .confirmationDialog("Bible slides folder", isPresented: $isAskingForSlideFolder, titleVisibility: .visible) {
+            // A folder picked here is a path on this device, so it only fits when this Mac is the server.
+            if model.mode == .server {
+                Button("Choose Folder…") { isChoosingSlideFolder = true }
+            }
+            Button("Open Slide Settings") { openSlideSettings() }
+        } message: {
+            Text("Decks are written to a folder on the server's Mac, and none is set yet.")
+        }
+        .fileImporter(isPresented: $isChoosingSlideFolder, allowedContentTypes: [.folder]) { result in
+            if case .success(let folder) = result { Task { await useSlideFolder(folder) } }
+        }
         .task(id: summary.id) {
             do {
                 event = try await model.session?.event(id: summary.id)
@@ -177,12 +199,41 @@ struct EventDetailView: View {
         isWritingSlides = true
         defer { isWritingSlides = false }
         do {
+            // Asked first, so a missing folder gets a way to fix it instead of a dead-end error.
+            if try await model.session?.serverSettings().slideFolder.trimmingCharacters(in: .whitespaces).isEmpty == true {
+                isAskingForSlideFolder = true
+                return
+            }
             guard let files = try await model.session?.generateSlides(eventId: summary.id) else { return }
             let names = files.map { URL(filePath: $0).lastPathComponent }.joined(separator: ", ")
             slidesResult = files.isEmpty ? "Nothing to write." : "Wrote \(names)."
         } catch {
             slidesResult = error.metocastMessage
         }
+    }
+}
+
+/// Saves the folder picked in the dialog as the Bible slides folder, then writes the decks into it.
+extension EventDetailView {
+    fileprivate func useSlideFolder(_ folder: URL) async {
+        do {
+            guard let session = model.session else { return }
+            var settings = try await session.serverSettings()
+            settings.slideFolder = folder.path
+            try await session.saveServerSettings(settings)
+            await writeSlides()
+        } catch {
+            slidesResult = error.metocastMessage
+        }
+    }
+
+    /// The Mac shows its settings in the inspector; the iPhone has a Settings tab.
+    fileprivate func openSlideSettings() {
+        #if os(macOS)
+        model.isShowingSettings = true
+        #else
+        model.pane = .settings
+        #endif
     }
 }
 
@@ -215,6 +266,9 @@ private struct RecordingsSection: View {
                                 .font(.subheadline)
                             }
                         }
+                        // Names the recording that a "Watch" or "Upload" among several belongs to.
+                        .accessibilityElement(children: .contain)
+                        .accessibilityLabel(recording.fileName)
                     }
                     if let failure {
                         Label(failure, systemImage: "exclamationmark.triangle").foregroundStyle(.red)

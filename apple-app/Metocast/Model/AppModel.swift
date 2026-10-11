@@ -21,6 +21,8 @@ final class AppModel {
     var isAddingEvent = false
     /// The selected tab (iPhone) or sidebar item (Mac), here so the Dashboard's On Air card can open Live.
     var pane = MetocastPane.dashboard
+    /// An equipment page opened from the Mac's settings; it takes over the content column until a sidebar item is picked.
+    var equipment: EquipmentPage?
 
     #if os(macOS)
     let server = ServerHost()
@@ -141,7 +143,10 @@ final class AppModel {
     }
 
     private func attach(_ session: MetocastSession) {
-        session.onActivity = { [weak self] item in self?.activity.insert(item, at: 0) }
+        session.onActivity = { [weak self] item in
+            self?.activity.insert(item, at: 0)
+            if item.isAlert { SystemNotice.post(item.title) }
+        }
         self.session = session
     }
 }

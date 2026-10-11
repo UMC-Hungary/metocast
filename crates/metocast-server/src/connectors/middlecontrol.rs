@@ -1,7 +1,9 @@
 use std::collections::BTreeSet;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
+use std::time::Instant;
 
+use chrono::{SecondsFormat, Utc};
 use futures_util::{StreamExt, stream};
 use serde::Serialize;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -9,8 +11,12 @@ use tokio::net::TcpStream;
 use tokio::net::tcp::OwnedWriteHalf;
 use tokio::sync::{Mutex, RwLock, broadcast, oneshot, watch};
 use tokio::time::{Duration, timeout};
+use uuid::Uuid;
 
-use super::{ConnectorConfig, ConnectorStatus, MiddlecontrolConfig, MiddlecontrolState};
+use super::preset_tracker::{Motion, Observation, PresetEvent, PresetTracker, Recall};
+use super::{
+    ConnectorConfig, ConnectorStatus, LastPreset, MiddlecontrolConfig, MiddlecontrolState,
+};
 
 const INITIAL_BACKOFF: Duration = Duration::from_secs(5);
 const MAX_BACKOFF: Duration = Duration::from_secs(60);
@@ -31,6 +37,10 @@ pub struct MiddlecontrolConnector {
     pub writer: Arc<Mutex<Option<OwnedWriteHalf>>>,
     pub status_tx: broadcast::Sender<ConnectorStatus>,
     pub state_tx: broadcast::Sender<MiddlecontrolState>,
+    /// Preset moves Metocast watched start and run to their end, wherever they were clicked.
+    pub preset_tx: broadcast::Sender<PresetEvent>,
+    motion_tx: Arc<watch::Sender<Motion>>,
+    tracker: Arc<std::sync::Mutex<PresetTracker>>,
     reconnect_tx: broadcast::Sender<String>,
     stop_tx: Mutex<Option<(watch::Sender<bool>, oneshot::Receiver<()>)>>,
 }
@@ -39,6 +49,7 @@ impl MiddlecontrolConnector {
     pub fn new() -> Self {
         let (status_tx, _) = broadcast::channel(16);
         let (state_tx, _) = broadcast::channel(16);
+        let (preset_tx, _) = broadcast::channel(32);
         let (reconnect_tx, _) = broadcast::channel(1);
         Self {
             status: Arc::new(RwLock::new(ConnectorStatus::Disconnected)),
@@ -46,6 +57,9 @@ impl MiddlecontrolConnector {
             writer: Arc::new(Mutex::new(None)),
             status_tx,
             state_tx,
+            preset_tx,
+            motion_tx: Arc::new(watch::channel(Motion::default()).0),
+            tracker: Arc::new(std::sync::Mutex::new(PresetTracker::new())),
             reconnect_tx,
             stop_tx: Mutex::new(None),
         }
@@ -69,6 +83,9 @@ impl MiddlecontrolConnector {
             writer: Arc::clone(&self.writer),
             status_tx: self.status_tx.clone(),
             state_tx: self.state_tx.clone(),
+            preset_tx: self.preset_tx.clone(),
+            motion_tx: Arc::clone(&self.motion_tx),
+            tracker: Arc::clone(&self.tracker),
             reconnect_rx: self.reconnect_tx.subscribe(),
         };
         tokio::spawn(async move {
@@ -117,6 +134,42 @@ impl MiddlecontrolConnector {
         self.write_command(preset_command(preset, camera_id)?).await
     }
 
+    /// Recalls a preset for the rules in `chain`: the move it causes is reported with them, so
+    /// a rule that move triggers can tell it was set off by those rules.
+    pub async fn recall_preset_for(
+        &self,
+        preset: u8,
+        camera_id: Option<u8>,
+        chain: Vec<Uuid>,
+    ) -> Result<(), String> {
+        let command = preset_command(preset, camera_id)?;
+        self.tracker.lock().expect("tracker lock").note_recall(
+            Recall {
+                preset,
+                camera_id,
+                chain,
+            },
+            Instant::now(),
+        );
+        let result = self.write_command(command).await;
+        if result.is_err() {
+            self.tracker.lock().expect("tracker lock").forget_recall();
+        }
+        result
+    }
+
+    /// What the frames last said about the selected camera's position and any move; the
+    /// default while Middle Control is not connected.
+    #[must_use]
+    pub fn motion(&self) -> watch::Receiver<Motion> {
+        self.motion_tx.subscribe()
+    }
+
+    #[must_use]
+    pub fn current_motion(&self) -> Motion {
+        *self.motion_tx.borrow()
+    }
+
     async fn write_command(&self, command: String) -> Result<(), String> {
         if !matches!(*self.status.read().await, ConnectorStatus::Connected) {
             return Err("middlecontrol_not_connected".to_string());
@@ -149,6 +202,8 @@ impl MiddlecontrolConnector {
     async fn clear_connection(&self) {
         *self.writer.lock().await = None;
         *self.state.write().await = None;
+        self.tracker.lock().expect("tracker lock").reset();
+        self.motion_tx.send_replace(Motion::default());
     }
 
     async fn set_status(&self, new_status: ConnectorStatus) {
@@ -240,6 +295,9 @@ struct Worker {
     writer: Arc<Mutex<Option<OwnedWriteHalf>>>,
     status_tx: broadcast::Sender<ConnectorStatus>,
     state_tx: broadcast::Sender<MiddlecontrolState>,
+    preset_tx: broadcast::Sender<PresetEvent>,
+    motion_tx: Arc<watch::Sender<Motion>>,
+    tracker: Arc<std::sync::Mutex<PresetTracker>>,
     reconnect_rx: broadcast::Receiver<String>,
 }
 
@@ -251,6 +309,10 @@ impl Worker {
             let (ended, was_connected) = self.session(&mut stop_rx).await;
             *self.writer.lock().await = None;
             *self.state.write().await = None;
+            // A move already running when the connection comes back is not one whose start
+            // was seen.
+            self.tracker.lock().expect("tracker lock").reset();
+            self.motion_tx.send_replace(Motion::default());
 
             match ended {
                 Ended::ByCaller => {
@@ -291,12 +353,12 @@ impl Worker {
             tokio::select! {
                 line = lines.next_line() => match line {
                     Ok(Some(line)) => {
-                        let Some(state) = parse_feedback_frame(&line) else { continue };
+                        let Some(frame) = parse_feedback_frame(&line) else { continue };
                         if !was_connected {
                             was_connected = true;
                             self.set_status(ConnectorStatus::Connected).await;
                         }
-                        self.apply_state(state).await;
+                        self.apply_frame(frame).await;
                     }
                     Ok(None) => return (Ended::ByError("Middle Control closed the connection".to_string()), was_connected),
                     Err(error) => return (Ended::ByError(error.to_string()), was_connected),
@@ -313,11 +375,33 @@ impl Worker {
         }
     }
 
-    async fn apply_state(&self, new_state: MiddlecontrolState) {
+    async fn apply_frame(&self, frame: Frame) {
+        let events = self.tracker.lock().expect("tracker lock").observe(
+            &frame.observation(),
+            Instant::now(),
+            Utc::now(),
+        );
+        self.motion_tx.send_replace(frame.motion());
+
+        let mut new_state = frame.state;
         let mut state = self.state.write().await;
+        new_state.last_preset = state.as_ref().and_then(|state| state.last_preset.clone());
+        for event in &events {
+            if let PresetEvent::Finished(finished) = event {
+                new_state.last_preset = Some(LastPreset {
+                    preset: finished.preset,
+                    camera_id: finished.camera_id,
+                    at: finished.at.to_rfc3339_opts(SecondsFormat::Millis, true),
+                });
+            }
+        }
         if state.as_ref() != Some(&new_state) {
             *state = Some(new_state.clone());
             let _ = self.state_tx.send(new_state);
+        }
+        drop(state);
+        for event in events {
+            let _ = self.preset_tx.send(event);
         }
     }
 
@@ -331,20 +415,66 @@ impl Worker {
     }
 }
 
-fn parse_feedback_frame(line: &str) -> Option<MiddlecontrolState> {
+/// One feedback frame: the public state, and what only preset tracking needs.
+#[derive(Debug, Clone, PartialEq)]
+struct Frame {
+    state: MiddlecontrolState,
+    /// `PRES_ACTIVE`: `Some(0)` at rest, `Some(n)` while preset `n` runs.
+    active: Option<u8>,
+    /// `PRES_D`: how long a preset move takes, in seconds.
+    preset_seconds: Option<f32>,
+    /// `PRESETSEQ_RUN`: Middle Control's own preset sequence is running.
+    sequence_running: Option<bool>,
+    /// `aPAN` and `aTILT`, in tenths of a degree; absent without an APC-R.
+    pan: Option<i32>,
+    tilt: Option<i32>,
+}
+
+impl Frame {
+    fn observation(&self) -> Observation {
+        Observation {
+            camera: self.state.selected_camera,
+            active: self.active,
+            preset_seconds: self.preset_seconds,
+            sequence_running: self.sequence_running,
+        }
+    }
+
+    fn motion(&self) -> Motion {
+        Motion {
+            camera: self.state.selected_camera,
+            active: self.active,
+            preset_seconds: self.preset_seconds,
+            pan: self.pan,
+            tilt: self.tilt,
+        }
+    }
+}
+
+fn parse_feedback_frame(line: &str) -> Option<Frame> {
     let frame = line.trim();
     let inner = frame.strip_prefix('{')?.strip_suffix('}')?;
-    let mut state = MiddlecontrolState {
-        selected_camera: None,
-        recording: None,
-        recording_camera_ids: None,
-        connected_camera_ids: None,
-        connected_apcr_ids: None,
-        preset_move_active: None,
+    let mut parsed = Frame {
+        state: MiddlecontrolState {
+            selected_camera: None,
+            recording: None,
+            recording_camera_ids: None,
+            connected_camera_ids: None,
+            connected_apcr_ids: None,
+            preset_move_active: None,
+            running_preset: None,
+            last_preset: None,
+        },
+        active: None,
+        preset_seconds: None,
+        sequence_running: None,
+        pan: None,
+        tilt: None,
     };
     let mut recognized = false;
 
     for token in inner.split(';') {
+        let state = &mut parsed.state;
         if let Some(value) = token.strip_prefix("REC_LIST") {
             state.recording_camera_ids = parse_id_list(value)?;
             recognized = true;
@@ -355,8 +485,25 @@ fn parse_feedback_frame(line: &str) -> Option<MiddlecontrolState> {
             state.connected_apcr_ids = parse_id_list(value)?;
             recognized = true;
         } else if let Some(value) = token.strip_prefix("PRES_ACTIVE") {
-            state.preset_move_active = parse_bool(value)?;
+            // Never worth dropping the frame over: it also carries the camera and the
+            // recording state, which froze while this was parsed as a flag.
+            parsed.active = value.parse().ok();
             recognized = true;
+        } else if let Some(value) = token.strip_prefix("PRES_D") {
+            parsed.preset_seconds = value
+                .parse::<f32>()
+                .ok()
+                .filter(|seconds| seconds.is_finite() && *seconds >= 0.0);
+        } else if let Some(value) = token.strip_prefix("PRESETSEQ_RUN") {
+            parsed.sequence_running = match value {
+                "1" => Some(true),
+                "0" => Some(false),
+                _ => None,
+            };
+        } else if let Some(value) = token.strip_prefix("aPAN") {
+            parsed.pan = value.parse().ok();
+        } else if let Some(value) = token.strip_prefix("aTILT") {
+            parsed.tilt = value.parse().ok();
         } else if let Some(value) = token.strip_prefix("CAM") {
             state.selected_camera = parse_id(value)?;
             recognized = true;
@@ -365,7 +512,9 @@ fn parse_feedback_frame(line: &str) -> Option<MiddlecontrolState> {
             recognized = true;
         }
     }
-    recognized.then_some(state)
+    parsed.state.running_preset = parsed.active.filter(|preset| (1..=12).contains(preset));
+    parsed.state.preset_move_active = parsed.active.map(|preset| preset != 0);
+    recognized.then_some(parsed)
 }
 
 fn parse_id(value: &str) -> Option<Option<u8>> {
@@ -445,25 +594,111 @@ mod tests {
         let state = parse_feedback_frame(
             "{CAM2;aWB5600;PRES_ACTIVE0;REC_LIST[2,5];CAM_CON_LIST[1,2,5];APCR_CON_LIST[1]}",
         )
-        .unwrap();
+        .unwrap()
+        .state;
         assert_eq!(state.selected_camera, Some(2));
         assert_eq!(state.recording, None);
         assert_eq!(state.recording_camera_ids, Some(vec![2, 5]));
         assert_eq!(state.connected_camera_ids, Some(vec![1, 2, 5]));
         assert_eq!(state.connected_apcr_ids, Some(vec![1]));
         assert_eq!(state.preset_move_active, Some(false));
+        assert_eq!(state.running_preset, None);
+    }
+
+    /// Frames as Middle Control 4.0.4 sends them on 11584 (tokens in the order it sends them,
+    /// from the API page's example frame with the values captured on 2026-10-07).
+    const MOVING: &str = "{CAM1;aWB5600;aSAT50;aCONT50;SHAKE_RUN0;ZLOOP_RUN0;PRESETSEQ_RUN0;\
+        BRANG_RUN0;PRESETSEQ_BANK1;aPAN-32;aTILT0;aROLL0;aZOOM0;PTS85;ZS24;PRES_D8.0;\
+        PRES_ACTIVE2;PRES_E50;REC_LIST[];CAM_CON_LIST[];APCR_CON_LIST[1]}";
+
+    #[test]
+    fn a_frame_while_preset_2_moves_is_read_not_dropped() {
+        let frame = parse_feedback_frame(MOVING).unwrap();
+        assert_eq!(frame.active, Some(2));
+        assert_eq!(frame.state.running_preset, Some(2));
+        assert_eq!(frame.state.preset_move_active, Some(true));
+        assert_eq!(frame.state.selected_camera, Some(1));
+        assert_eq!(frame.state.connected_apcr_ids, Some(vec![1]));
+        assert_eq!(frame.preset_seconds, Some(8.0));
+        assert_eq!(frame.sequence_running, Some(false));
+        assert_eq!((frame.pan, frame.tilt), (Some(-32), Some(0)));
+    }
+
+    #[test]
+    fn at_rest_there_is_no_running_preset() {
+        let frame = parse_feedback_frame(&MOVING.replace("PRES_ACTIVE2", "PRES_ACTIVE0")).unwrap();
+        assert_eq!(frame.active, Some(0));
+        assert_eq!(frame.state.running_preset, None);
+        assert_eq!(frame.state.preset_move_active, Some(false));
+    }
+
+    #[test]
+    fn every_preset_number_is_read() {
+        for preset in 1..=12 {
+            let frame = parse_feedback_frame(
+                &MOVING.replace("PRES_ACTIVE2", &format!("PRES_ACTIVE{preset}")),
+            )
+            .unwrap();
+            assert_eq!(frame.state.running_preset, Some(preset));
+        }
+    }
+
+    #[test]
+    fn a_number_that_is_no_preset_still_counts_as_a_move_without_naming_one() {
+        let frame = parse_feedback_frame(&MOVING.replace("PRES_ACTIVE2", "PRES_ACTIVE13")).unwrap();
+        assert_eq!(frame.state.running_preset, None);
+        assert_eq!(frame.state.preset_move_active, Some(true));
+    }
+
+    #[test]
+    fn dashes_in_the_preset_tokens_mean_no_answer() {
+        let frame =
+            parse_feedback_frame("{CAM1;PRESETSEQ_RUN-;aPAN-;aTILT-;PRES_D-;PRES_ACTIVE-;PRES_E-}")
+                .unwrap();
+        assert_eq!(frame.active, None);
+        assert_eq!(frame.state.running_preset, None);
+        assert_eq!(frame.state.preset_move_active, None);
+        assert_eq!(frame.preset_seconds, None);
+        assert_eq!(frame.sequence_running, None);
+        assert_eq!((frame.pan, frame.tilt), (None, None));
+        assert_eq!(frame.state.selected_camera, Some(1));
+    }
+
+    /// The old parser read `PRES_ACTIVE` as a flag and threw the whole frame away for any
+    /// other value, which froze Metocast's view of Middle Control while preset 2–12 moved.
+    #[test]
+    fn an_unreadable_preset_token_never_costs_the_rest_of_the_frame() {
+        let frame = parse_feedback_frame(
+            "{CAM3;REC_LIST[3];PRES_ACTIVEx;PRES_Dfast;PRESETSEQ_RUNmaybe;aPANleft;aTILTup}",
+        )
+        .unwrap();
+        assert_eq!(frame.state.selected_camera, Some(3));
+        assert_eq!(frame.state.recording_camera_ids, Some(vec![3]));
+        assert_eq!(frame.active, None);
+        assert_eq!(frame.preset_seconds, None);
+    }
+
+    #[test]
+    fn a_negative_or_absurd_transition_time_is_no_answer() {
+        for token in ["PRES_D-3.0", "PRES_Dinf", "PRES_DNaN"] {
+            let frame = parse_feedback_frame(&format!("{{CAM1;{token}}}")).unwrap();
+            assert_eq!(frame.preset_seconds, None, "{token}");
+        }
     }
 
     #[test]
     fn accepts_empty_lists_absent_tokens_and_dashes() {
-        let empty =
-            parse_feedback_frame("{CAM5;REC_LIST[];CAM_CON_LIST[];APCR_CON_LIST[]}").unwrap();
+        let empty = parse_feedback_frame("{CAM5;REC_LIST[];CAM_CON_LIST[];APCR_CON_LIST[]}")
+            .unwrap()
+            .state;
         assert_eq!(empty.recording_camera_ids, Some(Vec::new()));
         assert_eq!(empty.connected_camera_ids, Some(Vec::new()));
         assert_eq!(empty.connected_apcr_ids, Some(Vec::new()));
         assert_eq!(empty.recording, None);
 
-        let unavailable = parse_feedback_frame("{CAM-;REC-;PRES_ACTIVE-}").unwrap();
+        let unavailable = parse_feedback_frame("{CAM-;REC-;PRES_ACTIVE-}")
+            .unwrap()
+            .state;
         assert_eq!(unavailable.selected_camera, None);
         assert_eq!(unavailable.recording, None);
         assert_eq!(unavailable.preset_move_active, None);
@@ -521,10 +756,14 @@ mod tests {
         assert!(preset_command(13, None).is_err());
     }
 
-    #[tokio::test]
-    async fn state_is_broadcast_only_when_it_changes() {
+    fn worker() -> (
+        Worker,
+        broadcast::Receiver<MiddlecontrolState>,
+        broadcast::Receiver<PresetEvent>,
+    ) {
         let (status_tx, _) = broadcast::channel(1);
-        let (state_tx, mut state_rx) = broadcast::channel(2);
+        let (state_tx, state_rx) = broadcast::channel(8);
+        let (preset_tx, preset_rx) = broadcast::channel(8);
         let (_reconnect_tx, reconnect_rx) = broadcast::channel(1);
         let worker = Worker {
             config: MiddlecontrolConfig::default(),
@@ -533,16 +772,114 @@ mod tests {
             writer: Arc::new(Mutex::new(None)),
             status_tx,
             state_tx,
+            preset_tx,
+            motion_tx: Arc::new(watch::channel(Motion::default()).0),
+            tracker: Arc::new(std::sync::Mutex::new(PresetTracker::new())),
             reconnect_rx,
         };
-        let state = parse_feedback_frame("{CAM1;REC_LIST[]}").unwrap();
-        worker.apply_state(state.clone()).await;
-        worker.apply_state(state.clone()).await;
+        (worker, state_rx, preset_rx)
+    }
 
-        assert_eq!(state_rx.try_recv().unwrap(), state);
+    #[tokio::test]
+    async fn state_is_broadcast_only_when_it_changes() {
+        let (worker, mut state_rx, _) = worker();
+        let frame = parse_feedback_frame("{CAM1;REC_LIST[]}").unwrap();
+        worker.apply_frame(frame.clone()).await;
+        worker.apply_frame(frame.clone()).await;
+
+        assert_eq!(state_rx.try_recv().unwrap(), frame.state);
         assert!(matches!(
             state_rx.try_recv(),
             Err(broadcast::error::TryRecvError::Empty)
         ));
+    }
+
+    #[tokio::test]
+    async fn a_preset_move_is_published_as_state_events_and_the_last_preset() {
+        let (worker, mut state_rx, mut preset_rx) = worker();
+        // A 0.2 s transition, so the test need not wait eight seconds.
+        let frame = |active: u8| {
+            parse_feedback_frame(&format!("{{CAM1;PRES_D0.2;PRES_ACTIVE{active}}}")).unwrap()
+        };
+        worker.apply_frame(frame(0)).await;
+        worker.apply_frame(frame(3)).await;
+        tokio::time::sleep(Duration::from_millis(250)).await;
+        worker.apply_frame(frame(0)).await;
+
+        assert_eq!(state_rx.try_recv().unwrap().running_preset, None);
+        let moving = state_rx.try_recv().unwrap();
+        assert_eq!(moving.running_preset, Some(3));
+        assert_eq!(moving.preset_move_active, Some(true));
+        assert_eq!(moving.last_preset, None);
+        let reached = state_rx.try_recv().unwrap();
+        assert_eq!(reached.running_preset, None);
+        let last = reached.last_preset.expect("the move finished");
+        assert_eq!((last.preset, last.camera_id), (3, 1));
+
+        assert!(matches!(
+            preset_rx.try_recv(),
+            Ok(PresetEvent::Started(start)) if (start.preset, start.camera_id) == (3, 1)
+        ));
+        assert!(matches!(
+            preset_rx.try_recv(),
+            Ok(PresetEvent::Finished(done)) if (done.preset, done.camera_id) == (3, 1)
+        ));
+
+        // The last move is kept while later frames only repeat the rest state.
+        worker
+            .apply_frame(parse_feedback_frame("{CAM1;PRES_D0.2;PRES_ACTIVE0;REC_LIST[1]}").unwrap())
+            .await;
+        assert_eq!(state_rx.try_recv().unwrap().last_preset, Some(last));
+    }
+
+    #[tokio::test]
+    async fn the_motion_follows_every_frame_and_resets_with_the_connection() {
+        let connector = MiddlecontrolConnector::new();
+        let motion = connector.motion();
+        assert_eq!(*motion.borrow(), Motion::default());
+
+        let worker = Worker {
+            config: MiddlecontrolConfig::default(),
+            status: Arc::clone(&connector.status),
+            state: Arc::clone(&connector.state),
+            writer: Arc::clone(&connector.writer),
+            status_tx: connector.status_tx.clone(),
+            state_tx: connector.state_tx.clone(),
+            preset_tx: connector.preset_tx.clone(),
+            motion_tx: Arc::clone(&connector.motion_tx),
+            tracker: Arc::clone(&connector.tracker),
+            reconnect_rx: connector.reconnect_tx.subscribe(),
+        };
+        worker
+            .apply_frame(parse_feedback_frame(MOVING).unwrap())
+            .await;
+        assert_eq!(
+            *motion.borrow(),
+            Motion {
+                camera: Some(1),
+                active: Some(2),
+                preset_seconds: Some(8.0),
+                pan: Some(-32),
+                tilt: Some(0),
+            }
+        );
+
+        connector.stop().await;
+        assert_eq!(*motion.borrow(), Motion::default());
+    }
+
+    #[tokio::test]
+    async fn a_recall_with_nothing_connected_fails_and_leaves_no_mark() {
+        let connector = MiddlecontrolConnector::new();
+        assert_eq!(
+            connector
+                .recall_preset_for(3, None, vec![Uuid::new_v4()])
+                .await,
+            Err("middlecontrol_not_connected".to_string())
+        );
+        assert_eq!(
+            connector.recall_preset_for(13, None, Vec::new()).await,
+            Err("preset must be between 1 and 12".to_string())
+        );
     }
 }

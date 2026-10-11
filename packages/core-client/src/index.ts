@@ -25,16 +25,19 @@
 
 // ── Core operations over HTTP ─────────────────────────────────────────────────
 export * from './api/activities.js';
+export * from './api/automations.js';
 export * from './api/broadlink.js';
 export * from './api/client.js';
 export * from './api/connectors.js';
 export * from './api/cron-jobs.js';
 export * from './api/events.js';
 export * from './api/logs.js';
+export * from './api/media.js';
 export * from './api/presentations.js';
 export * from './api/queues.js';
 export * from './api/recordings.js';
 export * from './api/settings.js';
+export * from './api/transcription.js';
 export * from './api/untracked-recordings.js';
 export * from './api/uploads.js';
 export { bibleApi } from './utils/bible-api.js';
@@ -43,7 +46,13 @@ export * from './utils/title-template.js';
 // ── Realtime ──────────────────────────────────────────────────────────────────
 // The transport is framework-agnostic: it validates and emits typed messages via
 // handlers. A UI binds those to its own stores and notifications (see each UI).
-export { connectWs, disconnectWs, sendWsCommand, connectPresenterWs } from './ws/client.js';
+export {
+  connectWs,
+  disconnectWs,
+  sendWsCommand,
+  connectPresenterWs,
+  connectTranscriptWs,
+} from './ws/client.js';
 export type { WsHandlers, WsStatus } from './ws/client.js';
 
 // ── Startup configuration ─────────────────────────────────────────────────────
@@ -79,6 +88,8 @@ export type {
   DiscoveredMiddlecontrol,
   MiddlecontrolState,
   ObsStreamSettings,
+  OpenAiConfig,
+  McpConfig,
   RodecasterChannel,
   RodecasterMuteEvent,
   RodecasterProfile,
@@ -86,7 +97,21 @@ export type {
   RodecasterAudioRecordingConfig,
   RodecasterAudioDiscovery,
   RodecasterAudioRecorderState,
+  RodecasterDeskRecorder,
+  LastPreset,
 } from './schemas/connectors.js';
+export { AUTOMATION_LIMITS, AutomationDraftSchema } from './schemas/automations.js';
+export type {
+  ActionResult,
+  Automation,
+  AutomationAction,
+  AutomationDraft,
+  AutomationList,
+  AutomationRun,
+  AutomationTrigger,
+  ChannelSource,
+  RecordTarget,
+} from './schemas/automations.js';
 export {
   DiscoveredMiddlecontrolSchema,
   DiscoveredMiddlecontrolsSchema,
@@ -94,5 +119,43 @@ export {
   MiddlecontrolStateSchema,
 } from './schemas/connectors.js';
 export type { BiblePassage, BibleSuggestion } from './schemas/bible.js';
+export type {
+  AudioInfo,
+  AudioProbe,
+  AudioProgress,
+  AudioReport,
+  AudioSettings,
+  AudioSource,
+  ClockEstimate,
+  CropRect,
+  MediaProbe,
+  PictureMode,
+  PreviewFrame,
+  ProgramProbe,
+  ProgramProgress,
+  ProgramReport,
+  RawOptions,
+  RenderProgress,
+  RenderQueued,
+  RenderSettings,
+  SubtitleReport,
+  SubtitleSource,
+  SyncMethod,
+  SyncReport,
+  SyncWindow,
+  VideoSound,
+} from './schemas/media.js';
+export { LOW_CREDIT_USD } from './schemas/transcription.js';
+export type {
+  CaptionsJobState,
+  CreditStatus,
+  OpenAiVerifyResult,
+  TranscriptMessage,
+  TranscriptSegment,
+  TranscriptionState,
+  TranscriptionStatus,
+} from './schemas/transcription.js';
+export { EventOrderSchema, OrderItemSchema, OrderPositionSchema } from './schemas/event.js';
+export type { EventOrder, OrderItem, OrderItemKind, OrderPosition } from './schemas/event.js';
 export { MiddlecontrolCommandSchema } from './schemas/ws-messages.js';
 export type { MiddlecontrolCommand, WsMessage } from './schemas/ws-messages.js';

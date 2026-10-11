@@ -43,7 +43,35 @@ const AUTHENTICATED = [
   { method: 'GET', path: '/api/settings/song-slide-folder' },
   { method: 'PUT', path: '/api/settings/song-slide-folder' },
   { method: 'POST', path: '/api/ppt/song' },
+  { method: 'GET', path: '/api/events/00000000-0000-0000-0000-000000000000/order' },
+  { method: 'PUT', path: '/api/events/00000000-0000-0000-0000-000000000000/order' },
   { method: 'GET', path: '/api/connectors/szentiras/config/secrets' },
+  { method: 'GET', path: '/api/connectors/media/config' },
+  { method: 'POST', path: '/api/media/probe' },
+  { method: 'POST', path: '/api/media/preview' },
+  { method: 'POST', path: '/api/media/renders' },
+  { method: 'POST', path: '/api/media/renders/00000000-0000-0000-0000-000000000000/cancel' },
+  { method: 'POST', path: '/api/media/audio/probe' },
+  { method: 'POST', path: '/api/media/audio' },
+  { method: 'POST', path: '/api/media/programs/probe' },
+  { method: 'POST', path: '/api/media/programs' },
+  { method: 'POST', path: '/api/media/programs/00000000-0000-0000-0000-000000000000/nudge' },
+  { method: 'GET', path: '/api/connectors/openai/config' },
+  { method: 'PUT', path: '/api/connectors/openai/config' },
+  { method: 'GET', path: '/api/connectors/openai/config/secrets' },
+  { method: 'POST', path: '/api/openai/verify' },
+  { method: 'POST', path: '/api/recordings/00000000-0000-0000-0000-000000000000/captions' },
+  { method: 'GET', path: '/api/recordings/00000000-0000-0000-0000-000000000000/captions.vtt' },
+  { method: 'GET', path: '/api/automations' },
+  { method: 'POST', path: '/api/automations' },
+  { method: 'GET', path: '/api/automations/runs' },
+  { method: 'PUT', path: '/api/automations/armed' },
+  { method: 'PUT', path: '/api/automations/00000000-0000-0000-0000-000000000000' },
+  { method: 'DELETE', path: '/api/automations/00000000-0000-0000-0000-000000000000' },
+  { method: 'POST', path: '/api/automations/00000000-0000-0000-0000-000000000000/run' },
+  { method: 'GET', path: '/api/connectors/mcp/config' },
+  { method: 'PUT', path: '/api/connectors/mcp/config' },
+  { method: 'POST', path: '/mcp' },
 ];
 
 describe.skipIf(!isLive)('HTTP access contract', () => {
@@ -156,6 +184,37 @@ describe.skipIf(!isLive)('HTTP access contract', () => {
     ws.send(JSON.stringify({ type: 'presenter.status' }));
     await new Promise((resolve) => setTimeout(resolve, 500));
     expect(messages.some((m) => m['type'] === 'error')).toBe(false);
+
+    ws.close();
+  });
+
+  it('sends the transcript state on connect and refuses transcription.start without a token', async () => {
+    const ws = new WebSocket(`${WS_URL}/ws`);
+    const messages: Record<string, unknown>[] = [];
+    ws.on('message', (data: WebSocket.Data) => {
+      messages.push(JSON.parse(data.toString()) as Record<string, unknown>);
+    });
+    await new Promise<void>((resolve, reject) => {
+      ws.on('open', () => resolve());
+      ws.on('error', reject);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const snapshot = messages.find((m) => m['type'] === 'transcription.snapshot');
+    expect(snapshot).toBeDefined();
+    expect((snapshot?.['state'] as Record<string, unknown>)['status']).toBeTypeOf('string');
+
+    messages.length = 0;
+    ws.send(
+      JSON.stringify({
+        type: 'transcription.start',
+        eventId: '00000000-0000-0000-0000-000000000000',
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(messages.some((m) => m['type'] === 'error' && m['message'] === 'unauthorized')).toBe(
+      true,
+    );
+    expect(messages.some((m) => m['type'] === 'transcription.state')).toBe(false);
 
     ws.close();
   });

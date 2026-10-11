@@ -1,0 +1,30 @@
+meta {
+  name: MCP - Get Config
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/connectors/mcp/config
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  The three MCP switches: enabled, readOnly, allowLan. MCP is off until enabled is true.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("has the switches", function() {
+    expect(res.body).to.have.property('enabled');
+    expect(res.body).to.have.property('readOnly');
+    expect(res.body).to.have.property('allowLan');
+  });
+}

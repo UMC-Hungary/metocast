@@ -14,6 +14,10 @@ export function GetActions(instance: ModuleInstance): CompanionActionDefinitions
 			label: `${new Date(event.dateTime).toLocaleString()} · ${event.title}`,
 		})),
 	]
+	const automationChoices = instance.automations.map((rule) => ({
+		id: rule.id,
+		label: rule.enabled ? rule.name : `${rule.name} (disabled)`,
+	}))
 	const sendAtem = (type: string, data?: Record<string, unknown>) => {
 		if (!instance.api.sendWsCommand(type, data)) instance.log('error', 'ATEM command failed: WebSocket not connected')
 	}
@@ -199,6 +203,107 @@ export function GetActions(instance: ModuleInstance): CompanionActionDefinitions
 			description: 'Copy the configured YouTube stream destination to the ATEM',
 			options: [],
 			callback: () => sendAtem('atem.stream.push_youtube'),
+		},
+
+		transcription: {
+			name: 'Transcript: Start/Stop',
+			description: 'Start or stop the live English transcript for the event the server has selected',
+			options: [
+				{
+					type: 'dropdown',
+					id: 'operation',
+					label: 'Operation',
+					default: 'start',
+					choices: [
+						{ id: 'start', label: 'Start' },
+						{ id: 'stop', label: 'Stop' },
+					],
+				},
+			],
+			callback: (action: CompanionActionEvent) => {
+				if (action.options['operation'] === 'stop') {
+					if (!instance.api.sendWsCommand('transcription.stop'))
+						instance.log('error', 'Transcript command failed: WebSocket not connected')
+					return
+				}
+				// With no current event the transcript runs without one.
+				const eventId = instance.selectedPresenterEventId
+				if (!instance.api.sendWsCommand('transcription.start', eventId ? { eventId } : {}))
+					instance.log('error', 'Transcript command failed: WebSocket not connected')
+			},
+		},
+
+		automations_arm: {
+			name: 'Automations: Arm / Disarm',
+			description:
+				'The master switch for every automation. While they are disarmed nothing fires, for example during a rehearsal.',
+			options: [
+				{
+					type: 'dropdown',
+					id: 'operation',
+					label: 'Operation',
+					default: 'toggle',
+					choices: [
+						{ id: 'arm', label: 'Arm' },
+						{ id: 'disarm', label: 'Disarm' },
+						{ id: 'toggle', label: 'Toggle' },
+					],
+				},
+			],
+			callback: (action: CompanionActionEvent) => {
+				const operation = action.options['operation']
+				const armed = operation === 'toggle' ? !instance.automationsArmed : operation !== 'disarm'
+				if (!instance.api.sendWsCommand('automations.set_armed', { armed }))
+					instance.log('error', 'Automations command failed: WebSocket not connected')
+			},
+		},
+
+		automation_run: {
+			name: 'Automations: Run',
+			description:
+				'Run an automation now, ignoring its cooldown, its event check and the master switch. It really records and moves cameras.',
+			options: [
+				{
+					type: 'dropdown',
+					id: 'id',
+					label: 'Automation',
+					default: automationChoices[0]?.id || '',
+					choices: automationChoices,
+					tooltip: 'The rules saved in Metocast, by name',
+				},
+			],
+			callback: (action: CompanionActionEvent) => {
+				const id = action.options['id'] as string
+				if (!id) {
+					instance.log('warn', 'No automation selected')
+					return
+				}
+				if (!instance.api.sendWsCommand('automations.run', { id }))
+					instance.log('error', 'Automations command failed: WebSocket not connected')
+			},
+		},
+
+		rodecaster_desk_record: {
+			name: 'RØDECaster SD: Start/Stop Recording',
+			description:
+				"Start or stop the RØDECaster's own SD/USB recorder (not Metocast's audio recording). A start needs a card or drive.",
+			options: [
+				{
+					type: 'dropdown',
+					id: 'operation',
+					label: 'Operation',
+					default: 'start',
+					choices: [
+						{ id: 'start', label: 'Start' },
+						{ id: 'stop', label: 'Stop' },
+					],
+				},
+			],
+			callback: (action: CompanionActionEvent) => {
+				const type = `rodecaster.record.${action.options['operation'] === 'stop' ? 'stop' : 'start'}`
+				if (!instance.api.sendWsCommand(type))
+					instance.log('error', 'RØDECaster command failed: WebSocket not connected')
+			},
 		},
 
 		obs_record: {
@@ -459,6 +564,27 @@ export function GetActions(instance: ModuleInstance): CompanionActionDefinitions
 				if (!result.success) {
 					instance.log('error', `Presentation next failed: ${result.error}`)
 				}
+			},
+		},
+
+		order_next: {
+			name: 'Order of Service: Next Step',
+			description:
+				"Show the next step of the running Order of Service. With none running, starts the presenter's selected event at its first step.",
+			options: [],
+			callback: async () => {
+				const result = instance.api.orderStep('next', instance.selectedPresenterEventId)
+				if (!result.success) instance.log('error', `Order of Service next failed: ${result.error}`)
+			},
+		},
+
+		order_previous: {
+			name: 'Order of Service: Previous Step',
+			description: 'Show the previous step of the running Order of Service',
+			options: [],
+			callback: async () => {
+				const result = instance.api.orderStep('previous', null)
+				if (!result.success) instance.log('error', `Order of Service previous failed: ${result.error}`)
 			},
 		},
 

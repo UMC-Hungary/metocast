@@ -2,6 +2,7 @@
  * E2E tests for Connectors REST API.
  */
 
+import { tmpdir } from 'node:os';
 import { describe, it, expect, vi } from 'vitest';
 import { apiClient } from '../helpers/client.js';
 
@@ -198,6 +199,38 @@ describe.skipIf(!isLive)('Connectors REST API', () => {
         outputMode: 'mainMix',
         sources: [],
       },
+    });
+  });
+
+  it('a save that leaves out audioRecording keeps the stored one', async () => {
+    // The Mac app's form has no audio recording fields, so it sends only the flat ones.
+    const audioRecording = {
+      schemaVersion: 1,
+      enabled: true,
+      directory: tmpdir(),
+      processingMode: 'preFader',
+      outputMode: 'mainMix',
+      sources: [],
+    };
+    const base = { enabled: false, notifyOnMute: false };
+    const stored = await apiClient.put('/api/connectors/rodecaster/config', {
+      ...base,
+      audioRecording,
+    });
+    expect(stored.status).toBe(204);
+
+    const flat = await apiClient.put('/api/connectors/rodecaster/config', {
+      ...base,
+      notifyOnMute: true,
+    });
+    expect(flat.status).toBe(204);
+    const res = await apiClient.get<RodecasterConfig>('/api/connectors/rodecaster/config');
+    expect(res.body).toMatchObject({ notifyOnMute: true, audioRecording });
+
+    // Back to what the tests after this one expect.
+    await apiClient.put('/api/connectors/rodecaster/config', {
+      ...base,
+      audioRecording: { ...audioRecording, enabled: false, directory: '' },
     });
   });
 

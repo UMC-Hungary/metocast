@@ -11,6 +11,8 @@ on:
       - 'apple-app/**'
       - 'scripts/build-apple.sh'
       - 'scripts/embed-apple-server.sh'
+      - 'scripts/check-screenshots.swift'
+      - 'docs/images/**'
       - '.github/workflows/rust-libraries.yml'
   push:
     branches:
@@ -24,6 +26,8 @@ on:
       - 'apple-app/**'
       - 'scripts/build-apple.sh'
       - 'scripts/embed-apple-server.sh'
+      - 'scripts/check-screenshots.swift'
+      - 'docs/images/**'
       - '.github/workflows/rust-libraries.yml'
   workflow_dispatch:
 
@@ -31,6 +35,20 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Vision's text recognition only exists on macOS. A runner is not the operator's Mac, so this
+  # checks the generic patterns (LAN addresses, tokens, other users' home folders); the machine
+  # name check happens where the screenshot is taken.
+  screenshots:
+    name: Documentation screenshots
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Check screenshots show nothing that identifies a machine
+        run: swift scripts/check-screenshots.swift docs/images
+
   apple-libraries:
     name: Apple libraries and Swift package
     runs-on: macos-latest

@@ -1,0 +1,850 @@
+{
+  "automation.run": {
+    "properties": {
+      "run": {
+        "type": "object"
+      },
+      "type": {
+        "const": "automation.run"
+      }
+    },
+    "required": [
+      "type",
+      "run"
+    ],
+    "type": "object"
+  },
+  "automations.changed": {
+    "properties": {
+      "armed": {
+        "type": "boolean"
+      },
+      "automations": {
+        "type": "array"
+      },
+      "type": {
+        "const": "automations.changed"
+      }
+    },
+    "required": [
+      "type",
+      "armed",
+      "automations"
+    ],
+    "type": "object"
+  },
+  "blackmagic-camera.discovered": {
+    "properties": {
+      "cameras": {
+        "type": "array"
+      },
+      "type": {
+        "const": "blackmagic-camera.discovered"
+      }
+    },
+    "required": [
+      "type",
+      "cameras"
+    ],
+    "type": "object"
+  },
+  "broadlink.device.discovered": {
+    "properties": {
+      "device": {
+        "type": "object"
+      },
+      "type": {
+        "const": "broadlink.device.discovered"
+      }
+    },
+    "required": [
+      "type",
+      "device"
+    ],
+    "type": "object"
+  },
+  "broadlink.learn.result": {
+    "properties": {
+      "code": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "error": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "type": {
+        "const": "broadlink.learn.result"
+      }
+    },
+    "required": [
+      "type"
+    ],
+    "type": "object"
+  },
+  "captions.job.state": {
+    "properties": {
+      "error": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "jobId": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "progress": {
+        "type": "number"
+      },
+      "recordingId": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "state": {
+        "type": "string"
+      },
+      "type": {
+        "const": "captions.job.state"
+      }
+    },
+    "required": [
+      "type",
+      "jobId",
+      "recordingId",
+      "state",
+      "progress"
+    ],
+    "type": "object"
+  },
+  "clients.updated": {
+    "properties": {
+      "clients": {
+        "type": "array"
+      },
+      "type": {
+        "const": "clients.updated"
+      }
+    },
+    "required": [
+      "type",
+      "clients"
+    ],
+    "type": "object"
+  },
+  "connected": {
+    "properties": {
+      "serverId": {
+        "type": "string"
+      },
+      "type": {
+        "const": "connected"
+      }
+    },
+    "required": [
+      "type",
+      "serverId"
+    ],
+    "type": "object"
+  },
+  "connector.state": {
+    "properties": {
+      "connector": {
+        "type": "string"
+      },
+      "isRecording": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "isStreaming": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "state": {
+        "anyOf": [
+          {
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "type": {
+        "const": "connector.state"
+      }
+    },
+    "required": [
+      "type",
+      "connector"
+    ],
+    "type": "object"
+  },
+  "connector.status": {
+    "properties": {
+      "connector": {
+        "type": "string"
+      },
+      "status": {
+        "type": "object"
+      },
+      "type": {
+        "const": "connector.status"
+      }
+    },
+    "required": [
+      "type",
+      "connector",
+      "status"
+    ],
+    "type": "object"
+  },
+  "cron.youtube_pull": {
+    "properties": {
+      "hasLive": {
+        "type": "boolean"
+      },
+      "type": {
+        "const": "cron.youtube_pull"
+      }
+    },
+    "required": [
+      "type",
+      "hasLive"
+    ],
+    "type": "object"
+  },
+  "event.changed": {
+    "properties": {
+      "data": {
+        "type": "object"
+      },
+      "type": {
+        "const": "event.changed"
+      }
+    },
+    "required": [
+      "type",
+      "data"
+    ],
+    "type": "object"
+  },
+  "event.order.changed": {
+    "properties": {
+      "eventId": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "items": {
+        "type": "array"
+      },
+      "type": {
+        "const": "event.order.changed"
+      }
+    },
+    "required": [
+      "type",
+      "eventId",
+      "items"
+    ],
+    "type": "object"
+  },
+  "keynote.status": {
+    "properties": {
+      "status": {
+        "type": "object"
+      },
+      "type": {
+        "const": "keynote.status"
+      }
+    },
+    "required": [
+      "type",
+      "status"
+    ],
+    "type": "object"
+  },
+  "media.audio.progress": {
+    "properties": {
+      "progress": {
+        "type": "object"
+      },
+      "type": {
+        "const": "media.audio.progress"
+      }
+    },
+    "required": [
+      "type",
+      "progress"
+    ],
+    "type": "object"
+  },
+  "media.program.progress": {
+    "properties": {
+      "progress": {
+        "type": "object"
+      },
+      "type": {
+        "const": "media.program.progress"
+      }
+    },
+    "required": [
+      "type",
+      "progress"
+    ],
+    "type": "object"
+  },
+  "media.render.progress": {
+    "properties": {
+      "progress": {
+        "type": "object"
+      },
+      "type": {
+        "const": "media.render.progress"
+      }
+    },
+    "required": [
+      "type",
+      "progress"
+    ],
+    "type": "object"
+  },
+  "notification": {
+    "properties": {
+      "level": {
+        "type": "string"
+      },
+      "message": {
+        "type": "string"
+      },
+      "type": {
+        "const": "notification"
+      }
+    },
+    "required": [
+      "type",
+      "level",
+      "message"
+    ],
+    "type": "object"
+  },
+  "obs.state": {
+    "properties": {
+      "isRecording": {
+        "type": "boolean"
+      },
+      "isStreaming": {
+        "type": "boolean"
+      },
+      "type": {
+        "const": "obs.state"
+      }
+    },
+    "required": [
+      "type",
+      "isStreaming",
+      "isRecording"
+    ],
+    "type": "object"
+  },
+  "order.state": {
+    "properties": {
+      "items": {
+        "type": "array"
+      },
+      "position": {
+        "anyOf": [
+          {
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "type": {
+        "const": "order.state"
+      }
+    },
+    "required": [
+      "type",
+      "items"
+    ],
+    "type": "object"
+  },
+  "ping": {
+    "properties": {
+      "pingId": {
+        "type": "integer"
+      },
+      "type": {
+        "const": "ping"
+      }
+    },
+    "required": [
+      "type",
+      "pingId"
+    ],
+    "type": "object"
+  },
+  "ppt.folders_changed": {
+    "properties": {
+      "type": {
+        "const": "ppt.folders_changed"
+      }
+    },
+    "required": [
+      "type"
+    ],
+    "type": "object"
+  },
+  "ppt.search_results": {
+    "properties": {
+      "files": {
+        "type": "array"
+      },
+      "filter": {
+        "type": "string"
+      },
+      "type": {
+        "const": "ppt.search_results"
+      }
+    },
+    "required": [
+      "type",
+      "files",
+      "filter"
+    ],
+    "type": "object"
+  },
+  "presentation.settings": {
+    "properties": {
+      "presenterTheme": {
+        "type": "string"
+      },
+      "type": {
+        "const": "presentation.settings"
+      },
+      "useWebPresenter": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "type",
+      "useWebPresenter",
+      "presenterTheme"
+    ],
+    "type": "object"
+  },
+  "presenter.slide_changed": {
+    "properties": {
+      "currentSlide": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "totalSlides": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "type": {
+        "const": "presenter.slide_changed"
+      }
+    },
+    "required": [
+      "type"
+    ],
+    "type": "object"
+  },
+  "presenter.state": {
+    "properties": {
+      "state": {
+        "type": "object"
+      },
+      "type": {
+        "const": "presenter.state"
+      }
+    },
+    "required": [
+      "type",
+      "state"
+    ],
+    "type": "object"
+  },
+  "queue.stats": {
+    "properties": {
+      "queues": {
+        "type": "array"
+      },
+      "type": {
+        "const": "queue.stats"
+      }
+    },
+    "required": [
+      "type",
+      "queues"
+    ],
+    "type": "object"
+  },
+  "recording.changed": {
+    "properties": {
+      "data": {
+        "type": "object"
+      },
+      "type": {
+        "const": "recording.changed"
+      }
+    },
+    "required": [
+      "type",
+      "data"
+    ],
+    "type": "object"
+  },
+  "recording.detected": {
+    "properties": {
+      "eventTitle": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "fileName": {
+        "type": "string"
+      },
+      "type": {
+        "const": "recording.detected"
+      }
+    },
+    "required": [
+      "type",
+      "fileName"
+    ],
+    "type": "object"
+  },
+  "recording.untracked.removed": {
+    "properties": {
+      "id": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "type": {
+        "const": "recording.untracked.removed"
+      }
+    },
+    "required": [
+      "type",
+      "id"
+    ],
+    "type": "object"
+  },
+  "rodecaster.audio.discovery": {
+    "properties": {
+      "discovery": {
+        "type": "object"
+      },
+      "type": {
+        "const": "rodecaster.audio.discovery"
+      }
+    },
+    "required": [
+      "type",
+      "discovery"
+    ],
+    "type": "object"
+  },
+  "rodecaster.mute": {
+    "properties": {
+      "channel": {
+        "type": "integer"
+      },
+      "label": {
+        "type": "string"
+      },
+      "muted": {
+        "type": "boolean"
+      },
+      "notify": {
+        "type": "boolean"
+      },
+      "remote": {
+        "type": "boolean"
+      },
+      "type": {
+        "const": "rodecaster.mute"
+      }
+    },
+    "required": [
+      "type",
+      "channel",
+      "label",
+      "muted",
+      "remote",
+      "notify"
+    ],
+    "type": "object"
+  },
+  "rodecaster.record.state": {
+    "properties": {
+      "state": {
+        "anyOf": [
+          {
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "type": {
+        "const": "rodecaster.record.state"
+      }
+    },
+    "required": [
+      "type"
+    ],
+    "type": "object"
+  },
+  "transcription.credit": {
+    "properties": {
+      "credit": {
+        "type": "object"
+      },
+      "type": {
+        "const": "transcription.credit"
+      }
+    },
+    "required": [
+      "type",
+      "credit"
+    ],
+    "type": "object"
+  },
+  "transcription.partial": {
+    "properties": {
+      "text": {
+        "type": "string"
+      },
+      "type": {
+        "const": "transcription.partial"
+      }
+    },
+    "required": [
+      "type",
+      "text"
+    ],
+    "type": "object"
+  },
+  "transcription.segment": {
+    "properties": {
+      "segment": {
+        "type": "object"
+      },
+      "type": {
+        "const": "transcription.segment"
+      }
+    },
+    "required": [
+      "type",
+      "segment"
+    ],
+    "type": "object"
+  },
+  "transcription.snapshot": {
+    "properties": {
+      "credit": {
+        "anyOf": [
+          {
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "partial": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "segments": {
+        "type": "array"
+      },
+      "state": {
+        "type": "object"
+      },
+      "type": {
+        "const": "transcription.snapshot"
+      }
+    },
+    "required": [
+      "type",
+      "state",
+      "segments"
+    ],
+    "type": "object"
+  },
+  "transcription.state": {
+    "properties": {
+      "state": {
+        "type": "object"
+      },
+      "type": {
+        "const": "transcription.state"
+      }
+    },
+    "required": [
+      "type",
+      "state"
+    ],
+    "type": "object"
+  },
+  "upload.completed": {
+    "properties": {
+      "platform": {
+        "type": "string"
+      },
+      "recordingId": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "type": {
+        "const": "upload.completed"
+      },
+      "videoId": {
+        "type": "string"
+      },
+      "videoUrl": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "type",
+      "recordingId",
+      "platform",
+      "videoId",
+      "videoUrl"
+    ],
+    "type": "object"
+  },
+  "upload.failed": {
+    "properties": {
+      "error": {
+        "type": "string"
+      },
+      "platform": {
+        "type": "string"
+      },
+      "recordingId": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "type": {
+        "const": "upload.failed"
+      }
+    },
+    "required": [
+      "type",
+      "recordingId",
+      "platform",
+      "error"
+    ],
+    "type": "object"
+  },
+  "upload.paused": {
+    "properties": {
+      "reason": {
+        "type": "string"
+      },
+      "recordingId": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "type": {
+        "const": "upload.paused"
+      }
+    },
+    "required": [
+      "type",
+      "recordingId",
+      "reason"
+    ],
+    "type": "object"
+  },
+  "upload.progress": {
+    "properties": {
+      "platform": {
+        "type": "string"
+      },
+      "progressBytes": {
+        "type": "integer"
+      },
+      "recordingId": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "totalBytes": {
+        "type": "integer"
+      },
+      "type": {
+        "const": "upload.progress"
+      }
+    },
+    "required": [
+      "type",
+      "recordingId",
+      "platform",
+      "progressBytes",
+      "totalBytes"
+    ],
+    "type": "object"
+  }
+}
