@@ -26,20 +26,13 @@ impl Download {
 }
 
 /// jive-vocals (GPL-3.0, github.com/linuxmatters/jive-vocals): a static binary with FFmpeg
-/// built in, so it needs nothing else on the Mac.
-#[cfg(target_arch = "aarch64")]
+/// built in, so it needs nothing else on the Mac. Apple Silicon only, like the app; the other
+/// hosts that compile this crate cannot run a Mach-O anyway.
 pub const JIVE_VOCALS: Download = Download {
     name: "jive-vocals",
     version: "0.7.0",
     url: "https://github.com/linuxmatters/jive-vocals/releases/download/0.7.0/jive-vocals-darwin-arm64",
     sha256: "f611ac7e23ca18891492de7f89f633933b5114f2514ff1f5f34bff3390e1a941",
-};
-#[cfg(not(target_arch = "aarch64"))]
-pub const JIVE_VOCALS: Download = Download {
-    name: "jive-vocals",
-    version: "0.7.0",
-    url: "https://github.com/linuxmatters/jive-vocals/releases/download/0.7.0/jive-vocals-darwin-amd64",
-    sha256: "9a90ac4137faba8fc45181d491426bd16894d08387f61038e56b5dfc6ccd4f58",
 };
 
 /// The verified program, downloading it first when this host doesn't have it yet.

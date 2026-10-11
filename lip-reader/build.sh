@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Builds lip-reader, which needs only the macOS SDK (AVFoundation and Vision).
 #   ./build.sh [output]            → build/lip-reader by default
-#   ARCHS="arm64 x86_64" ./build.sh  → a universal binary
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"

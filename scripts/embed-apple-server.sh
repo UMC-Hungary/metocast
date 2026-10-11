@@ -34,8 +34,7 @@ binaries=()
 for arch in ${ARCHS}; do
   case "$arch" in
     arm64) target="aarch64-apple-darwin" ;;
-    x86_64) target="x86_64-apple-darwin" ;;
-    *) echo "error: unsupported macOS architecture $arch" >&2; exit 1 ;;
+    *) echo "error: unsupported macOS architecture $arch (Metocast is Apple Silicon only)" >&2; exit 1 ;;
   esac
   # The host build shares target/<profile> with plain `cargo build`; others need --target.
   if [ "$target" = "$host_target" ]; then

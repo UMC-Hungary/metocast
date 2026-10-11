@@ -56,7 +56,8 @@ the same change.
 ## Native Apple app
 
 `apple-app/Metocast.xcodeproj` is a SwiftUI app for iOS 26 and macOS 26 built on the `apple/`
-Swift package. The iPhone is a client of a Metocast server. The Mac is either a client or the
+Swift package. The Mac app is Apple Silicon only; there is no Intel build. The iPhone is a client
+of a Metocast server. The Mac is either a client or the
 server: its build embeds the headless `metocast-server` in `Contents/MacOS`
 (`scripts/embed-apple-server.sh`), and server mode runs it, then talks to it over loopback like
 any other client. Client devices connect by address and token, or by opening the

@@ -15,7 +15,6 @@ the Neural Engine.
 
 ```bash
 ./build.sh                       # → build/lip-reader
-ARCHS="arm64 x86_64" ./build.sh  # universal
 ```
 
 The Mac app's build phase (`scripts/embed-apple-server.sh`) builds it into

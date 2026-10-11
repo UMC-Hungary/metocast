@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Builds the ffmpeg and ffprobe the Mac app ships, from FFmpeg's official release source.
 #   ./build.sh [output-dir]        → build/ by default: ffmpeg, ffprobe and the licence files
-#   ARCHS="arm64 x86_64" ./build.sh  → universal binaries (x86_64 wants nasm; see README.md)
 # The source is pinned by SHA-256 (and checked against FFmpeg's release signature when gpg is
 # installed). Each architecture is built once per configuration and cached under target/ffmpeg.
 set -euo pipefail
@@ -67,10 +66,6 @@ for arch in ${ARCHS:-$(uname -m)}; do
     arch_flags=(--arch="$arch" --cc="clang -arch $arch")
     if [ "$arch" != "$(uname -m)" ]; then
       arch_flags+=(--enable-cross-compile --target-os=darwin)
-    fi
-    if [ "$arch" = "x86_64" ] && ! command -v nasm >/dev/null; then
-      echo "warning: nasm not found; the x86_64 ffmpeg is built without assembly (slower)"
-      arch_flags+=(--disable-x86asm)
     fi
     (
       cd "$source_dir"

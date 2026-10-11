@@ -57,7 +57,7 @@
 
   <h3>One-line install</h3>
   <p class="note">
-    Auto-detects platform (Linux arm64/x86_64, macOS arm64/x86_64). Downloads the binary, installs
+    Auto-detects platform (Linux arm64/x86_64, macOS arm64). Downloads the binary, installs
     system dependencies if needed, and starts immediately.
   </p>
 

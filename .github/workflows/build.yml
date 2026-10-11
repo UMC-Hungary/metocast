@@ -131,17 +131,11 @@ jobs:
             bundles: nsis msi
             name: Windows-x64
 
-          # macOS ARM (M1/M2/M3)
+          # macOS: Apple Silicon only, there is no Intel build
           - platform: macos-latest
             target: aarch64-apple-darwin
             bundles: dmg app
             name: macOS-ARM64
-
-          # macOS Intel (cross-compile from ARM runner)
-          - platform: macos-14
-            target: x86_64-apple-darwin
-            bundles: dmg app
-            name: macOS-Intel
 
           # Linux
           - platform: ubuntu-22.04
@@ -293,12 +287,7 @@ jobs:
         run: |
           MACOS_DIR="target/${{ matrix.target }}/release/bundle/macos"
           if [ -d "$MACOS_DIR" ]; then
-            # Determine architecture suffix
-            if [ "${{ matrix.target }}" = "aarch64-apple-darwin" ]; then
-              ARCH="aarch64"
-            else
-              ARCH="x64"
-            fi
+            ARCH="aarch64"
 
             # Rename .app.tar.gz files
             for f in "$MACOS_DIR"/*.app.tar.gz; do
@@ -393,7 +382,7 @@ jobs:
       - name: Setup Rust with iOS targets
         uses: dtolnay/rust-toolchain@1.98.1
         with:
-          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim
 
       - name: Cache Rust dependencies
         uses: swatinem/rust-cache@v2
@@ -843,7 +832,6 @@ jobs:
           # Read signatures
           WINDOWS_SIG=""
           MACOS_ARM_SIG=""
-          MACOS_INTEL_SIG=""
           LINUX_APPIMAGE_SIG=""
           LINUX_DEB_SIG=""
           WINDOWS_ASSET=""
@@ -867,11 +855,6 @@ jobs:
             MACOS_ARM_SIG=$(cat artifacts/macOS-ARM64/macos/*_aarch64.app.tar.gz.sig)
           fi
 
-          # macOS Intel signature (from .app.tar.gz bundle, not dmg)
-          if [ -f artifacts/macOS-Intel/macos/*_x64.app.tar.gz.sig ]; then
-            MACOS_INTEL_SIG=$(cat artifacts/macOS-Intel/macos/*_x64.app.tar.gz.sig)
-          fi
-
           # Linux AppImage updater artifact. Prefer the archived AppImage when
           # available, but support the signed raw AppImage emitted by this CI.
           LINUX_APPIMAGE_FILES=(artifacts/Linux-x64/appimage/*.AppImage.tar.gz)
@@ -892,12 +875,10 @@ jobs:
 
           # Get actual filenames
           MACOS_ARM_APP=$(basename artifacts/macOS-ARM64/macos/*_aarch64.app.tar.gz 2>/dev/null | head -1 || echo "")
-          MACOS_INTEL_APP=$(basename artifacts/macOS-Intel/macos/*_x64.app.tar.gz 2>/dev/null | head -1 || echo "")
 
           MISSING=()
           [ -n "${WINDOWS_SIG}" ] && [ -n "${WINDOWS_ASSET}" ] || MISSING+=("Windows NSIS updater artifact")
           [ -n "${MACOS_ARM_SIG}" ] && [ -n "${MACOS_ARM_APP}" ] || MISSING+=("macOS ARM updater artifact")
-          [ -n "${MACOS_INTEL_SIG}" ] && [ -n "${MACOS_INTEL_APP}" ] || MISSING+=("macOS Intel updater artifact")
           [ -n "${LINUX_APPIMAGE_SIG}" ] && [ -n "${LINUX_APPIMAGE_ASSET}" ] || MISSING+=("Linux AppImage updater artifact")
 
           if [ ${#MISSING[@]} -gt 0 ]; then
@@ -921,10 +902,6 @@ jobs:
                 "signature": "${MACOS_ARM_SIG}",
                 "url": "https://github.com/${REPO}/releases/download/v${VERSION}/${MACOS_ARM_APP}"
               },
-              "darwin-x86_64": {
-                "signature": "${MACOS_INTEL_SIG}",
-                "url": "https://github.com/${REPO}/releases/download/v${VERSION}/${MACOS_INTEL_APP}"
-              },
               "linux-x86_64": {
                 "signature": "${LINUX_APPIMAGE_SIG}",
                 "url": "https://github.com/${REPO}/releases/download/v${VERSION}/${LINUX_APPIMAGE_ASSET}"
@@ -947,9 +924,8 @@ jobs:
             Download `.exe` (NSIS installer) or `.msi` (Windows Installer).
 
             ### macOS
-            Download the `.dmg` for your architecture:
-            - **Apple Silicon (M1/M2/M3)**: `*-aarch64.dmg`
-            - **Intel**: `*-x64.dmg`
+            Download the Apple Silicon `.dmg`: `*-aarch64.dmg`.
+            Intel Macs are not supported.
 
             **Note:** If macOS shows "app is damaged", run this in Terminal:
             ```bash
