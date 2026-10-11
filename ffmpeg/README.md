@@ -16,13 +16,12 @@ ships its own copies next to `metocast-server`, so nobody installs anything.
   `Resources/ffmpeg`, and the source is the pinned tarball named above.
 - **What Metocast uses:** FFmpeg's own decoders and filters, VideoToolbox's HEVC encoder, the
   native AAC encoder, and Broadcast WAV output.
-- **Cache:** each architecture is built once (about 2½ minutes on an M1 Pro) and kept in
-  `target/ffmpeg`, keyed by the source, flags and deployment target.
-- **Intel:** an x86_64 build wants `nasm` (`brew install nasm`); without it the script builds
-  without assembly, which works but runs slower.
+- **Cache:** built once (about 2½ minutes on an M1 Pro) and kept in `target/ffmpeg`, keyed by the
+  source, flags and deployment target.
+- **Apple Silicon only:** Metocast no longer builds for Intel Macs, so there is one arm64 build.
 
 To update, change `version` and `sha256` in `build.sh` and check the new tarball's signature.
-Run it on its own with `./build.sh [output-dir]` (`ARCHS="arm64 x86_64"` for a universal build).
+Run it on its own with `./build.sh [output-dir]`.
 
 Outside the app, `METOCAST_FFMPEG` points the server at another ffmpeg (its `ffprobe` must sit
 beside it), and the Media Processing setting `ffmpegPath` overrides both; a bare checkout falls
