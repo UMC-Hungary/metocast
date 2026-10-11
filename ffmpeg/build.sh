@@ -54,39 +54,25 @@ configure_flags=(
 
 # A cached build is reused only for the same source, flags and deployment target.
 build_key="$(printf '%s ' "$sha256" "${configure_flags[@]}" "$deployment_target" | shasum | cut -c 1-12)"
-binaries=()
-for arch in ${ARCHS:-$(uname -m)}; do
-  built="$cache/$version-$arch-$build_key"
-  if [ ! -x "$built/ffmpeg" ] || [ ! -x "$built/ffprobe" ]; then
-    echo "building FFmpeg $version for $arch"
-    source_dir="$cache/src-$arch"
-    rm -rf "$source_dir" "$built"
-    mkdir -p "$source_dir" "$built"
-    tar -xf "$tarball" -C "$source_dir" --strip-components 1
-    arch_flags=(--arch="$arch" --cc="clang -arch $arch")
-    if [ "$arch" != "$(uname -m)" ]; then
-      arch_flags+=(--enable-cross-compile --target-os=darwin)
-    fi
-    (
-      cd "$source_dir"
-      ./configure "${arch_flags[@]}" "${configure_flags[@]}" \
-        --extra-cflags="-mmacosx-version-min=$deployment_target" \
-        --extra-ldflags="-mmacosx-version-min=$deployment_target" >"$built/configure.log"
-      make -j"$(sysctl -n hw.ncpu)" ffmpeg ffprobe >"$built/make.log"
-    )
-    cp "$source_dir/ffmpeg" "$source_dir/ffprobe" "$built/"
-    rm -rf "$source_dir"
-  fi
-  binaries+=("$built")
-done
+built="$cache/$version-arm64-$build_key"
+if [ ! -x "$built/ffmpeg" ] || [ ! -x "$built/ffprobe" ]; then
+  echo "building FFmpeg $version for arm64"
+  source_dir="$cache/src-arm64"
+  rm -rf "$source_dir" "$built"
+  mkdir -p "$source_dir" "$built"
+  tar -xf "$tarball" -C "$source_dir" --strip-components 1
+  (
+    cd "$source_dir"
+    ./configure --arch=arm64 --cc="clang -arch arm64" "${configure_flags[@]}" \
+      --extra-cflags="-mmacosx-version-min=$deployment_target" \
+      --extra-ldflags="-mmacosx-version-min=$deployment_target" >"$built/configure.log"
+    make -j"$(sysctl -n hw.ncpu)" ffmpeg ffprobe >"$built/make.log"
+  )
+  cp "$source_dir/ffmpeg" "$source_dir/ffprobe" "$built/"
+  rm -rf "$source_dir"
+fi
 
-for program in ffmpeg ffprobe; do
-  inputs=()
-  for built in "${binaries[@]}"; do
-    inputs+=("$built/$program")
-  done
-  lipo -create "${inputs[@]}" -output "$out/$program"
-done
+cp "$built/ffmpeg" "$built/ffprobe" "$out/"
 tar -xf "$tarball" -C "$out" --strip-components 1 \
   "ffmpeg-$version/LICENSE.md" "ffmpeg-$version/COPYING.LGPLv2.1"
 echo "built FFmpeg $version (LGPL) in $out"

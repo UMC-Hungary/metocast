@@ -287,28 +287,10 @@ jobs:
         run: |
           MACOS_DIR="target/${{ matrix.target }}/release/bundle/macos"
           if [ -d "$MACOS_DIR" ]; then
-            ARCH="aarch64"
-
-            # Rename .app.tar.gz files
-            for f in "$MACOS_DIR"/*.app.tar.gz; do
-              if [ -f "$f" ]; then
-                BASENAME=$(basename "$f" .app.tar.gz)
-                NEW_NAME="${BASENAME}_${ARCH}.app.tar.gz"
-                mv "$f" "$MACOS_DIR/$NEW_NAME"
-                echo "Renamed: $f -> $MACOS_DIR/$NEW_NAME"
-              fi
+            shopt -s nullglob
+            for f in "$MACOS_DIR"/*.app.tar.gz "$MACOS_DIR"/*.app.tar.gz.sig; do
+              mv -v "$f" "${f/.app.tar.gz/_aarch64.app.tar.gz}"
             done
-
-            # Rename .app.tar.gz.sig files
-            for f in "$MACOS_DIR"/*.app.tar.gz.sig; do
-              if [ -f "$f" ]; then
-                BASENAME=$(basename "$f" .app.tar.gz.sig)
-                NEW_NAME="${BASENAME}_${ARCH}.app.tar.gz.sig"
-                mv "$f" "$MACOS_DIR/$NEW_NAME"
-                echo "Renamed: $f -> $MACOS_DIR/$NEW_NAME"
-              fi
-            done
-
             ls -la "$MACOS_DIR"
           fi
 

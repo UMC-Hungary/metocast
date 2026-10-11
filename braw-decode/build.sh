@@ -15,10 +15,7 @@ if [ ! -f "$include/BlackmagicRawAPI.h" ]; then
   exit 1
 fi
 
-arch_flags=()
-for arch in ${ARCHS:-$(uname -m)}; do
-  arch_flags+=(-arch "$arch")
-done
+arch_flags=(-arch arm64)
 
 objects="$(mktemp -d)"
 trap 'rm -rf "$objects"' EXIT
