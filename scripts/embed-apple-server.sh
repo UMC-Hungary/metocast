@@ -22,9 +22,11 @@ cargo() {
 
 profile_flag=""
 profile_dir="debug"
+strip_helper=false
 if [ "${CONFIGURATION:-Debug}" = "Release" ]; then
   profile_flag="--release"
   profile_dir="release"
+  strip_helper=true
 fi
 
 host_target="$(uname -m | sed 's/arm64/aarch64/')-apple-darwin"
@@ -48,8 +50,16 @@ done
 destination="$TARGET_BUILD_DIR/$EXECUTABLE_FOLDER_PATH/metocast-server"
 lipo -create "${binaries[@]}" -output "$destination"
 
+# A shipped build leaves out the local symbol table, about a fifth of the binary and only useful
+# to a debugger. Stripping drops the signature, so the binary is signed again below.
+if $strip_helper; then
+  strip -x "$destination"
+fi
+
 if [ "${CODE_SIGNING_ALLOWED:-YES}" = "YES" ]; then
   codesign --force --options runtime --sign "${EXPANDED_CODE_SIGN_IDENTITY:--}" "$destination"
+elif $strip_helper; then
+  codesign --force --sign - "$destination"
 fi
 
 # braw-decode develops Blackmagic RAW for the media pipeline. It builds against the Blackmagic RAW
