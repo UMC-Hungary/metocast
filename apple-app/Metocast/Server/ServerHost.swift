@@ -19,6 +19,23 @@ final class ServerHost {
     static let port = ProcessInfo.processInfo.environment["METOCAST_PORT"].flatMap(Int.init) ?? 3737
     private static let logLimit = 2_000
 
+    /// The helper that runs the server, and with `mcp-stdio` the bridge AI apps use to reach it.
+    static var helper: URL? { Bundle.main.url(forAuxiliaryExecutable: "metocast-server") }
+
+    /// Where AI apps find the bridge. It stays put when the app moves or updates, so a pasted
+    /// Claude Desktop config and the extension (`scripts/mcpb/launch.sh`) keep working.
+    static let bridgeLink = URL.applicationSupportDirectory.appending(path: "Metocast/mcp/metocast-mcp")
+
+    /// Points `bridgeLink` at this app's helper.
+    static func linkBridge() {
+        guard let helper else { return }
+        let files = FileManager.default
+        if (try? files.destinationOfSymbolicLink(atPath: bridgeLink.path)) == helper.path { return }
+        try? files.createDirectory(at: bridgeLink.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? files.removeItem(at: bridgeLink)
+        try? files.createSymbolicLink(at: bridgeLink, withDestinationURL: helper)
+    }
+
     private(set) var state: State = .stopped
     private(set) var log: [String] = []
     private(set) var token: String
@@ -42,6 +59,7 @@ final class ServerHost {
             token = UUID().uuidString
             Credentials.set(token, for: .serverToken)
         }
+        Self.linkBridge()
         NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification, object: nil, queue: .main
         ) { [weak self] _ in
@@ -55,7 +73,7 @@ final class ServerHost {
     func start() async -> Bool {
         if state == .running { return true }
         guard process == nil else { return false }
-        guard let helper = Bundle.main.url(forAuxiliaryExecutable: "metocast-server") else {
+        guard let helper = Self.helper else {
             state = .failed("The Metocast server is missing from the app bundle.")
             return false
         }

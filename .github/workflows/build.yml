@@ -95,6 +95,11 @@ jobs:
           cargo test -p metocast-server --lib --
           mcp_covers_everything openapi_covers_router ws_events_catalogued generated_docs_are_current the_schema_file_is_current every_catalogued_route_has_a_written_operation
 
+      # The stdio bridge (`metocast-server mcp-stdio`): its own tests, and the guard that it never
+      # starts the server it is a subcommand of.
+      - name: Test the MCP stdio bridge
+        run: cargo test -p metocast-mcp-bridge && cargo test -p metocast-server --test mcp_stdio
+
       - name: Cache embedded PostgreSQL binary
         uses: actions/cache@v5
         with:

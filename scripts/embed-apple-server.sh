@@ -81,3 +81,7 @@ done
 ffmpeg_licences="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/ffmpeg"
 mkdir -p "$ffmpeg_licences"
 cp "$ffmpeg_build/LICENSE.md" "$ffmpeg_build/COPYING.LGPLv2.1" "$ffmpeg_licences/"
+
+# The one-click extension for Claude Desktop (a launcher for the bridge in this app; see
+# docs/mcp/BRIDGE.md). The app's Connectors screen opens it.
+"$repo_root/scripts/build-mcpb.sh" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Metocast.mcpb" "${MARKETING_VERSION:-1.0.0}"

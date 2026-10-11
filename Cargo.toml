@@ -5,6 +5,7 @@ members = [
   "crates/metocast-apple",
   "crates/metocast-client",
   "crates/metocast-core",
+  "crates/metocast-mcp-bridge",
   "crates/metocast-server",
   "crates/metocast-transcription",
   "presenter-receiver",

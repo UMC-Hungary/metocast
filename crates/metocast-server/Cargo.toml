@@ -22,6 +22,7 @@ liblzma = { version = "0.4.6", features = ["static"] }
 local-ip-address = "0.6"
 mdns-sd = "0.11"
 metocast-core = { path = "../metocast-core" }
+metocast-mcp-bridge = { path = "../metocast-mcp-bridge" }
 metocast-transcription = { path = "../metocast-transcription" }
 obws = { version = "0.14.0", features = ["events"] }
 postgresql_embedded = { version = "0.20", default-features = false, features = ["tokio", "rustls", "zonky"] }

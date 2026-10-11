@@ -14,7 +14,7 @@ It is **off** until the operator turns it on, because an agent can start a strea
 
 In the Mac app: **Connectors → AI Agents (MCP)**.
 
-![The AI Agents (MCP) screen: three switches, the address with copy buttons, and the connected agents](../images/mcp/ai-agents.png)
+![The AI Agents (MCP) screen: three switches, the address, the buttons that connect Claude Code and Claude Desktop, and the connected agents](../images/mcp/ai-agents.png)
 
 | Switch                             | Meaning                                                                                     |
 | ---------------------------------- | ------------------------------------------------------------------------------------------- |
@@ -31,17 +31,46 @@ The address is `http://127.0.0.1:3737/mcp` (use the server's port). Authenticati
 bearer token as the API, in the `Authorization` header. The token stays the same across restarts
 until the operator rotates it, so a saved config keeps working.
 
-The Mac app's **Connect an Agent** section has copy buttons that fill the address and token in.
+The Mac app's **Connect an Agent** section has a button for each of these.
 
-**Claude Code**
+**Claude Code** speaks HTTP, so it connects to the address directly:
 
 ```bash
 claude mcp add --transport http metocast http://127.0.0.1:3737/mcp \
   --header "Authorization: Bearer <token>"
 ```
 
-**Claude Desktop** (and any client that only speaks stdio) through
-[`mcp-remote`](https://www.npmjs.com/package/mcp-remote):
+**Claude Desktop on a Mac** (and any client that can only start a program) connects through the
+bridge inside the Metocast app, `metocast-server mcp-stdio`. It needs no Node, Python or Docker.
+Turn **Enabled** on, then choose one:
+
+- **Install in Claude Desktop** opens the extension that ships in the app. Claude asks for the
+  access token: **Copy Access Token**, paste, done.
+- **Copy Config for Claude Desktop** copies a config for Claude Desktop's settings (Developer, Edit
+  Config). It names the bridge and carries the token in `env`:
+
+  ```json
+  {
+    "mcpServers": {
+      "metocast": {
+        "command": "/Users/<you>/Library/Application Support/Metocast/mcp/metocast-mcp",
+        "args": ["mcp-stdio"],
+        "env": {
+          "METOCAST_MCP_URL": "http://127.0.0.1:3737/mcp",
+          "METOCAST_MCP_TOKEN": "<token>"
+        }
+      }
+    }
+  }
+  ```
+
+**Test Connection** in the same screen runs the bridge's own check and says in one line whether
+Metocast answers. How the bridge works, its settings and every message it can show are in
+[BRIDGE.md](BRIDGE.md).
+
+**Other computers.** The bridge ships in the Mac app only. On Windows or Linux, clients that speak
+HTTP need nothing, and stdio-only clients can use
+[`mcp-remote`](https://www.npmjs.com/package/mcp-remote), which needs Node:
 
 ```json
 {
@@ -123,19 +152,23 @@ agent, not for showing.
 
 ## Troubleshooting
 
-| You see                                      | Cause                                                                                    |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `503` "MCP is turned off"                    | Turn on **Enabled** in Connectors → AI Agents (MCP).                                     |
-| `401`                                        | Missing or wrong token. Copy it again from the app; rotating it invalidates old configs. |
-| `403` "only accepts callers on this machine" | The client is on another device. Turn on **Allow other devices on the network**.         |
-| `404` "Unknown session"                      | The server restarted. The client should send `initialize` again.                         |
-| A tool answers `isError` with "read-only"    | **Read-only** is on.                                                                     |
-| A tool is missing                            | Keynote tools exist only on macOS builds; check [TOOLS.md](TOOLS.md).                    |
+| You see                                       | Cause                                                                                    |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `503` "MCP is turned off"                     | Turn on **Enabled** in Connectors → AI Agents (MCP).                                     |
+| `401`                                         | Missing or wrong token. Copy it again from the app; rotating it invalidates old configs. |
+| `403` "only accepts callers on this machine"  | The client is on another device. Turn on **Allow other devices on the network**.         |
+| `404` "Unknown session"                       | The server restarted. The client should send `initialize` again (the bridge does it).    |
+| Claude Desktop shows "not running" or "token" | The bridge's own messages; see the table in [BRIDGE.md](BRIDGE.md).                      |
+| A tool answers `isError` with "read-only"     | **Read-only** is on.                                                                     |
+| A tool is missing                             | Keynote tools exist only on macOS builds; check [TOOLS.md](TOOLS.md).                    |
 
 ## How it is built (for maintainers)
 
 `crates/metocast-server/src/server/mcp.rs`.
 
+- **The stdio bridge** for Claude Desktop is `metocast-server mcp-stdio` (`crates/metocast-mcp-bridge`).
+  A change to the protocol or to session handling here must keep it and
+  `e2e/mcp/stdio-bridge.test.ts` passing; see [BRIDGE.md](BRIDGE.md).
 - **REST tools** build an HTTP request and call the real `/api` router in-process, so auth,
   validation and error bodies are the REST ones. Their input schemas come from
   `server/openapi.rs`; a route the hand-written spec lacks gets a summary-only stub from the
@@ -151,4 +184,5 @@ agent, not for showing.
   against `docs/api/ws-events.schema.json`. Regenerate the generated files with
   `UPDATE_GOLDEN=1 cargo test -p metocast-server --lib`.
 
-Plan and decisions: [plans/PLAN-mcp-server.md](../../plans/PLAN-mcp-server.md).
+Plans and decisions: [plans/PLAN-mcp-server.md](../../plans/PLAN-mcp-server.md) and
+[plans/PLAN-mcp-stdio-bridge.md](../../plans/PLAN-mcp-stdio-bridge.md).
