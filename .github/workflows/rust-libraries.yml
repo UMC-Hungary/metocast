@@ -72,10 +72,10 @@ jobs:
       - name: Check formatting and lints
         run: |
           cargo fmt --all --check
-          cargo clippy -p metocast-core -p metocast-client -p metocast-apple --all-targets --all-features -- -D warnings
+          cargo clippy -p metocast-core -p metocast-client -p metocast-apple -p metocast-mcp-bridge --all-targets --all-features -- -D warnings
 
       - name: Run library tests
-        run: cargo test -p metocast-core -p metocast-client -p metocast-apple
+        run: cargo test -p metocast-core -p metocast-client -p metocast-apple -p metocast-mcp-bridge
 
       - name: Build and test Swift package
         run: ./scripts/build-apple.sh
@@ -132,6 +132,22 @@ jobs:
             -destination 'platform=macOS' \
             -derivedDataPath target/apple-app-derived \
             CODE_SIGNING_ALLOWED=NO build
+
+      # The bridge for Claude Desktop is a subcommand of the helper the app ships. A person with
+      # only Metocast and an AI app has no Python, Node or Homebrew, so it must start with
+      # nothing, link only system libraries, and say plainly why it cannot reach Metocast.
+      - name: Check the MCP stdio bridge needs no developer tools
+        run: |
+          helper=target/apple-app-derived/Build/Products/Debug/Metocast.app/Contents/MacOS/metocast-server
+          outside=$(otool -L "$helper" | tail -n +2 | awk '{print $1}' | grep -Ev '^(/usr/lib/|/System/Library/)' || true)
+          if [ -n "$outside" ]; then
+            echo "::error::metocast-server links outside the system: $outside"
+            exit 1
+          fi
+          code=0
+          message=$(env -i PATH= "$helper" mcp-stdio --check --url http://127.0.0.1:9/mcp 2>&1) || code=$?
+          echo "$message"
+          [ "$code" = 1 ] && echo "$message" | grep -q "not running"
 
       # Ad-hoc signing seals each bundle so it opens once downloaded, until the signed
       # builds exist. Artifacts drop file modes and symlinks, so ditto zips them first.

@@ -295,15 +295,23 @@ private struct AgentSetupSection: View {
     let token: String
     let agents: [ConnectedClientRecord]
     @State private var copied: String?
+    @State private var testing = false
+    @State private var testResult: String?
 
     private var claudeCode: String {
         "claude mcp add --transport http metocast \(url) --header \"Authorization: Bearer \(token)\""
     }
 
+    /// Claude Desktop only starts programs, so it starts the bridge inside this app. Nothing else
+    /// has to be installed. The path is the stable link the app keeps, not a path into the bundle.
     private var claudeDesktop: String {
-        """
-        {"mcpServers":{"metocast":{"command":"npx","args":["-y","mcp-remote","\(url)","--header","Authorization:${AUTH_HEADER}"],"env":{"AUTH_HEADER":"Bearer \(token)"}}}}
-        """
+        let config: [String: Any] = ["mcpServers": ["metocast": [
+            "command": ServerHost.bridgeLink.path,
+            "args": ["mcp-stdio"],
+            "env": ["METOCAST_MCP_URL": url, "METOCAST_MCP_TOKEN": token],
+        ]]]
+        let json = try? JSONSerialization.data(withJSONObject: config, options: [.sortedKeys, .withoutEscapingSlashes])
+        return String(decoding: json ?? Data(), as: UTF8.self)
     }
 
     var body: some View {
@@ -313,6 +321,18 @@ private struct AgentSetupSection: View {
             }
             copyButton("Copy Command for Claude Code", text: claudeCode)
             copyButton("Copy Config for Claude Desktop", text: claudeDesktop)
+            Button("Install in Claude Desktop", systemImage: "square.and.arrow.down", action: installExtension)
+            copyButton("Copy Access Token", text: token)
+            Button("Test Connection", systemImage: "checkmark.circle") { Task { await test() } }
+                .disabled(testing)
+            if let testResult {
+                Text(testResult).font(.footnote).foregroundStyle(.secondary).textSelection(.enabled)
+            }
+            if let helper = ServerHost.helper {
+                Button("Show Bridge in Finder", systemImage: "folder") {
+                    NSWorkspace.shared.activateFileViewerSelecting([helper])
+                }
+            }
         } header: {
             Text("Connect an Agent")
         } footer: {
@@ -326,6 +346,46 @@ private struct AgentSetupSection: View {
                 Text(agent.label)
             }
         }
+    }
+
+    /// Opens the extension that ships in the app, which Claude Desktop offers to install. It asks
+    /// for the access token, which the button above copies.
+    private func installExtension() {
+        guard let package = Bundle.main.url(forResource: "Metocast", withExtension: "mcpb") else {
+            testResult = "The Claude Desktop extension is missing from this build."
+            return
+        }
+        if !NSWorkspace.shared.open(package) {
+            NSWorkspace.shared.activateFileViewerSelecting([package])
+        }
+    }
+
+    /// Runs the bridge's own check, the same one support asks for: `metocast-server mcp-stdio --check`.
+    private func test() async {
+        guard let helper = ServerHost.helper else {
+            testResult = "The bridge is missing from this build."
+            return
+        }
+        testing = true
+        defer { testing = false }
+        let environment = ["METOCAST_MCP_URL": url, "METOCAST_MCP_TOKEN": token]
+        testResult = await Task.detached {
+            let process = Process()
+            process.executableURL = helper
+            process.arguments = ["mcp-stdio", "--check"]
+            process.environment = environment
+            let output = Pipe()
+            process.standardOutput = output
+            process.standardError = output
+            do {
+                try process.run()
+            } catch {
+                return "Couldn't start the bridge: \(error.localizedDescription)"
+            }
+            let text = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            process.waitUntilExit()
+            return text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }.value
     }
 
     private func copyButton(_ title: String, text: String) -> some View {

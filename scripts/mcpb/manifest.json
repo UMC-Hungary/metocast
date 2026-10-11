@@ -1,0 +1,37 @@
+{
+  "manifest_version": "0.3",
+  "name": "metocast",
+  "display_name": "Metocast",
+  "version": "__VERSION__",
+  "description": "Run a church livestream from Claude: events, cameras, recordings, uploads and the presenter, through the Metocast app on this Mac.",
+  "author": { "name": "UMC Hungary" },
+  "server": {
+    "type": "binary",
+    "entry_point": "server/launch.sh",
+    "mcp_config": {
+      "command": "/bin/sh",
+      "args": ["${__dirname}/server/launch.sh"],
+      "env": {
+        "METOCAST_MCP_URL": "${user_config.url}",
+        "METOCAST_MCP_TOKEN": "${user_config.token}"
+      }
+    }
+  },
+  "user_config": {
+    "token": {
+      "type": "string",
+      "title": "Access token",
+      "description": "In Metocast, open Connectors, then AI Agents (MCP), and choose Copy Access Token.",
+      "required": true,
+      "sensitive": true
+    },
+    "url": {
+      "type": "string",
+      "title": "Metocast address",
+      "description": "Leave as it is when Metocast runs on this Mac.",
+      "required": false,
+      "default": "http://127.0.0.1:3737/mcp"
+    }
+  },
+  "compatibility": { "platforms": ["darwin"] }
+}

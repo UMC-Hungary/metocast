@@ -16,6 +16,10 @@
 //! SIGINT and SIGTERM stop the server gracefully, including PostgreSQL.
 //! Desktop-only integrations (OAuth login flows, dialogs) are unavailable
 //! here — they need a Tauri AppHandle.
+//!
+//! `metocast-server mcp-stdio [--check]` is not the server: it is the stdio bridge that lets an
+//! MCP client which can only start a program (Claude Desktop) talk to a running Metocast. See
+//! `crates/metocast-mcp-bridge`.
 
 use std::sync::Arc;
 use tokio::io::AsyncReadExt;
@@ -25,6 +29,14 @@ use metocast_server::runtime::{self, CoreOptions};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // First, before logging, the token check and the data directory: the bridge must never start
+    // PostgreSQL (a failed start kills whatever holds the port, the running app's database
+    // included), bind a port or create a directory. `mcp_stdio.rs` tests that.
+    let mut args = std::env::args().skip(1);
+    if args.next().as_deref() == Some("mcp-stdio") {
+        std::process::exit(metocast_mcp_bridge::cli(args).await);
+    }
+
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
