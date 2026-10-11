@@ -1,5 +1,6 @@
 use super::*;
 use futures_util::{SinkExt as _, StreamExt as _};
+use metocast_core::best_effort::LogFailed;
 use metocast_transcription::framer::Frame;
 use tokio_tungstenite::tungstenite::Message as WsMessage;
 use tokio_tungstenite::tungstenite::protocol::CloseFrame;
@@ -318,7 +319,7 @@ async fn a_close_frame_beats_a_failed_audio_write() {
             code: CloseCode::from(1013),
             reason: "insufficient credit".into(),
         };
-        let _ = ws.close(Some(close)).await;
+        ws.close(Some(close)).await.log_failed();
         // Dropped here with that audio unread: the kernel resets the connection.
     });
     // Far more than the socket buffers hold.

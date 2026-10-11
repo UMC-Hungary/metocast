@@ -1,3 +1,4 @@
+use metocast_core::best_effort::LogGone;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -416,7 +417,7 @@ async fn emit_event_changed(
     .to_string();
     let guard = ws_clients.read().await;
     for tx in guard.values() {
-        let _ = tx.send(Message::Text(msg.clone().into()));
+        tx.send(Message::Text(msg.clone().into())).log_gone();
     }
 }
 
@@ -427,6 +428,6 @@ async fn broadcast_cron_status(
     let msg = json!({ "type": "cron.youtube_pull", "hasLive": has_live }).to_string();
     let guard = ws_clients.read().await;
     for tx in guard.values() {
-        let _ = tx.send(Message::Text(msg.clone().into()));
+        tx.send(Message::Text(msg.clone().into())).log_gone();
     }
 }

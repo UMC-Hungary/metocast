@@ -1,3 +1,4 @@
+use metocast_core::best_effort::LogGone;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
 use std::path::Path;
@@ -219,7 +220,7 @@ end tell"#;
         let mut current = self.status.write().await;
         if *current != new_status {
             *current = new_status.clone();
-            let _ = self.status_tx.send(new_status);
+            self.status_tx.send(new_status).log_gone();
         }
     }
 

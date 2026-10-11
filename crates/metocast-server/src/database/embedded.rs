@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use metocast_core::best_effort::LogFailed;
 use postgresql_embedded::{PostgreSQL, Settings, V18};
 #[cfg(target_os = "macos")]
 use std::fs;
@@ -267,10 +268,11 @@ async fn kill_on_port(port: u16) {
     for pid_str in stdout.split_whitespace() {
         if let Ok(pid) = pid_str.parse::<u32>() {
             tracing::info!("Sending SIGTERM to stale PG process {pid}");
-            let _ = tokio::process::Command::new("kill")
+            tokio::process::Command::new("kill")
                 .args(["-TERM", &pid.to_string()])
                 .status()
-                .await;
+                .await
+                .log_failed();
         }
     }
 }

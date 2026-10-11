@@ -6,6 +6,7 @@ use std::{net::SocketAddr, sync::Arc};
 pub mod automations;
 pub mod bible;
 mod broadlink;
+pub(crate) mod cleanup;
 pub mod connectors;
 pub mod database;
 pub mod media;

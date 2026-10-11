@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod automations;
+pub mod best_effort;
 pub mod config;
 pub mod connectors;
 pub mod discovery;

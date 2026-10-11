@@ -5,6 +5,7 @@
 
 use aes::Aes128;
 use cipher::{BlockDecrypt, BlockEncrypt, KeyInit, generic_array::GenericArray};
+use metocast_core::best_effort::LogFailed;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
@@ -442,7 +443,7 @@ impl BroadlinkDevice {
                     if !code.is_empty() && code.iter().any(|&b| b != 0) {
                         // Cancel sweep (RM4 format: command 0x1e)
                         let cancel = self.encode_rm4_command(0x1e, &[]);
-                        let _ = self.send_packet(0x6a, &cancel);
+                        self.send_packet(0x6a, &cancel).log_failed();
                         tracing::info!("Received RF code: {} bytes", code.len());
                         return Ok(code);
                     }
@@ -458,7 +459,7 @@ impl BroadlinkDevice {
 
         // Cancel sweep on timeout
         let cancel = self.encode_rm4_command(0x1e, &[]);
-        let _ = self.send_packet(0x6a, &cancel);
+        self.send_packet(0x6a, &cancel).log_failed();
 
         Err("RF learning timeout - no signal received".to_string())
     }

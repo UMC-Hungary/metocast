@@ -54,7 +54,7 @@ pub async fn ensure(download: &Download, tools_dir: &Path) -> Result<PathBuf, St
     let partial = path.with_extension("download");
     let result = fetch(download, &partial).await;
     if let Err(error) = result {
-        let _ = tokio::fs::remove_file(&partial).await;
+        crate::cleanup::remove_file_if_present(&partial).await;
         return Err(error);
     }
     make_executable(&partial)?;

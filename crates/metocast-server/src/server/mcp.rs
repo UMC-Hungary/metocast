@@ -7,6 +7,7 @@
 //! are answered over `GET /mcp` as server-sent events. See plans/PLAN-mcp-server.md and
 //! docs/mcp/README.md.
 
+use metocast_core::best_effort::LogGone;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -620,7 +621,9 @@ impl Events {
             if !nothing || since.is_none() || Instant::now() >= deadline {
                 return found;
             }
-            let _ = tokio::time::timeout_at(deadline.into(), woken).await;
+            tokio::time::timeout_at(deadline.into(), woken)
+                .await
+                .log_gone();
         }
     }
 }
@@ -668,7 +671,7 @@ impl McpState {
                         && event["type"] != "ping"
                     {
                         for uri in mcp_content::affected(&event) {
-                            let _ = updates.send(uri);
+                            updates.send(uri).log_gone();
                         }
                         events.push(event);
                     }

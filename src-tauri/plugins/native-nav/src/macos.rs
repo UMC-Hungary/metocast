@@ -67,7 +67,9 @@ define_class!(
             let index: isize = unsafe { msg_send![sender, selectedIndex] };
             if index >= 0 {
                 self.ivars().active.set(index);
-                let _ = self.ivars().on_select.send(index as usize);
+                if let Err(error) = self.ivars().on_select.send(index as usize) {
+                    tracing::warn!(%error, "native-nav could not report the selected tab");
+                }
             }
         }
     }
@@ -128,17 +130,22 @@ fn with_window<R: Runtime>(
     window: &WebviewWindow<R>,
     f: impl FnOnce(&NSWindow, MainThreadMarker) + Send + 'static,
 ) {
-    let Ok(ptr) = window.ns_window() else {
-        return;
+    let ptr = match window.ns_window() {
+        Ok(ptr) => ptr as usize,
+        Err(error) => {
+            tracing::warn!(%error, "native-nav has no NSWindow to attach to");
+            return;
+        }
     };
-    let ptr = ptr as usize;
-    let _ = window.run_on_main_thread(move || {
+    if let Err(error) = window.run_on_main_thread(move || {
         let Some(mtm) = MainThreadMarker::new() else {
             return;
         };
         let ns_window: &NSWindow = unsafe { &*(ptr as *const NSWindow) };
         f(ns_window, mtm);
-    });
+    }) {
+        tracing::warn!(%error, "native-nav could not reach the main thread");
+    }
 }
 
 pub fn install<R: Runtime>(

@@ -42,9 +42,12 @@ pub fn init_application_logging(app: &tauri::AppHandle) -> Result<PathBuf, Strin
 }
 
 pub fn init_fallback_logging() {
-    let _ = tracing_subscriber::fmt()
+    if let Err(error) = tracing_subscriber::fmt()
         .with_env_filter(env_filter())
-        .try_init();
+        .try_init()
+    {
+        tracing::debug!(%error, "fallback logging skipped, a subscriber is already installed");
+    }
 }
 
 pub fn read_application_log(app: &tauri::AppHandle) -> Result<String, String> {

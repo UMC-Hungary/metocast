@@ -1,3 +1,4 @@
+use metocast_core::best_effort::LogGone;
 use std::sync::Arc;
 use tokio::sync::{RwLock, broadcast};
 
@@ -32,7 +33,7 @@ impl BroadlinkConnector {
 
     pub async fn set_status(&self, status: ConnectorStatus) {
         *self.status.write().await = status.clone();
-        let _ = self.status_tx.send(status);
+        self.status_tx.send(status).log_gone();
     }
 }
 

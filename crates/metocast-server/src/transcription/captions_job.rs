@@ -4,6 +4,7 @@
 //!
 //! Jobs run on their own `captions` queue so a 40-minute job never holds up `platform_sync`.
 
+use metocast_core::best_effort::{LogFailed, LogGone};
 use std::path::PathBuf;
 use std::sync::LazyLock;
 use std::time::{Duration, Instant};
@@ -138,7 +139,7 @@ async fn upload_tracks(pool: &PgPool, recording_id: Uuid) -> bool {
         .await
         {
             Ok(caption_id) => {
-                let _ = sqlx::query(
+                sqlx::query(
                     "UPDATE caption_tracks SET youtube_caption_id = $1, video_id = $2, updated_at = now() \
                      WHERE recording_id = $3 AND language = $4",
                 )
@@ -147,7 +148,7 @@ async fn upload_tracks(pool: &PgPool, recording_id: Uuid) -> bool {
                 .bind(recording_id)
                 .bind(&language)
                 .execute(pool)
-                .await;
+                .await.log_failed();
                 tracing::info!(recording = %recording_id, %language, "captions: sent to YouTube");
             }
             Err(e) => {
@@ -177,7 +178,7 @@ pub fn spawn_worker(state: AppState) {
                     tokio::spawn(async move {
                         loop {
                             tokio::time::sleep(HEARTBEAT).await;
-                            let _ = queue::heartbeat(&pool, job.id).await;
+                            queue::heartbeat(&pool, job.id).await.log_failed();
                         }
                     })
                 };
@@ -220,7 +221,8 @@ async fn broadcast(
     })
     .to_string();
     for tx in state.ws_clients.read().await.values() {
-        let _ = tx.send(axum::extract::ws::Message::Text(message.clone().into()));
+        tx.send(axum::extract::ws::Message::Text(message.clone().into()))
+            .log_gone();
     }
 }
 
@@ -352,7 +354,7 @@ where
                 Ok(())
             })();
             if let Err(error) = result {
-                let _ = frames_tx.blocking_send(Err(error));
+                frames_tx.blocking_send(Err(error)).log_gone();
             }
         })
         .map_err(|e| e.to_string())?;

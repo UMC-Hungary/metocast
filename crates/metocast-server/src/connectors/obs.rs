@@ -1,3 +1,4 @@
+use metocast_core::best_effort::LogGone;
 use std::sync::Arc;
 
 use crate::HostHandle;
@@ -118,7 +119,7 @@ impl ObsConnector {
     async fn stop_internal(&self) {
         let mut guard = self.stop_tx.lock().await;
         if let Some(tx) = guard.take() {
-            let _ = tx.send(true);
+            tx.send_replace(true);
         }
     }
 
@@ -174,7 +175,7 @@ async fn set_status(
     tracing::info!(connector = "obs", status = ?new_status, "connector status");
     *status.write().await = new_status;
     let current = status.read().await.clone();
-    let _ = status_tx.send(current.clone());
+    status_tx.send(current.clone()).log_gone();
     if let Some(host) = host
         && let Err(e) = crate::emit(host, "connector://obs-status", &current)
     {
@@ -212,8 +213,7 @@ async fn run_obs_loop(obs: ObsLoop) {
                 config.port,
                 config.password.as_deref(),
             ) => result,
-            result = stop_rx.changed() => {
-                let _ = result;
+            _ = stop_rx.changed() => {
                 set_status(&status, &status_tx, host.as_ref(), ConnectorStatus::Disconnected).await;
                 return;
             }
@@ -235,13 +235,15 @@ async fn run_obs_loop(obs: ObsLoop) {
                 // Query initial streaming/recording state.
                 let initial = query_output_state(&client).await;
                 *output_state.write().await = Some(initial);
-                let _ = output_state_tx.send(initial);
-                let _ = state_tx.send(ObsStateEvent {
-                    is_streaming: initial.is_streaming,
-                    is_recording: initial.is_recording,
-                });
+                output_state_tx.send(initial).log_gone();
+                state_tx
+                    .send(ObsStateEvent {
+                        is_streaming: initial.is_streaming,
+                        is_recording: initial.is_recording,
+                    })
+                    .log_gone();
                 // Trigger initial device scan now that OBS is connected.
-                let _ = devices_tx.send(());
+                devices_tx.send(()).log_gone();
                 let current_output = Arc::clone(&output_state);
 
                 match client.events() {
@@ -262,15 +264,15 @@ async fn run_obs_loop(obs: ObsLoop) {
                                                     match state {
                                                         obws::events::OutputState::Started => {
                                                             is_recording = true;
-                                                            let _ = state_tx.send(ObsStateEvent { is_streaming, is_recording });
+                                                            state_tx.send(ObsStateEvent { is_streaming, is_recording }).log_gone();
                                                         }
                                                         obws::events::OutputState::Stopped => {
                                                             is_recording = false;
-                                                            let _ = state_tx.send(ObsStateEvent { is_streaming, is_recording });
+                                                            state_tx.send(ObsStateEvent { is_streaming, is_recording }).log_gone();
                                                             if let Some(p) = path {
-                                                                let _ = recording_tx.send(ObsRecordingEvent {
+                                                                recording_tx.send(ObsRecordingEvent {
                                                                     output_path: std::path::PathBuf::from(p),
-                                                                });
+                                                                }).log_gone();
                                                             }
                                                         }
                                                         _ => {}
@@ -280,11 +282,11 @@ async fn run_obs_loop(obs: ObsLoop) {
                                                     match state {
                                                         obws::events::OutputState::Started => {
                                                             is_streaming = true;
-                                                            let _ = state_tx.send(ObsStateEvent { is_streaming, is_recording });
+                                                            state_tx.send(ObsStateEvent { is_streaming, is_recording }).log_gone();
                                                         }
                                                         obws::events::OutputState::Stopped => {
                                                             is_streaming = false;
-                                                            let _ = state_tx.send(ObsStateEvent { is_streaming, is_recording });
+                                                            state_tx.send(ObsStateEvent { is_streaming, is_recording }).log_gone();
                                                         }
                                                         _ => {}
                                                     }
@@ -292,7 +294,7 @@ async fn run_obs_loop(obs: ObsLoop) {
                                                 obws::events::Event::InputCreated { .. }
                                                 | obws::events::Event::InputRemoved { .. }
                                                 | obws::events::Event::InputSettingsChanged { .. } => {
-                                                    let _ = devices_tx.send(());
+                                                    devices_tx.send(()).log_gone();
                                                 }
                                                 _ => {}
                                             }
@@ -300,9 +302,8 @@ async fn run_obs_loop(obs: ObsLoop) {
                                         }
                                     }
                                 }
-                                result = stop_rx.changed() => {
-                                    let _ = result;
-                                    let _ = state_tx.send(ObsStateEvent { is_streaming: false, is_recording: false });
+                                _ = stop_rx.changed() => {
+                                    state_tx.send(ObsStateEvent { is_streaming: false, is_recording: false }).log_gone();
                                     *client_arc.lock().await = None;
                                     *output_state.write().await = None;
                                     set_status(&status, &status_tx, host.as_ref(), ConnectorStatus::Disconnected).await;
@@ -311,10 +312,12 @@ async fn run_obs_loop(obs: ObsLoop) {
                             }
                         }
                         // Connection dropped by OBS — reset state
-                        let _ = state_tx.send(ObsStateEvent {
-                            is_streaming: false,
-                            is_recording: false,
-                        });
+                        state_tx
+                            .send(ObsStateEvent {
+                                is_streaming: false,
+                                is_recording: false,
+                            })
+                            .log_gone();
                         *client_arc.lock().await = None;
                         *output_state.write().await = None;
                         set_status(
@@ -368,8 +371,7 @@ async fn run_obs_loop(obs: ObsLoop) {
         tracing::info!(seconds = backoff.as_secs(), "obs: waiting before retry");
         tokio::select! {
             () = tokio::time::sleep(backoff) => {}
-            result = stop_rx.changed() => {
-                let _ = result;
+            _ = stop_rx.changed() => {
                 set_status(&status, &status_tx, host.as_ref(), ConnectorStatus::Disconnected).await;
                 return;
             }
@@ -424,6 +426,6 @@ async fn handle_event(
         _ => None,
     };
     if let Some(state) = updated {
-        let _ = output_state_tx.send(state);
+        output_state_tx.send(state).log_gone();
     }
 }

@@ -1,6 +1,7 @@
 //! The `media` queue's worker: one job at a time, since a 6K render already keeps the GPU, the
 //! media engine and the source disk busy, and audio cleaning keeps the CPU busy. It runs renders
 //! here, and audio masters ([`super::audio`]) and programs ([`super::program`]) in their modules.
+use metocast_core::best_effort::{LogFailed, LogGone};
 use std::path::{Path, PathBuf};
 use std::process::{ExitStatus, Stdio};
 use std::time::{Duration, Instant};
@@ -159,7 +160,7 @@ async fn render(state: &AppState, job: &Job) -> Result<(), String> {
             Ok(())
         }
         Err(error) => {
-            let _ = std::fs::remove_file(&partial);
+            metocast_core::best_effort::remove_file_if_present(&partial);
             let ended = if error == CANCELLED {
                 progress(RenderState::Cancelled, 0, 0, None)
             } else {
@@ -220,7 +221,7 @@ async fn run(
         stopped,
     )
     .await;
-    let _ = forwarder.await;
+    forwarder.await.log_failed();
     result
 }
 
@@ -354,8 +355,8 @@ fn failure(program: &str, status: ExitStatus, stderr: &str) -> String {
 }
 
 async fn stop(child: &mut Child) {
-    let _ = child.start_kill();
-    let _ = child.wait().await;
+    child.start_kill().log_gone();
+    child.wait().await.log_failed();
 }
 
 /// The last few kilobytes a program wrote, for the error message.
@@ -396,7 +397,7 @@ async fn report_progress(
             } else {
                 0.0
             };
-            let _ = progress.send(Progress { frame, fps });
+            progress.send(Progress { frame, fps }).log_gone();
         }
     }
     frame
@@ -538,7 +539,7 @@ mod tests {
         let (stop, stopped) = oneshot::channel();
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_secs(1)).await;
-            let _ = stop.send(());
+            stop.send(()).log_gone();
         });
         let cancelled = execute(&tools, &full, info.frame_count, None, progress, stopped).await;
         assert_eq!(cancelled, Err(CANCELLED.to_string()));

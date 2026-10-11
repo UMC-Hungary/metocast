@@ -13,6 +13,7 @@ mod sync;
 mod tools;
 mod worker;
 
+use metocast_core::best_effort::LogGone;
 use std::collections::HashMap;
 use std::path::{Path as FsPath, PathBuf};
 
@@ -805,7 +806,7 @@ pub async fn cancel_render(
     }
     match state.media.running.lock().await.remove(&id) {
         Some(stop) => {
-            let _ = stop.send(());
+            stop.send(()).log_gone();
             StatusCode::NO_CONTENT.into_response()
         }
         None => MediaError::NotFound("no queued or running media job with that id".to_string())

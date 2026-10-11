@@ -1,6 +1,7 @@
 //! The transcriber's own input stream on the RØDECaster: one source, downmixed to mono and cut
 //! into 24 kHz PCM16 frames on a worker thread.
 
+use metocast_core::best_effort::LogGone;
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::time::Duration;
 
@@ -51,10 +52,10 @@ pub fn start(
                         })
                         .collect();
                     // ponytail: a full queue drops audio; only happens if this thread stalls.
-                    let _ = mono_tx.try_send(mono);
+                    mono_tx.try_send(mono).log_gone();
                 },
                 move |error| {
-                    let _ = error_tx.send(error.to_string());
+                    error_tx.send(error.to_string()).log_gone();
                 },
             )
             .and_then(|stream| {
@@ -65,18 +66,20 @@ pub fn start(
             });
             let stream = match stream {
                 Ok(stream) => {
-                    let _ = ready_tx.send(Ok(()));
+                    ready_tx.send(Ok(())).log_gone();
                     stream
                 }
                 Err(error) => {
-                    let _ = ready_tx.send(Err(error));
+                    ready_tx.send(Err(error)).log_gone();
                     return;
                 }
             };
             let mut framer = Framer::new(sample_rate);
             loop {
                 if let Ok(error) = error_rx.try_recv() {
-                    let _ = frames_tx.blocking_send(Err(format!("audio_stream_failed: {error}")));
+                    frames_tx
+                        .blocking_send(Err(format!("audio_stream_failed: {error}")))
+                        .log_gone();
                     break;
                 }
                 match mono_rx.recv_timeout(Duration::from_millis(250)) {

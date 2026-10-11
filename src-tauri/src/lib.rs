@@ -167,7 +167,9 @@ pub fn run() {
                             .unwrap_or_else(|| {
                                 let t = Uuid::new_v4().to_string();
                                 store.set("auth_token", serde_json::Value::String(t.clone()));
-                                let _ = store.save();
+                                if let Err(error) = store.save() {
+                                    tracing::warn!(%error, "could not persist the generated auth token");
+                                }
                                 t
                             })
                     }

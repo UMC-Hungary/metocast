@@ -1,3 +1,4 @@
+use metocast_core::best_effort::{LogFailed, LogGone};
 use std::net::Ipv4Addr;
 use std::sync::Arc;
 
@@ -133,7 +134,7 @@ impl AtemConnector {
     pub async fn stop(&self) {
         if let Some(worker) = self.worker.lock().await.take() {
             worker.abort();
-            let _ = worker.await;
+            worker.await.log_failed();
         }
         self.clear().await;
         self.set_status(ConnectorStatus::Disconnected).await;
@@ -212,7 +213,7 @@ impl AtemConnector {
                     session_id = packet.session;
                     if packet.flags & FLAG_ACK_REPLY != 0 {
                         for acked in pending.extract_if(.., |p| covered(packet.ack_id, p.id)) {
-                            let _ = acked.done.send(Ok(()));
+                            acked.done.send(Ok(())).log_gone();
                         }
                     }
                     if packet.flags & FLAG_ACK_REQUEST == 0 {
@@ -225,7 +226,7 @@ impl AtemConnector {
                             init_complete |= name == b"InCm";
                             apply_block(&mut state, name, body);
                         }
-                        let _ = socket.send(&ack_packet(session_id, last_remote)).await;
+                        socket.send(&ack_packet(session_id, last_remote)).await.log_gone();
                         if init_complete && !connected {
                             connected = true;
                             *self.outbox.write().await = Some(outbox_tx.clone());
@@ -235,7 +236,7 @@ impl AtemConnector {
                             self.publish(&state).await;
                         }
                     } else if covered(last_remote, packet.remote_id) {
-                        let _ = socket.send(&ack_packet(session_id, last_remote)).await;
+                        socket.send(&ack_packet(session_id, last_remote)).await.log_gone();
                     }
                 }
                 Some((block, done)) = outbox_rx.recv() => {
@@ -243,7 +244,7 @@ impl AtemConnector {
                     next_local = (next_local + 1) & PACKET_ID_MASK;
                     let packet = command_packet(session_id, id, &block);
                     if let Err(e) = socket.send(&packet).await {
-                        let _ = done.send(Err(e.to_string()));
+                        done.send(Err(e.to_string())).log_gone();
                         return (e.to_string(), connected);
                     }
                     pending.push(Pending { id, packet, sent_at: Instant::now(), sends: 1, done });
@@ -259,7 +260,7 @@ impl AtemConnector {
                         p.packet[0] |= FLAG_RETRANSMIT << 3;
                         p.sent_at = Instant::now();
                         p.sends += 1;
-                        let _ = socket.send(&p.packet).await;
+                        socket.send(&p.packet).await.log_gone();
                     }
                 }
             }
@@ -275,7 +276,7 @@ impl AtemConnector {
         let mut current = self.state.write().await;
         if current.as_ref() != Some(state) {
             *current = Some(state.clone());
-            let _ = self.state_tx.send(state.clone());
+            self.state_tx.send(state.clone()).log_gone();
         }
     }
 
@@ -284,7 +285,7 @@ impl AtemConnector {
         if *status != new_status {
             tracing::info!(connector = "atem", status = ?new_status, "connector status");
             *status = new_status.clone();
-            let _ = self.status_tx.send(new_status);
+            self.status_tx.send(new_status).log_gone();
         }
     }
 }
@@ -337,7 +338,7 @@ pub async fn discover(timeout: Duration) -> Result<Vec<DiscoveredAtem>, String> 
         }
     }
     if let Ok(shutdown) = daemon.shutdown() {
-        let _ = shutdown.recv_async().await;
+        shutdown.recv_async().await.log_gone();
     }
     Ok(found)
 }

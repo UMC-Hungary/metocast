@@ -256,6 +256,7 @@ mod tests {
 
     use super::*;
     use crate::connectors::preset_tracker::{PresetFinished, PresetStarted};
+    use metocast_core::best_effort::LogGone;
 
     fn motion(camera: Option<u8>) -> Motion {
         Motion {
@@ -579,7 +580,7 @@ mod tests {
         for (millis, event) in steps {
             tokio::time::sleep(Duration::from_millis(millis - at)).await;
             at = millis;
-            let _ = camera.events.send(event);
+            camera.events.send(event).log_gone();
         }
     }
 

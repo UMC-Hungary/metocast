@@ -10,6 +10,7 @@ pub mod captions_job;
 mod credit;
 mod youtube_captions;
 
+use metocast_core::best_effort::LogGone;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
@@ -321,7 +322,7 @@ impl TranscriptionService {
 
     async fn end(&self, end: End) {
         if let Some(active) = self.active.lock().await.take() {
-            let _ = active.stop.send(end);
+            active.stop.send(end).log_gone();
         }
     }
 
@@ -382,7 +383,7 @@ impl TranscriptionService {
     async fn broadcast(&self, message: &Value) {
         let text = message.to_string();
         for tx in self.clients.read().await.values() {
-            let _ = tx.send(Message::Text(text.clone().into()));
+            tx.send(Message::Text(text.clone().into())).log_gone();
         }
     }
 
@@ -487,7 +488,7 @@ impl TranscriptionService {
         // Realtime event times count the audio this connection was sent.
         let offset = live.pending.front().map_or(live.audio_ms, |(at, _)| *at);
         for (_, pcm) in live.pending.drain(..) {
-            let _ = audio_tx.try_send(pcm);
+            audio_tx.try_send(pcm).log_gone();
         }
         let mut audio_tx = Some(audio_tx);
         let mut server_error: Option<String> = None;
@@ -501,7 +502,7 @@ impl TranscriptionService {
                     };
                     match &audio_tx {
                         Some(tx) => {
-                            let _ = tx.try_send(pcm);
+                            tx.try_send(pcm).log_gone();
                         }
                         None => live.hold(at, pcm),
                     }
@@ -617,10 +618,12 @@ impl TranscriptionService {
                         };
                         let speech =
                             snap_start(segment.start_ms, live.onsets.make_contiguous(), &options);
-                        let _ = captions.send(Caption {
-                            at: session.at(speech),
-                            text: segment.text,
-                        });
+                        captions
+                            .send(Caption {
+                                at: session.at(speech),
+                                text: segment.text,
+                            })
+                            .log_gone();
                     }
                 }
             }

@@ -8,6 +8,7 @@ use axum::{
 };
 use chrono::{DateTime, Local, Utc};
 use futures_util::{SinkExt, StreamExt};
+use metocast_core::best_effort::{LogFailed, LogGone};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
@@ -704,7 +705,9 @@ pub(crate) async fn open_presentation(
     } else {
         #[cfg(target_os = "macos")]
         {
-            let _ = state.keynote_connector.open_file(&file_path).await;
+            if let Err(error) = state.keynote_connector.open_file(&file_path).await {
+                tracing::warn!(%error, "Keynote could not open the file");
+            }
         }
     }
     broadcast_presentation_status(&state.ws_clients, state).await;
@@ -716,7 +719,7 @@ pub(crate) async fn broadcast_json(
 ) {
     let message = message.to_string();
     for tx in ws_clients.read().await.values() {
-        let _ = tx.send(Message::Text(message.clone().into()));
+        tx.send(Message::Text(message.clone().into())).log_gone();
     }
 }
 
@@ -727,7 +730,7 @@ pub(crate) async fn broadcast_presentation_status(
     let msg = make_presentation_status(state).await;
     let clients = ws_clients.read().await;
     for tx in clients.values() {
-        let _ = tx.send(Message::Text(msg.clone().into()));
+        tx.send(Message::Text(msg.clone().into())).log_gone();
     }
 }
 
@@ -739,18 +742,28 @@ pub(crate) async fn broadcast_notification(
     let msg = json!({ "type": "notification", "level": level, "message": message }).to_string();
     let clients = ws_clients.read().await;
     for tx in clients.values() {
-        let _ = tx.send(Message::Text(msg.clone().into()));
+        tx.send(Message::Text(msg.clone().into())).log_gone();
     }
 }
 
 fn ws_ok(tx: &mpsc::UnboundedSender<Message>) {
-    let _ = tx.send(Message::Text(json!({"type":"ok"}).to_string().into()));
+    tx.send(Message::Text(json!({"type":"ok"}).to_string().into()))
+        .log_gone();
 }
 
 fn ws_error(tx: &mpsc::UnboundedSender<Message>, msg: &str) {
-    let _ = tx.send(Message::Text(
+    tx.send(Message::Text(
         json!({"type":"error","message":msg}).to_string().into(),
-    ));
+    ))
+    .log_gone();
+}
+
+/// Tells the client that asked for a command when it failed. Success stays silent.
+#[cfg(target_os = "macos")]
+fn report_failure(tx: &mpsc::UnboundedSender<Message>, result: Result<(), String>) {
+    if let Err(error) = result {
+        ws_error(tx, &error);
+    }
 }
 
 fn reply(tx: &mpsc::UnboundedSender<Message>, result: Result<(), String>) {
@@ -1076,45 +1089,48 @@ async fn handle_ws_command(
         // ── Keynote (macOS only) ─────────────────────────────────────────────
         #[cfg(target_os = "macos")]
         WsCommand::KeynoteOpen { file_path } => {
-            let _ = state.keynote_connector.open_file(&file_path).await;
+            report_failure(
+                client_tx,
+                state.keynote_connector.open_file(&file_path).await,
+            );
         }
         #[cfg(target_os = "macos")]
         WsCommand::KeynoteNext => {
-            let _ = state.keynote_connector.next().await;
+            report_failure(client_tx, state.keynote_connector.next().await);
         }
         #[cfg(target_os = "macos")]
         WsCommand::KeynotePrev => {
-            let _ = state.keynote_connector.prev().await;
+            report_failure(client_tx, state.keynote_connector.prev().await);
         }
         #[cfg(target_os = "macos")]
         WsCommand::KeynoteFirst => {
-            let _ = state.keynote_connector.first().await;
+            report_failure(client_tx, state.keynote_connector.first().await);
         }
         #[cfg(target_os = "macos")]
         WsCommand::KeynoteLast => {
-            let _ = state.keynote_connector.last().await;
+            report_failure(client_tx, state.keynote_connector.last().await);
         }
         #[cfg(target_os = "macos")]
         WsCommand::KeynoteGoto { slide } => {
-            let _ = state.keynote_connector.goto(slide).await;
+            report_failure(client_tx, state.keynote_connector.goto(slide).await);
         }
         #[cfg(target_os = "macos")]
         WsCommand::KeynoteStart => {
-            let _ = state.keynote_connector.start_slideshow().await;
+            report_failure(client_tx, state.keynote_connector.start_slideshow().await);
         }
         #[cfg(target_os = "macos")]
         WsCommand::KeynoteStop => {
-            let _ = state.keynote_connector.stop_slideshow().await;
+            report_failure(client_tx, state.keynote_connector.stop_slideshow().await);
         }
         #[cfg(target_os = "macos")]
         WsCommand::KeynoteCloseAll => {
-            let _ = state.keynote_connector.close_all().await;
+            report_failure(client_tx, state.keynote_connector.close_all().await);
         }
         #[cfg(target_os = "macos")]
         WsCommand::KeynoteStatus => {
             let status = state.keynote_connector.get_status().await;
             let msg = json!({ "type": "keynote.status", "status": status }).to_string();
-            let _ = client_tx.send(Message::Text(msg.into()));
+            client_tx.send(Message::Text(msg.into())).log_gone();
         }
         // ── PPT ──────────────────────────────────────────────────────────────
         WsCommand::PptSearch { filter } => {
@@ -1123,7 +1139,7 @@ async fn handle_ws_command(
                 .to_string();
             let clients = state.ws_clients.read().await;
             for tx in clients.values() {
-                let _ = tx.send(Message::Text(msg.clone().into()));
+                tx.send(Message::Text(msg.clone().into())).log_gone();
             }
         }
         WsCommand::PptFoldersList => {
@@ -1135,7 +1151,7 @@ async fn handle_ws_command(
             {
                 Ok(folders) => {
                     let msg = json!({ "type": "ppt.folders.list", "folders": folders }).to_string();
-                    let _ = client_tx.send(Message::Text(msg.into()));
+                    client_tx.send(Message::Text(msg.into())).log_gone();
                 }
                 Err(e) => ws_error(client_tx, &e.to_string()),
             }
@@ -1154,7 +1170,7 @@ async fn handle_ws_command(
                 Ok(folder) => {
                     broadcast_ppt_folders_changed(&state.ws_clients).await;
                     let msg = json!({ "type": "ppt.folders.add", "folder": folder }).to_string();
-                    let _ = client_tx.send(Message::Text(msg.into()));
+                    client_tx.send(Message::Text(msg.into())).log_gone();
                 }
                 Err(e) => ws_error(client_tx, &e.to_string()),
             }
@@ -1191,7 +1207,7 @@ async fn handle_ws_command(
                 v
             };
             let msg = json!({ "type": "clients.list", "clients": clients_vec }).to_string();
-            let _ = client_tx.send(Message::Text(msg.into()));
+            client_tx.send(Message::Text(msg.into())).log_gone();
         }
         WsCommand::ClientsPing {
             client_id: target_id,
@@ -1207,7 +1223,7 @@ async fn handle_ws_command(
             let clients = state.ws_clients.read().await;
             if let Some(target_tx) = clients.get(&target_id) {
                 let ping_msg = json!({ "type": "ping", "pingId": ping_id }).to_string();
-                let _ = target_tx.send(Message::Text(ping_msg.into()));
+                target_tx.send(Message::Text(ping_msg.into())).log_gone();
             }
         }
         WsCommand::Pong { ping_id } => {
@@ -1361,7 +1377,7 @@ async fn handle_ws_command(
         WsCommand::PresenterStatus => {
             let ps = state.presenter_state.read().await;
             let msg = serde_json::json!({ "type": "presenter.state", "state": &*ps }).to_string();
-            let _ = client_tx.send(Message::Text(msg.into()));
+            client_tx.send(Message::Text(msg.into())).log_gone();
         }
         WsCommand::PresenterMute => {
             state.presenter_state.write().await.mute();
@@ -1392,11 +1408,11 @@ async fn handle_ws_command(
         // ── Unified Presentation ──────────────────────────────────────────────
         WsCommand::PresentationGetSettings => {
             let msg = make_presentation_settings(state).await;
-            let _ = client_tx.send(Message::Text(msg.into()));
+            client_tx.send(Message::Text(msg.into())).log_gone();
         }
         WsCommand::PresentationStatus => {
             let msg = make_presentation_status(state).await;
-            let _ = client_tx.send(Message::Text(msg.into()));
+            client_tx.send(Message::Text(msg.into())).log_gone();
         }
         WsCommand::PresentationSetUseWebPresenter { enabled } => {
             // Close the active presentation before switching backends.
@@ -1407,24 +1423,25 @@ async fn handle_ws_command(
             } else {
                 #[cfg(target_os = "macos")]
                 {
-                    let _ = state.keynote_connector.stop_slideshow().await;
+                    report_failure(client_tx, state.keynote_connector.stop_slideshow().await);
                 }
             }
             // Persist to database.
-            let _ = sqlx::query(
+            sqlx::query(
                 "INSERT INTO app_settings (key, value) VALUES ('use_web_presenter', $1) \
                  ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()",
             )
             .bind(enabled.to_string())
             .execute(&state.pool)
-            .await;
+            .await
+            .log_failed();
             // Update in-memory flag.
             state.use_web_presenter.store(enabled, Ordering::Relaxed);
             // Broadcast new setting to all clients.
             let msg = make_presentation_settings(state).await;
             let clients = state.ws_clients.read().await;
             for tx in clients.values() {
-                let _ = tx.send(Message::Text(msg.clone().into()));
+                tx.send(Message::Text(msg.clone().into())).log_gone();
             }
         }
         WsCommand::PresentationSetPresenterTheme { theme } => {
@@ -1446,7 +1463,7 @@ async fn handle_ws_command(
             let msg = make_presentation_settings(state).await;
             let clients = state.ws_clients.read().await;
             for tx in clients.values() {
-                let _ = tx.send(Message::Text(msg.clone().into()));
+                tx.send(Message::Text(msg.clone().into())).log_gone();
             }
         }
         WsCommand::PresentationOpen {
@@ -1467,7 +1484,7 @@ async fn handle_ws_command(
         }
         WsCommand::OrderStatus => {
             let message = order::position_message(state).await;
-            let _ = client_tx.send(Message::Text(message.into()));
+            client_tx.send(Message::Text(message.into())).log_gone();
         }
         WsCommand::PresentationStart => {
             if state.use_web_presenter.load(Ordering::Relaxed) {
@@ -1476,7 +1493,7 @@ async fn handle_ws_command(
             } else {
                 #[cfg(target_os = "macos")]
                 {
-                    let _ = state.keynote_connector.start_slideshow().await;
+                    report_failure(client_tx, state.keynote_connector.start_slideshow().await);
                 }
                 broadcast_presentation_status(&state.ws_clients, state).await;
             }
@@ -1488,7 +1505,7 @@ async fn handle_ws_command(
             } else {
                 #[cfg(target_os = "macos")]
                 {
-                    let _ = state.keynote_connector.stop_slideshow().await;
+                    report_failure(client_tx, state.keynote_connector.stop_slideshow().await);
                 }
                 broadcast_presentation_status(&state.ws_clients, state).await;
             }
@@ -1501,7 +1518,7 @@ async fn handle_ws_command(
             } else {
                 #[cfg(target_os = "macos")]
                 {
-                    let _ = state.keynote_connector.close_all().await;
+                    report_failure(client_tx, state.keynote_connector.close_all().await);
                 }
             }
             broadcast_presentation_status(&state.ws_clients, state).await;
@@ -1513,7 +1530,7 @@ async fn handle_ws_command(
             } else {
                 #[cfg(target_os = "macos")]
                 {
-                    let _ = state.keynote_connector.close_all().await;
+                    report_failure(client_tx, state.keynote_connector.close_all().await);
                 }
                 broadcast_presentation_status(&state.ws_clients, state).await;
             }
@@ -1529,7 +1546,7 @@ async fn handle_ws_command(
             } else {
                 #[cfg(target_os = "macos")]
                 {
-                    let _ = state.keynote_connector.next().await;
+                    report_failure(client_tx, state.keynote_connector.next().await);
                 }
             }
             broadcast_presentation_status(&state.ws_clients, state).await;
@@ -1545,7 +1562,7 @@ async fn handle_ws_command(
             } else {
                 #[cfg(target_os = "macos")]
                 {
-                    let _ = state.keynote_connector.prev().await;
+                    report_failure(client_tx, state.keynote_connector.prev().await);
                 }
             }
             broadcast_presentation_status(&state.ws_clients, state).await;
@@ -1561,7 +1578,7 @@ async fn handle_ws_command(
             } else {
                 #[cfg(target_os = "macos")]
                 {
-                    let _ = state.keynote_connector.first().await;
+                    report_failure(client_tx, state.keynote_connector.first().await);
                 }
             }
             broadcast_presentation_status(&state.ws_clients, state).await;
@@ -1577,7 +1594,7 @@ async fn handle_ws_command(
             } else {
                 #[cfg(target_os = "macos")]
                 {
-                    let _ = state.keynote_connector.last().await;
+                    report_failure(client_tx, state.keynote_connector.last().await);
                 }
             }
             broadcast_presentation_status(&state.ws_clients, state).await;
@@ -1593,7 +1610,7 @@ async fn handle_ws_command(
             } else {
                 #[cfg(target_os = "macos")]
                 {
-                    let _ = state.keynote_connector.goto(slide).await;
+                    report_failure(client_tx, state.keynote_connector.goto(slide).await);
                 }
             }
             broadcast_presentation_status(&state.ws_clients, state).await;
@@ -1618,7 +1635,7 @@ async fn handle_ws_command(
         WsCommand::EventsList => match fetch_event_summaries(&state.pool).await {
             Ok(events) => {
                 let msg = json!({ "type": "events.list", "events": events }).to_string();
-                let _ = client_tx.send(Message::Text(msg.into()));
+                client_tx.send(Message::Text(msg.into())).log_gone();
             }
             Err(e) => ws_error(client_tx, &e.to_string()),
         },
@@ -1630,14 +1647,14 @@ async fn handle_ws_command(
                     "selectedEventId": list.selected_event_id,
                 })
                 .to_string();
-                let _ = client_tx.send(Message::Text(msg.into()));
+                client_tx.send(Message::Text(msg.into())).log_gone();
             }
             Err(e) => ws_error(client_tx, &e.to_string()),
         },
         WsCommand::EventsGet { id } => match fetch_event(id, &state.pool).await {
             Ok(Some(event)) => {
                 let msg = json!({ "type": "events.get", "event": event }).to_string();
-                let _ = client_tx.send(Message::Text(msg.into()));
+                client_tx.send(Message::Text(msg.into())).log_gone();
             }
             Ok(None) => ws_error(client_tx, "not_found"),
             Err(e) => ws_error(client_tx, &e.to_string()),
@@ -1717,7 +1734,7 @@ async fn handle_ws_command(
             match result {
                 Ok(event) => {
                     let msg = json!({ "type": "events.create", "event": event }).to_string();
-                    let _ = client_tx.send(Message::Text(msg.into()));
+                    client_tx.send(Message::Text(msg.into())).log_gone();
                     broadcast_event_changed(state, "INSERT", &event).await;
                     spawn_scheduling_tasks(event, state.clone());
                 }
@@ -1791,7 +1808,7 @@ async fn handle_ws_command(
             match result {
                 Ok(Some(event)) => {
                     let msg = json!({ "type": "events.update", "event": event }).to_string();
-                    let _ = client_tx.send(Message::Text(msg.into()));
+                    client_tx.send(Message::Text(msg.into())).log_gone();
                     broadcast_event_changed(state, "UPDATE", &event).await;
                     spawn_scheduling_tasks(event, state.clone());
                 }
@@ -1860,7 +1877,7 @@ async fn handle_ws_command(
                 }
             }
             let msg = json!({ "type": "recordings.list", "recordings": recordings }).to_string();
-            let _ = client_tx.send(Message::Text(msg.into()));
+            client_tx.send(Message::Text(msg.into())).log_gone();
         }
         WsCommand::RecordingsListAll { filter } => {
             let where_clause = match filter.as_deref().unwrap_or("") {
@@ -1933,7 +1950,7 @@ async fn handle_ws_command(
                 }
             }
             let msg = json!({ "type": "recordings.list_all", "recordings": results }).to_string();
-            let _ = client_tx.send(Message::Text(msg.into()));
+            client_tx.send(Message::Text(msg.into())).log_gone();
         }
         WsCommand::RecordingsCreate {
             event_id,
@@ -1971,7 +1988,7 @@ async fn handle_ws_command(
                 Ok(recording) => {
                     let msg =
                         json!({ "type": "recordings.create", "recording": recording }).to_string();
-                    let _ = client_tx.send(Message::Text(msg.into()));
+                    client_tx.send(Message::Text(msg.into())).log_gone();
                 }
                 Err(e) => ws_error(client_tx, &e.to_string()),
             }
@@ -1997,7 +2014,7 @@ async fn handle_ws_command(
                     match del {
                         Ok(_) => {
                             if delete_file.unwrap_or(false) {
-                                let _ = tokio::fs::remove_file(&rec.file_path).await;
+                                crate::cleanup::remove_file_if_present(&rec.file_path).await;
                             }
                             ws_ok(client_tx);
                         }
@@ -2062,7 +2079,7 @@ async fn handle_ws_command(
                     let msg =
                         json!({ "type": "recordings.untracked.list", "recordings": recordings })
                             .to_string();
-                    let _ = client_tx.send(Message::Text(msg.into()));
+                    client_tx.send(Message::Text(msg.into())).log_gone();
                 }
                 Err(e) => ws_error(client_tx, &e.to_string()),
             }
@@ -2078,7 +2095,7 @@ async fn handle_ws_command(
                     let msg =
                         json!({ "type": "recordings.untracked.assign", "recording": recording })
                             .to_string();
-                    let _ = client_tx.send(Message::Text(msg.into()));
+                    client_tx.send(Message::Text(msg.into())).log_gone();
                 }
                 Err(e) if e.to_string() == "NOT_FOUND" => ws_error(client_tx, "not_found"),
                 Err(e) if e.to_string() == "EVENT_NOT_FOUND" => {
@@ -2103,7 +2120,7 @@ async fn handle_ws_command(
                     match del {
                         Ok(_) => {
                             if delete_file.unwrap_or(false) {
-                                let _ = tokio::fs::remove_file(&rec.file_path).await;
+                                crate::cleanup::remove_file_if_present(&rec.file_path).await;
                             }
                             let clients = state.ws_clients.clone();
                             tokio::spawn(async move {
@@ -2124,7 +2141,7 @@ async fn handle_ws_command(
                 Ok(activities) => {
                     let msg =
                         json!({ "type": "activities.list", "activities": activities }).to_string();
-                    let _ = client_tx.send(Message::Text(msg.into()));
+                    client_tx.send(Message::Text(msg.into())).log_gone();
                 }
                 Err(e) => ws_error(client_tx, &e.to_string()),
             }
@@ -2157,7 +2174,7 @@ async fn handle_ws_command(
             match result {
                 Ok(act) => {
                     let msg = json!({ "type": "activities.create", "activity": act }).to_string();
-                    let _ = client_tx.send(Message::Text(msg.into()));
+                    client_tx.send(Message::Text(msg.into())).log_gone();
                 }
                 Err(e) => ws_error(client_tx, &e.to_string()),
             }
@@ -2183,7 +2200,7 @@ async fn handle_ws_command(
         WsCommand::CronJobsList => match cron_job::list_all(&state.pool).await {
             Ok(jobs) => {
                 let msg = json!({ "type": "cron_jobs.list", "jobs": jobs }).to_string();
-                let _ = client_tx.send(Message::Text(msg.into()));
+                client_tx.send(Message::Text(msg.into())).log_gone();
             }
             Err(e) => ws_error(client_tx, &e.to_string()),
         },
@@ -2257,7 +2274,7 @@ async fn handle_ws_command(
                         sched.reload(pool, clients, yt, us).await;
                     });
                     let msg = json!({ "type": "cron_jobs.create", "job": job }).to_string();
-                    let _ = client_tx.send(Message::Text(msg.into()));
+                    client_tx.send(Message::Text(msg.into())).log_gone();
                 }
                 Err(e) => ws_error(client_tx, &e.to_string()),
             }
@@ -2326,7 +2343,7 @@ async fn handle_ws_command(
                         sched.reload(pool, clients, yt, us).await;
                     });
                     let msg = json!({ "type": "cron_jobs.update", "job": job }).to_string();
-                    let _ = client_tx.send(Message::Text(msg.into()));
+                    client_tx.send(Message::Text(msg.into())).log_gone();
                 }
                 Ok(None) => ws_error(client_tx, "not_found"),
                 Err(e) => ws_error(client_tx, &e.to_string()),
@@ -2385,7 +2402,7 @@ async fn handle_ws_command(
                 "rodecaster": rodecaster,
             })
             .to_string();
-            let _ = client_tx.send(Message::Text(msg.into()));
+            client_tx.send(Message::Text(msg.into())).log_gone();
         }
         WsCommand::ConnectorsState => {
             let obs_output = state.obs_connector.get_output_state().await;
@@ -2399,7 +2416,7 @@ async fn handle_ws_command(
                 "atem": state.atem_connector.get_state().await,
             })
             .to_string();
-            let _ = client_tx.send(Message::Text(msg.into()));
+            client_tx.send(Message::Text(msg.into())).log_gone();
         }
         WsCommand::ConnectorsYoutubeSchedule { event_id } => {
             let event = match fetch_event(event_id, &state.pool).await {
@@ -2426,7 +2443,6 @@ async fn handle_ws_command(
                 .and_then(|c| c.privacy_status.as_deref())
                 .unwrap_or("private");
             match youtube::schedule_event(
-                &event.id.to_string(),
                 event.published_title(),
                 &event.date_time,
                 &token.access_token,
@@ -2444,7 +2460,9 @@ async fn handle_ws_command(
                     Err(e) => ws_error(client_tx, &e.to_string()),
                 },
                 Err(e) => {
-                    let _ = write_youtube_status(&state.pool, event_id, "failed").await;
+                    write_youtube_status(&state.pool, event_id, "failed")
+                        .await
+                        .log_failed();
                     ws_error(client_tx, &e.to_string());
                 }
             }
@@ -2494,7 +2512,9 @@ async fn handle_ws_command(
                     Err(e) => ws_error(client_tx, &e.to_string()),
                 },
                 Err(e) => {
-                    let _ = write_facebook_status(&state.pool, event_id, "failed").await;
+                    write_facebook_status(&state.pool, event_id, "failed")
+                        .await
+                        .log_failed();
                     ws_error(client_tx, &e.to_string());
                 }
             }
@@ -2510,7 +2530,7 @@ async fn handle_ws_command(
             match youtube::live_stream_ingestion(&token.access_token).await {
                 Ok(ingestion) => {
                     let msg = json!({ "type": "connectors.youtube.stream_key", "rtmpUrl": ingestion.rtmp_url() }).to_string();
-                    let _ = client_tx.send(Message::Text(msg.into()));
+                    client_tx.send(Message::Text(msg.into())).log_gone();
                 }
                 Err(e) => ws_error(client_tx, &e.to_string()),
             }
@@ -2561,7 +2581,7 @@ async fn handle_ws_command(
                                 .or(video.stream_url)
                                 .unwrap_or_default();
                             let msg = json!({ "type": "connectors.facebook.stream_key", "rtmpUrl": rtmp_url }).to_string();
-                            let _ = client_tx.send(Message::Text(msg.into()));
+                            client_tx.send(Message::Text(msg.into())).log_gone();
                         }
                         None => ws_error(client_tx, "no_live_video_found"),
                     },
@@ -2577,7 +2597,7 @@ async fn handle_ws_command(
                 Ok(content) => {
                     let msg = json!({ "type": "connectors.youtube.content", "content": content })
                         .to_string();
-                    let _ = client_tx.send(Message::Text(msg.into()));
+                    client_tx.send(Message::Text(msg.into())).log_gone();
                 }
                 Err(e) => ws_error(client_tx, &e.to_string()),
             }
@@ -2604,7 +2624,7 @@ async fn handle_ws_command(
                 urlencoding::encode(&state_token),
             );
             let msg = json!({ "type": "auth.youtube.url", "url": url }).to_string();
-            let _ = client_tx.send(Message::Text(msg.into()));
+            client_tx.send(Message::Text(msg.into())).log_gone();
         }
         WsCommand::AuthYoutubeLogout => match youtube::delete_tokens(&state.pool).await {
             Ok(_) => {
@@ -2634,7 +2654,7 @@ async fn handle_ws_command(
                 urlencoding::encode(&state_token),
             );
             let msg = json!({ "type": "auth.facebook.url", "url": url }).to_string();
-            let _ = client_tx.send(Message::Text(msg.into()));
+            client_tx.send(Message::Text(msg.into())).log_gone();
         }
         WsCommand::AuthFacebookLogout => match facebook::delete_tokens(&state.pool).await {
             Ok(_) => {
@@ -2647,7 +2667,7 @@ async fn handle_ws_command(
         WsCommand::BroadlinkStatus => {
             let status = state.broadlink_connector.get_status().await;
             let msg = json!({ "type": "broadlink.status", "status": status }).to_string();
-            let _ = client_tx.send(Message::Text(msg.into()));
+            client_tx.send(Message::Text(msg.into())).log_gone();
         }
         WsCommand::BroadlinkDevicesList => {
             let rows = sqlx::query_as::<_, (Uuid, String, String, Option<String>, String, String, bool)>(
@@ -2665,7 +2685,7 @@ async fn handle_ws_command(
                         .collect();
                     let msg =
                         json!({ "type": "broadlink.devices.list", "devices": list }).to_string();
-                    let _ = client_tx.send(Message::Text(msg.into()));
+                    client_tx.send(Message::Text(msg.into())).log_gone();
                 }
                 Err(e) => ws_error(client_tx, &e.to_string()),
             }
@@ -2697,7 +2717,7 @@ async fn handle_ws_command(
                     let device = json!({ "id": id, "name": name, "deviceType": device_type, "model": model, "host": host, "mac": mac, "isDefault": false });
                     let msg =
                         json!({ "type": "broadlink.devices.add", "device": device }).to_string();
-                    let _ = client_tx.send(Message::Text(msg.into()));
+                    client_tx.send(Message::Text(msg.into())).log_gone();
                 }
                 Err(e) => ws_error(client_tx, &e.to_string()),
             }
@@ -2720,7 +2740,7 @@ async fn handle_ws_command(
                 match crate::broadlink::discover_devices(5).await {
                     Ok(devices) => {
                         for dev in &devices {
-                            let _ = sqlx::query(
+                            sqlx::query(
                                 "INSERT INTO broadlink_devices (name, device_type, model, host, mac, last_seen_at) \
                                  VALUES ($1, $2, $3, $4, $5, NOW()) \
                                  ON CONFLICT (mac) DO UPDATE SET host = EXCLUDED.host, last_seen_at = NOW()",
@@ -2731,7 +2751,7 @@ async fn handle_ws_command(
                             .bind(&dev.host)
                             .bind(&dev.mac)
                             .execute(&pool)
-                            .await;
+                            .await.log_failed();
                         }
                         let count: i64 =
                             sqlx::query_scalar("SELECT COUNT(*) FROM broadlink_devices")
@@ -2791,7 +2811,7 @@ async fn handle_ws_command(
                         .collect();
                     let msg =
                         json!({ "type": "broadlink.commands.list", "commands": list }).to_string();
-                    let _ = client_tx.send(Message::Text(msg.into()));
+                    client_tx.send(Message::Text(msg.into())).log_gone();
                 }
                 Err(e) => ws_error(client_tx, &e.to_string()),
             }
@@ -2822,7 +2842,7 @@ async fn handle_ws_command(
                     let cmd = json!({ "id": id, "deviceId": device_id, "name": name, "slug": slug, "code": code, "codeType": code_type, "category": cat });
                     let msg =
                         json!({ "type": "broadlink.commands.add", "command": cmd }).to_string();
-                    let _ = client_tx.send(Message::Text(msg.into()));
+                    client_tx.send(Message::Text(msg.into())).log_gone();
                 }
                 Err(e) => ws_error(client_tx, &e.to_string()),
             }
@@ -2862,7 +2882,7 @@ async fn handle_ws_command(
                     });
                     let msg =
                         json!({ "type": "broadlink.commands.update", "command": cmd }).to_string();
-                    let _ = client_tx.send(Message::Text(msg.into()));
+                    client_tx.send(Message::Text(msg.into())).log_gone();
                 }
                 Ok(None) => ws_error(client_tx, "not_found"),
                 Err(e) => ws_error(client_tx, &e.to_string()),
@@ -2925,7 +2945,7 @@ async fn handle_ws_command(
                         error: Some(e),
                     },
                 };
-                let _ = learn_tx.send(event);
+                learn_tx.send(event).log_gone();
                 learn_active.store(false, Ordering::SeqCst);
             });
             ws_ok(client_tx);
@@ -2977,7 +2997,7 @@ async fn handle_ws_command(
         }
         // ── OBS Devices ───────────────────────────────────────────────────────
         WsCommand::ObsDevicesScan => {
-            let _ = state.obs_connector.devices_tx.send(());
+            state.obs_connector.devices_tx.send(()).log_gone();
             ws_ok(client_tx);
         }
         WsCommand::ObsDevicesAvailable => {
@@ -2995,7 +3015,9 @@ async fn handle_ws_command(
                     "listenerStatuses": statuses,
                 })
                 .to_string();
-                let _ = client_tx.send(axum::extract::ws::Message::Text(msg.into()));
+                client_tx
+                    .send(axum::extract::ws::Message::Text(msg.into()))
+                    .log_gone();
             } else {
                 ws_error(client_tx, "no_scan_data");
             }
@@ -3025,7 +3047,9 @@ async fn handle_ws_command(
                 "statuses": statuses,
             })
             .to_string();
-            let _ = client_tx.send(axum::extract::ws::Message::Text(msg.into()));
+            client_tx
+                .send(axum::extract::ws::Message::Text(msg.into()))
+                .log_gone();
         }
         WsCommand::ObsListenersCreate {
             connector_type,
@@ -3055,9 +3079,10 @@ async fn handle_ws_command(
                     .to_string();
                     let clients = state.ws_clients.read().await;
                     for tx in clients.values() {
-                        let _ = tx.send(axum::extract::ws::Message::Text(
+                        tx.send(axum::extract::ws::Message::Text(
                             broadcast_msg.clone().into(),
-                        ));
+                        ))
+                        .log_gone();
                     }
                     ws_ok(client_tx);
                 }
@@ -3082,9 +3107,10 @@ async fn handle_ws_command(
                     .to_string();
                     let clients = state.ws_clients.read().await;
                     for tx in clients.values() {
-                        let _ = tx.send(axum::extract::ws::Message::Text(
+                        tx.send(axum::extract::ws::Message::Text(
                             broadcast_msg.clone().into(),
-                        ));
+                        ))
+                        .log_gone();
                     }
                     ws_ok(client_tx);
                 }
@@ -3106,9 +3132,10 @@ async fn handle_ws_command(
                     .to_string();
                     let clients = state.ws_clients.read().await;
                     for tx in clients.values() {
-                        let _ = tx.send(axum::extract::ws::Message::Text(
+                        tx.send(axum::extract::ws::Message::Text(
                             broadcast_msg.clone().into(),
-                        ));
+                        ))
+                        .log_gone();
                     }
                     ws_ok(client_tx);
                 }
@@ -3119,11 +3146,13 @@ async fn handle_ws_command(
         // ── Blackmagic camera ────────────────────────────────────────────────
         WsCommand::RodecasterProfile => match state.rodecaster_connector.get_profile() {
             Some(profile) => {
-                let _ = client_tx.send(Message::Text(
-                    json!({ "type": "rodecaster.profile", "profile": profile })
-                        .to_string()
-                        .into(),
-                ));
+                client_tx
+                    .send(Message::Text(
+                        json!({ "type": "rodecaster.profile", "profile": profile })
+                            .to_string()
+                            .into(),
+                    ))
+                    .log_gone();
             }
             None => ws_error(client_tx, "rodecaster_not_connected"),
         },
@@ -3141,11 +3170,13 @@ async fn handle_ws_command(
             let recorder = Arc::clone(&state.rodecaster_audio_recorder);
             match tokio::task::spawn_blocking(move || recorder.discover(&profile)).await {
                 Ok(discovery) => {
-                    let _ = client_tx.send(Message::Text(
-                        json!({ "type": "rodecaster.audio.discovery", "discovery": discovery })
-                            .to_string()
-                            .into(),
-                    ));
+                    client_tx
+                        .send(Message::Text(
+                            json!({ "type": "rodecaster.audio.discovery", "discovery": discovery })
+                                .to_string()
+                                .into(),
+                        ))
+                        .log_gone();
                 }
                 Err(error) => ws_error(client_tx, &format!("audio_discovery_failed: {error}")),
             }
@@ -3153,11 +3184,13 @@ async fn handle_ws_command(
         WsCommand::TranscriptionStart { event_id } => {
             match state.transcription.start(event_id).await {
                 Ok(transcription) => {
-                    let _ = client_tx.send(Message::Text(
-                        json!({ "type": "transcription.state", "state": transcription })
-                            .to_string()
-                            .into(),
-                    ));
+                    client_tx
+                        .send(Message::Text(
+                            json!({ "type": "transcription.state", "state": transcription })
+                                .to_string()
+                                .into(),
+                        ))
+                        .log_gone();
                 }
                 Err(error) => ws_error(client_tx, &error),
             }
@@ -3168,35 +3201,39 @@ async fn handle_ws_command(
         }
         WsCommand::RodecasterAudioRecordState => {
             let recorder_state = state.rodecaster_audio_recorder.state();
-            let _ = client_tx.send(Message::Text(
-                json!({ "type": "rodecaster.audio.record.state", "state": recorder_state })
-                    .to_string()
-                    .into(),
-            ));
+            client_tx
+                .send(Message::Text(
+                    json!({ "type": "rodecaster.audio.record.state", "state": recorder_state })
+                        .to_string()
+                        .into(),
+                ))
+                .log_gone();
         }
         WsCommand::RodecasterAudioRecordStart { event_id } => {
             match recording_control::audio_start(state, event_id).await {
                 Ok(recorder_state) => {
-                    let _ = client_tx.send(Message::Text(
+                    client_tx.send(Message::Text(
                         json!({ "type": "rodecaster.audio.record.state", "state": recorder_state })
                             .to_string()
                             .into(),
-                    ));
+                    )).log_gone();
                 }
                 Err(error) => ws_error(client_tx, &error),
             }
         }
-        WsCommand::RodecasterAudioRecordStop => match recording_control::audio_stop(state).await {
-            Ok(AudioStop::AlreadyIdle(recorder_state)) => {
-                let _ = client_tx.send(Message::Text(
+        WsCommand::RodecasterAudioRecordStop => {
+            match recording_control::audio_stop(state).await {
+                Ok(AudioStop::AlreadyIdle(recorder_state)) => {
+                    client_tx.send(Message::Text(
                     json!({ "type": "rodecaster.audio.record.state", "state": recorder_state })
                         .to_string()
                         .into(),
-                ));
+                )).log_gone();
+                }
+                Ok(AudioStop::Stopped) => ws_ok(client_tx),
+                Err(error) => ws_error(client_tx, &error),
             }
-            Ok(AudioStop::Stopped) => ws_ok(client_tx),
-            Err(error) => ws_error(client_tx, &error),
-        },
+        }
         WsCommand::RodecasterRecordStart => {
             reply(client_tx, recording_control::desk_record(state, true).await)
         }
@@ -3205,9 +3242,11 @@ async fn handle_ws_command(
             recording_control::desk_record(state, false).await,
         ),
         WsCommand::AutomationsList => {
-            let _ = client_tx.send(Message::Text(
-                state.automations.changed_message().await.into(),
-            ));
+            client_tx
+                .send(Message::Text(
+                    state.automations.changed_message().await.into(),
+                ))
+                .log_gone();
         }
         WsCommand::AutomationsRun { id } => {
             if state.automations.queue_now(id).await {
@@ -3273,7 +3312,9 @@ async fn handle_ws_command(
             match crate::server::routes::push_youtube_to_camera(&state.pool, &camera).await {
                 Ok(mut payload) => {
                     payload["type"] = json!("blackmagic-camera.stream.platform");
-                    let _ = client_tx.send(Message::Text(payload.to_string().into()));
+                    client_tx
+                        .send(Message::Text(payload.to_string().into()))
+                        .log_gone();
                 }
                 Err(e) => ws_error(client_tx, &e),
             }
@@ -3314,7 +3355,9 @@ async fn handle_ws_command(
             match crate::server::routes::push_youtube_to_atem(state).await {
                 Ok(mut payload) => {
                     payload["type"] = json!("atem.stream.destination");
-                    let _ = client_tx.send(Message::Text(payload.to_string().into()));
+                    client_tx
+                        .send(Message::Text(payload.to_string().into()))
+                        .log_gone();
                 }
                 Err(error) => ws_error(client_tx, &error),
             }
@@ -3448,27 +3491,29 @@ async fn handle_socket(
     broadcast_clients_updated(&state).await;
 
     let connected_msg = json!({ "type": "connected", "serverId": server_id }).to_string();
-    let _ = tx.send(Message::Text(connected_msg.into()));
+    tx.send(Message::Text(connected_msg.into())).log_gone();
 
     let recorder_state = state.rodecaster_audio_recorder.state();
     let recorder_msg =
         json!({ "type": "rodecaster.audio.record.state", "state": recorder_state }).to_string();
-    let _ = tx.send(Message::Text(recorder_msg.into()));
+    tx.send(Message::Text(recorder_msg.into())).log_gone();
     if let Some(desk) = state.rodecaster_connector.get_recorder() {
         let desk_msg = json!({
             "type": "rodecaster.record.state",
             "state": crate::connectors::rodecaster::desk_recorder(desk),
         })
         .to_string();
-        let _ = tx.send(Message::Text(desk_msg.into()));
+        tx.send(Message::Text(desk_msg.into())).log_gone();
     }
     // The rules name devices and settings, so only a client with the token gets them.
     if is_authenticated {
-        let _ = tx.send(Message::Text(
+        tx.send(Message::Text(
             state.automations.changed_message().await.into(),
-        ));
+        ))
+        .log_gone();
     }
-    let _ = tx.send(Message::Text(state.transcription.snapshot_message().into()));
+    tx.send(Message::Text(state.transcription.snapshot_message().into()))
+        .log_gone();
 
     // Push current connector statuses so the client doesn't have to poll.
     let obs_status = state.obs_connector.get_status().await;
@@ -3491,21 +3536,21 @@ async fn handle_socket(
             "status": status,
         })
         .to_string();
-        let _ = tx.send(Message::Text(msg.into()));
+        tx.send(Message::Text(msg.into())).log_gone();
     }
 
     // Push current presentation settings, status, and presenter state.
     {
         let settings_msg = make_presentation_settings(&state).await;
-        let _ = tx.send(Message::Text(settings_msg.into()));
+        tx.send(Message::Text(settings_msg.into())).log_gone();
         let status_msg = make_presentation_status(&state).await;
-        let _ = tx.send(Message::Text(status_msg.into()));
+        tx.send(Message::Text(status_msg.into())).log_gone();
         let presenter_msg =
             json!({ "type": "presenter.state", "state": &*state.presenter_state.read().await })
                 .to_string();
-        let _ = tx.send(Message::Text(presenter_msg.into()));
+        tx.send(Message::Text(presenter_msg.into())).log_gone();
         let order_msg = order::position_message(&state).await;
-        let _ = tx.send(Message::Text(order_msg.into()));
+        tx.send(Message::Text(order_msg.into())).log_gone();
     }
 
     // Send initial Keynote status on connection (macOS only).
@@ -3513,7 +3558,7 @@ async fn handle_socket(
     {
         let kn_status = state.keynote_connector.get_status().await;
         let msg = json!({ "type": "keynote.status", "status": kn_status }).to_string();
-        let _ = tx.send(Message::Text(msg.into()));
+        tx.send(Message::Text(msg.into())).log_gone();
     }
 
     // Push current OBS streaming/recording state if OBS is connected.
@@ -3525,7 +3570,7 @@ async fn handle_socket(
             "isRecording": output.is_recording,
         })
         .to_string();
-        let _ = tx.send(Message::Text(msg.into()));
+        tx.send(Message::Text(msg.into())).log_gone();
     }
 
     if let Some(middlecontrol) = state.middlecontrol_connector.get_state().await {
@@ -3535,7 +3580,7 @@ async fn handle_socket(
             "state": middlecontrol,
         })
         .to_string();
-        let _ = tx.send(Message::Text(msg.into()));
+        tx.send(Message::Text(msg.into())).log_gone();
     }
 
     if let Some(atem) = state.atem_connector.get_state().await {
@@ -3545,7 +3590,7 @@ async fn handle_socket(
             "state": atem,
         })
         .to_string();
-        let _ = tx.send(Message::Text(msg.into()));
+        tx.send(Message::Text(msg.into())).log_gone();
     }
 
     // Push cached OBS device scan result if available.
@@ -3564,7 +3609,7 @@ async fn handle_socket(
                 "listenerStatuses": statuses,
             })
             .to_string();
-            let _ = tx.send(Message::Text(msg.into()));
+            tx.send(Message::Text(msg.into())).log_gone();
         }
     }
 
@@ -3596,9 +3641,11 @@ async fn handle_socket(
                         .and_then(|v| v.get("type").and_then(|t| t.as_str()).map(str::to_owned))
                         .unwrap_or_default();
                     if !READONLY_ALLOWED.contains(&cmd_type.as_str()) {
-                        let _ = tx_recv.send(Message::Text(
-                            r#"{"type":"error","message":"unauthorized"}"#.into(),
-                        ));
+                        tx_recv
+                            .send(Message::Text(
+                                r#"{"type":"error","message":"unauthorized"}"#.into(),
+                            ))
+                            .log_gone();
                         continue;
                     }
                 }
@@ -3658,7 +3705,7 @@ pub async fn start_notify_listener(
         loop {
             match poll_fn(|cx| connection.poll_message(cx)).await {
                 Some(Ok(AsyncMessage::Notification(n))) => {
-                    let _ = notify_tx.send(n);
+                    notify_tx.send(n).log_gone();
                 }
                 Some(Ok(_)) => {}
                 None | Some(Err(_)) => break,
@@ -3725,7 +3772,7 @@ pub async fn start_notify_listener(
 
         let clients = ws_clients.read().await;
         for tx in clients.values() {
-            let _ = tx.send(Message::Text(msg_text.clone().into()));
+            tx.send(Message::Text(msg_text.clone().into())).log_gone();
         }
     }
 }
@@ -3741,7 +3788,7 @@ pub async fn broadcast_clients_updated(state: &AppState) {
     let msg = json!({ "type": "clients.updated", "clients": clients_vec }).to_string();
     let guard = state.ws_clients.read().await;
     for tx in guard.values() {
-        let _ = tx.send(Message::Text(msg.clone().into()));
+        tx.send(Message::Text(msg.clone().into())).log_gone();
     }
 }
 
@@ -3753,7 +3800,7 @@ pub async fn broadcast_presenter_state(
     let msg = json!({ "type": "presenter.state", "state": state }).to_string();
     let guard = clients.read().await;
     for tx in guard.values() {
-        let _ = tx.send(Message::Text(msg.clone().into()));
+        tx.send(Message::Text(msg.clone().into())).log_gone();
     }
 }
 
@@ -3770,7 +3817,7 @@ pub async fn broadcast_presenter_slide_changed(
     .to_string();
     let guard = clients.read().await;
     for tx in guard.values() {
-        let _ = tx.send(Message::Text(msg.clone().into()));
+        tx.send(Message::Text(msg.clone().into())).log_gone();
     }
 }
 
@@ -3781,7 +3828,7 @@ pub async fn broadcast_ppt_folders_changed(
     let msg = json!({ "type": "ppt.folders_changed" }).to_string();
     let guard = clients.read().await;
     for tx in guard.values() {
-        let _ = tx.send(Message::Text(msg.clone().into()));
+        tx.send(Message::Text(msg.clone().into())).log_gone();
     }
 }
 
@@ -3799,7 +3846,7 @@ pub async fn broadcast_recording_detected(
     .to_string();
     let guard = clients.read().await;
     for tx in guard.values() {
-        let _ = tx.send(Message::Text(msg.clone().into()));
+        tx.send(Message::Text(msg.clone().into())).log_gone();
     }
 }
 
@@ -3815,7 +3862,7 @@ pub async fn broadcast_untracked_removed(
     .to_string();
     let guard = clients.read().await;
     for tx in guard.values() {
-        let _ = tx.send(Message::Text(msg.clone().into()));
+        tx.send(Message::Text(msg.clone().into())).log_gone();
     }
 }
 
@@ -3828,7 +3875,7 @@ pub async fn broadcast_event_changed(state: &AppState, operation: &str, event: &
     .to_string();
     let clients = state.ws_clients.read().await;
     for tx in clients.values() {
-        let _ = tx.send(Message::Text(msg.clone().into()));
+        tx.send(Message::Text(msg.clone().into())).log_gone();
     }
 }
 
@@ -3870,7 +3917,9 @@ pub fn spawn_scheduling_tasks(event: Event, state: AppState) {
                     },
                     Err(e) => {
                         tracing::error!("Facebook auto-schedule failed for {}: {e}", event.id);
-                        let _ = write_facebook_status(&state.pool, event.id, "failed").await;
+                        write_facebook_status(&state.pool, event.id, "failed")
+                            .await
+                            .log_failed();
                     }
                 }
             }
@@ -3896,7 +3945,7 @@ pub async fn broadcast_upload_progress(
     .to_string();
     let guard = clients.read().await;
     for tx in guard.values() {
-        let _ = tx.send(Message::Text(msg.clone().into()));
+        tx.send(Message::Text(msg.clone().into())).log_gone();
     }
 }
 
@@ -3918,7 +3967,7 @@ pub async fn broadcast_upload_completed(
     .to_string();
     let guard = clients.read().await;
     for tx in guard.values() {
-        let _ = tx.send(Message::Text(msg.clone().into()));
+        tx.send(Message::Text(msg.clone().into())).log_gone();
     }
 }
 
@@ -3938,7 +3987,7 @@ pub async fn broadcast_upload_failed(
     .to_string();
     let guard = clients.read().await;
     for tx in guard.values() {
-        let _ = tx.send(Message::Text(msg.clone().into()));
+        tx.send(Message::Text(msg.clone().into())).log_gone();
     }
 }
 
@@ -3954,7 +4003,7 @@ pub async fn broadcast_media_render_progress(
     .to_string();
     let guard = clients.read().await;
     for tx in guard.values() {
-        let _ = tx.send(Message::Text(msg.clone().into()));
+        tx.send(Message::Text(msg.clone().into())).log_gone();
     }
 }
 
@@ -3970,7 +4019,7 @@ pub async fn broadcast_media_audio_progress(
     .to_string();
     let guard = clients.read().await;
     for tx in guard.values() {
-        let _ = tx.send(Message::Text(msg.clone().into()));
+        tx.send(Message::Text(msg.clone().into())).log_gone();
     }
 }
 
@@ -3986,7 +4035,7 @@ pub async fn broadcast_media_program_progress(
     .to_string();
     let guard = clients.read().await;
     for tx in guard.values() {
-        let _ = tx.send(Message::Text(msg.clone().into()));
+        tx.send(Message::Text(msg.clone().into())).log_gone();
     }
 }
 
@@ -4004,7 +4053,7 @@ pub async fn broadcast_upload_paused(
     .to_string();
     let guard = clients.read().await;
     for tx in guard.values() {
-        let _ = tx.send(Message::Text(msg.clone().into()));
+        tx.send(Message::Text(msg.clone().into())).log_gone();
     }
 }
 

@@ -8,6 +8,7 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
 };
+use metocast_core::best_effort::LogGone;
 use metocast_core::events::{EventOrder, OrderItem, OrderItemKind, OrderPosition, SlideFolder};
 use serde_json::json;
 use sqlx::{PgPool, Row};
@@ -197,7 +198,7 @@ pub async fn position_message(state: &AppState) -> String {
 async fn broadcast_position(state: &AppState) {
     let message = position_message(state).await;
     for tx in state.ws_clients.read().await.values() {
-        let _ = tx.send(Message::Text(message.clone().into()));
+        tx.send(Message::Text(message.clone().into())).log_gone();
     }
 }
 
@@ -330,10 +331,13 @@ async fn show_reading(state: &AppState, event_id: Uuid, bible_type: &str) -> Res
     )?;
     #[cfg(target_os = "macos")]
     {
-        let _ = state
+        if let Err(error) = state
             .keynote_connector
             .open_file(&path.to_string_lossy())
-            .await;
+            .await
+        {
+            tracing::warn!(%error, "Keynote could not open the deck");
+        }
     }
     websocket::broadcast_presentation_status(&state.ws_clients, state).await;
     Ok(())
