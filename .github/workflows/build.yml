@@ -214,37 +214,7 @@ jobs:
       - name: Update version from tag
         if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
-        run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
-          echo "Updating version to: $VERSION"
-
-          # Update package.json using node
-          node -e "
-            const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            pkg.version = '$VERSION';
-            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-          "
-
-          # Update tauri.conf.json using node
-          node -e "
-            const fs = require('fs');
-            const conf = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
-            conf.version = '$VERSION';
-            fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
-          "
-
-          # Update Cargo.toml (use sed with cross-platform approach)
-          if [[ "$OSTYPE" == "darwin"* ]]; then
-            sed -i '' 's/^version = ".*"/version = "'"$VERSION"'"/' src-tauri/Cargo.toml
-          else
-            sed -i 's/^version = ".*"/version = "'"$VERSION"'"/' src-tauri/Cargo.toml
-          fi
-
-          echo "Updated versions:"
-          grep '"version"' package.json
-          grep '"version"' src-tauri/tauri.conf.json
-          grep '^version' src-tauri/Cargo.toml
+        run: node scripts/stamp-version.mjs "${GITHUB_REF#refs/tags/v}" package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml
 
       # Install frontend dependencies
       - name: Install frontend dependencies
@@ -406,21 +376,7 @@ jobs:
 
       - name: Update version from tag
         if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
-          node -e "
-            const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            pkg.version = '$VERSION';
-            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-          "
-          node -e "
-            const fs = require('fs');
-            const conf = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
-            conf.version = '$VERSION';
-            fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
-          "
-          sed -i '' 's/^version = ".*"/version = "'"$VERSION"'"/' src-tauri/Cargo.toml
+        run: node scripts/stamp-version.mjs "${GITHUB_REF#refs/tags/v}" package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml
 
       # Initialize iOS project if it hasn't been committed to the repo yet.
       # Best practice: run `pnpm tauri ios init` locally and commit the result.
@@ -589,21 +545,7 @@ jobs:
 
       - name: Update version from tag
         if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
-          node -e "
-            const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            pkg.version = '$VERSION';
-            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-          "
-          node -e "
-            const fs = require('fs');
-            const conf = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
-            conf.version = '$VERSION';
-            fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
-          "
-          sed -i 's/^version = ".*"/version = "'"$VERSION"'"/' src-tauri/Cargo.toml
+        run: node scripts/stamp-version.mjs "${GITHUB_REF#refs/tags/v}" package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml
 
       # Initialize Android project if not committed to the repo.
       # Best practice: run `pnpm tauri android init` locally and commit the result.
@@ -778,20 +720,7 @@ jobs:
       - name: Update version from tag
         if: startsWith(github.ref, 'refs/tags/v')
         working-directory: companion
-        run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
-          node -e "
-            const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            pkg.version = '$VERSION';
-            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-          "
-          node -e "
-            const fs = require('fs');
-            const manifest = JSON.parse(fs.readFileSync('companion/manifest.json', 'utf8'));
-            manifest.version = '$VERSION';
-            fs.writeFileSync('companion/manifest.json', JSON.stringify(manifest, null, 2) + '\n');
-          "
+        run: node ../scripts/stamp-version.mjs "${GITHUB_REF#refs/tags/v}" package.json companion/manifest.json
 
       - name: Package companion module
         run: |
