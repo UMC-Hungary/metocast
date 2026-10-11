@@ -80,9 +80,6 @@ importers:
       '@tauri-apps/plugin-store':
         specifier: ^2.4.2
         version: 2.4.2
-      tauri-plugin-liquid-glass-api:
-        specifier: ^0.1.6
-        version: 0.1.6(@tauri-apps/api@2.10.1)
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -146,9 +143,6 @@ importers:
       svelte-sonner:
         specifier: ^1.0.7
         version: 1.0.7(svelte@5.56.8(@typescript-eslint/types@8.66.0))
-      tauri-plugin-liquid-glass-api:
-        specifier: ^0.1.6
-        version: 0.1.6(@tauri-apps/api@2.11.1)
     devDependencies:
       '@sveltejs/adapter-static':
         specifier: ^3.0.10
@@ -2968,11 +2962,6 @@ packages:
   tagged-tag@1.0.0:
     resolution: {integrity: sha512-yEFYrVhod+hdNyx7g5Bnkkb0G6si8HJurOoOEgC8B/O0uXLHlaey/65KRv6cuWBNhBgHKAROVpc7QyYqE5gFng==}
     engines: {node: '>=20'}
-
-  tauri-plugin-liquid-glass-api@0.1.6:
-    resolution: {integrity: sha512-93sppeXhn6WbzUheAFUWhqVICxZS6pNQzPBq2UcNFLdSP2icH94lDXmmHE9DhesxhiJiGITJ4bj8wNjWcQ/zCw==}
-    peerDependencies:
-      '@tauri-apps/api': ^2.0.0
 
   timers-ext@0.1.8:
     resolution: {integrity: sha512-wFH7+SEAcKfJpfLPkrgMPvvwnEtj8W4IurvEyrKsDleXnKLCDw71w8jltvfLa8Rm4qQxxT4jmDBYbJG/z7qoww==}
@@ -5915,14 +5904,6 @@ snapshots:
       - '@typescript-eslint/types'
 
   tagged-tag@1.0.0: {}
-
-  tauri-plugin-liquid-glass-api@0.1.6(@tauri-apps/api@2.10.1):
-    dependencies:
-      '@tauri-apps/api': 2.10.1
-
-  tauri-plugin-liquid-glass-api@0.1.6(@tauri-apps/api@2.11.1):
-    dependencies:
-      '@tauri-apps/api': 2.11.1
 
   timers-ext@0.1.8:
     dependencies:

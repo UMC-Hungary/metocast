@@ -1,8 +1,7 @@
-import { enableWindowGlass, watchHostTheme } from '@metocast/core-client';
+import { watchHostTheme } from '@metocast/core-client';
 import { writable } from 'svelte/store';
 
 export const systemTheme = writable<'light' | 'dark'>('light');
-export const glassSupported = writable(false);
 export const reduceTransparency = writable(false);
 
 export async function initSystemAppearance(): Promise<void> {
@@ -16,6 +15,4 @@ export async function initSystemAppearance(): Promise<void> {
   const mq = window.matchMedia('(prefers-reduced-transparency: reduce)');
   reduceTransparency.set(mq.matches);
   mq.addEventListener('change', (e) => reduceTransparency.set(e.matches));
-
-  glassSupported.set(await enableWindowGlass());
 }

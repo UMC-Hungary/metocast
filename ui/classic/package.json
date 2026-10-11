@@ -15,8 +15,7 @@
     "@metocast/core-client": "workspace:*",
     "lucide-svelte": "^0.575.0",
     "svelte-i18n": "^4.0.1",
-    "svelte-sonner": "^1.0.7",
-    "tauri-plugin-liquid-glass-api": "^0.1.6"
+    "svelte-sonner": "^1.0.7"
   },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.10",

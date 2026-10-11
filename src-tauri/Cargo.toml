@@ -15,7 +15,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["macos-private-api"] }
+tauri = "2"
 tauri-plugin-store = "2"
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
@@ -26,7 +26,6 @@ anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tauri-plugin-opener = "2.5.3"
-tauri-plugin-liquid-glass = "0.1.6"
 tauri-plugin-deep-link = "2"
 tauri-plugin-native-nav = { path = "plugins/native-nav" }
 

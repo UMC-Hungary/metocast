@@ -6,11 +6,7 @@
   import { _ } from 'svelte-i18n';
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
-  import {
-    glassSupported,
-    initSystemAppearance,
-    systemTheme,
-  } from '$lib/stores/system-appearance.js';
+  import { initSystemAppearance, systemTheme } from '$lib/stores/system-appearance.js';
   import ConnectorInit from '$lib/components/layout/ConnectorInit.svelte';
   import ReLoginHandler from '$lib/components/layout/ReLoginHandler.svelte';
   import UpdateChecker from '$lib/components/layout/UpdateChecker.svelte';
@@ -24,10 +20,6 @@
 
   $effect(() => {
     document.documentElement.setAttribute('data-theme', $systemTheme);
-  });
-
-  $effect(() => {
-    document.documentElement.setAttribute('data-glass', $glassSupported ? 'true' : 'false');
   });
 
   function isActive(href: string): boolean {
@@ -46,15 +38,8 @@
   <ReLoginHandler />
   <UpdateChecker />
 
-  <div class="app-shell" class:glass={$glassSupported}>
-    <!-- Full-width drag strip at the top — macOS only -->
-    {#if $glassSupported}
-      <div class="app-titlebar-drag" data-tauri-drag-region aria-hidden="true"></div>
-    {/if}
+  <div class="app-shell">
     <aside class="sidebar">
-      {#if $glassSupported}
-        <div class="sidebar-traffic-spacer" data-tauri-drag-region></div>
-      {/if}
       <nav class="sidebar-nav" data-tauri-drag-region>
         <a href="/" class="nav-item" class:active={isActive('/')}>{$_('nav.dashboard')}</a>
         <a href="/events" class="nav-item" class:active={isActive('/events')}>{$_('nav.events')}</a>
@@ -98,27 +83,10 @@
     overflow: hidden;
   }
 
-  /* Clip to macOS window corner radius only when glass effect is active */
-  .app-shell.glass {
-    border-radius: 12px;
-  }
-
-  .app-titlebar-drag {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: var(--titlebar-height);
-    /* Sit above sidebar (z-index: 1) and content, but below any dropdowns/modals */
-    z-index: 10;
-  }
-
   .sidebar {
     width: var(--sidebar-width);
     flex-shrink: 0;
     background: var(--glass-sidebar-bg);
-    backdrop-filter: var(--glass-sidebar-blur);
-    -webkit-backdrop-filter: var(--glass-sidebar-blur);
     /* Separator line + soft shadow cast onto the content pane */
     border-right: 1px solid var(--glass-border);
     box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
@@ -127,18 +95,6 @@
     /* Keep sidebar above content so its shadow is visible */
     position: relative;
     z-index: 1;
-  }
-
-  @media (prefers-reduced-transparency: reduce) {
-    .sidebar {
-      backdrop-filter: none;
-      -webkit-backdrop-filter: none;
-    }
-  }
-
-  .sidebar-traffic-spacer {
-    height: var(--titlebar-height);
-    flex-shrink: 0;
   }
 
   .sidebar-nav {
@@ -161,7 +117,7 @@
     flex: 1;
     overflow-y: auto;
     background: var(--content-bg);
-    padding: calc(var(--titlebar-height) + 1rem) 1.5rem 1.5rem;
+    padding: 1rem 1.5rem 1.5rem;
   }
 
   .nav-item {

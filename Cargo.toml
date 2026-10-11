@@ -13,7 +13,6 @@ members = [
   "src-tauri",
   "src-tauri/plugins/native-nav",
 ]
-exclude = ["src-tauri/vendor/tauri-plugin-liquid-glass"]
 
 [workspace.package]
 edition = "2024"
@@ -36,9 +35,6 @@ unused_must_use = "deny"
 
 [workspace.lints.clippy]
 all = "warn"
-
-[patch.crates-io]
-tauri-plugin-liquid-glass = { path = "src-tauri/vendor/tauri-plugin-liquid-glass" }
 
 [profile.release.package.presenter-receiver]
 opt-level = 3
