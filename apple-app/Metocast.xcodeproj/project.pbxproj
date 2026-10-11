@@ -235,6 +235,7 @@
 				PRODUCT_MODULE_NAME = MetocastApp;
 				PRODUCT_NAME = Metocast;
 				SDKROOT = auto;
+				LM_SKIP_METADATA_EXTRACTION = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -279,6 +280,7 @@
 				PRODUCT_MODULE_NAME = MetocastApp;
 				PRODUCT_NAME = Metocast;
 				SDKROOT = auto;
+				LM_SKIP_METADATA_EXTRACTION = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
