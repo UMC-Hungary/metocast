@@ -1,5 +1,8 @@
 use serde::Serialize;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+#[cfg(target_os = "macos")]
+use std::path::PathBuf;
+#[cfg(target_os = "macos")]
 use tauri::Manager;
 
 const PRESENTATION_FONTS: [(&str, &str); 2] = [
@@ -58,45 +61,43 @@ fn prepare_font_book(resource_dir: &Path, font_dir: &Path) -> Result<Vec<PathBuf
     Ok(sources)
 }
 
+#[cfg(target_os = "macos")]
 #[tauri::command]
 pub fn presentation_fonts_status(app: tauri::AppHandle) -> Result<PresentationFontsStatus, String> {
-    #[cfg(target_os = "macos")]
-    {
-        let font_dir = app.path().font_dir().map_err(|error| error.to_string())?;
-        Ok(status(&font_dir, true))
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        let _ = app;
-        Ok(status(Path::new(""), false))
-    }
+    let font_dir = app.path().font_dir().map_err(|error| error.to_string())?;
+    Ok(status(&font_dir, true))
 }
 
+#[cfg(not(target_os = "macos"))]
+#[tauri::command]
+pub fn presentation_fonts_status() -> Result<PresentationFontsStatus, String> {
+    Ok(status(Path::new(""), false))
+}
+
+#[cfg(target_os = "macos")]
 #[tauri::command]
 pub fn install_presentation_fonts(
     app: tauri::AppHandle,
 ) -> Result<PresentationFontsStatus, String> {
-    #[cfg(target_os = "macos")]
-    {
-        let resource_dir = app
-            .path()
-            .resource_dir()
-            .map_err(|error| error.to_string())?;
-        let font_dir = app.path().font_dir().map_err(|error| error.to_string())?;
-        let sources = prepare_font_book(&resource_dir, &font_dir)?;
-        std::process::Command::new("/usr/bin/open")
-            .arg("-a")
-            .arg("Font Book")
-            .args(sources)
-            .spawn()
-            .map_err(|error| format!("Cannot open Font Book: {error}"))?;
-        Ok(status(&font_dir, true))
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        let _ = app;
-        Err("Presentation font installation is supported only on macOS".to_string())
-    }
+    let resource_dir = app
+        .path()
+        .resource_dir()
+        .map_err(|error| error.to_string())?;
+    let font_dir = app.path().font_dir().map_err(|error| error.to_string())?;
+    let sources = prepare_font_book(&resource_dir, &font_dir)?;
+    std::process::Command::new("/usr/bin/open")
+        .arg("-a")
+        .arg("Font Book")
+        .args(sources)
+        .spawn()
+        .map_err(|error| format!("Cannot open Font Book: {error}"))?;
+    Ok(status(&font_dir, true))
+}
+
+#[cfg(not(target_os = "macos"))]
+#[tauri::command]
+pub fn install_presentation_fonts() -> Result<PresentationFontsStatus, String> {
+    Err("Presentation font installation is supported only on macOS".to_string())
 }
 
 #[cfg(all(test, target_os = "macos"))]
