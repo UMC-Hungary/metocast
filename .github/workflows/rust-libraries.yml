@@ -139,7 +139,7 @@ jobs:
       - name: Check the MCP stdio bridge needs no developer tools
         run: |
           helper=target/apple-app-derived/Build/Products/Debug/Metocast.app/Contents/MacOS/metocast-server
-          outside=$(otool -L "$helper" | tail -n +2 | awk '{print $1}' | grep -Ev '^(/usr/lib/|/System/Library/)' || true)
+          outside=$(otool -L "$helper" | awk 'NR > 1 && $1 !~ /^\/(usr\/lib|System\/Library)\// { print $1 }')
           if [ -n "$outside" ]; then
             echo "::error::metocast-server links outside the system: $outside"
             exit 1

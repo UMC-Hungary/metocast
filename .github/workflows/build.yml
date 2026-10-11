@@ -64,7 +64,7 @@ jobs:
           corepack prepare pnpm@9 --activate
 
       - name: Get pnpm store directory
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_ENV
 
       - name: Cache pnpm dependencies
         uses: actions/cache@v5
@@ -185,7 +185,7 @@ jobs:
       - name: Get pnpm store directory
         shell: bash
         run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_ENV
 
       # Cache pnpm dependencies
       - name: Cache pnpm dependencies
@@ -327,7 +327,7 @@ jobs:
           corepack prepare pnpm@9 --activate
 
       - name: Get pnpm store directory
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_ENV
 
       - name: Cache pnpm dependencies
         uses: actions/cache@v5
@@ -457,7 +457,7 @@ jobs:
           corepack prepare pnpm@9 --activate
 
       - name: Get pnpm store directory
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_ENV
 
       - name: Cache pnpm dependencies
         uses: actions/cache@v5
@@ -493,7 +493,7 @@ jobs:
           echo "$ANDROID_SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
 
           "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --version
-          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses < <(yes)
           "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
             "platform-tools" \
             "platforms;android-35" \
@@ -574,7 +574,7 @@ jobs:
           path: |
             src-tauri/gen/android/app/build/outputs/apk/**/*.apk
             src-tauri/gen/android/app/build/outputs/bundle/**/*.aab
-          if-no-files-found: warn
+          if-no-files-found: error
 
   # ──────────────────────────────────────────────
   # Presenter Receiver — standalone CLI binary
@@ -611,7 +611,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           for pkg in cairo pango harfbuzz pkg-config; do
-            brew list "$pkg" >/dev/null 2>&1 || brew install "$pkg"
+            brew list --versions "$pkg" || brew install "$pkg"
           done
 
       - name: Get Homebrew library versions for cache key
@@ -652,6 +652,7 @@ jobs:
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.artifact }}
+          if-no-files-found: error
 
   # ──────────────────────────────────────────────
   # Companion Plugin — Bitfocus Companion module
@@ -678,7 +679,7 @@ jobs:
           corepack prepare pnpm@9 --activate
 
       - name: Get pnpm store directory
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_ENV
 
       - name: Cache pnpm dependencies
         uses: actions/cache@v5
@@ -715,6 +716,7 @@ jobs:
         with:
           name: companion-plugin
           path: companion-module-metocast-*.tar.gz
+          if-no-files-found: error
 
   # ──────────────────────────────────────────────
   # Release (version tags only)
@@ -748,6 +750,7 @@ jobs:
           # Read signatures
           WINDOWS_SIG=""
           MACOS_ARM_SIG=""
+          MACOS_ARM_APP=""
           LINUX_APPIMAGE_SIG=""
           LINUX_DEB_SIG=""
           WINDOWS_ASSET=""
@@ -790,7 +793,10 @@ jobs:
           fi
 
           # Get actual filenames
-          MACOS_ARM_APP=$(basename artifacts/macOS-ARM64/macos/*_aarch64.app.tar.gz 2>/dev/null | head -1 || echo "")
+          MACOS_ARM_FILES=(artifacts/macOS-ARM64/macos/*_aarch64.app.tar.gz)
+          if [ ${#MACOS_ARM_FILES[@]} -gt 0 ]; then
+            MACOS_ARM_APP=$(basename "${MACOS_ARM_FILES[0]}")
+          fi
 
           MISSING=()
           [ -n "${WINDOWS_SIG}" ] && [ -n "${WINDOWS_ASSET}" ] || MISSING+=("Windows NSIS updater artifact")

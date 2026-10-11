@@ -37,7 +37,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           for pkg in cairo pango harfbuzz pkg-config; do
-            brew list "$pkg" &>/dev/null || brew install "$pkg"
+            brew list --versions "$pkg" || brew install "$pkg"
           done
 
       - name: Install Linux dependencies (Cairo + Pango via apt)
@@ -78,6 +78,7 @@ jobs:
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.artifact }}
+          if-no-files-found: error
 
   release:
     needs: build

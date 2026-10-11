@@ -11,6 +11,9 @@ set -euo pipefail
 if ! git diff --cached --name-only --diff-filter=AM | grep -qE '^docs/images/.*\.png$'; then
   exit 0
 fi
-command -v swift >/dev/null 2>&1 || exit 0
+if [ -z "$(command -v swift)" ]; then
+  echo "pre-commit: swift not found, the screenshot check is skipped here (CI runs it)" >&2
+  exit 0
+fi
 exec swift "$(git rev-parse --show-toplevel)/scripts/check-screenshots.swift" \
   "$(git rev-parse --show-toplevel)/docs/images"

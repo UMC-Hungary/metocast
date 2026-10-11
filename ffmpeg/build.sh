@@ -29,16 +29,16 @@ if [ "$(shasum -a 256 "$tarball" | cut -d ' ' -f 1)" != "$sha256" ]; then
   echo "error: ffmpeg-$version.tar.xz does not match its pinned SHA-256" >&2
   exit 1
 fi
-if command -v gpg >/dev/null; then
+if [ -n "$(command -v gpg)" ]; then
   keyring="$(mktemp -d)"
   trap 'rm -rf "$keyring"' EXIT
   curl -fsSL "https://ffmpeg.org/releases/ffmpeg-$version.tar.xz.asc" -o "$keyring/source.asc"
-  curl -fsSL "https://ffmpeg.org/ffmpeg-devel.asc" | GNUPGHOME="$keyring" gpg --quiet --import
-  GNUPGHOME="$keyring" gpg --status-fd 1 --verify "$keyring/source.asc" "$tarball" 2>/dev/null \
-    | grep -q "VALIDSIG $signing_key" || {
+  curl -fsSL "https://ffmpeg.org/ffmpeg-devel.asc" | GNUPGHOME="$keyring" gpg --import
+  if ! status=$(GNUPGHOME="$keyring" gpg --status-fd 1 --verify "$keyring/source.asc" "$tarball") \
+    || ! grep -q "VALIDSIG $signing_key" <<<"$status"; then
     echo "error: ffmpeg-$version.tar.xz is not signed by FFmpeg's release key" >&2
     exit 1
-  }
+  fi
 fi
 
 # LGPL only: no --enable-gpl, no --enable-nonfree, and no outside libraries. Metocast needs

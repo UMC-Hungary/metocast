@@ -52,10 +52,10 @@ case "${OS}-${ARCH}" in
 esac
 
 # ── Install Linux system dependencies ────────────────────────────────────────
-if [ "$OS" = "Linux" ] && command -v apt-get &>/dev/null; then
+if [ "$OS" = "Linux" ] && [ -n "$(command -v apt-get)" ]; then
     MISSING=""
     for lib in libcairo2 libcairo-gobject2 libpango-1.0-0 libpangocairo-1.0-0 libpangoft2-1.0-0 libglib2.0-0; do
-        if ! dpkg -s "$lib" &>/dev/null 2>&1; then
+        if [ "$(dpkg-query -W -f='${db:Status-Status}' "$lib")" != installed ]; then
             MISSING="$MISSING $lib"
         fi
     done
@@ -72,9 +72,9 @@ echo "==> Downloading from GitHub Releases (${RELEASE_TAG})..."
 TMP="$(mktemp)"
 trap 'rm -f "$TMP"' EXIT
 
-if command -v curl &>/dev/null; then
+if [ -n "$(command -v curl)" ]; then
     curl -fsSL "$BASE_URL/$BINARY" -o "$TMP"
-elif command -v wget &>/dev/null; then
+elif [ -n "$(command -v wget)" ]; then
     wget -qO "$TMP" "$BASE_URL/$BINARY"
 else
     echo "Error: curl or wget is required"
@@ -85,7 +85,7 @@ fi
 chmod +x "$TMP"
 
 # Always try sudo install to /usr/local/bin so the service path is stable
-if sudo mv "$TMP" "$DEST" 2>/dev/null; then
+if sudo mv "$TMP" "$DEST"; then
     echo "==> Installed to $DEST"
 elif [ -w "$(dirname "$DEST")" ]; then
     mv "$TMP" "$DEST"
@@ -100,7 +100,7 @@ else
 fi
 
 # ── Auto-start via console auto-login (Linux only, opt-in via --service) ──────
-if [ "$INSTALL_SERVICE" = "true" ] && [ "$OS" = "Linux" ] && command -v systemctl &>/dev/null; then
+if [ "$INSTALL_SERVICE" = "true" ] && [ "$OS" = "Linux" ] && [ -n "$(command -v systemctl)" ]; then
     if [ -z "$WS_URL" ]; then
         echo "Error: --service requires a WebSocket URL (e.g. ws://192.168.1.10:3737/ws)"
         exit 1
@@ -113,7 +113,9 @@ if [ "$INSTALL_SERVICE" = "true" ] && [ "$OS" = "Linux" ] && command -v systemct
     # Remove old background service if present (migration)
     if [ -f /etc/systemd/system/presenter-receiver.service ]; then
         echo "==> Removing old background service..."
-        sudo systemctl disable --now presenter-receiver 2>/dev/null || true
+        if ! sudo systemctl disable --now presenter-receiver; then
+            echo "warning: could not disable the old presenter-receiver service, continuing" >&2
+        fi
         sudo rm -f /etc/systemd/system/presenter-receiver.service
     fi
 
@@ -121,7 +123,7 @@ if [ "$INSTALL_SERVICE" = "true" ] && [ "$OS" = "Linux" ] && command -v systemct
     echo "==> Configuring console auto-login for '$SERVICE_USER'..."
     AUTOLOGIN_DIR="/etc/systemd/system/getty@tty1.service.d"
     sudo mkdir -p "$AUTOLOGIN_DIR"
-    sudo tee "$AUTOLOGIN_DIR/autologin.conf" > /dev/null <<EOF
+    sudo tee "$AUTOLOGIN_DIR/autologin.conf" <<EOF
 [Service]
 ExecStart=
 ExecStart=-/sbin/agetty --autologin $SERVICE_USER --noclear %I \$TERM
@@ -129,7 +131,7 @@ EOF
 
     # Create .bash_profile if it doesn't exist (source .profile/.bashrc for compatibility)
     if [ ! -f "$PROFILE" ]; then
-        sudo tee "$PROFILE" > /dev/null <<'EOF'
+        sudo tee "$PROFILE" <<'EOF'
 # .bash_profile
 [ -f ~/.profile ] && . ~/.profile
 [ -f ~/.bashrc ]  && . ~/.bashrc
@@ -139,7 +141,7 @@ EOF
 
     # Remove any existing auto-start block (idempotent re-installs)
     MARKER="# presenter-receiver auto-start"
-    if grep -q "$MARKER" "$PROFILE" 2>/dev/null; then
+    if sudo test -f "$PROFILE" && sudo grep -q "$MARKER" "$PROFILE"; then
         sudo sed -i "/$MARKER/,/# end presenter-receiver/d" "$PROFILE"
     fi
 
@@ -148,8 +150,8 @@ EOF
     SYSCTL_FILE="/etc/sysctl.d/99-presenter-console.conf"
     if [ ! -f "$SYSCTL_FILE" ]; then
         echo "==> Suppressing kernel console messages..."
-        echo 'kernel.printk = 1 4 1 3' | sudo tee "$SYSCTL_FILE" > /dev/null
-        sudo sysctl -p "$SYSCTL_FILE" > /dev/null
+        echo 'kernel.printk = 1 4 1 3' | sudo tee "$SYSCTL_FILE"
+        sudo sysctl -p "$SYSCTL_FILE"
     fi
 
     # Ensure log directory exists
@@ -159,7 +161,7 @@ EOF
     LOG_FILE="$LOG_DIR/presenter-receiver.log"
 
     # Append the auto-start block
-    sudo tee -a "$PROFILE" > /dev/null <<BASHEOF
+    sudo tee -a "$PROFILE" <<BASHEOF
 
 $MARKER
 if [ "\$(tty)" = "/dev/tty1" ]; then
