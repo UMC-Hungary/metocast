@@ -306,18 +306,6 @@ export async function watchHostTheme(
   return theme === 'dark' ? 'dark' : 'light';
 }
 
-/**
- * Applies the host window's translucent material when the platform supports it.
- * Returns whether it was applied, so the UI can pick a solid background instead.
- */
-export async function enableWindowGlass(): Promise<boolean> {
-  if (!isHost()) return false;
-  const { isGlassSupported, setLiquidGlassEffect } = await import('tauri-plugin-liquid-glass-api');
-  if (!(await isGlassSupported())) return false;
-  await setLiquidGlassEffect({});
-  return true;
-}
-
 // ── Native navigation ─────────────────────────────────────────────────────────
 
 /** One destination in the host's own navigation surface. */

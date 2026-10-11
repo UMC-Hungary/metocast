@@ -20,18 +20,15 @@ body {
 /* ── CSS Variables — Light mode (default) ── */
 :root {
   --sidebar-width: 220px;
-  --titlebar-height: 52px; /* space for traffic lights */
 
-  /* Glass surfaces */
-  --glass-sidebar-bg: rgba(246, 246, 246, 0.72);
-  --glass-sidebar-blur: blur(40px) saturate(1.8);
-  --glass-card-bg: rgba(255, 255, 255, 0.6);
-  --glass-card-blur: blur(20px) saturate(1.6);
+  /* Surfaces (the window is opaque, so these are solid) */
+  --glass-sidebar-bg: rgb(246, 246, 246);
+  --glass-card-bg: rgb(255, 255, 255);
   --glass-border: rgba(0, 0, 0, 0.08);
   --glass-border-light: rgba(255, 255, 255, 0.7);
 
   /* Content background */
-  --content-bg: rgba(242, 242, 247, 0.85);
+  --content-bg: rgb(242, 242, 247);
 
   /* Text */
   --text-primary: #111827;
@@ -74,11 +71,11 @@ body {
 
 /* ── Dark mode ── */
 [data-theme='dark'] {
-  --glass-sidebar-bg: rgba(28, 28, 30, 0.72);
-  --glass-card-bg: rgba(44, 44, 46, 0.6);
+  --glass-sidebar-bg: rgb(28, 28, 30);
+  --glass-card-bg: rgb(44, 44, 46);
   --glass-border: rgba(255, 255, 255, 0.08);
   --glass-border-light: rgba(255, 255, 255, 0.12);
-  --content-bg: rgba(18, 18, 20, 0.85);
+  --content-bg: rgb(18, 18, 20);
   --text-primary: #f2f2f7;
   --text-secondary: #aeaeb2;
   --text-tertiary: #636366;
@@ -101,44 +98,9 @@ body {
   --status-err-dot: #f87171;
 }
 
-/* ── Non-glass platforms (Windows / Linux) — 5% transparency ── */
-[data-glass='false'] {
-  --titlebar-height: 0px;
-  --glass-sidebar-bg: rgba(246, 246, 246, 0.95);
-  --glass-card-bg: rgba(255, 255, 255, 0.95);
-  --glass-sidebar-blur: none;
-  --glass-card-blur: none;
-  --content-bg: rgba(242, 242, 247, 0.95);
-  background: rgba(242, 242, 247, 0.95);
-}
-[data-glass='false'][data-theme='dark'] {
-  --glass-sidebar-bg: rgba(28, 28, 30, 0.95);
-  --glass-card-bg: rgba(44, 44, 46, 0.95);
-  --content-bg: rgba(18, 18, 20, 0.95);
-  background: rgba(18, 18, 20, 0.95);
-}
-
-/* ── Reduce transparency fallback ── */
-@media (prefers-reduced-transparency: reduce) {
-  :root {
-    --glass-sidebar-bg: rgb(246, 246, 246);
-    --glass-card-bg: rgb(255, 255, 255);
-    --glass-sidebar-blur: none;
-    --glass-card-blur: none;
-    --content-bg: rgb(242, 242, 247);
-  }
-  [data-theme='dark'] {
-    --glass-sidebar-bg: rgb(28, 28, 30);
-    --glass-card-bg: rgb(44, 44, 46);
-    --content-bg: rgb(18, 18, 20);
-  }
-}
-
-/* ── Utility: glass panel (cards, modals) ── */
+/* ── Utility: card surface (cards, modals) ── */
 .glass-card {
   background: var(--glass-card-bg);
-  backdrop-filter: var(--glass-card-blur);
-  -webkit-backdrop-filter: var(--glass-card-blur);
   border: 1px solid var(--glass-border);
   border-top-color: var(--glass-border-light);
   border-radius: 12px;

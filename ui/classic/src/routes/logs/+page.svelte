@@ -312,7 +312,7 @@
     gap: 1rem;
     max-width: 1000px;
     min-width: 0;
-    min-height: calc(100vh - var(--titlebar-height) - 3rem);
+    min-height: calc(100vh - 3rem);
   }
 
   .page-header {
@@ -436,7 +436,7 @@
   .log-surface {
     flex: 1;
     min-height: 420px;
-    max-height: calc(100vh - var(--titlebar-height) - 12rem);
+    max-height: calc(100vh - 12rem);
     overflow: auto;
     border: 1px solid var(--border);
     border-radius: 0.5rem;

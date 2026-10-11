@@ -52,7 +52,7 @@ The frontend is no longer at the repo root. Each rendering UI is a self-containe
 - `server/mcp.rs` - the MCP server at `POST /mcp`: tools are built from `WsCommand` (schemars) and a REST catalogue, and run through the real `/api` router and `handle_ws_command`; see [docs/mcp/README.md](docs/mcp/README.md) and [plans/PLAN-mcp-server.md](plans/PLAN-mcp-server.md)
 - `crates/metocast-mcp-bridge` - the stdio bridge for MCP clients that can only start a program (Claude Desktop), run as `metocast-server mcp-stdio` by a first-line dispatch in `bin/metocast-server.rs`. It is a dumb pipe to `POST /mcp` that keeps the session, re-initializes when the server forgets it, and turns failures into readable JSON-RPC errors; see [docs/mcp/BRIDGE.md](docs/mcp/BRIDGE.md) and [plans/PLAN-mcp-stdio-bridge.md](plans/PLAN-mcp-stdio-bridge.md)
 - `automations/` (in `crates/metocast-server/src/`) - connector automations: rules that fire when a Middle Control preset finishes moving or a RØDECaster channel goes live or silent, move a camera and start or stop recorders. Pure decisions are in `matching.rs`, the recorder calls shared with the WebSocket handlers in `recording_control.rs`; see [plans/PLAN-connector-automations.md](plans/PLAN-connector-automations.md)
-- Uses Tauri plugins: store, dialog, opener, liquid-glass. The Tauri store holds host-side settings only (mode, server URL/token, log paths); it is not the core's config store.
+- Uses Tauri plugins: store, dialog, opener. The Tauri store holds host-side settings only (mode, server URL/token, log paths); it is not the core's config store.
 
 **Key Integrations:**
 

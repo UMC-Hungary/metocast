@@ -6,7 +6,7 @@
   import { onMount } from 'svelte';
   import { page } from '$app/state';
   import { _ } from 'svelte-i18n';
-  import { enableWindowGlass, connectWs, getAppMode, onConnectLink } from '@metocast/core-client';
+  import { connectWs, getAppMode, onConnectLink } from '@metocast/core-client';
   import type { WsStatus, HostMode, ConnectLink } from '@metocast/core-client';
   import {
     ToastOverlay,
@@ -73,9 +73,6 @@
     if (isPresenter) return;
 
     initScheme();
-    enableWindowGlass()
-      .then(() => document.body.classList.add('glass'))
-      .catch(() => {});
 
     if (notificationPreview) {
       status = 'connected';
@@ -294,16 +291,6 @@
     inset: 0 0 auto 0;
     height: max(44px, env(safe-area-inset-top, 44px));
     z-index: 100;
-  }
-
-  /* The host webview is transparent, so a page shorter than the screen would let
-     the window show through below the content. */
-  :global(body) {
-    min-height: 100dvh;
-  }
-
-  :global(body.glass) {
-    background: color-mix(in srgb, var(--surface-outside) 82%, transparent);
   }
 
   /* A quiet indicator in the top-right, not a full-width bar. */
