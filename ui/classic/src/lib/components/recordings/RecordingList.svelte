@@ -111,7 +111,9 @@
               &middot; <span class="badge--uploaded">Uploaded</span>
             {/if}
             {#if rec.videoUrl}
-              &middot; <a href={rec.videoUrl} target="_blank" rel="noopener noreferrer">Watch</a>
+              &middot; <a href={rec.videoUrl} target="_blank" rel="external noopener noreferrer"
+                >Watch</a
+              >
             {/if}
             {#if getUploadBadge(rec)}
               {@const badge = getUploadBadge(rec)!}

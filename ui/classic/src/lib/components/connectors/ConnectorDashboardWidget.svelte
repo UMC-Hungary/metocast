@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import {
     obsConfig,
     obsState,
@@ -132,18 +133,14 @@
   }
 
   const blGrouped = $derived.by(() => {
-    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- local grouping inside a derived, never mutated after
-    const map = new Map<string, BroadlinkCommand[]>();
+    const groups: Partial<Record<string, BroadlinkCommand[]>> = {};
     for (const cmd of blCommands) {
-      const cat = cmd.category || 'other';
-      if (!map.has(cat)) map.set(cat, []);
-      map.get(cat)!.push(cmd);
+      (groups[cmd.category || 'other'] ??= []).push(cmd);
     }
-    return CATEGORY_ORDER.filter((cat) => map.has(cat)).map((cat) => ({
-      category: cat,
-      label: CATEGORY_LABELS[cat] ?? cat,
-      cmds: map.get(cat)!,
-    }));
+    return CATEGORY_ORDER.flatMap((cat) => {
+      const cmds = groups[cat];
+      return cmds ? [{ category: cat, label: CATEGORY_LABELS[cat] ?? cat, cmds }] : [];
+    });
   });
 </script>
 
@@ -194,9 +191,9 @@
       {#if blLoading}
         <p class="bl-hint">Loading…</p>
       {:else if blCommands.length === 0 && blDevices.length === 0}
-        <p class="bl-hint">No devices. <a href="/settings">Add one →</a></p>
+        <p class="bl-hint">No devices. <a href={resolve('/settings')}>Add one →</a></p>
       {:else if blCommands.length === 0}
-        <p class="bl-hint">No commands. <a href="/rf-ir">Add one →</a></p>
+        <p class="bl-hint">No commands. <a href={resolve('/rf-ir')}>Add one →</a></p>
       {:else}
         <div class="bl-categories">
           {#each blGrouped as group (group.category)}
@@ -224,7 +221,7 @@
         <p class="bl-error" role="alert">{blSendError}</p>
       {/if}
 
-      <a href="/rf-ir" class="bl-manage-link">Manage →</a>
+      <a href={resolve('/rf-ir')} class="bl-manage-link">Manage →</a>
     {/if}
   </div>
 {/if}

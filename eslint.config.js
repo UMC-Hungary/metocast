@@ -34,8 +34,6 @@ export default tseslint.config(
 
   // Svelte files — recommended rules
   ...svelte.configs['flat/recommended'],
-  // Disable rules that incorrectly flag plain <a href> and goto() navigation
-  { rules: { 'svelte/no-navigation-without-resolve': 'off' } },
 
   // Svelte files (incl. Svelte 5 rune modules `.svelte.ts`/`.svelte.js`) — TS parser
   {

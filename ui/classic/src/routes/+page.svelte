@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import { appMode } from '$lib/stores/mode.js';
   import { serverUrl, authToken, localNetworkUrl } from '$lib/stores/server-url.js';
   import { wsStatus } from '$lib/stores/ws.js';
@@ -47,11 +48,11 @@
 <section class="quick-links">
   <h2>Quick Links</h2>
   <ul>
-    <li><a href="/events">View all events</a></li>
-    <li><a href="/events/new">Create new event</a></li>
-    <li><a href="/connect">Connection info &amp; token</a></li>
-    <li><a href="/logs">Application logs</a></li>
-    <li><a href="/settings">Connector settings</a></li>
+    <li><a href={resolve('/events')}>View all events</a></li>
+    <li><a href={resolve('/events/new')}>Create new event</a></li>
+    <li><a href={resolve('/connect')}>Connection info &amp; token</a></li>
+    <li><a href={resolve('/logs')}>Application logs</a></li>
+    <li><a href={resolve('/settings')}>Connector settings</a></li>
   </ul>
 </section>
 
@@ -59,7 +60,7 @@
   <section class="token-preview">
     <h2>Auth Token</h2>
     <p>Use this token in the <code>Authorization: Bearer &lt;token&gt;</code> header.</p>
-    <a href="/connect">Manage token &rarr;</a>
+    <a href={resolve('/connect')}>Manage token &rarr;</a>
   </section>
 {/if}
 

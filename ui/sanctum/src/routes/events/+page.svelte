@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import { onMount } from 'svelte';
   import { _, locale } from 'svelte-i18n';
   import {
@@ -124,7 +125,7 @@
 >
   {#snippet trailing()}
     <NotifBell />
-    <IconButton icon="plus" label={$_('events.new')} onclick={() => goto('/events/new')} />
+    <IconButton icon="plus" label={$_('events.new')} onclick={() => goto(resolve('/events/new'))} />
   {/snippet}
 </PageHeader>
 
@@ -211,7 +212,10 @@
               <Badge tone="ok">{$_('events.status.scheduled')}</Badge>
             {/if}
           </p>
-          <Button variant="primary" compact onclick={() => goto(`/events/${featured.id}`)}
+          <Button
+            variant="primary"
+            compact
+            onclick={() => goto(resolve('/events/[id]', { id: featured.id }))}
             >{$_('events.open')}</Button
           >
         </div>

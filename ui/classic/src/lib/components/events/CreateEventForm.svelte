@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import { createEvent, updateEvent } from '@metocast/core-client';
   import type { Event } from '@metocast/core-client/schemas/event';
+  import { nextSundayAt } from '@metocast/core-client/utils/next-sunday';
   import { _ } from 'svelte-i18n';
   import { get } from 'svelte/store';
   import { bibleApi } from '@metocast/core-client/utils/bible-api';
@@ -30,19 +32,13 @@
     return new Date(d.getTime() - offset).toISOString().slice(0, 16);
   }
 
-  function nextSundayAt(hour: number): string {
-    const now = new Date();
-    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- plain date arithmetic, result is a string
-    const sunday = new Date(now);
-    sunday.setHours(hour, 0, 0, 0);
-    while (sunday.getDay() !== 0 || sunday <= now) sunday.setDate(sunday.getDate() + 1);
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    return `${sunday.getFullYear()}-${pad(sunday.getMonth() + 1)}-${pad(sunday.getDate())}T${pad(hour)}:00`;
+  function nextServiceValue(): string {
+    return toDatetimeLocalValue(nextSundayAt(10).toISOString());
   }
 
   // Basic fields
   let title = $state('');
-  let dateTime = $state(nextSundayAt(10));
+  let dateTime = $state(nextServiceValue());
   let speaker = $state('');
   let description = $state('');
   let youtubePrivacyStatus = $state<'public' | 'unlisted' | 'private'>('private');
@@ -75,7 +71,7 @@
   // Initialize form fields from prop before first render
   $effect.pre(() => {
     title = initialEvent?.title ?? get(_)('events.form.defaultTitle');
-    dateTime = initialEvent ? toDatetimeLocalValue(initialEvent.dateTime) : nextSundayAt(10);
+    dateTime = initialEvent ? toDatetimeLocalValue(initialEvent.dateTime) : nextServiceValue();
     speaker = initialEvent?.speaker ?? '';
     description = initialEvent?.description ?? '';
     const textusRef = initialEvent?.bibleReferences?.find((r) => r.type === 'textus');
@@ -502,7 +498,9 @@
   </div>
 
   <div class="form__actions">
-    <a href={isEdit ? `/events/${initialEvent?.id}` : '/events'} class="btn-cancel">Cancel</a>
+    <a href={resolve(initialEvent ? `/events/${initialEvent.id}` : '/events')} class="btn-cancel"
+      >Cancel</a
+    >
     <button type="submit" disabled={submitting}>
       {#if submitting}
         {isEdit ? 'Saving…' : 'Creating…'}

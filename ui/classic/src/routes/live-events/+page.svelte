@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import { openExternal } from '@metocast/core-client';
   import { youtubeStatus } from '$lib/stores/connectors.js';
   import { fetchYouTubeContent, type ChannelVideoItem } from '@metocast/core-client';
@@ -146,7 +147,7 @@
         </svg>
         <p class="not-connected-title">{$_('liveEvents.notConnected')}</p>
         <p class="not-connected-desc">{$_('liveEvents.connectFirst')}</p>
-        <a href="/settings" class="settings-link">Go to Settings</a>
+        <a href={resolve('/settings')} class="settings-link">Go to Settings</a>
       </div>
     {:else}
       <!-- Content tabs (Videos | Live) -->
@@ -201,7 +202,7 @@
             <p class="error-detail">{error}</p>
           {/if}
           {#if isAuthError}
-            <a href="/settings" class="pill-btn">{$_('liveEvents.reLogin')}</a>
+            <a href={resolve('/settings')} class="pill-btn">{$_('liveEvents.reLogin')}</a>
           {:else}
             <button class="pill-btn" onclick={retry}>{$_('liveEvents.retry')}</button>
           {/if}

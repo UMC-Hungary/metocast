@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import { resolve } from '$app/paths';
   import { page } from '$app/stores';
   import { _ } from 'svelte-i18n';
   import { Icon, Lockup } from '@metocast/design-system';
@@ -56,7 +57,7 @@
       activeIndex,
       (index) => {
         const tab = tabs[index];
-        if (tab) goto(tab.href);
+        if (tab) goto(resolve(tab.href));
       },
     );
     native = placement !== null;
@@ -73,7 +74,7 @@
     <div class="brand"><Lockup name="Metocast" /></div>
     {#each tabs as tab (tab.href)}
       <a
-        href={tab.href}
+        href={resolve(tab.href)}
         class:active={tab.active(path)}
         aria-current={tab.active(path) ? 'page' : undefined}
       >

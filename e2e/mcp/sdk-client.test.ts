@@ -76,7 +76,8 @@ describe.skipIf(!isLive)('MCP server with the official SDK client', () => {
     const feature = await client.readResource({
       uri: 'metocast://docs/features/connector-automations.md',
     });
-    expect(String(feature.contents[0]?.text)).toContain('Connector automations');
+    const doc = feature.contents[0];
+    expect(doc && 'text' in doc ? doc.text : '').toContain('Connector automations');
 
     const { resourceTemplates } = await client.listResourceTemplates();
     expect(resourceTemplates.map((t) => t.uriTemplate)).toContain('metocast://state/events/{id}');

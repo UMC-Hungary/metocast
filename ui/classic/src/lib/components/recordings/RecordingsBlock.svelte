@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import { listAllRecordings } from '@metocast/core-client';
   import { lastWsMessage } from '$lib/stores/ws.js';
   import { uploadProgress } from '$lib/stores/uploads.js';
@@ -107,7 +108,9 @@
             <div class="item__info">
               <span class="item__name">{rec.customTitle ?? rec.fileName}</span>
               <span class="item__meta">
-                <a href="/events/{rec.eventId}" class="event-link">{rec.eventTitle}</a>
+                <a href={resolve('/events/[id]', { id: rec.eventId })} class="event-link"
+                  >{rec.eventTitle}</a
+                >
                 {#if rec.fileSize > 0}
                   &nbsp;·&nbsp;{formatSize(rec.fileSize)}
                 {/if}
@@ -127,7 +130,7 @@
                   <a
                     href={rec.videoUrl}
                     target="_blank"
-                    rel="noopener noreferrer"
+                    rel="external noopener noreferrer"
                     class="badge badge--ok">Watch</a
                   >
                 {:else}

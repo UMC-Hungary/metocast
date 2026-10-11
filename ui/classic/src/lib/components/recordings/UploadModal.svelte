@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
+  import { SvelteSet } from 'svelte/reactivity';
   import { flagRecordingsForUpload } from '@metocast/core-client';
   import { triggerUploadCycle } from '@metocast/core-client';
   import type { Recording } from '@metocast/core-client/schemas/recording';
@@ -18,10 +19,10 @@
   const ytConnected = $derived($youtubeStatus === 'connected');
   const fbConnected = $derived($facebookStatus === 'connected');
 
-  let selectedIds = $state<Set<string>>(
+  const selectedIds = new SvelteSet<string>(
     untrack(() => {
       const firstId = recordings.length === 1 ? recordings[0]?.id : undefined;
-      return firstId ? new Set([firstId]) : new Set();
+      return firstId ? [firstId] : [];
     }),
   );
   let customTitles = $state<Record<string, string>>(
@@ -54,14 +55,11 @@
   let error = $state('');
 
   function toggleSelection(id: string) {
-    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- copy-then-assign; reactivity comes from the $state assignment
-    const next = new Set(selectedIds);
-    if (next.has(id)) {
-      next.delete(id);
+    if (selectedIds.has(id)) {
+      selectedIds.delete(id);
     } else {
-      next.add(id);
+      selectedIds.add(id);
     }
-    selectedIds = next;
   }
 
   async function startUpload() {

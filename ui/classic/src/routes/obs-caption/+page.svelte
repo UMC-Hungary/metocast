@@ -37,17 +37,14 @@
   const baseUrl = $derived($localNetworkUrl || $serverUrl);
 
   const captionUrl = $derived(() => {
-    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- builds a query string inside a derived, never mutated after
-    const params = new URLSearchParams();
-    params.set('type', settings.type);
-    params.set('resolution', settings.resolution);
-    if (settings.title) params.set('title', settings.title);
-    if (settings.boldText) params.set('bold', settings.boldText);
-    if (settings.lightText) params.set('light', settings.lightText);
-    params.set('color', settings.color);
-    params.set('showLogo', settings.showLogo && settings.svgLogo ? 'true' : 'false');
-    if (settings.logoAlt) params.set('alt', settings.logoAlt);
-    return `${baseUrl}/caption?${params.toString()}`;
+    const query: Record<string, string> = { type: settings.type, resolution: settings.resolution };
+    if (settings.title) query['title'] = settings.title;
+    if (settings.boldText) query['bold'] = settings.boldText;
+    if (settings.lightText) query['light'] = settings.lightText;
+    query['color'] = settings.color;
+    query['showLogo'] = settings.showLogo && settings.svgLogo ? 'true' : 'false';
+    if (settings.logoAlt) query['alt'] = settings.logoAlt;
+    return `${baseUrl}/caption?${new URLSearchParams(query).toString()}`;
   });
 
   async function handleSave() {

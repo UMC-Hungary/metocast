@@ -38,8 +38,10 @@
   import type { Event, BibleVerse, EventConnection } from '@metocast/core-client/schemas/event';
   import type { Job } from '@metocast/core-client/schemas/queue';
   import type { Recording } from '@metocast/core-client/schemas/recording';
+  import { nextSundayAt } from '@metocast/core-client/utils/next-sunday';
   import { live } from '$lib/live.svelte';
   import { goto } from '$app/navigation';
+  import { resolve } from '$app/paths';
   import { notify } from '$lib/notifications.svelte';
   import { dateLong, toDateInput, toTimeInput, fromDateTimeInput } from '$lib/format';
   import NotifBell from '$lib/NotifBell.svelte';
@@ -203,22 +205,13 @@
     },
   ]);
 
-  function nextService(): Date {
-    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- plain date arithmetic, not reactive state
-    const service = new Date();
-    service.setHours(10, 0, 0, 0);
-    const now = new Date();
-    while (service.getDay() !== 0 || service <= now) service.setDate(service.getDate() + 1);
-    return service;
-  }
-
   onMount(async () => {
     listEvents()
       .then((events) => (pastSpeakers = events.map((e) => e.speaker.trim()).filter(Boolean)))
       .catch(() => {});
     template = (await getTitleTemplate().catch(() => null))?.template || DEFAULT_TITLE_TEMPLATE;
     if (!eventId) {
-      const service = nextService();
+      const service = nextSundayAt(10);
       title = get(_)('editor.defaultTitle');
       date = service.toLocaleDateString('en-CA');
       time = toTimeInput(service.toISOString());
@@ -426,7 +419,7 @@
     try {
       if (eventId) await updateEvent(eventId, payload);
       else await createEvent(payload);
-      goto('/events');
+      goto(resolve('/events'));
     } catch (e) {
       // Report and keep every entered value (task 7.2).
       notify({
@@ -639,7 +632,7 @@
     secondary={$_('editor.cancel')}
     primaryDisabled={!canSave}
     onprimary={save}
-    onsecondary={() => goto('/events')}
+    onsecondary={() => goto(resolve('/events'))}
     bottom="0"
   />
 {/if}

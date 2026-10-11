@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import '../app.css';
   import '$lib/configure-core-client';
   import { Toaster } from 'svelte-sonner';
@@ -56,26 +57,36 @@
         <div class="sidebar-traffic-spacer" data-tauri-drag-region></div>
       {/if}
       <nav class="sidebar-nav" data-tauri-drag-region>
-        <a href="/" class="nav-item" class:active={isActive('/')}>{$_('nav.dashboard')}</a>
-        <a href="/events" class="nav-item" class:active={isActive('/events')}>{$_('nav.events')}</a>
-        <a href="/live-events" class="nav-item" class:active={isActive('/live-events')}
+        <a href={resolve('/')} class="nav-item" class:active={isActive('/')}
+          >{$_('nav.dashboard')}</a
+        >
+        <a href={resolve('/events')} class="nav-item" class:active={isActive('/events')}
+          >{$_('nav.events')}</a
+        >
+        <a href={resolve('/live-events')} class="nav-item" class:active={isActive('/live-events')}
           >{$_('nav.liveEvents')}</a
         >
-        <a href="/presentations" class="nav-item" class:active={isActive('/presentations')}
-          >{$_('nav.presentations')}</a
+        <a
+          href={resolve('/presentations')}
+          class="nav-item"
+          class:active={isActive('/presentations')}>{$_('nav.presentations')}</a
         >
-        <a href="/obs-caption" class="nav-item" class:active={isActive('/obs-caption')}
+        <a href={resolve('/obs-caption')} class="nav-item" class:active={isActive('/obs-caption')}
           >{$_('nav.obsCaption')}</a
         >
-        <a href="/obs-devices" class="nav-item" class:active={isActive('/obs-devices')}
+        <a href={resolve('/obs-devices')} class="nav-item" class:active={isActive('/obs-devices')}
           >{$_('nav.obsDevices')}</a
         >
-        <a href="/connect" class="nav-item" class:active={isActive('/connect')}
+        <a href={resolve('/connect')} class="nav-item" class:active={isActive('/connect')}
           >{$_('nav.connect')}</a
         >
-        <a href="/queues" class="nav-item" class:active={isActive('/queues')}>{$_('nav.queues')}</a>
-        <a href="/logs" class="nav-item" class:active={isActive('/logs')}>{$_('nav.logs')}</a>
-        <a href="/settings" class="nav-item" class:active={isActive('/settings')}
+        <a href={resolve('/queues')} class="nav-item" class:active={isActive('/queues')}
+          >{$_('nav.queues')}</a
+        >
+        <a href={resolve('/logs')} class="nav-item" class:active={isActive('/logs')}
+          >{$_('nav.logs')}</a
+        >
+        <a href={resolve('/settings')} class="nav-item" class:active={isActive('/settings')}
           >{$_('nav.settings')}</a
         >
       </nav>

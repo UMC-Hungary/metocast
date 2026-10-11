@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import { onMount } from 'svelte';
   import { listEvents } from '@metocast/core-client';
   import { listUntrackedRecordings, deleteUntrackedRecording } from '@metocast/core-client';
@@ -42,7 +43,7 @@
 
 <div class="page-header">
   <h1>Events</h1>
-  <a href="/events/new" class="btn">+ New Event</a>
+  <a href={resolve('/events/new')} class="btn">+ New Event</a>
 </div>
 
 <EventList events={$events} loading={$eventsLoading} />

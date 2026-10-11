@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import type { EventSummary } from '@metocast/core-client/schemas/event';
 
   interface Props {
@@ -18,7 +19,11 @@
   }
 </script>
 
-<a class="card" class:card--completed={event.isCompleted} href="/events/{event.id}">
+<a
+  class="card"
+  class:card--completed={event.isCompleted}
+  href={resolve('/events/[id]', { id: event.id })}
+>
   <div class="card__header">
     <h3>{event.title}</h3>
     <div class="card__badges">

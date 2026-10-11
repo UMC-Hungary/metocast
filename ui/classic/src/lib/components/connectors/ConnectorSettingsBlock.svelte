@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import { openExternal } from '@metocast/core-client';
   import { _ } from 'svelte-i18n';
   import { toast } from 'svelte-sonner';
@@ -635,7 +636,9 @@
         </button>
       </div>
 
-      <a href="/obs-devices" class="device-monitor-link">{$_('obsDevices.manageDeviceMonitors')}</a>
+      <a href={resolve('/obs-devices')} class="device-monitor-link"
+        >{$_('obsDevices.manageDeviceMonitors')}</a
+      >
 
       <!-- ── VMix form ─────────────────────────────────────────────────────── -->
     {:else if connectorId === 'vmix'}
