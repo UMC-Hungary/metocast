@@ -844,7 +844,7 @@ mod tests {
         assert_eq!((progress.frame, progress.total_frames), (240, 41412));
         let audio = r#"{"type":"media.audio.progress","progress":{"jobId":"6f2c1f8e-9a3e-4a8b-9f6e-2d8a1b7c3e10",
             "state":"running","step":"clean","fraction":null,
-            "outputPath":"/Users/aron/Music/Metocast Audio/00015_Wireless_PRO.wav","error":null,"report":null}}"#;
+            "outputPath":"/Users/operator/Music/Metocast Audio/00015_Wireless_PRO.wav","error":null,"report":null}}"#;
         let ServerEvent::MediaAudioProgress { progress } = serde_json::from_str(audio).unwrap()
         else {
             panic!("expected media.audio.progress");
