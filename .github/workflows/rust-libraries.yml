@@ -9,8 +9,10 @@ on:
       - 'crates/**'
       - 'apple/**'
       - 'apple-app/**'
+      - 'braw-decode/**'
       - 'scripts/build-apple.sh'
       - 'scripts/embed-apple-server.sh'
+      - 'scripts/install-braw-sdk.sh'
       - 'scripts/check-screenshots.swift'
       - 'docs/images/**'
       - '.github/workflows/rust-libraries.yml'
@@ -24,8 +26,10 @@ on:
       - 'crates/**'
       - 'apple/**'
       - 'apple-app/**'
+      - 'braw-decode/**'
       - 'scripts/build-apple.sh'
       - 'scripts/embed-apple-server.sh'
+      - 'scripts/install-braw-sdk.sh'
       - 'scripts/check-screenshots.swift'
       - 'docs/images/**'
       - '.github/workflows/rust-libraries.yml'
@@ -126,12 +130,44 @@ jobs:
             -derivedDataPath target/apple-app-derived \
             CODE_SIGNING_ALLOWED=NO build
 
+      # braw-decode, which develops Blackmagic RAW clips, is compiled against the Blackmagic RAW
+      # SDK's headers. Blackmagic's licence keeps them out of this repository and their download
+      # sits behind a registration form, so a runner cannot fetch them from Blackmagic: the
+      # BRAW_SDK_URL secret names a copy we host ("The SDK on a build machine" in
+      # braw-decode/README.md). Without it this stops the build, rather than shipping a Mac app
+      # that cannot open a `.braw` file.
+      - name: Install the Blackmagic RAW SDK
+        env:
+          BRAW_SDK_URL: ${{ secrets.BRAW_SDK_URL }}
+          BRAW_SDK_TOKEN: ${{ secrets.BRAW_SDK_TOKEN }}
+        run: scripts/install-braw-sdk.sh target/braw-sdk
+
+      # BRAW_SDK arrives in the environment from the step above and is passed as a build setting
+      # as well, because Xcode exports build settings to a run script phase by definition.
       - name: Build for Mac
         run: |
           xcodebuild -project apple-app/Metocast.xcodeproj -scheme Metocast \
             -destination 'platform=macOS' \
             -derivedDataPath target/apple-app-derived \
+            BRAW_SDK="${BRAW_SDK:?the Blackmagic RAW SDK step did not set it}" \
             CODE_SIGNING_ALLOWED=NO build
+
+      # The build phase leaves braw-decode out when it cannot find the SDK, which is how builds
+      # here shipped a Mac app with no Blackmagic RAW support at all. The helper has to be in the
+      # app, and it has to link nothing but system libraries: it loads Blackmagic's framework at
+      # run time from the Mac it runs on, so a link to the SDK would break every other Mac.
+      - name: Check the Mac app ships braw-decode
+        run: |
+          helper=target/apple-app-derived/Build/Products/Debug/Metocast.app/Contents/MacOS/braw-decode
+          if [ ! -x "$helper" ]; then
+            echo "::error::the Mac app has no braw-decode; the build did not find the Blackmagic RAW SDK"
+            exit 1
+          fi
+          outside=$(otool -L "$helper" | awk 'NR > 1 && $1 !~ /^\/(usr\/lib|System\/Library)\// { print $1 }')
+          if [ -n "$outside" ]; then
+            echo "::error::braw-decode links outside the system: $outside"
+            exit 1
+          fi
 
       # The bridge for Claude Desktop is a subcommand of the helper the app ships. A person with
       # only Metocast and an AI app has no Python, Node or Homebrew, so it must start with

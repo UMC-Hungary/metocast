@@ -15,6 +15,11 @@ Drop the video, its audio recording, a transcript or a Resolve look on the Files
 look on the viewer's tiles, pick the event, and start the job. Settings are under **Connectors →
 Media Processing**; changes on the page apply to that job unless saved as the default.
 
+Blackmagic RAW also needs the free Blackmagic RAW install on that Mac, which holds the framework
+the app develops clips with. A job that stops with `this Mac is missing: braw-decode` means the
+opposite: the app itself was built without Blackmagic RAW support, which no install can repair —
+see [the SDK on a build machine](../../braw-decode/README.md#the-sdk-on-a-build-machine).
+
 ## Entry points
 
 | Does                                      | REST                                                                                     | MCP tool                         |

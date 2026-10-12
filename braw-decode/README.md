@@ -33,6 +33,43 @@ and the Video screen says so.
 At run time it loads `BlackmagicRawAPI.framework` from `--sdk DIR`, or else from
 `/Applications/Blackmagic RAW/Blackmagic RAW SDK/Mac/Libraries` or the Blackmagic RAW Player app.
 
+### The SDK on a build machine
+
+Only the headers are needed to build, because the framework is loaded at run time from the
+Blackmagic RAW install on the Mac that runs it. A Mac that works with Blackmagic RAW needs nothing
+further, but a GitHub Actions runner has no install, and the SDK cannot reach one by itself:
+Blackmagic's licence keeps it out of this repository, and their download sits behind a
+registration form. That is why builds here shipped a Mac app with no `braw-decode` in it at all,
+and why Blackmagic RAW clips failed on a downloaded app however the Mac itself was set up.
+
+[`scripts/install-braw-sdk.sh`](../scripts/install-braw-sdk.sh) resolves the SDK for a build and
+prints the folder to pass as `BRAW_SDK`: an install under `/Applications` first, then
+`BRAW_SDK_URL`, an archive it downloads (`.zip`, `.dmg`, `.pkg` or `.tar.gz`, and
+`BRAW_SDK_TOKEN`, when set, is sent as a bearer token). In GitHub Actions it also writes
+`BRAW_SDK` to `$GITHUB_ENV`, which the workflow's `Build for Mac` step hands to Xcode.
+
+Setting that up for this repository, once:
+
+1. On a Mac with Blackmagic RAW installed, zip the SDK's Mac folder:
+
+   ```bash
+   ditto -c -k --keepParent "/Applications/Blackmagic RAW/Blackmagic RAW SDK/Mac" braw-sdk.zip
+   ```
+
+   Only `Include` is read, so a zip of that folder alone works as well.
+
+2. Put the zip somewhere a build can download and other people cannot: a release asset in a
+   private repository, or a signed link from object storage. Not this repository, which is public
+   — Blackmagic's licence does not allow passing their SDK on.
+3. Add it under **Settings → Secrets and variables → Actions** as `BRAW_SDK_URL`, with
+   `BRAW_SDK_TOKEN` when the download needs an `Authorization: Bearer` header. A release asset in
+   a private GitHub repository needs one: use its API address,
+   `https://api.github.com/repos/<owner>/<repo>/releases/assets/<id>`, and a token that can read
+   that repository.
+
+Until the secret is there the Mac build stops, instead of leaving the helper out; and the
+`Check the Mac app ships braw-decode` step fails the build if the app comes out without it.
+
 ## Usage
 
 ```bash
