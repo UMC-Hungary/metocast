@@ -230,14 +230,16 @@ impl MetocastClient {
         let response: Response = self
             .send_json(
                 self.http
-                    .get(self.config.endpoint(&format!("auth/{platform}/url"))?),
+                    .get(self.config.endpoint(&format!("api/auth/{platform}/url"))?),
             )
             .await?;
         Ok(response.url)
     }
 
     pub async fn sign_out(&self, platform: &str) -> Result<(), ClientError> {
-        let url = self.config.endpoint(&format!("auth/{platform}/logout"))?;
+        let url = self
+            .config
+            .endpoint(&format!("api/auth/{platform}/logout"))?;
         self.response(self.http.post(url).bearer_auth(self.config.token.expose()))
             .await?;
         Ok(())
@@ -999,5 +1001,58 @@ mod tests {
     fn pong_uses_the_field_name_the_server_reads() {
         let pong: serde_json::Value = serde_json::from_str(&pong_message(42)).unwrap();
         assert_eq!(pong, serde_json::json!({"type": "pong", "ping_id": 42}));
+    }
+
+    /// Every path this client asks the server for, read from its own source. Crude, like the
+    /// server's own route scan: it takes the literal handed to each of the four calls that
+    /// accept a path. One handed a variable is reached through the caller that names the
+    /// literal.
+    fn requested_paths() -> Vec<String> {
+        // Spelled without the opening parenthesis the scan looks for, so this array is not
+        // itself a match.
+        const CALLS: [&str; 4] = ["endpoint", "get_json", "put_json", "delete"];
+        let source = include_str!("lib.rs");
+        let mut paths = Vec::new();
+        for name in CALLS {
+            let call = format!("{name}(");
+            for (index, _) in source.match_indices(&call) {
+                let rest = source[index + call.len()..].trim_start();
+                let rest = rest.strip_prefix("&format!(").unwrap_or(rest).trim_start();
+                let Some(rest) = rest.strip_prefix('"') else {
+                    continue;
+                };
+                if let Some(end) = rest.find('"') {
+                    paths.push(rest[..end].to_string());
+                }
+            }
+        }
+        paths
+    }
+
+    /// The server declares every route but a handful under `/api`. A path that forgets the
+    /// prefix reaches the fallback instead — a bare 404, or the served UI's own HTML with a
+    /// 200 — so the call fails for a reason that has nothing to do with what it asked for.
+    /// `auth/{platform}/url` did exactly that: signing in to YouTube reported the server as
+    /// unreachable while every other call on the screen worked.
+    #[test]
+    fn every_request_path_is_under_api_or_a_root_route() {
+        const ROOT: [&str; 2] = ["health", "ws"];
+        let paths = requested_paths();
+        assert!(paths.len() > 40, "path scan found only {}", paths.len());
+        let stray: Vec<&String> = paths
+            .iter()
+            .filter(|path| !path.starts_with("api/") && !ROOT.contains(&path.as_str()))
+            .collect();
+        assert!(stray.is_empty(), "paths outside /api: {stray:?}");
+        for expected in [
+            "api/auth/{platform}/url",
+            "api/auth/{platform}/logout",
+            "api/connectors/status",
+        ] {
+            assert!(
+                paths.iter().any(|path| path == expected),
+                "{expected} is no longer the path this client asks for"
+            );
+        }
     }
 }

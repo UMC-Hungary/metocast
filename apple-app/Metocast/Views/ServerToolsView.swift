@@ -564,6 +564,7 @@ private struct CaptionOverlayView: View {
 
 /// The core's own log, when the core has one.
 private struct CoreLogView: View {
+    @Environment(AppModel.self) private var model
     let session: MetocastSession
     @State private var log = ""
     @State private var failure: String?
@@ -590,8 +591,16 @@ private struct CoreLogView: View {
             log = try await session.applicationLog()
             failure = log.isEmpty ? "The log is empty." : nil
         } catch {
-            // A headless core has no log of its own; the Mac shows the helper's output instead.
-            failure = error.metocastMessage
+            // A headless core keeps no log of its own, and the refusal alone leaves the
+            // reader with nowhere to go, so name where the helper's output is kept.
+            failure = error.metocastMessage + "\n\n" + Self.whereTheLogIs(hosting: model.mode == .server)
         }
+    }
+
+    /// The helper prints to its output, which this Mac keeps when it is the one hosting.
+    private static func whereTheLogIs(hosting: Bool) -> String {
+        hosting
+            ? "This Mac runs the core as a helper, which keeps its output in Settings → Server Log."
+            : "The core runs on another machine. Its output is in the Server Log on the Mac hosting it."
     }
 }
