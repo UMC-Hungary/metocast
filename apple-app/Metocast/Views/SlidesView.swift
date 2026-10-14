@@ -414,6 +414,8 @@ extension Error {
         case .Server(let message): message
         case .Authentication: "The server rejected this device's token."
         case .Transport: "The server couldn't be reached."
+        case .Refused(let status): "The server refused this request (HTTP \(status))."
+        case .Contract: "The server's answer didn't match what this app expects."
         case .NotConnected: "Not connected to the server."
         case .InvalidInput: "Check what you entered and try again."
         default: "Something went wrong."

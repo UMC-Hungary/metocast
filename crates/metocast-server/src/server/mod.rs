@@ -978,8 +978,11 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
         .merge(keynote_routes)
         .route("/presenter/parse", post(presenter::parse_presentation))
         // OAuth routes are UI-initiated (generate a login URL, log out), so they
-        // sit inside the auth layer. Only the browser redirect target itself
-        // (`/callback`, on the fixed OAuth port below) is reachable unauthenticated.
+        // sit inside the auth layer. Merging them here also puts them under `/api`
+        // with everything else in this router: a client asks for
+        // `/api/auth/youtube/url`, not `/auth/youtube/url`. Only the browser redirect
+        // target itself (`/callback`, on the fixed OAuth port below) is reachable
+        // unauthenticated.
         .merge(oauth_routes)
         .route_layer(middleware::from_fn_with_state(
             state.clone(),

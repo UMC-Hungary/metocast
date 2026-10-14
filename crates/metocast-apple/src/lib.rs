@@ -58,6 +58,13 @@ pub enum AppleError {
     /// The server refused and said why, in its own words.
     #[error("{message}")]
     Server { message: String },
+    /// The server refused without saying why, so only its status code is left to report.
+    #[error("the server refused with HTTP {status}")]
+    Refused { status: u16 },
+    /// The server answered, but not with what the Metocast contract says it sends. Reporting
+    /// this as a transport failure sends whoever reads it looking at the network instead.
+    #[error("the answer did not match the Metocast contract")]
+    Contract,
     #[error("identifier is invalid")]
     InvalidIdentifier,
     #[error("event connection is not running")]
@@ -2039,6 +2046,8 @@ fn parse_id(id: &str) -> Result<uuid::Uuid, AppleError> {
     uuid::Uuid::parse_str(id).map_err(|_| AppleError::InvalidIdentifier)
 }
 
+/// Keeps the three ways a request can fail apart, because they send the reader to three
+/// different places: the network, the server's own refusal, and a contract mismatch.
 fn map_client_error(error: ClientError) -> AppleError {
     match error {
         ClientError::Authentication => AppleError::Authentication,
@@ -2047,9 +2056,11 @@ fn map_client_error(error: ClientError) -> AppleError {
             message: Some(message),
             ..
         } => AppleError::Server { message },
-        ClientError::Http { .. } | ClientError::Transport(_) | ClientError::Decode(_) => {
-            AppleError::Transport
-        }
+        ClientError::Http { status, .. } => AppleError::Refused {
+            status: status.as_u16(),
+        },
+        ClientError::Transport(_) => AppleError::Transport,
+        ClientError::Decode(_) => AppleError::Contract,
     }
 }
 
