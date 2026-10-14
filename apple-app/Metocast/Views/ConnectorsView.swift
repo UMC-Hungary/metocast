@@ -149,7 +149,7 @@ struct ConnectorFormView: View {
                         Task { await signIn() }
                     }
                     Button("Sign Out", role: .destructive) {
-                        Task { try? await session.signOut(connector) }
+                        Task { await signOut() }
                     }
                 } footer: {
                     Text("Sign-in opens a browser and finishes on the server.")
@@ -275,8 +275,23 @@ struct ConnectorFormView: View {
 
     private func signIn() async {
         do {
-            guard let url = try await session.authURL(connector) else { return }
+            guard let url = try await session.authURL(connector) else {
+                // The server answered with something that is not a URL, which no retry fixes.
+                failure = "The server did not send a usable sign-in address."
+                return
+            }
+            failure = nil
             openURL(url)
+        } catch {
+            failure = error.metocastMessage
+        }
+    }
+
+    /// Sign-out failures used to be dropped, so the button looked like it had worked.
+    private func signOut() async {
+        do {
+            try await session.signOut(connector)
+            failure = nil
         } catch {
             failure = error.metocastMessage
         }
