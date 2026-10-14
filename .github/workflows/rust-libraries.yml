@@ -33,6 +33,10 @@ on:
       - 'scripts/check-screenshots.swift'
       - 'docs/images/**'
       - '.github/workflows/rust-libraries.yml'
+  # A published release builds the app again and attaches it below. Tag pushes are not used:
+  # `paths` would also have to match, and a tag on an existing commit changes no files.
+  release:
+    types: [published]
   workflow_dispatch:
 
 env:
@@ -100,6 +104,8 @@ jobs:
     # Pinned, not `macos-latest`: an image roll must not change the SDK this app is built against.
     runs-on: macos-26
     needs: apple-libraries
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -144,10 +150,12 @@ jobs:
 
       # BRAW_SDK arrives in the environment from the step above and is passed as a build setting
       # as well, because Xcode exports build settings to a run script phase by definition.
+      # Release, not Debug: a Debug build ships Metocast.debug.dylib and __preview.dylib and
+      # skips optimisation. Every run builds what people install, so CI checks the real thing.
       - name: Build for Mac
         run: |
           xcodebuild -project apple-app/Metocast.xcodeproj -scheme Metocast \
-            -destination 'platform=macOS' \
+            -destination 'platform=macOS' -configuration Release \
             -derivedDataPath target/apple-app-derived \
             BRAW_SDK="${BRAW_SDK:?the Blackmagic RAW SDK step did not set it}" \
             CODE_SIGNING_ALLOWED=NO build
@@ -158,7 +166,7 @@ jobs:
       # run time from the Mac it runs on, so a link to the SDK would break every other Mac.
       - name: Check the Mac app ships braw-decode
         run: |
-          helper=target/apple-app-derived/Build/Products/Debug/Metocast.app/Contents/MacOS/braw-decode
+          helper=target/apple-app-derived/Build/Products/Release/Metocast.app/Contents/MacOS/braw-decode
           if [ ! -x "$helper" ]; then
             echo "::error::the Mac app has no braw-decode; the build did not find the Blackmagic RAW SDK"
             exit 1
@@ -174,7 +182,7 @@ jobs:
       # nothing, link only system libraries, and say plainly why it cannot reach Metocast.
       - name: Check the MCP stdio bridge needs no developer tools
         run: |
-          helper=target/apple-app-derived/Build/Products/Debug/Metocast.app/Contents/MacOS/metocast-server
+          helper=target/apple-app-derived/Build/Products/Release/Metocast.app/Contents/MacOS/metocast-server
           outside=$(otool -L "$helper" | awk 'NR > 1 && $1 !~ /^\/(usr\/lib|System\/Library)\// { print $1 }')
           if [ -n "$outside" ]; then
             echo "::error::metocast-server links outside the system: $outside"
@@ -191,12 +199,12 @@ jobs:
         run: |
           products=target/apple-app-derived/Build/Products
           mkdir -p target/apple-app-dist
-          for app in "$products/Debug-iphonesimulator/Metocast.app" "$products/Debug/Metocast.app"; do
+          for app in "$products/Debug-iphonesimulator/Metocast.app" "$products/Release/Metocast.app"; do
             codesign --force --deep --sign - "$app"
           done
           ditto -c -k --keepParent "$products/Debug-iphonesimulator/Metocast.app" \
             target/apple-app-dist/Metocast-iOS-Simulator.zip
-          ditto -c -k --keepParent "$products/Debug/Metocast.app" \
+          ditto -c -k --keepParent "$products/Release/Metocast.app" \
             target/apple-app-dist/Metocast-macOS.zip
 
       # `archive: false` uploads each zip as-is, so a download is the app's own zip
@@ -208,6 +216,15 @@ jobs:
           path: target/apple-app-dist/Metocast-macOS.zip
           archive: false
           if-no-files-found: error
+
+      # A release gets the Mac app as an asset: people install the build CI checked, instead of
+      # an Actions artifact that expires and needs a GitHub login to download.
+      - name: Attach the Mac app to the release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: target/apple-app-dist/Metocast-macOS.zip
 
       - name: Upload the iOS Simulator app
         id: ios-app
