@@ -12,7 +12,6 @@ on:
       - 'braw-decode/**'
       - 'scripts/build-apple.sh'
       - 'scripts/embed-apple-server.sh'
-      - 'scripts/install-braw-sdk.sh'
       - 'scripts/check-screenshots.swift'
       - 'docs/images/**'
       - '.github/workflows/rust-libraries.yml'
@@ -29,7 +28,6 @@ on:
       - 'braw-decode/**'
       - 'scripts/build-apple.sh'
       - 'scripts/embed-apple-server.sh'
-      - 'scripts/install-braw-sdk.sh'
       - 'scripts/check-screenshots.swift'
       - 'docs/images/**'
       - '.github/workflows/rust-libraries.yml'
@@ -136,20 +134,19 @@ jobs:
             -derivedDataPath target/apple-app-derived \
             CODE_SIGNING_ALLOWED=NO build
 
-      # braw-decode, which develops Blackmagic RAW clips, is compiled against the Blackmagic RAW
-      # SDK's headers. Blackmagic's licence keeps them out of this repository and their download
-      # sits behind a registration form, so a runner cannot fetch them from Blackmagic: the
-      # BRAW_SDK_URL secret names a copy we host ("The SDK on a build machine" in
-      # braw-decode/README.md). Without it this stops the build, rather than shipping a Mac app
-      # that cannot open a `.braw` file.
-      - name: Install the Blackmagic RAW SDK
-        env:
-          BRAW_SDK_URL: ${{ secrets.BRAW_SDK_URL }}
-          BRAW_SDK_TOKEN: ${{ secrets.BRAW_SDK_TOKEN }}
-        run: scripts/install-braw-sdk.sh target/braw-sdk
+      # braw-decode is compiled against the Blackmagic RAW SDK, which Blackmagic's licence keeps
+      # out of this repository and whose download sits behind a registration form, so no runner
+      # can have it. The app's build phase uses braw-decode/prebuilt instead, which only a Mac
+      # with the SDK can refresh — so fail here when its sources moved and it did not.
+      - name: Check the prebuilt braw-decode is current
+        run: |
+          want=$(cat braw-decode/src/braw_decode.mm braw-decode/build.sh | shasum -a 256 | awk '{print $1}')
+          have=$(cat braw-decode/prebuilt/sources.sha256)
+          if [ "$want" != "$have" ]; then
+            echo "::error::braw-decode sources changed but braw-decode/prebuilt did not; rebuild it on a Mac with the Blackmagic RAW SDK (braw-decode/README.md)"
+            exit 1
+          fi
 
-      # BRAW_SDK arrives in the environment from the step above and is passed as a build setting
-      # as well, because Xcode exports build settings to a run script phase by definition.
       # Release, not Debug: a Debug build ships Metocast.debug.dylib and __preview.dylib and
       # skips optimisation. Every run builds what people install, so CI checks the real thing.
       - name: Build for Mac
@@ -157,7 +154,6 @@ jobs:
           xcodebuild -project apple-app/Metocast.xcodeproj -scheme Metocast \
             -destination 'platform=macOS' -configuration Release \
             -derivedDataPath target/apple-app-derived \
-            BRAW_SDK="${BRAW_SDK:?the Blackmagic RAW SDK step did not set it}" \
             CODE_SIGNING_ALLOWED=NO build
 
       # The build phase leaves braw-decode out when it cannot find the SDK, which is how builds
