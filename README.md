@@ -168,14 +168,14 @@ Left: the clip without the look. Right: with Resolve Look and the recommended se
 To use it, open the clip on the Media page, tap the **LUT** tile and choose **Resolve Look**. These
 settings are a recommendation, a starting point to adjust by eye:
 
-| Tile       | Recommended                                                    |
-| ---------- | -------------------------------------------------------------- |
-| ISO        | 800, or the clip's lowest ISO with Exposure making up the rest |
-| WB         | 3800K                                                          |
-| Tint       | 21                                                             |
-| Exposure   | 0                                                              |
-| Gamut Comp | Off                                                            |
-| Highlights | Off                                                            |
+| Tile       | Recommended                              |
+| ---------- | ---------------------------------------- |
+| ISO        | 800 (if the clip doesn't offer it: 1250) |
+| WB         | 3800K                                    |
+| Tint       | 21                                       |
+| Exposure   | 0 at ISO 800, −0.6 at ISO 1250           |
+| Gamut Comp | Off                                      |
+| Highlights | Off                                      |
 
 White balance, ISO and exposure aren't part of the look: Blackmagic RAW keys them to each clip's
 own timecode, so a look made on one clip can't carry them. Choosing the look keeps the ones already
