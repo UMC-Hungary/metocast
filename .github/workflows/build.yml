@@ -721,8 +721,89 @@ jobs:
   # ──────────────────────────────────────────────
   # Release (version tags only)
   # ──────────────────────────────────────────────
+  # ──────────────────────────────────────────────
+  # The native Mac app (apple-app/), which embeds the server and braw-decode.
+  # Rust Libraries builds it on master, but a release cannot wait for that one:
+  # this release is published with GITHUB_TOKEN, and GitHub raises no workflow
+  # run from events a GITHUB_TOKEN caused, so nothing downstream would fire.
+  # It is built here, where the release is assembled.
+  # ──────────────────────────────────────────────
+  build-mac-app:
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    # Pinned, not `macos-latest`: an image roll must not change the SDK this app is built against.
+    runs-on: macos-26
+    name: Build (macOS app)
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.98.1
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,aarch64-apple-darwin
+
+      - name: Cache Rust dependencies
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+          shared-key: apple-libraries
+
+      - name: Build the bridge
+        run: ./scripts/build-apple.sh
+
+      # Only a Mac with the Blackmagic RAW SDK can refresh braw-decode/prebuilt, and no runner
+      # has the SDK, so fail here when its sources moved and the committed build did not.
+      - name: Check the prebuilt braw-decode is current
+        run: |
+          want=$(cat braw-decode/src/braw_decode.mm braw-decode/build.sh | shasum -a 256 | awk '{print $1}')
+          have=$(cat braw-decode/prebuilt/sources.sha256)
+          if [ "$want" != "$have" ]; then
+            echo "::error::braw-decode sources changed but braw-decode/prebuilt did not; rebuild it on a Mac with the Blackmagic RAW SDK (braw-decode/README.md)"
+            exit 1
+          fi
+
+      - name: Build for Mac
+        run: |
+          xcodebuild -project apple-app/Metocast.xcodeproj -scheme Metocast \
+            -destination 'platform=macOS' -configuration Release \
+            -derivedDataPath target/apple-app-derived \
+            CODE_SIGNING_ALLOWED=NO build
+
+      # An app with no braw-decode cannot open a .braw file at all, and nothing a person installs
+      # afterwards repairs that, so a release never ships without it.
+      - name: Check the Mac app ships braw-decode
+        run: |
+          helper=target/apple-app-derived/Build/Products/Release/Metocast.app/Contents/MacOS/braw-decode
+          if [ ! -x "$helper" ]; then
+            echo "::error::the Mac app has no braw-decode"
+            exit 1
+          fi
+          outside=$(otool -L "$helper" | awk 'NR > 1 && $1 !~ /^\/(usr\/lib|System\/Library)\// { print $1 }')
+          if [ -n "$outside" ]; then
+            echo "::error::braw-decode links outside the system: $outside"
+            exit 1
+          fi
+
+      # Ad-hoc signing seals the bundle so it opens once downloaded; ditto keeps file modes
+      # and symlinks that a plain zip would drop.
+      - name: Package the Mac app
+        run: |
+          app=target/apple-app-derived/Build/Products/Release/Metocast.app
+          mkdir -p target/apple-app-dist
+          codesign --force --deep --sign - "$app"
+          ditto -c -k --keepParent "$app" target/apple-app-dist/Metocast-macOS.zip
+
+      - name: Upload the Mac app
+        uses: actions/upload-artifact@v6
+        with:
+          name: macOS-app
+          path: target/apple-app-dist/Metocast-macOS.zip
+          if-no-files-found: error
+
   release:
-    needs: [build, build-receiver, build-companion]
+    needs: [build, build-receiver, build-companion, build-mac-app]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
@@ -916,6 +997,7 @@ jobs:
             artifacts/**/*.AppImage.sig
             artifacts/**/*.AppImage.tar.gz
             artifacts/**/*.AppImage.tar.gz.sig
+            artifacts/**/Metocast-macOS.zip
             artifacts/**/*.ipa
             artifacts/**/*.apk
             artifacts/**/*.aab
