@@ -320,7 +320,8 @@ private struct TileControl: View {
                 }
             }
             .buttonBorderShape(.capsule)
-            Button("Choose .cube…", action: chooseLUT)
+            // A Resolve .sidecar or a .cube from Generate LUT.
+            Button("Choose Look…", action: chooseLUT)
         case .highlightRecovery, .gamutCompression:
             EmptyView()
         }
