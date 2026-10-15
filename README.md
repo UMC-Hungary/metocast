@@ -154,6 +154,39 @@ value rows, and a black viewer with a bar of setting tiles.
 
 Changes made on the page apply to that job only, unless you save them as the default.
 
+### Resolve Look
+
+The app ships **Resolve Look**: the church's DaVinci Resolve grade for the Blackmagic Cinema
+Camera 6K, read from the Resolve project (`metodi.drp`). It sets the gamma to Blackmagic Design
+Extended Video and the gamut to Blackmagic Design, and carries the project's Primaries node (lift
+−0.12, gain 1.12, offset 33.60, shadows +8.5, highlights −9) as the sidecar's LUT. Rendered
+against the 13 and 20 September Resolve exports, it differs by about 3 out of 255, which is the
+video's own compression noise.
+
+<img src="docs/images/media/resolve-look.jpg" alt="The same 4 October frame: on the left without the look (Custom gamma with the camera LUT), on the right with Resolve Look" width="720">
+
+Left: the clip without the look. Right: with Resolve Look and the settings below.
+
+To use it, open the clip on the Media page, tap the **LUT** tile and choose **Resolve Look**, then
+set the other tiles:
+
+| Tile       | Clips shot at ISO 100–1000 (13 and 20 Sep) | Clips shot at ISO 1250 and up (4 Oct) |
+| ---------- | ------------------------------------------ | ------------------------------------- |
+| ISO        | 800                                        | 1250                                  |
+| WB         | 3800K                                      | 3800K                                 |
+| Tint       | 21                                         | 21                                    |
+| Exposure   | 0                                          | −0.6 (the same brightness as ISO 800) |
+| Gamut Comp | Off                                        | Off                                   |
+| Highlights | Off                                        | Off                                   |
+
+White balance, ISO and exposure aren't part of the look: Blackmagic RAW keys them to each clip's
+own timecode, so a look made on one clip can't carry them. Choosing the look keeps the ones already
+set. Press **Save Look as Default** once, and every later clip opens with the look and these
+settings; a saved ISO 800 becomes ISO 1250 with −0.64 exposure on clips that can't use 800.
+
+The file is `apple-app/Metocast/Looks/Resolve Look.sidecar`, copied into the app's Resources. A
+look saved with the same name in `~/Library/Application Support/Metocast/Looks` takes its place.
+
 ### Video
 
 How it works:
