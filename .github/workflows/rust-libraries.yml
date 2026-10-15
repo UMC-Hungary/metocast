@@ -31,10 +31,6 @@ on:
       - 'scripts/check-screenshots.swift'
       - 'docs/images/**'
       - '.github/workflows/rust-libraries.yml'
-  # A published release builds the app again and attaches it below. Tag pushes are not used:
-  # `paths` would also have to match, and a tag on an existing commit changes no files.
-  release:
-    types: [published]
   workflow_dispatch:
 
 env:
@@ -102,8 +98,6 @@ jobs:
     # Pinned, not `macos-latest`: an image roll must not change the SDK this app is built against.
     runs-on: macos-26
     needs: apple-libraries
-    permissions:
-      contents: write
 
     steps:
       - name: Checkout repository
@@ -212,15 +206,6 @@ jobs:
           path: target/apple-app-dist/Metocast-macOS.zip
           archive: false
           if-no-files-found: error
-
-      # A release gets the Mac app as an asset: people install the build CI checked, instead of
-      # an Actions artifact that expires and needs a GitHub login to download.
-      - name: Attach the Mac app to the release
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ github.event.release.tag_name }}
-          files: target/apple-app-dist/Metocast-macOS.zip
 
       - name: Upload the iOS Simulator app
         id: ios-app
