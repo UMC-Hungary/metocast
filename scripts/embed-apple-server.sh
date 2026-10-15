@@ -51,16 +51,21 @@ if $strip_helper; then
 fi
 sign "$helpers/metocast-server"
 
-# braw-decode develops Blackmagic RAW for the media pipeline. It builds against the Blackmagic RAW
-# SDK's headers; without them (CI, a Mac without Blackmagic RAW) the app ships without it and the
-# Video screen says what is missing.
+# braw-decode develops Blackmagic RAW for the media pipeline. It compiles against the Blackmagic
+# RAW SDK's headers, which Blackmagic's licence keeps out of this repository, so a Mac with the SDK
+# installed builds it from source and every other machine uses braw-decode/prebuilt, built by
+# someone who had it. The binary loads Blackmagic's framework at run time, so it runs anywhere.
+# Never silent: an app with no braw-decode cannot open a .braw file at all, so this stops instead.
 braw_sdk="${BRAW_SDK:-/Applications/Blackmagic RAW/Blackmagic RAW SDK/Mac}"
 if [ -f "$braw_sdk/Include/BlackmagicRawAPI.h" ]; then
   BRAW_SDK="$braw_sdk" "$repo_root/braw-decode/build.sh" "$helpers/braw-decode"
-  sign --entitlements "$repo_root/braw-decode/braw-decode.entitlements" "$helpers/braw-decode"
+elif [ -x "$repo_root/braw-decode/prebuilt/braw-decode" ]; then
+  cp "$repo_root/braw-decode/prebuilt/braw-decode" "$helpers/braw-decode"
 else
-  echo "warning: Blackmagic RAW SDK not found at $braw_sdk; building without braw-decode"
+  echo "error: no Blackmagic RAW SDK at $braw_sdk and no braw-decode/prebuilt/braw-decode" >&2
+  exit 1
 fi
+sign --entitlements "$repo_root/braw-decode/braw-decode.entitlements" "$helpers/braw-decode"
 
 # lip-reader measures mouth movement for the media pipeline's audio/video sync. It needs only the
 # macOS SDK (AVFoundation and Vision), so every Mac build ships it.

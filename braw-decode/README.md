@@ -33,6 +33,30 @@ and the Video screen says so.
 At run time it loads `BlackmagicRawAPI.framework` from `--sdk DIR`, or else from
 `/Applications/Blackmagic RAW/Blackmagic RAW SDK/Mac/Libraries` or the Blackmagic RAW Player app.
 
+### The SDK on a build machine
+
+Only the headers are needed to build, because the framework is loaded at run time from the
+Blackmagic RAW install on the Mac that runs it. A Mac with Blackmagic RAW installed compiles
+`braw-decode` as part of the app's build and needs nothing further. No GitHub Actions runner can:
+Blackmagic's licence keeps the SDK out of this repository, and their download sits behind a
+registration form. That is why builds here once shipped a Mac app with no `braw-decode` in it at
+all, and why Blackmagic RAW clips failed on a downloaded app however the Mac itself was set up.
+
+`prebuilt/braw-decode` closes that gap: a build of this helper, committed so a machine without the
+SDK still has one. It links nothing outside macOS's own frameworks and loads Blackmagic's at run
+time, so the same binary runs on any Apple Silicon Mac. The app's build phase prefers a fresh
+build from the SDK and falls back to this one; with neither it stops, rather than shipping an app
+that cannot open a `.braw` file.
+
+Only a Mac with the SDK can refresh it, so `prebuilt/sources.sha256` holds the hash of
+`src/braw_decode.mm` and `build.sh`, and the build fails when they no longer match it. After
+changing either, rebuild the helper on such a Mac:
+
+```bash
+./build.sh prebuilt/braw-decode
+cat src/braw_decode.mm build.sh | shasum -a 256 | awk '{print $1}' > prebuilt/sources.sha256
+```
+
 ## Usage
 
 ```bash

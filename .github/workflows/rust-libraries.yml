@@ -9,6 +9,7 @@ on:
       - 'crates/**'
       - 'apple/**'
       - 'apple-app/**'
+      - 'braw-decode/**'
       - 'scripts/build-apple.sh'
       - 'scripts/embed-apple-server.sh'
       - 'scripts/check-screenshots.swift'
@@ -24,11 +25,16 @@ on:
       - 'crates/**'
       - 'apple/**'
       - 'apple-app/**'
+      - 'braw-decode/**'
       - 'scripts/build-apple.sh'
       - 'scripts/embed-apple-server.sh'
       - 'scripts/check-screenshots.swift'
       - 'docs/images/**'
       - '.github/workflows/rust-libraries.yml'
+  # A published release builds the app again and attaches it below. Tag pushes are not used:
+  # `paths` would also have to match, and a tag on an existing commit changes no files.
+  release:
+    types: [published]
   workflow_dispatch:
 
 env:
@@ -96,6 +102,8 @@ jobs:
     # Pinned, not `macos-latest`: an image roll must not change the SDK this app is built against.
     runs-on: macos-26
     needs: apple-libraries
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -126,19 +134,51 @@ jobs:
             -derivedDataPath target/apple-app-derived \
             CODE_SIGNING_ALLOWED=NO build
 
+      # braw-decode is compiled against the Blackmagic RAW SDK, which Blackmagic's licence keeps
+      # out of this repository and whose download sits behind a registration form, so no runner
+      # can have it. The app's build phase uses braw-decode/prebuilt instead, which only a Mac
+      # with the SDK can refresh — so fail here when its sources moved and it did not.
+      - name: Check the prebuilt braw-decode is current
+        run: |
+          want=$(cat braw-decode/src/braw_decode.mm braw-decode/build.sh | shasum -a 256 | awk '{print $1}')
+          have=$(cat braw-decode/prebuilt/sources.sha256)
+          if [ "$want" != "$have" ]; then
+            echo "::error::braw-decode sources changed but braw-decode/prebuilt did not; rebuild it on a Mac with the Blackmagic RAW SDK (braw-decode/README.md)"
+            exit 1
+          fi
+
+      # Release, not Debug: a Debug build ships Metocast.debug.dylib and __preview.dylib and
+      # skips optimisation. Every run builds what people install, so CI checks the real thing.
       - name: Build for Mac
         run: |
           xcodebuild -project apple-app/Metocast.xcodeproj -scheme Metocast \
-            -destination 'platform=macOS' \
+            -destination 'platform=macOS' -configuration Release \
             -derivedDataPath target/apple-app-derived \
             CODE_SIGNING_ALLOWED=NO build
+
+      # The build phase leaves braw-decode out when it cannot find the SDK, which is how builds
+      # here shipped a Mac app with no Blackmagic RAW support at all. The helper has to be in the
+      # app, and it has to link nothing but system libraries: it loads Blackmagic's framework at
+      # run time from the Mac it runs on, so a link to the SDK would break every other Mac.
+      - name: Check the Mac app ships braw-decode
+        run: |
+          helper=target/apple-app-derived/Build/Products/Release/Metocast.app/Contents/MacOS/braw-decode
+          if [ ! -x "$helper" ]; then
+            echo "::error::the Mac app has no braw-decode; the build did not find the Blackmagic RAW SDK"
+            exit 1
+          fi
+          outside=$(otool -L "$helper" | awk 'NR > 1 && $1 !~ /^\/(usr\/lib|System\/Library)\// { print $1 }')
+          if [ -n "$outside" ]; then
+            echo "::error::braw-decode links outside the system: $outside"
+            exit 1
+          fi
 
       # The bridge for Claude Desktop is a subcommand of the helper the app ships. A person with
       # only Metocast and an AI app has no Python, Node or Homebrew, so it must start with
       # nothing, link only system libraries, and say plainly why it cannot reach Metocast.
       - name: Check the MCP stdio bridge needs no developer tools
         run: |
-          helper=target/apple-app-derived/Build/Products/Debug/Metocast.app/Contents/MacOS/metocast-server
+          helper=target/apple-app-derived/Build/Products/Release/Metocast.app/Contents/MacOS/metocast-server
           outside=$(otool -L "$helper" | awk 'NR > 1 && $1 !~ /^\/(usr\/lib|System\/Library)\// { print $1 }')
           if [ -n "$outside" ]; then
             echo "::error::metocast-server links outside the system: $outside"
@@ -155,12 +195,12 @@ jobs:
         run: |
           products=target/apple-app-derived/Build/Products
           mkdir -p target/apple-app-dist
-          for app in "$products/Debug-iphonesimulator/Metocast.app" "$products/Debug/Metocast.app"; do
+          for app in "$products/Debug-iphonesimulator/Metocast.app" "$products/Release/Metocast.app"; do
             codesign --force --deep --sign - "$app"
           done
           ditto -c -k --keepParent "$products/Debug-iphonesimulator/Metocast.app" \
             target/apple-app-dist/Metocast-iOS-Simulator.zip
-          ditto -c -k --keepParent "$products/Debug/Metocast.app" \
+          ditto -c -k --keepParent "$products/Release/Metocast.app" \
             target/apple-app-dist/Metocast-macOS.zip
 
       # `archive: false` uploads each zip as-is, so a download is the app's own zip
@@ -172,6 +212,15 @@ jobs:
           path: target/apple-app-dist/Metocast-macOS.zip
           archive: false
           if-no-files-found: error
+
+      # A release gets the Mac app as an asset: people install the build CI checked, instead of
+      # an Actions artifact that expires and needs a GitHub login to download.
+      - name: Attach the Mac app to the release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: target/apple-app-dist/Metocast-macOS.zip
 
       - name: Upload the iOS Simulator app
         id: ios-app

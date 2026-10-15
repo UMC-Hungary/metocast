@@ -92,6 +92,12 @@ so its panel shows saved devices and provides a refresh button.
 Building the server needs `cmake` (`brew install cmake`). The Mac app is not sandboxed, because
 the server spawns PostgreSQL and listens on the network.
 
+Every Mac build embeds `braw-decode`, so the app can develop `.braw` clips. A Mac with Blackmagic
+RAW installed compiles it; anything else, GitHub's runners included, uses the committed
+`braw-decode/prebuilt` build, because the SDK cannot be redistributed here — see
+[The SDK on a build machine](braw-decode/README.md#the-sdk-on-a-build-machine). The framework
+itself is never bundled: each Mac loads it from its own Blackmagic RAW install.
+
 ## Media processing: video and audio masters
 
 The Mac that hosts the server turns raw service recordings into files ready to upload:
@@ -275,13 +281,13 @@ LUT.
 
 ### Bundled tools
 
-| Tool               | Where it comes from                                                                                                       | Licence        |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| ffmpeg, ffprobe    | Built from FFmpeg's official 9.0.2 source when the app is built, and shipped inside the app ([details](ffmpeg/README.md)) | LGPL 2.1+      |
-| braw-decode        | Built with the app when the Blackmagic RAW SDK is installed ([details](braw-decode/README.md))                            | MIT (Metocast) |
-| Blackmagic RAW SDK | The free Blackmagic RAW install; never bundled                                                                            | Blackmagic     |
-| jive-vocals 0.7.0  | Downloaded from its GitHub release on first use and checked against a pinned SHA-256, like the embedded PostgreSQL        | GPL-3.0        |
-| lip-reader         | Built with the app from Swift source; uses macOS's own Vision framework ([details](lip-reader/README.md))                 | MIT (Metocast) |
+| Tool               | Where it comes from                                                                                                           | Licence        |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| ffmpeg, ffprobe    | Built from FFmpeg's official 9.0.2 source when the app is built, and shipped inside the app ([details](ffmpeg/README.md))     | LGPL 2.1+      |
+| braw-decode        | Built with the app where the Blackmagic RAW SDK is installed, else the committed prebuilt ([details](braw-decode/README.md)) | MIT (Metocast) |
+| Blackmagic RAW SDK | The free Blackmagic RAW install; never bundled                                                                                | Blackmagic     |
+| jive-vocals 0.7.0  | Downloaded from its GitHub release on first use and checked against a pinned SHA-256, like the embedded PostgreSQL            | GPL-3.0        |
+| lip-reader         | Built with the app from Swift source; uses macOS's own Vision framework ([details](lip-reader/README.md))                     | MIT (Metocast) |
 
 Outside the app, `METOCAST_FFMPEG`, `METOCAST_BRAW_DECODE` and `METOCAST_LIP_READER` point a
 development server at other copies.
