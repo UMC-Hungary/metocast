@@ -764,11 +764,20 @@ jobs:
             exit 1
           fi
 
+      # The tag's version, as the other jobs stamp it through scripts/stamp-version.mjs. The Xcode
+      # project needs no file rewritten: GENERATE_INFOPLIST_FILE builds CFBundleShortVersionString
+      # from MARKETING_VERSION and CFBundleVersion from CURRENT_PROJECT_VERSION, so passing them
+      # here is enough. embed-apple-server.sh reads MARKETING_VERSION for the Claude Desktop
+      # extension it bundles, so that version follows too.
       - name: Build for Mac
+        env:
+          TAG: ${{ github.ref_name }}
         run: |
           xcodebuild -project apple-app/Metocast.xcodeproj -scheme Metocast \
             -destination 'platform=macOS' -configuration Release \
             -derivedDataPath target/apple-app-derived \
+            MARKETING_VERSION="${TAG#v}" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
             CODE_SIGNING_ALLOWED=NO build
 
       # An app with no braw-decode cannot open a .braw file at all, and nothing a person installs
