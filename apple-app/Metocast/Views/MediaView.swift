@@ -394,7 +394,7 @@ private struct MediaPage: View {
                 .fixedSize(horizontal: false, vertical: true)
                 if let video = draft.program?.video {
                     MediaViewer(draft: draft, video: video) {
-                        let urls = choose([.cubeLUT])
+                        let urls = choose([.brawSidecar, .cubeLUT])
                         Task { await draft.add(urls) }
                     }
                 }
