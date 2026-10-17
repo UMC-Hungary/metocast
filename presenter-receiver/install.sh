@@ -20,6 +20,44 @@ for arg in "$@"; do
     [ "$arg" = "--service" ] && INSTALL_SERVICE=true
 done
 
+# ── Detect platform ───────────────────────────────────────────────────────────
+OS="$(uname -s)"
+ARCH="$(uname -m)"
+
+# `uname -m` reports the kernel, not the userland: Raspberry Pi OS 32-bit runs a
+# 64-bit kernel (aarch64) on Pi 3/4/5, but cannot start the arm64 binary because
+# /lib/ld-linux-aarch64.so.1 is missing. Check the userland before going further.
+if [ "$OS" = "Linux" ]; then
+    if [ -n "$(command -v dpkg)" ]; then
+        USERLAND="$(dpkg --print-architecture)"
+    else
+        # ELF class byte of /bin/sh: 1 = 32-bit, 2 = 64-bit
+        case "$(od -An -t u1 -j4 -N1 /bin/sh 2>/dev/null | tr -d ' ')" in
+            1) USERLAND="32-bit" ;;
+            *) USERLAND="$ARCH" ;;
+        esac
+    fi
+    case "$USERLAND" in
+        armhf|armel|i386|32-bit)
+            echo "Error: this is a 32-bit operating system (userland: ${USERLAND}, kernel: ${ARCH})." >&2
+            echo "       Presenter Receiver only ships 64-bit Linux builds (arm64, x86_64)." >&2
+            echo "       On a Raspberry Pi, reflash with Raspberry Pi OS Lite (64-bit) and run this installer again." >&2
+            exit 1
+            ;;
+    esac
+fi
+
+case "${OS}-${ARCH}" in
+    Darwin-arm64)   BINARY="presenter-receiver-macos-arm64"  ;;
+    Linux-aarch64)  BINARY="presenter-receiver-linux-arm64"  ;;
+    Linux-x86_64)   BINARY="presenter-receiver-linux-x86_64" ;;
+    *)
+        echo "Unsupported platform: ${OS}-${ARCH}"
+        echo "Supported: macOS arm64, Linux arm64/x86_64 (64-bit OS required)"
+        exit 1
+        ;;
+esac
+
 # ── Find latest presenter-receiver release ────────────────────────────────────
 RELEASE_TAG=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases" \
   | grep '"tag_name"' \
@@ -34,22 +72,6 @@ if [ -z "$RELEASE_TAG" ]; then
 fi
 
 BASE_URL="https://github.com/${REPO}/releases/download/${RELEASE_TAG}"
-
-# ── Detect platform ───────────────────────────────────────────────────────────
-OS="$(uname -s)"
-ARCH="$(uname -m)"
-
-case "${OS}-${ARCH}" in
-    Darwin-arm64)   BINARY="presenter-receiver-macos-arm64"  ;;
-    Linux-aarch64)  BINARY="presenter-receiver-linux-arm64"  ;;
-    Linux-armv7l)   BINARY="presenter-receiver-linux-arm64"  ;;
-    Linux-x86_64)   BINARY="presenter-receiver-linux-x86_64" ;;
-    *)
-        echo "Unsupported platform: ${OS}-${ARCH}"
-        echo "Supported: macOS arm64, Linux arm64/x86_64"
-        exit 1
-        ;;
-esac
 
 # ── Install Linux system dependencies ────────────────────────────────────────
 if [ "$OS" = "Linux" ] && [ -n "$(command -v apt-get)" ]; then
