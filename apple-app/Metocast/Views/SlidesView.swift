@@ -356,7 +356,10 @@ private struct ServerFolderPrompt: ViewModifier {
                 content.onChange(of: isPresented) { _, presenting in
                     guard presenting else { return }
                     isPresented = false
-                    if let folder = chooseFolder() { submit(folder.path) }
+                    // After this update: the panel opened mid-update from a plain button never appeared.
+                    DispatchQueue.main.async {
+                        if let folder = chooseFolder() { submit(folder.path) }
+                    }
                 }
                 #else
                 content.fileImporter(isPresented: $isPresented, allowedContentTypes: [.folder]) { result in
