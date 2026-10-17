@@ -6,12 +6,13 @@ A standalone binary that connects to the Metocast server over WebSocket and rend
 
 ## Supported platforms
 
-| Platform                        | Binary                            |
-| ------------------------------- | --------------------------------- |
-| Linux arm64 (Raspberry Pi 4, 5) | `presenter-receiver-linux-arm64`  |
-| Linux armv7l (Raspberry Pi 3)   | `presenter-receiver-linux-arm64`  |
-| Linux x86_64                    | `presenter-receiver-linux-x86_64` |
-| macOS Apple Silicon             | `presenter-receiver-macos-arm64`  |
+| Platform                                    | Binary                            |
+| ------------------------------------------- | --------------------------------- |
+| Linux arm64, 64-bit OS (Raspberry Pi 3/4/5) | `presenter-receiver-linux-arm64`  |
+| Linux x86_64                                | `presenter-receiver-linux-x86_64` |
+| macOS Apple Silicon                         | `presenter-receiver-macos-arm64`  |
+
+A 64-bit operating system is required. There is no 32-bit (armhf / armv7l) build, so 32-bit Raspberry Pi OS is not supported, even on a Pi with a 64-bit CPU and kernel (where `uname -m` reports `aarch64`). Check with `dpkg --print-architecture`: it must print `arm64`, not `armhf`. If it prints `armhf`, reflash the card with **Raspberry Pi OS Lite (64-bit)**. The installer checks this and stops with an error on a 32-bit system.
 
 ---
 
