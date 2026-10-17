@@ -6,6 +6,7 @@
 #
 #   macOS (Apple Silicon) : ./build.sh
 #   Linux ARM64 (RPi)     : ./build.sh
+#   Linux armv7 (32-bit RPi OS) : ./build.sh
 #   Linux x86_64          : ./build.sh
 #
 # After building, upload the binary somewhere (e.g. your server or GitHub
@@ -26,8 +27,12 @@ case "${OS}-${ARCH}" in
         # Homebrew on Apple Silicon
         PKG_CONFIG_PATH_EXTRA="/opt/homebrew/lib/pkgconfig:/opt/homebrew/opt/cairo/lib/pkgconfig:/opt/homebrew/opt/pango/lib/pkgconfig"
         ;;
-    Linux-aarch64)
-        PLATFORM="linux-arm64"
+    Linux-aarch64|Linux-armv7l|Linux-armv8l)
+        # 32-bit Raspberry Pi OS runs a 64-bit kernel, so ask dpkg for the userland
+        case "$(dpkg --print-architecture 2>/dev/null)" in
+            armhf) PLATFORM="linux-armv7" ;;
+            *)     PLATFORM="linux-arm64" ;;
+        esac
         ;;
     Linux-x86_64)
         PLATFORM="linux-x86_64"
@@ -85,6 +90,11 @@ echo " To distribute, upload $OUT to your server or GitHub Releases, then:"
 echo ""
 echo " # Linux ARM64 (Raspberry Pi)"
 echo " wget https://YOUR_HOST/releases/presenter-receiver-linux-arm64 -O presenter-receiver"
+echo " chmod +x presenter-receiver"
+echo " ./presenter-receiver ws://YOUR_SERVER_IP:3737/ws"
+echo ""
+echo " # Linux armv7 (32-bit Raspberry Pi OS)"
+echo " wget https://YOUR_HOST/releases/presenter-receiver-linux-armv7 -O presenter-receiver"
 echo " chmod +x presenter-receiver"
 echo " ./presenter-receiver ws://YOUR_SERVER_IP:3737/ws"
 echo ""

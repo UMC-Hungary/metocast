@@ -578,9 +578,10 @@ jobs:
 
   # ──────────────────────────────────────────────
   # Presenter Receiver — standalone CLI binary
-  # Builds for: macOS arm64, Linux arm64 (RPi), Linux x86_64
+  # Builds for: macOS arm64, Linux arm64 (RPi), Linux armv7 (32-bit RPi OS), Linux x86_64
   # No Node/pnpm needed — pure Rust + Cairo/Pango system libs.
-  # Note: linux-arm64 uses GitHub's hosted ubuntu-24.04-arm runner.
+  # Note: linux-arm64 uses GitHub's hosted ubuntu-24.04-arm runner; linux-armv7
+  # is cross-compiled in a debian:bullseye container on x86_64.
   # ──────────────────────────────────────────────
   build-receiver:
     needs: test
@@ -600,10 +601,25 @@ jobs:
           - runner: ubuntu-24.04-arm
             artifact: presenter-receiver-linux-arm64
 
+          # 32-bit Raspberry Pi OS (armhf). Cross-compiled in a Debian bullseye
+          # container so the binary only needs glibc 2.31 and links the armhf
+          # Cairo/Pango that Raspberry Pi OS 11+ ships.
+          - runner: ubuntu-24.04
+            artifact: presenter-receiver-linux-armv7
+            target: armv7-unknown-linux-gnueabihf
+            container: debian:bullseye
+
     runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
     name: Receiver (${{ matrix.artifact }})
 
     steps:
+      - name: Prepare Debian container
+        if: matrix.container
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl git
+
       - name: Checkout repository
         uses: actions/checkout@v5
 
@@ -620,13 +636,30 @@ jobs:
         run: echo "ver=$(brew list --versions harfbuzz cairo pango glib | tr ' \n' '_')" >> $GITHUB_OUTPUT
 
       - name: Install Linux dependencies (Cairo + Pango via apt)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && !matrix.target
         run: |
           sudo apt-get update
           sudo apt-get install -y libcairo2-dev libpango1.0-dev pkg-config
 
+      - name: Install armhf cross toolchain and Cairo + Pango
+        if: matrix.target == 'armv7-unknown-linux-gnueabihf'
+        run: |
+          dpkg --add-architecture armhf
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential pkg-config gcc-arm-linux-gnueabihf libc6-dev-armhf-cross \
+            libcairo2-dev:armhf libpango1.0-dev:armhf
+          {
+            echo "CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-linux-gnueabihf-gcc"
+            echo "CC_armv7_unknown_linux_gnueabihf=arm-linux-gnueabihf-gcc"
+            echo "PKG_CONFIG_ALLOW_CROSS=1"
+            echo "PKG_CONFIG_LIBDIR=/usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/share/pkgconfig"
+          } >> "$GITHUB_ENV"
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.98.1
+        with:
+          targets: ${{ matrix.target }}
 
       - name: Cache Rust dependencies
         uses: swatinem/rust-cache@v2
@@ -641,11 +674,17 @@ jobs:
           if [ "$RUNNER_OS" = "macOS" ]; then
             export PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig:$(brew --prefix cairo)/lib/pkgconfig:$(brew --prefix pango)/lib/pkgconfig"
           fi
-          cargo build --release
+          if [ -n "$TARGET" ]; then
+            cargo build --release --target "$TARGET"
+          else
+            cargo build --release
+          fi
+        env:
+          TARGET: ${{ matrix.target }}
 
       - name: Rename binary with platform suffix
         shell: bash
-        run: cp target/release/presenter-receiver ${{ matrix.artifact }}
+        run: cp target/${{ matrix.target && format('{0}/', matrix.target) || '' }}release/presenter-receiver ${{ matrix.artifact }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
@@ -964,11 +1003,18 @@ jobs:
             - **macOS**: opens a native window (Helvetica Neue, Cairo-rendered)
             - **Linux / Raspberry Pi**: writes directly to the framebuffer (`/dev/fb0`) — no desktop needed
 
+            | Platform | Binary |
+            |---|---|
+            | Raspberry Pi OS 64-bit / Linux arm64 | `presenter-receiver-linux-arm64` |
+            | Raspberry Pi OS 32-bit / Linux armhf (armv7) | `presenter-receiver-linux-armv7` |
+            | Linux x86_64 | `presenter-receiver-linux-x86_64` |
+            | macOS Apple Silicon | `presenter-receiver-macos-arm64` |
+
             ### One-line install (auto-detects platform)
             ```bash
             curl -fsSL https://raw.githubusercontent.com/UMC-Hungary/metocast/master/presenter-receiver/install.sh | bash -s -- ws://YOUR_SERVER_IP:3737/ws
             ```
-            Detects macOS (Apple Silicon) and Linux arm64/x86_64 automatically, downloads the right binary, and starts it.
+            Detects macOS (Apple Silicon) and Linux arm64/armv7/x86_64 automatically, downloads the right binary, and starts it.
 
             To install without running:
             ```bash
@@ -1013,4 +1059,5 @@ jobs:
             artifacts/presenter-receiver-macos-arm64/presenter-receiver-macos-arm64
             artifacts/presenter-receiver-linux-x86_64/presenter-receiver-linux-x86_64
             artifacts/presenter-receiver-linux-arm64/presenter-receiver-linux-arm64
+            artifacts/presenter-receiver-linux-armv7/presenter-receiver-linux-armv7
             artifacts/companion-plugin/companion-module-metocast-*.tar.gz
