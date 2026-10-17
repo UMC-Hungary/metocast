@@ -65,6 +65,7 @@ any other client. Client devices connect by address and token, or by opening the
 
 ```bash
 ./scripts/build-apple.sh   # once, and after Rust bridge changes: the app links this XCFramework
+pnpm build                 # once, and after UI changes: the app ships the server's web pages
 open apple-app/Metocast.xcodeproj
 ```
 

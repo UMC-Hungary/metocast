@@ -789,6 +789,22 @@ jobs:
           workspaces: '. -> target'
           shared-key: apple-libraries
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 'lts/*'
+
+      - name: Setup pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9 --activate
+
+      # The app ships the server's web pages; the Xcode build copies them from build/.
+      - name: Build the web pages
+        run: |
+          pnpm install
+          pnpm build
+
       - name: Build the bridge
         run: ./scripts/build-apple.sh
 

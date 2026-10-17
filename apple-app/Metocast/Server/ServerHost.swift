@@ -182,6 +182,10 @@ final class ServerHost {
         environment["METOCAST_ADMIN_TOKEN"] = adminToken
         environment["METOCAST_PORT"] = String(Self.port)
         environment["METOCAST_DATA_DIR"] = dataDirectory.path
+        // The web pages (/transcript, /presenter); a release helper has no other copy of them.
+        if let web = Bundle.main.url(forResource: "web", withExtension: nil) {
+            environment["METOCAST_STATIC_DIR"] = web.path
+        }
         environment["METOCAST_EXIT_ON_STDIN_EOF"] = "1"
         environment["NO_COLOR"] = "1"
         // Screenshots of any UI served from this helper hide the computer name too.
