@@ -33,6 +33,7 @@
     getServerPort,
     getToken,
     connectLink,
+    presenterInstallCommand,
   } from '@metocast/core-client';
   import type { CronJob, UpdateInfo } from '@metocast/core-client';
   import { scheme, setScheme, type Scheme } from '$lib/scheme.svelte';
@@ -45,6 +46,12 @@
 
   let mode = $state<'server' | 'client'>('server');
   let connectQr = $state<string | null>(null);
+  let presenterWsUrl = $state<string | null>(null);
+  let presenterAutoStart = $state(false);
+  let presenterCopied = $state(false);
+  const presenterCommand = $derived(
+    presenterWsUrl ? presenterInstallCommand(presenterWsUrl, presenterAutoStart) : '',
+  );
   let cronJobs = $state<CronJob[]>([]);
   let signedIn = $state<Record<string, boolean>>({ youtube: false, facebook: false });
   const webPresenter = $derived(live.useWebPresenter);
@@ -108,6 +115,7 @@
           getServerPort(),
           getToken(),
         ]);
+        if (host && port) presenterWsUrl = `ws://${host}:${port}/ws`;
         if (host && port && token) {
           const payload = connectLink({ url: `http://${host}:${port}`, token });
           connectQr = await QRCode.toDataURL(payload, {
@@ -131,6 +139,16 @@
       /* offline */
     }
   });
+
+  async function copyPresenterCommand() {
+    try {
+      await navigator.clipboard.writeText(presenterCommand);
+      presenterCopied = true;
+      setTimeout(() => (presenterCopied = false), 2000);
+    } catch {
+      /* clipboard blocked */
+    }
+  }
 
   function toggleWebPresenter(enabled: boolean) {
     sendWsCommand('presentation.set_use_web_presenter', { enabled });
@@ -282,6 +300,36 @@
             {:else}
               <span class="qr-loading">{$_('settings.connect.loading')}</span>
             {/if}
+          {/snippet}
+        </Row>
+      </List>
+    {/if}
+
+    {#if mode === 'server' && presenterWsUrl}
+      <SectionLabel hint={$_('settings.presenterInstall.hint')}
+        >{$_('settings.presenterInstall.section')}</SectionLabel
+      >
+      <List>
+        <Row
+          title={$_('settings.presenterInstall.autostart')}
+          meta={$_('settings.presenterInstall.autostartMeta')}
+          chevron={false}
+        >
+          {#snippet icon()}<TextIcon char="▶" />{/snippet}
+          {#snippet control()}
+            <input
+              type="checkbox"
+              bind:checked={presenterAutoStart}
+              aria-label={$_('settings.presenterInstall.autostart')}
+            />
+          {/snippet}
+        </Row>
+        <Row title={$_('settings.presenterInstall.command')} meta={presenterCommand} chevron={false} last>
+          {#snippet icon()}<TextIcon char="⌘" />{/snippet}
+          {#snippet control()}
+            <button type="button" class="copy-btn" onclick={copyPresenterCommand}>
+              {presenterCopied ? $_('settings.presenterInstall.copied') : $_('settings.presenterInstall.copy')}
+            </button>
           {/snippet}
         </Row>
       </List>
@@ -497,6 +545,18 @@
 </Sheet>
 
 <style>
+  .copy-btn {
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--glass-card-bg);
+    color: inherit;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
   .overview {
     margin: 0 24px;
     display: grid;

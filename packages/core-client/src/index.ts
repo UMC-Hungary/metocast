@@ -42,6 +42,7 @@ export * from './api/untracked-recordings.js';
 export * from './api/uploads.js';
 export { bibleApi } from './utils/bible-api.js';
 export * from './utils/title-template.js';
+export * from './utils/presenter-install.js';
 
 // ── Realtime ──────────────────────────────────────────────────────────────────
 // The transport is framework-agnostic: it validates and emits typed messages via

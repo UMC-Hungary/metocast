@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { presenterInstallCommand } from '@metocast/core-client';
   import { serverUrl, localNetworkUrl } from '$lib/stores/server-url.js';
 
   type Platform = 'linux-x86_64' | 'linux-arm64' | 'macos-arm64';
@@ -23,9 +24,7 @@
 
   const wsUrl = $derived(($localNetworkUrl || $serverUrl).replace(/^http/, 'ws') + '/ws');
 
-  const installCommand = $derived(
-    `curl -fsSL https://raw.githubusercontent.com/${githubRepository}/master/presenter-receiver/install.sh | bash -s -- ${wsUrl}${autoStart ? ' --service' : ''}`,
-  );
+  const installCommand = $derived(presenterInstallCommand(wsUrl, autoStart));
 
   const manualCommand = $derived(
     `curl -fsSL https://github.com/${githubRepository}/releases/latest/download/${binaryName[selectedPlatform]} -o presenter-receiver\nchmod +x presenter-receiver\n./presenter-receiver ${wsUrl}`,
