@@ -319,10 +319,13 @@ final class MediaDraft {
     /// Where saved looks live: Resolve sidecars and LUTs kept by "Save as Default".
     static let looksFolder = URL.applicationSupportDirectory.appending(path: "Metocast/Looks", directoryHint: .isDirectory)
 
-    /// The saved looks: `.sidecar` and `.cube` files in `looksFolder`, by name.
+    /// The looks: `.sidecar` and `.cube` files saved in `looksFolder`, then those the app ships
+    /// (the church's Resolve Look) unless a saved one has the same name, by name.
     static var looks: [URL] {
-        let files = (try? FileManager.default.contentsOfDirectory(at: looksFolder, includingPropertiesForKeys: nil)) ?? []
-        return files
+        let saved = (try? FileManager.default.contentsOfDirectory(at: looksFolder, includingPropertiesForKeys: nil)) ?? []
+        let shipped = ["sidecar", "cube"].flatMap { Bundle.main.urls(forResourcesWithExtension: $0, subdirectory: nil) ?? [] }
+        let names = Set(saved.map(\.lastPathComponent))
+        return (saved + shipped.filter { !names.contains($0.lastPathComponent) })
             .filter { ["sidecar", "cube"].contains($0.pathExtension.lowercased()) }
             .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
     }
@@ -382,7 +385,7 @@ private struct MediaPage: View {
                 .fixedSize(horizontal: false, vertical: true)
                 if let video = draft.program?.video {
                     MediaViewer(draft: draft, video: video) {
-                        let urls = choose([.cubeLUT])
+                        let urls = choose([.brawSidecar, .cubeLUT])
                         Task { await draft.add(urls) }
                     }
                 }
