@@ -24,36 +24,37 @@ done
 OS="$(uname -s)"
 ARCH="$(uname -m)"
 
-# `uname -m` reports the kernel, not the userland: Raspberry Pi OS 32-bit runs a
-# 64-bit kernel (aarch64) on Pi 3/4/5, but cannot start the arm64 binary because
-# /lib/ld-linux-aarch64.so.1 is missing. Check the userland before going further.
+# On Linux, pick the binary by userland, not by `uname -m`: Raspberry Pi OS
+# 32-bit runs a 64-bit kernel (aarch64) on Pi 3/4/5, but cannot start the arm64
+# binary because /lib/ld-linux-aarch64.so.1 is missing. It gets the armv7 build.
 if [ "$OS" = "Linux" ]; then
     if [ -n "$(command -v dpkg)" ]; then
         USERLAND="$(dpkg --print-architecture)"
     else
         # ELF class byte of /bin/sh: 1 = 32-bit, 2 = 64-bit
-        case "$(od -An -t u1 -j4 -N1 /bin/sh 2>/dev/null | tr -d ' ')" in
-            1) USERLAND="32-bit" ;;
-            *) USERLAND="$ARCH" ;;
+        case "$(od -An -t u1 -j4 -N1 /bin/sh 2>/dev/null | tr -d ' ')-${ARCH}" in
+            1-aarch64|1-armv7l|1-armv8l) USERLAND="armhf" ;;
+            1-*)                         USERLAND="32-bit" ;;
+            *-aarch64)                   USERLAND="arm64" ;;
+            *-x86_64)                    USERLAND="amd64" ;;
+            *)                           USERLAND="$ARCH" ;;
         esac
     fi
-    case "$USERLAND" in
-        armhf|armel|i386|32-bit)
-            echo "Error: this is a 32-bit operating system (userland: ${USERLAND}, kernel: ${ARCH})." >&2
-            echo "       Presenter Receiver only ships 64-bit Linux builds (arm64, x86_64)." >&2
-            echo "       On a Raspberry Pi, reflash with Raspberry Pi OS Lite (64-bit) and run this installer again." >&2
-            exit 1
-            ;;
-    esac
+    # armv6 CPUs (Pi Zero / Pi 1) report armhf too, but cannot run armv7 code.
+    [ "$USERLAND" = "armhf" ] && [ "$ARCH" = "armv6l" ] && USERLAND="armv6l"
+    PLATFORM="Linux-${USERLAND}"
+else
+    PLATFORM="${OS}-${ARCH}"
 fi
 
-case "${OS}-${ARCH}" in
-    Darwin-arm64)   BINARY="presenter-receiver-macos-arm64"  ;;
-    Linux-aarch64)  BINARY="presenter-receiver-linux-arm64"  ;;
-    Linux-x86_64)   BINARY="presenter-receiver-linux-x86_64" ;;
+case "$PLATFORM" in
+    Darwin-arm64)  BINARY="presenter-receiver-macos-arm64"  ;;
+    Linux-arm64)   BINARY="presenter-receiver-linux-arm64"  ;;
+    Linux-armhf)   BINARY="presenter-receiver-linux-armv7"  ;;
+    Linux-amd64)   BINARY="presenter-receiver-linux-x86_64" ;;
     *)
-        echo "Unsupported platform: ${OS}-${ARCH}"
-        echo "Supported: macOS arm64, Linux arm64/x86_64 (64-bit OS required)"
+        echo "Unsupported platform: ${PLATFORM} (kernel: ${ARCH})" >&2
+        echo "Supported: macOS arm64, Linux arm64, armhf (armv7, e.g. 32-bit Raspberry Pi OS) and x86_64" >&2
         exit 1
         ;;
 esac
@@ -88,7 +89,7 @@ if [ "$OS" = "Linux" ] && [ -n "$(command -v apt-get)" ]; then
 fi
 
 # ── Download ──────────────────────────────────────────────────────────────────
-echo "==> Detected: ${OS}-${ARCH} → $BINARY"
+echo "==> Detected: ${PLATFORM} (kernel: ${ARCH}) → $BINARY"
 echo "==> Downloading from GitHub Releases (${RELEASE_TAG})..."
 
 TMP="$(mktemp)"

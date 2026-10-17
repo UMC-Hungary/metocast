@@ -6,13 +6,14 @@ A standalone binary that connects to the Metocast server over WebSocket and rend
 
 ## Supported platforms
 
-| Platform                                    | Binary                            |
-| ------------------------------------------- | --------------------------------- |
-| Linux arm64, 64-bit OS (Raspberry Pi 3/4/5) | `presenter-receiver-linux-arm64`  |
-| Linux x86_64                                | `presenter-receiver-linux-x86_64` |
-| macOS Apple Silicon                         | `presenter-receiver-macos-arm64`  |
+| Platform                                                 | Binary                            |
+| -------------------------------------------------------- | --------------------------------- |
+| Linux arm64, 64-bit OS (Raspberry Pi 3/4/5)              | `presenter-receiver-linux-arm64`  |
+| Linux armhf (armv7), 32-bit OS (Raspberry Pi 2/3/4/5)    | `presenter-receiver-linux-armv7`  |
+| Linux x86_64                                             | `presenter-receiver-linux-x86_64` |
+| macOS Apple Silicon                                      | `presenter-receiver-macos-arm64`  |
 
-A 64-bit operating system is required. There is no 32-bit (armhf / armv7l) build, so 32-bit Raspberry Pi OS is not supported, even on a Pi with a 64-bit CPU and kernel (where `uname -m` reports `aarch64`). Check with `dpkg --print-architecture`: it must print `arm64`, not `armhf`. If it prints `armhf`, reflash the card with **Raspberry Pi OS Lite (64-bit)**. The installer checks this and stops with an error on a 32-bit system.
+On Linux the binary must match the operating system's userland, not the CPU or kernel. 32-bit Raspberry Pi OS runs a 64-bit kernel on a Pi 3/4/5 (`uname -m` reports `aarch64`), but it can only run the 32-bit `linux-armv7` binary. Check with `dpkg --print-architecture`: `arm64` needs `linux-arm64`, `armhf` needs `linux-armv7`. The installer checks this and picks the right binary. The armv7 build needs an ARMv7 CPU, so the Pi Zero / Zero W and Pi 1 (ARMv6) are not supported.
 
 ---
 
