@@ -352,9 +352,17 @@ private struct ServerFolderPrompt: ViewModifier {
     func body(content: Content) -> some View {
         Group {
             if model.mode == .server {
+                #if os(macOS)
+                content.onChange(of: isPresented) { _, presenting in
+                    guard presenting else { return }
+                    isPresented = false
+                    if let folder = chooseFolder() { submit(folder.path) }
+                }
+                #else
                 content.fileImporter(isPresented: $isPresented, allowedContentTypes: [.folder]) { result in
                     if case .success(let folder) = result { submit(folder.path) }
                 }
+                #endif
             } else {
                 content.alert(title, isPresented: $isPresented) {
                     TextField("Path on the server", text: $path)

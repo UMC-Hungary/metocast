@@ -350,15 +350,6 @@ private func choose(_ types: [UTType]) -> [URL] {
     return panel.runModal() == .OK ? panel.urls : []
 }
 
-@MainActor
-private func chooseFolder() -> URL? {
-    let panel = NSOpenPanel()
-    panel.canChooseFiles = false
-    panel.canChooseDirectories = true
-    panel.canCreateDirectories = true
-    panel.prompt = "Choose"
-    return panel.runModal() == .OK ? panel.url : nil
-}
 
 private struct MediaPage: View {
     @State private var draft: MediaDraft
