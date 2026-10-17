@@ -197,8 +197,48 @@ private struct ServerSection: View {
                     .accessibilityHint("Scan it with an iPhone's camera to connect the iPhone to this server.")
             }
         }
+        #if os(macOS)
+        if server.state == .running {
+            PresenterInstallSection(baseURL: server.networkURL)
+        }
+        #endif
     }
 }
+
+#if os(macOS)
+// The Raspberry Pi installer from the web UI's Connect page, with the same auto-start choice.
+private struct PresenterInstallSection: View {
+    let baseURL: String
+    @State private var isAutoStarting = false
+    @State private var didCopy = false
+
+    private var command: String {
+        let ws = baseURL
+            .replacingOccurrences(of: "https://", with: "wss://")
+            .replacingOccurrences(of: "http://", with: "ws://") + "/ws"
+        let service = isAutoStarting ? " --service" : ""
+        return "curl -fsSL https://raw.githubusercontent.com/UMC-Hungary/metocast/master/presenter-receiver/install.sh | bash -s -- \(ws)\(service)"
+    }
+
+    var body: some View {
+        Section {
+            Toggle("Auto-start on boot", isOn: $isAutoStarting)
+            Text(command)
+                .font(.caption.monospaced())
+                .textSelection(.enabled)
+            Button(didCopy ? "Copied" : "Copy Install Command", systemImage: "doc.on.doc") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(command, forType: .string)
+                didCopy = true
+            }
+        } header: {
+            Text("Presenter Receiver")
+        } footer: {
+            Text("Run this on the Raspberry Pi display. Auto-start sets up console auto-login on TTY1 (Linux / systemd only).")
+        }
+    }
+}
+#endif
 
 private struct ServerLogView: View {
     @Environment(AppModel.self) private var model

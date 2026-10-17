@@ -417,6 +417,15 @@
       "loading": "Generálás…",
       "unavailable": "Indítsd el a szervert a csatlakozási kód generálásához"
     },
+    "presenterInstall": {
+      "section": "Prezenter fogadó",
+      "hint": "Telepítés Raspberry Pi kijelzőre",
+      "autostart": "Automatikus indítás bootoláskor",
+      "autostartMeta": "Konzol automatikus bejelentkezés a TTY1-en (csak Linux / systemd)",
+      "command": "Telepítő parancs",
+      "copy": "Másolás",
+      "copied": "Másolva"
+    },
     "template": {
       "section": "Esemény cím sablon",
       "hint": "A YouTube-hoz használjuk",

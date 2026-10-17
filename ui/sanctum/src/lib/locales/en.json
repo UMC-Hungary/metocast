@@ -364,6 +364,15 @@
       "loading": "Generating…",
       "unavailable": "Start the server to generate a connect code"
     },
+    "presenterInstall": {
+      "section": "Presenter receiver",
+      "hint": "Install on a Raspberry Pi display",
+      "autostart": "Auto-start on boot",
+      "autostartMeta": "Console auto-login on TTY1 (Linux / systemd only)",
+      "command": "Install command",
+      "copy": "Copy",
+      "copied": "Copied"
+    },
     "mode": {
       "title": "Current mode · {mode}",
       "meta": "Resetting returns to setup. The embedded database continues until restart.",
