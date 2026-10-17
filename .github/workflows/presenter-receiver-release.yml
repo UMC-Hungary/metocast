@@ -42,6 +42,13 @@ jobs:
       - name: Prepare Debian container
         if: matrix.container
         run: |
+          # Bullseye is end-of-life: its packages (security updates included)
+          # are only kept complete on archive.debian.org.
+          cat > /etc/apt/sources.list <<'EOF'
+          deb http://archive.debian.org/debian bullseye main
+          deb http://archive.debian.org/debian bullseye-updates main
+          deb http://archive.debian.org/debian-security bullseye-security main
+          EOF
           apt-get update
           apt-get install -y --no-install-recommends ca-certificates curl git
 
