@@ -87,6 +87,17 @@ ffmpeg_licences="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/ffmpeg"
 mkdir -p "$ffmpeg_licences"
 cp "$ffmpeg_build/LICENSE.md" "$ffmpeg_build/COPYING.LGPLv2.1" "$ffmpeg_licences/"
 
+# The server's web pages (/transcript, /presenter): the helper serves them from
+# METOCAST_STATIC_DIR, which ServerHost points at Resources/web. `pnpm build` makes them; it runs
+# outside Xcode because Node isn't on this phase's PATH. Never silent: without them every page 404s.
+if [ ! -f "$repo_root/build/transcript.html" ]; then
+  echo "error: no web build at $repo_root/build; run pnpm build first" >&2
+  exit 1
+fi
+web="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/web"
+rm -rf "$web"
+cp -R "$repo_root/build" "$web"
+
 # The one-click extension for Claude Desktop (a launcher for the bridge in this app; see
 # docs/mcp/BRIDGE.md). The app's Connectors screen opens it.
 "$repo_root/scripts/build-mcpb.sh" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Metocast.mcpb" "${MARKETING_VERSION:-1.0.0}"
