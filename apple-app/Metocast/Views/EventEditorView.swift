@@ -6,6 +6,12 @@ import Metocast
 struct EventEditorView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+
+    /// "YouTube" or "YouTube and Facebook" while they're set up but not signed in.
+    private var signInNeeded: String? {
+        let names = (model.session?.accountsNeedingSignIn ?? []).map { ConnectorInfo(id: $0.connector).name }
+        return names.isEmpty ? nil : names.formatted(.list(type: .and))
+    }
     private let event: EventRecord?
     private let onSaved: (EventRecord) -> Void
 
@@ -144,6 +150,11 @@ struct EventEditorView: View {
                     .lineLimit(3...8)
             }
             Section {
+                if let youtube = model.session?.connectors["youtube"] {
+                    LabeledContent("Account") {
+                        Label(youtube.title, systemImage: youtube.symbol).foregroundStyle(youtube.color)
+                    }
+                }
                 Picker("Privacy", selection: $privacy) {
                     Text("Public").tag("public")
                     Text("Unlisted").tag("unlisted")
@@ -155,6 +166,8 @@ struct EventEditorView: View {
             } footer: {
                 if let error {
                     Text(error).foregroundStyle(.red)
+                } else if let names = signInNeeded {
+                    Text("Not scheduled on \(names) until you sign in under Connectors.").foregroundStyle(.orange)
                 } else {
                     Text("Scheduled on YouTube and Facebook automatically when those accounts are connected.")
                 }

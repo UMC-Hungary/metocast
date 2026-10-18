@@ -103,6 +103,8 @@ private struct MacRootView: View {
                 // files on the server's disk, so only the Mac hosting the server offers it.
                 ForEach(MetocastPane.allCases.filter { $0 != .settings && ($0 != .media || model.mode == .server) }, id: \.self) { item in
                     Label(item.title, systemImage: item.icon)
+                        .badge(item == .dashboard && model.session?.accountsNeedingSignIn.isEmpty == false
+                            ? Text(Image(systemName: "exclamationmark.triangle.fill")) : nil)
                 }
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 220)
@@ -171,6 +173,8 @@ private struct TabRootView: View {
             Tab(MetocastPane.dashboard.title, systemImage: MetocastPane.dashboard.icon, value: .dashboard) {
                 root(.dashboard) { DashboardView() }
             }
+            // The Dashboard's banner says which account needs signing in.
+            .badge(model.session?.accountsNeedingSignIn.isEmpty == false ? Text("!") : nil)
             Tab(MetocastPane.events.title, systemImage: MetocastPane.events.icon, value: .events) {
                 root(.events) {
                     EventsView()

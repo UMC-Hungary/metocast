@@ -9,6 +9,13 @@ struct DashboardView: View {
             VStack(alignment: .leading, spacing: 24) {
                 ConnectionHeader()
                 if let session = model.session {
+                    ForEach(session.accountsNeedingSignIn, id: \.connector) { status in
+                        NavigationLink(value: DashboardRoute.connector(status.connector)) {
+                            SignInBanner(status: status)
+                        }
+                        .buttonStyle(.plain)
+                        .pointingHand()
+                    }
                     let outputs = session.outputs
                     if !outputs.isEmpty {
                         section("Live") {
@@ -214,6 +221,17 @@ struct EventRow: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            // Its own buttons: a click here opens the broadcast, not the event.
+            ForEach(event.connections.filter(\.isScheduled), id: \.platform) { connection in
+                if let link = connection.link {
+                    Link(destination: link) {
+                        Label(connection.platformName, systemImage: ConnectorInfo(id: connection.platform).icon)
+                    }
+                    .buttonStyle(.borderless)
+                    .font(.subheadline)
+                    .help("Open \(connection.platformName)")
+                }
+            }
         }
     }
 }
@@ -227,10 +245,10 @@ private struct ConnectorCard: View {
             Label(info.name, systemImage: info.icon)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Label(status.status.title, systemImage: status.status.symbol)
+            Label(status.title, systemImage: status.symbol)
                 .font(.headline)
-                .foregroundStyle(status.status.color)
-            if let message = status.message {
+                .foregroundStyle(status.color)
+            if let message = status.detail {
                 Text(message)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -243,6 +261,31 @@ private struct ConnectorCard: View {
         .card()
         // "ATEM, Off" as one stop rather than two.
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// A set-up account that isn't signed in; opens its connector to sign in.
+private struct SignInBanner: View {
+    let status: ConnectorStatusRecord
+
+    var body: some View {
+        let name = ConnectorInfo(id: status.connector).name
+        Label {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(name): \(status.title)").font(.headline)
+                Text("Events aren't scheduled on \(name) until you sign in.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        } icon: {
+            Image(systemName: status.symbol).foregroundStyle(status.color)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .contentShape(.rect)
+        .card()
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Opens \(name) to sign in.")
     }
 }
 

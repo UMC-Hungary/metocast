@@ -10,6 +10,7 @@ struct PresentationView: View {
     @State private var query = ""
     @State private var isWritingSong = false
     @State private var isAskingForSongFolder = false
+    @State private var isShowingSettings = false
 
     var body: some View {
         Group {
@@ -23,6 +24,7 @@ struct PresentationView: View {
                                 if isShowing(session) {
                                     Button("Close Slides", systemImage: "xmark.circle") { session.show(.close) }
                                 }
+                                Button("Presentation Settings", systemImage: "slider.horizontal.3") { isShowingSettings = true }
                             }
                             #if os(macOS)
                             .labelStyle(.titleAndIcon)
@@ -38,6 +40,9 @@ struct PresentationView: View {
                         SongSlidesView(session: session).windowActions()
                     }
                     .songFolderPrompt(isPresented: $isAskingForSongFolder, session: session) { _ in isWritingSong = true }
+                    .sheet(isPresented: $isShowingSettings) {
+                        PresentationSettingsView(session: session)
+                    }
             } else {
                 ContentUnavailableView("No Presentation", systemImage: "play.rectangle")
                     .navigationTitle("Presentation")
@@ -83,19 +88,16 @@ struct PresentationView: View {
     private func content(_ session: MetocastSession) -> some View {
         if session.usesWebPresenter, let state = session.presenter, state.loaded {
             VStack(spacing: 20) {
-                SlideView(state: state, number: state.currentSlide, theme: session.presenterTheme)
-                    .clipShape(.rect(cornerRadius: 12))
-                    .overlay {
-                        // The output screen is black; the operator still sees what comes back.
-                        if state.muted {
-                            ZStack {
-                                Color.black.opacity(0.75)
-                                Label("Blacked Out", systemImage: "eye.slash")
-                                    .font(.headline)
-                                    .foregroundStyle(.white)
-                            }
-                        }
-                    }
+                // The Mac puts the next slide beside the current one, like a presenter view; the iPhone below it.
+                #if os(macOS)
+                HStack(alignment: .top, spacing: 20) {
+                    currentSlide(state, session: session)
+                    nextSlide(state, session: session).frame(width: 240)
+                }
+                #else
+                currentSlide(state, session: session)
+                nextSlide(state, session: session).frame(maxWidth: 240)
+                #endif
                 slidePicker(current: state.currentSlide, total: state.totalSlides, session: session)
                 #if os(iOS)
                 controls(session)
@@ -145,6 +147,40 @@ struct PresentationView: View {
     }
 
     /// "Slide 3 of 12", which also jumps to any slide.
+    private func currentSlide(_ state: PresenterStateRecord, session: MetocastSession) -> some View {
+        SlideView(state: state, number: state.currentSlide, theme: session.presenterTheme)
+            .clipShape(.rect(cornerRadius: 12))
+            .overlay {
+                // The output screen is black; the operator still sees what comes back.
+                if state.muted {
+                    ZStack {
+                        Color.black.opacity(0.75)
+                        Label("Blacked Out", systemImage: "eye.slash")
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                    }
+                }
+            }
+    }
+
+    /// The slide after this one, small; a click moves to it.
+    private func nextSlide(_ state: PresenterStateRecord, session: MetocastSession) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Next").font(.subheadline).foregroundStyle(.secondary)
+            if state.currentSlide < state.totalSlides {
+                Button { session.show(.next) } label: {
+                    SlideView(state: state, number: state.currentSlide + 1, theme: session.presenterTheme)
+                        .clipShape(.rect(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Next slide, \(state.currentSlide + 1)")
+                .accessibilityHint("Shows it on the output screen.")
+            } else {
+                Text("End of deck").foregroundStyle(.secondary)
+            }
+        }
+    }
+
     private func slidePicker(current: UInt32, total: UInt32, session: MetocastSession) -> some View {
         Menu("Slide \(current) of \(total)") {
             ForEach(1...max(total, 1), id: \.self) { slide in

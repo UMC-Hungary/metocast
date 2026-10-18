@@ -33,6 +33,14 @@ struct EventConnectionRow {
     extra: Option<serde_json::Value>,
 }
 
+/// An [`EventConnectionRow`] with the event it belongs to, for loading every event's at once.
+#[derive(Debug, FromRow)]
+struct EventConnectionByEventRow {
+    event_id: Uuid,
+    #[sqlx(flatten)]
+    connection: EventConnectionRow,
+}
+
 impl From<EventConnectionRow> for EventConnection {
     fn from(row: EventConnectionRow) -> Self {
         Self {
@@ -130,12 +138,13 @@ impl From<EventSummaryRow> for EventSummary {
             is_completed: row.is_completed,
             created_at: row.created_at,
             updated_at: row.updated_at,
+            connections: Vec::new(),
         }
     }
 }
 
 pub async fn fetch_event_summaries(pool: &PgPool) -> Result<Vec<EventSummary>, sqlx::Error> {
-    sqlx::query_as::<_, EventSummaryRow>(
+    let rows = sqlx::query_as::<_, EventSummaryRow>(
         r#"SELECT e.id, e.title, e.computed_title, e.date_time, e.speaker,
                   e.created_at, e.updated_at,
                   COUNT(r.id) AS recording_count,
@@ -149,8 +158,26 @@ pub async fn fetch_event_summaries(pool: &PgPool) -> Result<Vec<EventSummary>, s
            ORDER BY e.date_time DESC"#,
     )
     .fetch_all(pool)
-    .await
-    .map(|rows| rows.into_iter().map(Into::into).collect())
+    .await?;
+    let mut connections = std::collections::HashMap::<Uuid, Vec<EventConnection>>::new();
+    for row in sqlx::query_as::<_, EventConnectionByEventRow>(
+        "SELECT event_id, platform, external_id, stream_url, event_url, \
+         schedule_status, privacy_status, extra \
+         FROM event_connections ORDER BY platform",
+    )
+    .fetch_all(pool)
+    .await?
+    {
+        connections.entry(row.event_id).or_default().push(row.connection.into());
+    }
+    Ok(rows
+        .into_iter()
+        .map(|row| {
+            let mut summary = EventSummary::from(row);
+            summary.connections = connections.remove(&summary.id).unwrap_or_default();
+            summary
+        })
+        .collect())
 }
 
 /// The current event when it falls on today's local date — what an automatically
@@ -189,6 +216,7 @@ mod tests {
             is_completed,
             created_at: date_time,
             updated_at: date_time,
+            connections: Vec::new(),
         }
     }
 
