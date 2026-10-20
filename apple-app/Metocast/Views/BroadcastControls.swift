@@ -91,6 +91,8 @@ struct BroadcastButtons: View {
                 Button("End \(connection.platformName) Broadcast", systemImage: "stop.circle", role: .destructive) {
                     pending = BroadcastAction(eventId: eventId, connection: connection, start: false)
                 }
+                // A prominent button ignores the destructive role on the Mac and comes out blue.
+                .tint(.red)
             } else {
                 Button("Go Live on \(connection.platformName)", systemImage: "dot.radiowaves.left.and.right") {
                     pending = BroadcastAction(eventId: eventId, connection: connection, start: true)
