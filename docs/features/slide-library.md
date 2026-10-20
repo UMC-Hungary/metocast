@@ -32,9 +32,21 @@ The server keeps the searchable text in its database (`ppt_decks`), one row per 
 - **A folder that can't be read keeps its decks**, for example an external drive that is asleep
   or unplugged. They are dropped only once the folder can be read and the files are gone.
 
-The server log records every index run that changed something (decks added, updated, removed and
-unreadable, and how long it took). It also records a deck that can't be read, once per version of
-the file, and a folder that becomes unreadable or readable again.
+PowerPoint's `~$…` lock files (left beside a deck that is open, or after a crash) and hidden `._…`
+files are not decks and are skipped.
+
+The server log (on the Mac: **Settings → Server Log**) shows the index at work, in lines starting
+with `slide index:`:
+
+- `reading new and changed decks decks=343` when a run starts reading decks;
+- `synced added=343 updated=0 removed=0 unparseable=2 elapsed_ms=1074` when a run that changed
+  something ends;
+- `only the title is searchable path=… error=…` for a deck that can't be read, once per version
+  of the file;
+- `folder cannot be read` and `folder can be read again` when a watched folder goes away or
+  comes back.
+
+A search that finds nothing new to read logs nothing at the default level.
 
 ## Use it
 

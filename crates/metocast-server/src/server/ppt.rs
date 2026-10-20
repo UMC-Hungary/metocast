@@ -196,9 +196,9 @@ fn scan_folder(path: &str) -> Option<Vec<FileStat>> {
     for entry in dir.flatten() {
         let path = entry.path();
         let is_deck = path
-            .extension()
-            .and_then(|e| e.to_str())
-            .is_some_and(|e| e.eq_ignore_ascii_case("pptx") || e.eq_ignore_ascii_case("ppt"));
+            .file_name()
+            .and_then(|n| n.to_str())
+            .is_some_and(is_deck_name);
         let Ok(meta) = entry.metadata() else { continue };
         if !is_deck || !meta.is_file() {
             continue;
@@ -219,6 +219,16 @@ fn scan_folder(path: &str) -> Option<Vec<FileStat>> {
         });
     }
     Some(files)
+}
+
+/// A PowerPoint deck, not the `~$` lock file PowerPoint keeps beside an open deck or a hidden
+/// `._` file macOS leaves on non-Mac drives.
+fn is_deck_name(name: &str) -> bool {
+    let is_powerpoint = std::path::Path::new(name)
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("pptx") || e.eq_ignore_ascii_case("ppt"));
+    is_powerpoint && !name.starts_with("~$") && !name.starts_with('.')
 }
 
 /// The title (the file name without its extension) and the hymn number in its last "(47)".
@@ -344,6 +354,10 @@ async fn sync_locked(state: &AppState, unreadable: &mut BTreeSet<Uuid>) -> Resul
 
     let (mut added, mut updated, mut unparseable) = (0, 0, 0);
     if !changed.is_empty() {
+        tracing::info!(
+            decks = changed.len(),
+            "slide index: reading new and changed decks"
+        );
         set_indexing(state, u32::try_from(changed.len()).unwrap_or(u32::MAX)).await;
         for (folder_id, file) in &changed {
             let (title, number) = title_and_number(&file.name);
@@ -703,6 +717,15 @@ mod tests {
             ("Hirdetések".to_string(), None)
         );
         assert_eq!(title_and_number("Ének (x1).pptx").1, None);
+    }
+
+    #[test]
+    fn only_decks_are_indexed() {
+        assert!(is_deck_name("Ó, hála az Úrnak (47).pptx"));
+        assert!(is_deck_name("régi.PPT"));
+        assert!(!is_deck_name("~$D-387.pptx"));
+        assert!(!is_deck_name("._Ó, hála az Úrnak (47).pptx"));
+        assert!(!is_deck_name("kotta.pdf"));
     }
 
     #[test]
