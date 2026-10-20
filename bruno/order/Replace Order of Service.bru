@@ -29,15 +29,17 @@ body:json {
       { "kind": "song", "title": "Ó, hála az Úrnak (47)", "deckPath": "/Users/operator/Songs/47.pptx", "notes": "1. vers" },
       { "kind": "block", "title": "Beiktatás", "notes": "Kovács Zoltán" },
       { "kind": "song", "title": "Ó, hála az Úrnak (47)", "deckPath": "/Users/operator/Songs/47.pptx", "notes": "2. vers – közben kollekta" },
-      { "kind": "block", "title": "Hirdetések, áldás" },
+      { "kind": "announcements", "title": "Hirdetések, áldás", "notes": "Csütörtökön 18 órakor bibliaóra\nSzombaton ifjúsági alkalom\nJövő vasárnap úrvacsora" },
       { "kind": "song", "title": "Záró énekvers" }
     ]
   }
 }
 
 docs {
-  Replaces the whole list and broadcasts `event.order.changed`. Send a step's `id` back to keep
-  it, so the step on screen stays current.
+  Replaces the whole list and broadcasts `event.order.changed`; when the event is on screen,
+  `order.state` is sent again too, so a renamed live step shows everywhere. Send a step's `id`
+  back to keep it, so the step on screen stays current. The apps send the whole list after every
+  edit (add, rename, reorder, delete).
 }
 
 tests {

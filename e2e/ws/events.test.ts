@@ -5,6 +5,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { WsTestClient } from '../helpers/ws-client.js';
+import { apiClient } from '../helpers/client.js';
 
 interface WsEvent {
   id: string;
@@ -47,6 +48,14 @@ describe.skipIf(!isLive)('Events WebSocket Commands', () => {
     const event = msg['event'] as WsEvent;
     expect(event).toHaveProperty('id');
     createdEventId = event.id;
+  });
+
+  it('events.create stores the default Order of Service', async () => {
+    const res = await apiClient.get<{ items: { title: string }[] }>(
+      `/api/events/${createdEventId}/order`,
+    );
+    expect(res.body.items[0]?.title).toBe('Welcome message');
+    expect(res.body.items).toHaveLength(10);
   });
 
   it('events.get → events.get response', async () => {

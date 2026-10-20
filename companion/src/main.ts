@@ -141,6 +141,7 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 				this.orderStep = step
 				this.setVariableValues({
 					order_step: step?.title ?? '',
+					order_next_step: step?.next ?? '',
 					order_step_number: step ? `${step.number}/${step.count}` : '',
 				})
 				this.checkFeedbacks('order_running')

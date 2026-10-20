@@ -32,6 +32,7 @@ use crate::models::{
 use crate::server::AppState;
 use crate::server::OAUTH_REDIRECT_URI;
 use crate::server::mcp::McpConfig;
+use crate::server::order;
 use crate::server::presenter::{self, BibleReferenceType, BibleVerseContent, PresenterState};
 use crate::server::websocket::{
     broadcast_event_changed, broadcast_untracked_removed, spawn_scheduling_tasks,
@@ -1739,12 +1740,14 @@ pub async fn get_event(State(state): State<AppState>, Path(id): Path<Uuid>) -> i
 
 /// Upsert (or delete) bible references for an event inside an open transaction.
 /// An entry with an empty reference string is deleted; non-empty entries are upserted.
-async fn upsert_bible_references(
+/// Returns the types whose reference was set or changed, for `order::add_readings`.
+pub async fn upsert_bible_references(
     event_id: Uuid,
     refs: &Option<Vec<CreateBibleReference>>,
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-) -> anyhow::Result<()> {
-    let Some(refs) = refs else { return Ok(()) };
+) -> anyhow::Result<Vec<String>> {
+    let mut changed = Vec::new();
+    let Some(refs) = refs else { return Ok(changed) };
     for br in refs {
         let reference = br.reference.as_deref().unwrap_or("").trim();
         if reference.is_empty() {
@@ -1754,6 +1757,16 @@ async fn upsert_bible_references(
                 .execute(&mut **tx)
                 .await?;
         } else {
+            let before: Option<String> = sqlx::query_scalar(
+                "SELECT reference FROM event_bible_references WHERE event_id = $1 AND type = $2",
+            )
+            .bind(event_id)
+            .bind(&br.r#type)
+            .fetch_optional(&mut **tx)
+            .await?;
+            if before.as_deref() != Some(reference) {
+                changed.push(br.r#type.clone());
+            }
             let translation = br.translation.as_deref().unwrap_or("UF");
             let verses = br.verses.clone().unwrap_or_else(|| serde_json::json!([]));
             sqlx::query(
@@ -1774,7 +1787,7 @@ async fn upsert_bible_references(
             .await?;
         }
     }
-    Ok(())
+    Ok(changed)
 }
 
 pub async fn create_event(
@@ -1833,6 +1846,8 @@ pub async fn create_event(
             .await?;
         }
 
+        // The template already holds both readings, so the ones set here need no new step.
+        order::seed_template(&mut tx, event_id).await?;
         upsert_bible_references(event_id, &body.bible_references, &mut tx).await?;
 
         tx.commit().await?;
@@ -1862,7 +1877,7 @@ pub async fn update_event(
     Path(id): Path<Uuid>,
     Json(body): Json<UpdateEvent>,
 ) -> impl IntoResponse {
-    let result: anyhow::Result<Option<_>> = async {
+    let result: anyhow::Result<Option<(_, bool)>> = async {
         let mut tx = state.pool.begin().await?;
         sqlx::query("SET LOCAL app.skip_sync_notify = 'true'")
             .execute(&mut *tx)
@@ -1911,17 +1926,21 @@ pub async fn update_event(
             }
         }
 
-        upsert_bible_references(id, &body.bible_references, &mut tx).await?;
+        let set = upsert_bible_references(id, &body.bible_references, &mut tx).await?;
+        let order_changed = order::add_readings(&mut tx, id, &set).await?;
 
         tx.commit().await?;
 
         let event = fetch_event(id, &state.pool).await?;
-        anyhow::Ok(event)
+        anyhow::Ok(event.map(|event| (event, order_changed)))
     }
     .await;
 
     match result {
-        Ok(Some(event)) => {
+        Ok(Some((event, order_changed))) => {
+            if order_changed && let Err(e) = order::announce(&state, id).await {
+                tracing::error!("update_event: {e}");
+            }
             broadcast_event_changed(&state, "UPDATE", &event).await;
             spawn_scheduling_tasks(event.clone(), state);
             (StatusCode::OK, Json(event)).into_response()

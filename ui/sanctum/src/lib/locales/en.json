@@ -972,19 +972,17 @@
   "order": {
     "title": "Order of Service",
     "hint": "Songs, readings and the parts of the service, in order",
-    "empty": "No steps yet",
-    "emptyHint": "Add songs, the readings and the other parts of the service",
     "emptyRun": "No Order of Service",
     "emptyRunHint": "Add one on the event's page",
     "kind": {
       "song": "Song",
       "bible": "Reading",
-      "block": "Block"
+      "block": "Block",
+      "announcements": "Announcements"
     },
     "textus": "Textus",
     "leckio": "Lekció",
     "addSong": "Add song",
-    "addBlock": "Add block",
     "chooseSong": "Choose a song",
     "titlePlaceholder": "Title, e.g. Prayer",
     "notesPlaceholder": "Notes for the leaders",
@@ -993,13 +991,20 @@
     "moveUp": "Move up",
     "moveDown": "Move down",
     "remove": "Remove step",
-    "save": "Save Order of Service",
-    "saving": "Saving…",
-    "saved": "Saved",
     "previous": "Previous step",
     "next": "Next step",
     "waiting": "Waiting for the service to start…",
-    "addSongNoSlides": "Song without slides"
+    "addStep": "Add a step",
+    "editHint": "Drag to reorder, swipe left to delete, double-click to rename. The readings join the list when they are set on the event. Announcements take one bullet per line and show as slides.",
+    "readingNotSet": "Not set on the event yet",
+    "done": "Done",
+    "rename": "Rename step {n}",
+    "chooseDeck": "Choose deck",
+    "changeDeck": "Change deck",
+    "announcementCount": "{n, plural, one {# announcement} other {# announcements}}",
+    "noAnnouncements": "No announcements yet",
+    "bulletsPlaceholder": "One announcement per line",
+    "stepBullets": "Announcements of step {n}, one per line"
   },
   "mcp": {
     "title": "AI Agents (MCP)",

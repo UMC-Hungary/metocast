@@ -424,8 +424,16 @@ export class MetocastApi {
 				const { position, items } = result.data
 				const index = position ? items.findIndex((item) => item.id === position.itemId) : -1
 				const item = items[index]
+				const next = items[index + 1]
 				this.onOrderStepChanged?.(
-					item ? { title: item.title || item.kind, number: index + 1, count: items.length } : null,
+					item
+						? {
+								title: item.title || item.kind,
+								next: next ? next.title || next.kind : '',
+								number: index + 1,
+								count: items.length,
+							}
+						: null,
 				)
 				break
 			}

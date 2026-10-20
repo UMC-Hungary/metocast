@@ -24,7 +24,10 @@ use crate::server::{routes, websocket};
 const MAX_ITEMS: usize = 200;
 const MAX_TEXT: usize = 2_000;
 
-pub async fn fetch(pool: &PgPool, event_id: Uuid) -> sqlx::Result<Vec<OrderItem>> {
+pub async fn fetch(
+    pool: impl sqlx::PgExecutor<'_>,
+    event_id: Uuid,
+) -> sqlx::Result<Vec<OrderItem>> {
     let rows = sqlx::query(
         "SELECT id, kind, title, deck_path, bible_type, notes FROM event_order_items \
          WHERE event_id = $1 ORDER BY position",
@@ -76,7 +79,7 @@ fn invalid(items: &[OrderItem]) -> Option<String> {
             {
                 return Some(format!("Step {step} must be the Textus or the Lekció"));
             }
-            OrderItemKind::Block if item.title.trim().is_empty() => {
+            OrderItemKind::Block | OrderItemKind::Announcements if item.title.trim().is_empty() => {
                 return Some(format!("Step {step} needs a title"));
             }
             _ => {}
@@ -127,7 +130,12 @@ pub async fn put_order(
         }
         Ok(true) => {}
     }
-    if let Err(e) = replace(&state.pool, id, &body.items).await {
+    let replaced = async {
+        let mut tx = state.pool.begin().await?;
+        write(&mut tx, id, &body.items).await?;
+        tx.commit().await
+    };
+    if let Err(e) = replaced.await {
         // A repeated step id is the only way a valid list fails here.
         return (
             StatusCode::BAD_REQUEST,
@@ -135,35 +143,140 @@ pub async fn put_order(
         )
             .into_response();
     }
-    let items = match fetch(&state.pool, id).await {
-        Ok(items) => items,
+    match announce(&state, id).await {
+        Ok(items) => Json(EventOrder { items }).into_response(),
         Err(e) => {
             tracing::error!("put_order: {e}");
-            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
-    };
-    websocket::broadcast_json(
-        &state.ws_clients,
-        &json!({ "type": "event.order.changed", "eventId": id, "items": &items }),
-    )
-    .await;
-
-    // The live step was removed: nothing is current any more.
-    let mut position = state.order_position.write().await;
-    if position.is_some_and(|p| p.event_id == id && !items.iter().any(|i| i.id == Some(p.item_id)))
-    {
-        *position = None;
-        drop(position);
-        broadcast_position(&state).await;
     }
-    Json(EventOrder { items }).into_response()
 }
 
-async fn replace(pool: &PgPool, event_id: Uuid, items: &[OrderItem]) -> sqlx::Result<()> {
-    let mut tx = pool.begin().await?;
+/// Tells every client that an event's list changed: `event.order.changed`, and `order.state`
+/// when that event is on screen, so a renamed live step shows everywhere (Companion too).
+pub async fn announce(state: &AppState, event_id: Uuid) -> sqlx::Result<Vec<OrderItem>> {
+    let items = fetch(&state.pool, event_id).await?;
+    websocket::broadcast_json(
+        &state.ws_clients,
+        &json!({ "type": "event.order.changed", "eventId": event_id, "items": &items }),
+    )
+    .await;
+    let mut position = state.order_position.write().await;
+    if position.is_some_and(|p| p.event_id == event_id) {
+        // The live step was removed: nothing is current any more.
+        if position.is_some_and(|p| !items.iter().any(|i| i.id == Some(p.item_id))) {
+            *position = None;
+        }
+        drop(position);
+        broadcast_position(state).await;
+    }
+    Ok(items)
+}
+
+/// The steps a new event starts with: placeholders the operator fills in. Songs have no deck
+/// until one is picked from the library.
+fn template() -> Vec<OrderItem> {
+    let step = |kind, title: &str, bible_type: Option<&str>| OrderItem {
+        id: None,
+        kind,
+        title: title.to_string(),
+        deck_path: None,
+        bible_type: bible_type.map(str::to_string),
+        notes: String::new(),
+    };
+    use OrderItemKind::{Announcements, Bible, Block, Song};
+    vec![
+        step(Block, "Welcome message", None),
+        step(Song, "Song 1", None),
+        step(Song, "Song 2", None),
+        step(Bible, "Lekció", Some("leckio")),
+        step(Song, "Song 3", None),
+        step(Bible, "Textus", Some("textus")),
+        step(Block, "Preaching", None),
+        step(Song, "Song 4", None),
+        step(Announcements, "Hirdetések, áldás", None),
+        step(Song, "Song 4 last part", None),
+    ]
+}
+
+/// Stores the template for an event just created, inside its transaction.
+pub async fn seed_template(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    event_id: Uuid,
+) -> sqlx::Result<()> {
+    write(tx, event_id, &template()).await
+}
+
+/// `items` with a step for each reading in `types` that has none, or `None` if all have one.
+/// The Lekció goes before the Textus step and the Textus after the Lekció step, as the service
+/// reads them; otherwise at the end.
+fn with_readings(mut items: Vec<OrderItem>, types: &[String]) -> Option<Vec<OrderItem>> {
+    let has = |items: &[OrderItem], t: &str| {
+        items
+            .iter()
+            .any(|i| i.kind == OrderItemKind::Bible && i.bible_type.as_deref() == Some(t))
+    };
+    let mut changed = false;
+    for (bible_type, title) in [("leckio", "Lekció"), ("textus", "Textus")] {
+        if !types.iter().any(|t| t == bible_type) || has(&items, bible_type) {
+            continue;
+        }
+        let other = if bible_type == "leckio" {
+            "textus"
+        } else {
+            "leckio"
+        };
+        let at = items
+            .iter()
+            .position(|i| i.kind == OrderItemKind::Bible && i.bible_type.as_deref() == Some(other))
+            .map_or(
+                items.len(),
+                |i| if bible_type == "leckio" { i } else { i + 1 },
+            );
+        items.insert(
+            at,
+            OrderItem {
+                id: None,
+                kind: OrderItemKind::Bible,
+                title: title.to_string(),
+                deck_path: None,
+                bible_type: Some(bible_type.to_string()),
+                notes: String::new(),
+            },
+        );
+        changed = true;
+    }
+    changed.then_some(items)
+}
+
+/// Adds a step for each reading in `types` (the ones just set or changed) that has none. True if
+/// the list changed, so the caller announces it once the transaction is committed.
+pub async fn add_readings(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    event_id: Uuid,
+    types: &[String],
+) -> sqlx::Result<bool> {
+    if types.is_empty() {
+        return Ok(false);
+    }
+    let items = fetch(&mut **tx, event_id).await?;
+    if items.len() >= MAX_ITEMS {
+        return Ok(false);
+    }
+    match with_readings(items, types) {
+        Some(items) => write(tx, event_id, &items).await.map(|()| true),
+        None => Ok(false),
+    }
+}
+
+async fn write(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    event_id: Uuid,
+    items: &[OrderItem],
+) -> sqlx::Result<()> {
     sqlx::query("DELETE FROM event_order_items WHERE event_id = $1")
         .bind(event_id)
-        .execute(&mut *tx)
+        .execute(&mut **tx)
         .await?;
     for (position, item) in items.iter().enumerate() {
         sqlx::query(
@@ -178,10 +291,10 @@ async fn replace(pool: &PgPool, event_id: Uuid, items: &[OrderItem]) -> sqlx::Re
         .bind(item.deck_path.as_deref().filter(|_| item.kind == OrderItemKind::Song))
         .bind(item.bible_type.as_deref().filter(|_| item.kind == OrderItemKind::Bible))
         .bind(&item.notes)
-        .execute(&mut *tx)
+        .execute(&mut **tx)
         .await?;
     }
-    tx.commit().await
+    Ok(())
 }
 
 /// `order.state`: the step on screen and its event's steps, so a read-only view (the shared
@@ -202,8 +315,8 @@ async fn broadcast_position(state: &AppState) {
     }
 }
 
-/// Shows one step: a song opens its deck, a Bible step loads the event's reading, and a block
-/// leaves the screen as it is. Then every client hears which step is current.
+/// Shows one step: a song opens its deck, a Bible step loads the event's reading, the
+/// announcements become slides of their bullets, and a block leaves the screen as it is. Then every client hears which step is current.
 pub async fn go(
     state: &AppState,
     event_id: Uuid,
@@ -233,6 +346,10 @@ pub async fn go(
             .await?
         }
         OrderItemKind::Block => {}
+        OrderItemKind::Announcements => {
+            let deck = PresenterState::from_announcements(&item.title, &item.notes);
+            show_deck(state, deck, "hirdetesek.pptx").await?
+        }
     }
     *state.order_position.write().await = Some(OrderPosition { event_id, item_id });
     broadcast_position(state).await;
@@ -299,7 +416,12 @@ async fn show_reading(state: &AppState, event_id: Uuid, bible_type: &str) -> Res
     }
     let deck =
         PresenterState::from_bible_reference(&event.title, kind, &reference.reference, verses);
+    show_deck(state, deck, file_name).await
+}
 
+/// Puts a deck the server built on screen: into the web presenter, or written to the Bible slide
+/// folder as `file_name` for Keynote to open.
+async fn show_deck(state: &AppState, deck: PresenterState, file_name: &str) -> Result<(), String> {
     if state
         .use_web_presenter
         .load(std::sync::atomic::Ordering::Relaxed)
@@ -376,5 +498,46 @@ mod tests {
         let mut untitled = item(OrderItemKind::Block);
         untitled.title = " ".to_string();
         assert!(invalid(&[untitled]).is_some());
+    }
+
+    fn readings(items: &[OrderItem]) -> Vec<(usize, &str)> {
+        items
+            .iter()
+            .enumerate()
+            .filter_map(|(i, item)| item.bible_type.as_deref().map(|t| (i, t)))
+            .collect()
+    }
+
+    #[test]
+    fn template_is_valid_and_has_both_readings() {
+        let template = template();
+        assert!(invalid(&template).is_none());
+        assert_eq!(readings(&template), [(3, "leckio"), (5, "textus")]);
+        assert!(with_readings(template, &["leckio".into(), "textus".into()]).is_none());
+    }
+
+    #[test]
+    fn a_missing_reading_goes_next_to_the_other() {
+        let types = ["leckio".to_string(), "textus".to_string()];
+        let mut lekcio = item(OrderItemKind::Bible);
+        lekcio.bible_type = Some("leckio".to_string());
+        let list = vec![
+            item(OrderItemKind::Block),
+            lekcio.clone(),
+            item(OrderItemKind::Song),
+        ];
+        let added = with_readings(list, &types[1..]).expect("textus added");
+        assert_eq!(readings(&added), [(1, "leckio"), (2, "textus")]);
+
+        let mut textus = lekcio;
+        textus.bible_type = Some("textus".to_string());
+        let added = with_readings(vec![item(OrderItemKind::Block), textus], &types[..1])
+            .expect("lekció added");
+        assert_eq!(readings(&added), [(1, "leckio"), (2, "textus")]);
+
+        let added = with_readings(vec![item(OrderItemKind::Block)], &types).expect("both added");
+        assert_eq!(readings(&added), [(1, "leckio"), (2, "textus")]);
+        // A type that isn't a reading adds nothing.
+        assert!(with_readings(Vec::new(), &["other".to_string()]).is_none());
     }
 }
