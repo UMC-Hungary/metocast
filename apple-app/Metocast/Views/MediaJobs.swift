@@ -16,12 +16,14 @@ extension MetocastSession {
     var runningMediaJobs: [MediaJob] { mediaJobs.filter { $0.state == .running } }
 }
 
-/// The jobs that have ended, with what they made. Running ones show in `RunningJobs`.
+/// The jobs that have ended, newest first, with what they made. Running ones show in `RunningJobs`.
 struct MediaJobsCard: View {
     let session: MetocastSession
 
     var body: some View {
+        let ended = session.mediaJobsEnded
         let jobs = session.mediaJobs.filter { $0.state != .running }
+            .sorted { (ended[$0.id] ?? .distantPast) > (ended[$1.id] ?? .distantPast) }
         if !jobs.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 CardTitle("Finished")

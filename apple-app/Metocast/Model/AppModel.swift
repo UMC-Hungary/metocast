@@ -1,5 +1,8 @@
 import Foundation
 import Metocast
+#if os(macOS)
+import AppKit
+#endif
 
 /// How this device uses Metocast: hosting the core itself (Mac only) or talking to one elsewhere.
 enum AppMode: String {
@@ -147,10 +150,24 @@ final class AppModel {
         await session.start()
     }
 
+    /// `pane` is in front already, and shows the news itself, so a banner would only repeat it.
+    private func isShowing(_ pane: MetocastPane?) -> Bool {
+        #if os(macOS)
+        pane != nil && pane == self.pane && equipment == nil && NSApplication.shared.isActive
+        #else
+        false
+        #endif
+    }
+
     private func attach(_ session: MetocastSession) {
         session.onActivity = { [weak self] item in
-            self?.activity.insert(item, at: 0)
-            if item.isAlert { SystemNotice.post(item.title) }
+            guard let self else { return }
+            activity.insert(item, at: 0)
+            if item.isAlert, !isShowing(item.pane) { SystemNotice.post(item.title, opening: item.pane) }
+        }
+        SystemNotice.open = { [weak self] pane in
+            self?.equipment = nil
+            self?.pane = pane
         }
         self.session = session
     }

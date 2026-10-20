@@ -74,6 +74,8 @@ final class MetocastSession {
     private(set) var programJobs: [String: ProgramProgressRecord] = [:]
     /// The event each video job was filed under, by job id; a job with none isn't listed.
     private(set) var jobEvents: [String: String] = [:]
+    /// When each media job ended, so the Media page lists the newest result first.
+    private(set) var mediaJobsEnded: [String: Date] = [:]
 
     /// Receives server notifications and connection or connector changes worth one.
     var onActivity: (ActivityItem) -> Void = { _ in }
@@ -268,6 +270,22 @@ final class MetocastSession {
             outputPath: queued.outputPath,
             error: nil
         )
+    }
+
+    /// A media job's push: once it reaches an end, notes when and says how it went, as a system
+    /// notification that opens the Media page. A program's nudge runs it again, and says so again.
+    private func mediaJob(_ id: String, movedFrom old: RenderState?, to state: RenderState, finished: ActivityItem, failed: String, error: String?) {
+        guard state != old, state != .running else { return }
+        mediaJobsEnded[id] = .now
+        var item = finished
+        switch state {
+        case .succeeded: break
+        case .failed: item = ActivityItem(icon: "exclamationmark.triangle", title: error.map { "\(failed) (\($0))" } ?? failed)
+        case .running, .cancelled: return
+        }
+        item.isAlert = true
+        item.pane = .media
+        onActivity(item)
     }
 
     /// Stops a queued or running render, audio or program job.
@@ -629,32 +647,20 @@ final class MetocastSession {
         case .event(.deviceAlerts(let listeners)):
             deviceAlerts = listeners
         case .event(.mediaRenderProgress(let progress)):
+            let old = renders[progress.jobId]?.state
             renders[progress.jobId] = progress
             let file = URL(fileURLWithPath: progress.outputPath).lastPathComponent
-            switch progress.state {
-            case .succeeded:
-                onActivity(ActivityItem(icon: "film", title: "Render finished: \(file)"))
-            case .failed:
-                onActivity(ActivityItem(icon: "exclamationmark.triangle", title: "Render failed: \(progress.error ?? file)"))
-            case .running, .cancelled:
-                break
-            }
+            mediaJob(progress.jobId, movedFrom: old, to: progress.state, finished: ActivityItem(icon: "film", title: "Render finished: \(file)"), failed: "Render failed: \(file)", error: progress.error)
         case .event(.mediaAudioProgress(let progress)):
             // A pending job cancelled before it ran reports no output path; keep the one we know.
             var progress = progress
             if progress.outputPath.isEmpty, let known = audioJobs[progress.jobId] {
                 progress.outputPath = known.outputPath
             }
+            let old = audioJobs[progress.jobId]?.state
             audioJobs[progress.jobId] = progress
             let file = URL(fileURLWithPath: progress.outputPath).lastPathComponent
-            switch progress.state {
-            case .succeeded:
-                onActivity(ActivityItem(icon: "waveform", title: "Audio ready: \(file)"))
-            case .failed:
-                onActivity(ActivityItem(icon: "exclamationmark.triangle", title: "Audio failed: \(progress.error ?? file)"))
-            case .running, .cancelled:
-                break
-            }
+            mediaJob(progress.jobId, movedFrom: old, to: progress.state, finished: ActivityItem(icon: "waveform", title: "Audio ready: \(file)"), failed: "Audio failed: \(file)", error: progress.error)
         case .event(.mediaProgramProgress(let progress)):
             // A cancelled pending job reports no output path, and a nudge in progress no report:
             // keep the ones we know, so the row still says what the program is.
@@ -668,14 +674,7 @@ final class MetocastSession {
             }
             programJobs[progress.jobId] = progress
             let file = URL(fileURLWithPath: progress.outputPath).lastPathComponent
-            switch progress.state {
-            case .succeeded:
-                onActivity(ActivityItem(icon: "film.stack", title: "Video with audio ready: \(file)"))
-            case .failed:
-                onActivity(ActivityItem(icon: "exclamationmark.triangle", title: "Video with audio failed: \(progress.error ?? file)"))
-            case .running, .cancelled:
-                break
-            }
+            mediaJob(progress.jobId, movedFrom: known?.state, to: progress.state, finished: ActivityItem(icon: "film.stack", title: "Video with audio ready: \(file)"), failed: "Video with audio failed: \(file)", error: progress.error)
         case .event(.presentationSettings(let useWebPresenter, let theme)):
             usesWebPresenter = useWebPresenter
             presenterTheme = theme
@@ -816,6 +815,8 @@ struct ActivityItem: Identifiable {
     var isRead = false
     /// Something the operator has to act on, so it also goes out as a system notification.
     var isAlert = false
+    /// The page a tap on its system notification opens.
+    var pane: MetocastPane?
 }
 
 struct DiscoverySnapshot {

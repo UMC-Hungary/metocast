@@ -4,6 +4,9 @@ import SwiftUI
 struct MetocastApp: App {
     @State private var model = AppModel()
     @AppStorage("appearance") private var appearance = Appearance.system
+    #if os(macOS)
+    @NSApplicationDelegateAdaptor private var delegate: AppDelegate
+    #endif
 
     init() {
         PresenterFont.register()
@@ -15,6 +18,9 @@ struct MetocastApp: App {
                 .environment(model)
                 .tint(.accentColor)
                 .preferredColorScheme(appearance.colorScheme)
+                #if os(macOS)
+                .onAppear { delegate.model = model }
+                #endif
         }
         #if os(macOS)
         .defaultSize(width: 1080, height: 720)
@@ -156,6 +162,38 @@ private struct MacRootView: View {
         .sheet(isPresented: $model.isAddingEvent) {
             EventEditorView()
         }
+    }
+}
+#endif
+
+#if os(macOS)
+/// Asks before quitting stops a media job: the server is this app's helper, and goes with it.
+/// Closing the window leaves the app, and the job, running. An iPhone never hosts the server, so
+/// its jobs run on in a Mac's.
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    var model: AppModel?
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let model, model.mode == .server, let session = model.session else { return .terminateNow }
+        let jobs = session.runningMediaJobs
+        guard let first = jobs.first else { return .terminateNow }
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Stop the export and quit?")
+        alert.informativeText = String(localized: "\(URL(fileURLWithPath: first.outputPath).lastPathComponent) is still being made. Quitting Metocast stops this Mac's server, and the export with it.")
+        alert.addButton(withTitle: String(localized: "Keep Running"))
+        let quit = alert.addButton(withTitle: String(localized: "Cancel Export and Quit"))
+        quit.hasDestructiveAction = true
+        guard alert.runModal() == .alertSecondButtonReturn else { return .terminateCancel }
+        // A job the server loses mid-run starts over at its next launch; a cancelled one doesn't.
+        // A running job ends a moment after Cancel, so this waits (up to 10 s) to hear it did.
+        Task {
+            for job in jobs { try? await session.cancelRender(jobId: job.id) }
+            for _ in 0..<100 where !session.runningMediaJobs.isEmpty {
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
 }
 #endif

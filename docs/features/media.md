@@ -15,6 +15,24 @@ Drop the video, its audio recording, a transcript or a Resolve look on the Files
 look on the viewer's tiles, pick the event, and start the job. Settings are under **Connectors →
 Media Processing**; changes on the page apply to that job unless saved as the default.
 
+### While a job runs
+
+- **One at a time.** The Start card swaps its button for the running job's progress and
+  **Cancel**; the next job starts once it ends. The server's queue runs one job at a time anyway.
+- **Go anywhere.** Jobs belong to the app's connection, not the page: a progress ring in the
+  window's toolbar follows you to every page (click it for progress and Cancel), and the Media page
+  shows the job again when you come back.
+- **Results on top.** A finished, failed or cancelled job lands in **Finished** at the top of the
+  page, newest first, and the page scrolls up to it.
+- **A notification when it ends.** The first job asks permission; finished and failed jobs then
+  post a system notification with the file name, and clicking it opens the Media page. There is none
+  while the Media page is already in front: the result is on screen.
+- **Quitting asks first.** The job runs on the server, which in server mode is the app's own helper,
+  so quitting would stop it (and the server would start it over at the next launch). Quitting during
+  a job offers **Cancel Export and Quit** or **Keep Running**. Closing the window is fine: the app,
+  and the job, keep running. The iPhone has no Media page; a job started elsewhere carries on in the
+  Mac's server regardless of the phone.
+
 Blackmagic RAW also needs the free Blackmagic RAW install on that Mac, which holds the framework
 the app develops clips with. A job that stops with `this Mac is missing: braw-decode` means the
 opposite: the app itself was built without Blackmagic RAW support, which no install can repair —
