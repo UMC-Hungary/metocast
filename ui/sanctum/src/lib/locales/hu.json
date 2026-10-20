@@ -113,6 +113,33 @@
       "live": "Élő",
       "past": "Korábbi",
       "scheduled": "Ütemezve"
+    },
+    "broadcast": {
+      "status": {
+        "scheduled": "Ütemezve",
+        "starting": "Indul",
+        "live": "Élő",
+        "ended": "Véget ért"
+      },
+      "goLive": "Élő adás indítása: {platform}",
+      "end": "{platform} adás befejezése",
+      "confirmStartTitle": "Indulhat most az élő adás ({platform})?",
+      "confirmStartBody": "A nézők azonnal látják az adást.",
+      "confirmEndTitle": "Befejezed a {platform} adást?",
+      "confirmEndBody": "A nézőknek véget ér, és nem indítható újra.",
+      "confirmStart": "Élő adás indítása",
+      "confirmEnd": "Adás befejezése",
+      "cancel": "Mégse",
+      "failed": "Nem sikerült módosítani az adást",
+      "errors": {
+        "encoder_not_streaming": "Még nem jut el videó ide: {platform}. Indítsd el az OBS-t (vagy a kódolót), és próbáld újra.",
+        "not_authenticated": "Előbb jelentkezz be ({platform}) a Csatlakozások között.",
+        "not_scheduled": "Ehhez az eseményhez még nincs {platform} adás.",
+        "already_live": "Már élő.",
+        "not_live": "Nem élő.",
+        "broadcast_ended": "Ez az adás véget ért. Ütemezz újat.",
+        "youtube_testing_timeout": "A YouTube nem készítette elő időben az adást. Próbáld újra."
+      }
     }
   },
   "editor": {
@@ -181,13 +208,9 @@
       "status": {
         "not_scheduled": "Nincs ütemezve",
         "scheduled": "Ütemezve",
-        "created": "Létrehozva",
-        "ready": "Kész",
-        "testing": "Teszt",
+        "starting": "Indul",
         "live": "Élő",
-        "liveStarting": "Indul az élő adás",
-        "complete": "Véget ért",
-        "revoked": "Visszavonva",
+        "ended": "Véget ért",
         "failed": "Sikertelen"
       },
       "sync": {
@@ -206,7 +229,15 @@
     },
     "captions": "Angol felirat",
     "captionsQueued": "Angol felirat sorba állítva; a Sorok oldalon követhető.",
-    "captionsFailed": "A feliratot nem sikerült sorba állítani"
+    "captionsFailed": "A feliratot nem sikerült sorba állítani",
+    "cronHint": {
+      "pull": "Még egy ütemezett feladat sem húzza le a YouTube-ot.",
+      "upload": "Még egy ütemezett feladat sem tölti fel a felvételeket.",
+      "both": "Még egy ütemezett feladat sem húzza le a YouTube-ot és nem tölt fel felvételeket.",
+      "tooltip": "Az ütemezett feladat behúzza a YouTube Studióban készült adásokat, és feltölti a megjelölt felvételeket. Adj hozzá egyet például */5 * * * * ütemezéssel, és kapcsold be, mit csináljon.",
+      "link": "Beállítás",
+      "about": "Az ütemezett feladatokról"
+    }
   },
   "presentations": {
     "title": "Diák",

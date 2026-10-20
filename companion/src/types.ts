@@ -116,6 +116,8 @@ export const EventSummarySchema = z.object({
 	speaker: z.string(),
 	recordingCount: z.number().int().nonnegative(),
 	isCompleted: z.boolean(),
+	/** Its broadcasts; `scheduleStatus` is `scheduled`, `starting`, `live` or `ended` once one exists. */
+	connections: z.array(z.object({ platform: z.string(), scheduleStatus: z.string() })).default([]),
 	createdAt: z.string(),
 	updatedAt: z.string(),
 })

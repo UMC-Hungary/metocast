@@ -395,6 +395,55 @@ pub fn paths() -> Value {
             ],
         ),
     );
+    let platform = json!({
+        "name": "platform", "in": "path", "required": true,
+        "schema": { "type": "string", "enum": ["youtube", "facebook"] }
+    });
+    let stream_errors = [
+        not_found,
+        (
+            "401",
+            "Not signed in to that platform (`not_authenticated`)",
+        ),
+        (
+            "409",
+            "`not_scheduled`, `already_live`, `not_live`, `broadcast_ended`, or `encoder_not_streaming` \
+             (YouTube: no video reaches the stream yet; start OBS or the encoder first)",
+        ),
+        (
+            "502",
+            "The platform refused (`youtube_api_…` / `facebook_api_…` with its message)",
+        ),
+    ];
+    let stream_ok = Some(object(json!({ "ok": flag() }), &["ok"]));
+    put(
+        "/events/{id}/stream/{platform}/start",
+        "post",
+        op(
+            "Take the event's YouTube broadcast or Facebook live video live now. Destructive: viewers \
+             see the stream. YouTube binds the channel's stream if needed and goes through `testing`, \
+             which takes up to ~30 s; Facebook waits as `starting` until video arrives. Clients get \
+             `event.changed` with the connection's new `scheduleStatus`.",
+            "Events",
+            vec![path("id"), platform.clone()],
+            None,
+            ("200", "Live (or starting, on Facebook)", stream_ok.clone()),
+            &stream_errors,
+        ),
+    );
+    put(
+        "/events/{id}/stream/{platform}/stop",
+        "post",
+        op(
+            "End the event's live YouTube broadcast or Facebook live video. Destructive: it can't be \
+             restarted. Clients get `event.changed` with `scheduleStatus: ended`.",
+            "Events",
+            vec![path("id"), platform],
+            None,
+            ("200", "Ended", stream_ok),
+            &stream_errors,
+        ),
+    );
     put(
         "/connectors/youtube/schedule/{event_id}",
         "post",

@@ -1908,6 +1908,20 @@ impl AppleClient {
             .await
     }
 
+    /// Takes the event's YouTube or Facebook broadcast live (`start`) or ends it. A refusal
+    /// arrives as `Server` with the server's code (`encoder_not_streaming`, `not_live`, …).
+    pub async fn event_stream(
+        &self,
+        event_id: String,
+        platform: String,
+        start: bool,
+    ) -> Result<(), AppleError> {
+        let event = parse_id(&event_id)?;
+        let client = self.client.clone();
+        self.run(async move { client.event_stream(event, &platform, start).await })
+            .await
+    }
+
     /// The server's slide folders and title template.
     pub async fn server_settings(&self) -> Result<ServerSettingsRecord, AppleError> {
         let client = self.client.clone();

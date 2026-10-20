@@ -221,8 +221,9 @@ struct EventRow: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            BroadcastBadges(connections: event.connections)
             // Its own buttons: a click here opens the broadcast, not the event.
-            ForEach(event.connections.filter(\.isScheduled), id: \.platform) { connection in
+            ForEach(event.connections.filter { $0.hasBroadcast && $0.scheduleStatus != "ended" }, id: \.platform) { connection in
                 if let link = connection.link {
                     Link(destination: link) {
                         Label(connection.platformName, systemImage: ConnectorInfo(id: connection.platform).icon)

@@ -10,6 +10,7 @@ import {
   type EventSummary,
   type CreateEventPayload,
   type UpdateEventPayload,
+  type BroadcastPlatform,
 } from '../schemas/event.js';
 
 export function listEvents(): Promise<EventSummary[]> {
@@ -37,6 +38,25 @@ export function createEventSlides(id: string): Promise<{ files: string[] }> {
   return apiFetch(`/api/events/${id}/slides`, z.object({ files: z.array(z.string()) }), {
     method: 'POST',
   });
+}
+
+/**
+ * Takes the event's broadcast on `platform` live (`start`) or ends it (`stop`). Destructive.
+ * A refusal is an `ApiError` whose `code` says why: `encoder_not_streaming`, `not_live`, …
+ * Every client then gets `event.changed`.
+ */
+export async function controlEventStream(
+  id: string,
+  platform: BroadcastPlatform,
+  action: 'start' | 'stop',
+): Promise<void> {
+  await apiFetch(
+    `/api/events/${id}/stream/${platform}/${action}`,
+    z.object({ ok: z.literal(true) }),
+    {
+      method: 'POST',
+    },
+  );
 }
 
 // ── Order of Service ──────────────────────────────────────────────────────────

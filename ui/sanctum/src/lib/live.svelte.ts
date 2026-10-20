@@ -131,6 +131,8 @@ let currentEvent = $state<EventSummary | null>(null);
 let orderPosition = $state<OrderPosition | null>(null);
 /** Bumped when any event's Order of Service changes, so open views reload it. */
 let orderRevision = $state(0);
+// Bumped on every `event.changed`, so a list re-reads its events (a broadcast went live, …).
+let eventsRevision = $state(0);
 /** Decks the core is parsing into the slide search index; 0 when idle. */
 let slideIndexPending = $state(0);
 /** Bumped when the core finishes indexing, so open deck lists search again. */
@@ -197,6 +199,9 @@ export const live = {
   },
   get orderRevision() {
     return orderRevision;
+  },
+  get eventsRevision() {
+    return eventsRevision;
   },
   get slideIndexPending() {
     return slideIndexPending;
@@ -387,6 +392,7 @@ export function handleWs(msg: WsMessage): void {
       currentEvent = msg.events.find((e) => e.id === msg.selectedEventId) ?? null;
       break;
     case 'event.changed':
+      eventsRevision += 1;
       sendWsCommand('events.presenter_list');
       break;
     case 'order.state':

@@ -349,7 +349,7 @@ fn should_sync(event: &Event) -> bool {
         .map(|c| c.schedule_status.as_str())
         .unwrap_or("not_scheduled");
     if conn.and_then(|c| c.external_id.as_deref()).is_some() {
-        matches!(status, "scheduled" | "created" | "ready")
+        status == "scheduled"
     } else {
         status != "scheduled" && event.date_time > Utc::now()
     }

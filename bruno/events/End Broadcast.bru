@@ -1,0 +1,29 @@
+meta {
+  name: End Broadcast
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/events/{{eventId}}/stream/youtube/stop
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  Ends the event's live YouTube broadcast (or `facebook` live video). It can't be restarted. 409
+  `not_live` when it is not starting or live. Every client gets `event.changed` with `scheduleStatus: ended`.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("answers ok", function() {
+    expect(res.body.ok).to.equal(true);
+  });
+}

@@ -73,6 +73,15 @@ struct ConnectorFormView: View {
         }
     }
 
+    /// Devices that stream on their own and take the YouTube destination from the server.
+    private var youtubePush: ProductionControl? {
+        switch connector {
+        case "blackmagic-camera": .cameraPushYoutube
+        case "atem": .atemPushYoutube
+        default: nil
+        }
+    }
+
     private var signsIn: Bool { ConnectorInfo(id: connector).signsIn }
 
     var body: some View {
@@ -122,6 +131,26 @@ struct ConnectorFormView: View {
                             .contentShape(.rect)
                         }
                         .buttonStyle(.plain)
+                    }
+                }
+            }
+            if let push = youtubePush {
+                let deviceReady = session.connectors[connector]?.status == .connected
+                let youtubeReady = session.connectors["youtube"]?.status == .connected
+                Section {
+                    Button("Send YouTube Stream Settings", systemImage: "arrow.up.forward.square") {
+                        session.control(push)
+                    }
+                    .disabled(!deviceReady || !youtubeReady)
+                } header: {
+                    Text("YouTube Stream")
+                } footer: {
+                    if !deviceReady {
+                        Text("Connect the \(name) first.")
+                    } else if !youtubeReady {
+                        Text("Sign in to YouTube under Connectors first.")
+                    } else {
+                        Text("Sets the \(name)'s streaming destination to your YouTube channel's stream address and key.")
                     }
                 }
             }

@@ -5,6 +5,7 @@ import Metocast
 struct EventsView: View {
     @Environment(AppModel.self) private var model
     @State private var query = ""
+    @State private var pendingBroadcast: BroadcastAction?
 
     var body: some View {
         let events = matching
@@ -35,6 +36,7 @@ struct EventsView: View {
         .searchable(text: $query, prompt: "Search")
         .navigationDestination(for: EventSummaryRecord.self) { EventDetailView(summary: $0).windowActions() }
         .refreshable { await model.session?.refresh() }
+        .confirmingBroadcast($pendingBroadcast, session: model.session)
     }
 
     private var matching: [EventSummaryRecord] {
@@ -51,6 +53,13 @@ struct EventsView: View {
             }
             // A Mac list row link is otherwise an element of unknown role, which doesn't say it opens.
             .accessibilityAddTraits(.isButton)
+            // Off the row's tap target: tapping still opens the event.
+            .contextMenu {
+                BroadcastButtons(eventId: event.id, connections: event.connections, pending: $pendingBroadcast)
+            }
+            .swipeActions(edge: .leading) {
+                BroadcastButtons(eventId: event.id, connections: event.connections, pending: $pendingBroadcast)
+            }
         }
     }
 }
@@ -67,6 +76,7 @@ struct EventDetailView: View {
     @State private var slidesResult: String?
     @State private var isAskingForSlideFolder = false
     @State private var isChoosingSlideFolder = false
+    @State private var pendingBroadcast: BroadcastAction?
 
     var body: some View {
         // The full record once loaded, so edits show without going back to the list.
@@ -91,20 +101,25 @@ struct EventDetailView: View {
                         Text(event.description).textSelection(.enabled)
                     }
                 }
-                if !event.connections.isEmpty {
+                // The list's copy follows `event.changed`, so a broadcast going live shows here too.
+                let connections = model.session?.events.first { $0.id == summary.id }?.connections ?? event.connections
+                if !connections.isEmpty {
                     Section("Streaming") {
-                        ForEach(event.connections, id: \.platform) { connection in
+                        ForEach(connections, id: \.platform) { connection in
                             let link = connection.link
-                            // "not_scheduled" → "Not Scheduled"
-                            let status = connection.scheduleStatus.replacing("_", with: " ").localizedCapitalized
                             LabeledContent(connection.platformName) {
+                                if connection.hasBroadcast {
+                                    BroadcastBadge(connection: connection)
+                                }
                                 if let link {
-                                    Link(status, destination: link)
-                                } else {
-                                    Text(status)
+                                    Link(connection.hasBroadcast ? "Open" : connection.stateName, destination: link)
+                                } else if !connection.hasBroadcast {
+                                    Text(connection.stateName)
                                 }
                             }
                         }
+                        BroadcastButtons(eventId: summary.id, connections: connections, pending: $pendingBroadcast)
+                            .buttonStyle(.glassProminent)
                     }
                 }
                 ForEach(event.bibleReferences, id: \.referenceType) { reference in
@@ -157,6 +172,7 @@ struct EventDetailView: View {
         }
         .formStyle(.grouped)
         .navigationTitle(title)
+        .confirmingBroadcast($pendingBroadcast, session: model.session)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button("Edit") { isEditing = true }

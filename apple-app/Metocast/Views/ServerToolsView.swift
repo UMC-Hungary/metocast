@@ -52,7 +52,7 @@ struct ServerToolsView: View {
 }
 
 /// Jobs the server runs on a schedule. (Rules that react to devices are Settings → Automations.)
-private struct ScheduledJobsView: View {
+struct ScheduledJobsView: View {
     let session: MetocastSession
     @State private var jobs: [CronJobRecord] = []
     @State private var editing: CronJobRecord?

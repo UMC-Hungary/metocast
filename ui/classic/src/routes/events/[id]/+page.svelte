@@ -38,6 +38,11 @@
     return event?.connections.find((c) => c.platform === platform);
   }
 
+  /** The broadcast exists on the platform, in whatever state the platform reports. */
+  function onPlatform(c: { scheduleStatus: string } | undefined): boolean {
+    return ['scheduled', 'starting', 'live', 'ended'].includes(c?.scheduleStatus ?? '');
+  }
+
   onMount(async () => {
     try {
       [event, recordings, activities] = await Promise.all([
@@ -209,14 +214,13 @@
         <div class="social-item__header">
           <span class="social-item__name">YouTube</span>
           <span
-            class="badge badge--{conn('youtube')?.scheduleStatus === 'scheduled' ||
-            conn('youtube')?.externalId
+            class="badge badge--{onPlatform(conn('youtube')) || conn('youtube')?.externalId
               ? 'scheduled'
               : conn('youtube')?.scheduleStatus === 'failed'
                 ? 'failed'
                 : 'none'}"
           >
-            {conn('youtube')?.scheduleStatus === 'scheduled' || conn('youtube')?.externalId
+            {onPlatform(conn('youtube')) || conn('youtube')?.externalId
               ? 'Scheduled'
               : conn('youtube')?.scheduleStatus === 'failed'
                 ? 'Failed'
@@ -233,7 +237,7 @@
             View on YouTube
           </a>
         {/if}
-        {#if $youtubeStatus === 'connected' && conn('youtube')?.scheduleStatus !== 'scheduled' && !conn('youtube')?.externalId}
+        {#if $youtubeStatus === 'connected' && !onPlatform(conn('youtube')) && !conn('youtube')?.externalId}
           <button
             class="btn-secondary"
             onclick={scheduleYouTube}
@@ -253,13 +257,13 @@
         <div class="social-item__header">
           <span class="social-item__name">Facebook</span>
           <span
-            class="badge badge--{conn('facebook')?.scheduleStatus === 'scheduled'
+            class="badge badge--{onPlatform(conn('facebook'))
               ? 'scheduled'
               : conn('facebook')?.scheduleStatus === 'failed'
                 ? 'failed'
                 : 'none'}"
           >
-            {conn('facebook')?.scheduleStatus === 'scheduled'
+            {onPlatform(conn('facebook'))
               ? 'Scheduled'
               : conn('facebook')?.scheduleStatus === 'failed'
                 ? 'Failed'
@@ -276,7 +280,7 @@
             View on Facebook
           </a>
         {/if}
-        {#if $facebookStatus === 'connected' && conn('facebook')?.scheduleStatus !== 'scheduled'}
+        {#if $facebookStatus === 'connected' && !onPlatform(conn('facebook'))}
           <button
             class="btn-secondary"
             onclick={scheduleFacebook}

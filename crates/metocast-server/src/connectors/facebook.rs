@@ -381,3 +381,60 @@ pub async fn schedule_event(
         event_url,
     })
 }
+
+// ── Going live and ending ────────────────────────────────────────────────────
+
+/// Sends a Graph API request on one live video and returns its JSON body.
+async fn live_video_call(request: reqwest::RequestBuilder) -> anyhow::Result<serde_json::Value> {
+    let response = request.send().await?;
+    let status = response.status();
+    let body: serde_json::Value = response.json().await.unwrap_or_default();
+    if status.is_success() {
+        return Ok(body);
+    }
+    anyhow::bail!(
+        "facebook_api_{}: {}",
+        status.as_u16(),
+        body["error"]["message"]
+    )
+}
+
+/// The live video's state, normalized by [`super::broadcast_status`]; `None` for a state we
+/// don't map.
+pub async fn live_video_status(
+    live_video_id: &str,
+    access_token: &str,
+) -> anyhow::Result<Option<&'static str>> {
+    let body = live_video_call(
+        reqwest::Client::new()
+            .get(format!("https://graph.facebook.com/v19.0/{live_video_id}"))
+            .query(&[("fields", "status"), ("access_token", access_token)]),
+    )
+    .await?;
+    Ok(body["status"]
+        .as_str()
+        .and_then(|raw| super::broadcast_status("facebook", raw)))
+}
+
+/// Publishes a scheduled live video now. Facebook shows it as soon as video reaches its stream,
+/// so with the encoder still off it waits as `starting` rather than failing.
+pub async fn go_live(live_video_id: &str, access_token: &str) -> anyhow::Result<()> {
+    live_video_call(
+        reqwest::Client::new()
+            .post(format!("https://graph.facebook.com/v19.0/{live_video_id}"))
+            .query(&[("status", "LIVE_NOW"), ("access_token", access_token)]),
+    )
+    .await
+    .map(drop)
+}
+
+/// Ends a live video. It can't be restarted afterwards.
+pub async fn end_live_video(live_video_id: &str, access_token: &str) -> anyhow::Result<()> {
+    live_video_call(
+        reqwest::Client::new()
+            .post(format!("https://graph.facebook.com/v19.0/{live_video_id}"))
+            .query(&[("end_live_video", "true"), ("access_token", access_token)]),
+    )
+    .await
+    .map(drop)
+}

@@ -195,13 +195,15 @@ async fn pull_youtube_live(
             _ => continue,
         };
 
-        let life_cycle_status = item
+        let Some(status) = item
             .pointer("/status/lifeCycleStatus")
             .and_then(|v| v.as_str())
-            .unwrap_or("unknown")
-            .to_string();
+            .and_then(|raw| crate::connectors::broadcast_status("youtube", raw))
+        else {
+            continue;
+        };
 
-        if life_cycle_status == "live" || life_cycle_status == "liveStarting" {
+        if status == "live" {
             has_live = true;
         }
 
@@ -264,7 +266,7 @@ async fn pull_youtube_live(
 
                 let needs_update = match &current {
                     Ok(Some(c)) => {
-                        c.schedule_status != life_cycle_status
+                        c.schedule_status != status
                             || c.stream_url.as_deref() != Some(watch_url.as_str())
                             || c.external_id.as_deref() != Some(broadcast_id.as_str())
                     }
@@ -293,7 +295,7 @@ async fn pull_youtube_live(
                     .bind(event_id)
                     .bind(&broadcast_id)
                     .bind(&watch_url)
-                    .bind(&life_cycle_status)
+                    .bind(status)
                     .execute(&mut *tx)
                     .await?;
                     sqlx::query("UPDATE events SET updated_at = NOW() WHERE id = $1")
@@ -325,7 +327,7 @@ async fn pull_youtube_live(
             Ok(None) => {
                 // Don't create events for already-completed broadcasts we've
                 // never seen before — they're historical and wouldn't be useful.
-                if life_cycle_status == "complete" || life_cycle_status == "revoked" {
+                if status == "ended" {
                     continue;
                 }
 
@@ -352,7 +354,7 @@ async fn pull_youtube_live(
                     .bind(event_id)
                     .bind(&broadcast_id)
                     .bind(&watch_url)
-                    .bind(&life_cycle_status)
+                    .bind(status)
                     .bind(&privacy_status)
                     .execute(&mut *tx)
                     .await?;
