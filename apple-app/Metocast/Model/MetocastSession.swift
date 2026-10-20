@@ -22,6 +22,10 @@ final class MetocastSession {
     private(set) var status: Status = .connecting
     private(set) var events: [EventSummaryRecord] = []
     private(set) var connectors: [String: ConnectorStatusRecord] = [:]
+    /// YouTube or Facebook is set up but not signed in, so events won't be scheduled there.
+    var accountsNeedingSignIn: [ConnectorStatusRecord] {
+        ConnectorInfo.sorted(connectors).filter(\.needsSignIn)
+    }
     private(set) var presenter: PresenterStateRecord?
     // Live production. Each is nil while its connector isn't connected.
     private(set) var obs: OBSOutputs?
@@ -723,7 +727,7 @@ final class MetocastSession {
         case .connected:
             onActivity(ActivityItem(icon: "checkmark.circle", title: "\(name) connected"))
         case .error:
-            onActivity(ActivityItem(icon: "exclamationmark.triangle", title: "\(name): \(status.message ?? "error")"))
+            onActivity(ActivityItem(icon: "exclamationmark.triangle", title: "\(name): \(status.detail ?? status.title)"))
         case .disconnected where previous == .connected:
             onActivity(ActivityItem(icon: "bolt.horizontal.circle", title: "\(name) disconnected"))
         case .disconnected, .connecting:

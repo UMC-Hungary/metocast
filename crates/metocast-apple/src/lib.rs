@@ -86,6 +86,7 @@ pub struct EventSummaryRecord {
     pub is_completed: bool,
     pub created_at: String,
     pub updated_at: String,
+    pub connections: Vec<EventConnectionRecord>,
 }
 
 #[derive(Clone, uniffi::Record)]
@@ -2100,6 +2101,7 @@ impl From<EventSummary> for EventSummaryRecord {
             is_completed: event.is_completed,
             created_at: event.created_at.to_rfc3339(),
             updated_at: event.updated_at.to_rfc3339(),
+            connections: event.connections.into_iter().map(Into::into).collect(),
         }
     }
 }

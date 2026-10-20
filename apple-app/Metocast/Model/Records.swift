@@ -111,6 +111,9 @@ struct ConnectorInfo {
         }
     }
 
+    /// Connectors that sign in to an account rather than connect to a device.
+    var signsIn: Bool { id == "youtube" || id == "facebook" }
+
     var category: ConnectorCategory {
         switch id {
         case "atem", "blackmagic-camera", "obs", "vmix", "rodecaster": .production
@@ -183,6 +186,42 @@ extension ConnectorStatusCode {
     }
 }
 
+/// A status in words. YouTube and Facebook report sign-in problems as codes in `message`; on their
+/// own those read as a red "Error" and a raw `login_required`.
+extension ConnectorStatusRecord {
+    private var code: String? { status == .error ? message : nil }
+
+    /// Set up, but no account signed in or its sign-in expired: worth showing wherever it matters.
+    var needsSignIn: Bool { code == "login_required" || code == "relogin_required" }
+
+    var title: String {
+        switch code {
+        case "credentials_required": "Not set up"
+        case "login_required": "Not signed in"
+        case "relogin_required": "Sign-in expired"
+        default: status == .connected && ConnectorInfo(id: connector).signsIn ? "Signed in" : status.title
+        }
+    }
+
+    var symbol: String {
+        if code == "credentials_required" { return "minus.circle" }
+        return needsSignIn ? "person.crop.circle.badge.exclamationmark" : status.symbol
+    }
+
+    var color: Color {
+        if code == "credentials_required" { return .secondary }
+        return needsSignIn ? .orange : status.color
+    }
+
+    /// The server's message, unless the title already says it.
+    var detail: String? {
+        switch code {
+        case "credentials_required", "login_required", "relogin_required": nil
+        default: message.flatMap { $0.isEmpty ? nil : $0 }
+        }
+    }
+}
+
 extension PresenterStateRecord {
     var fileName: String {
         filePath.map { URL(filePath: $0).deletingPathExtension().lastPathComponent } ?? "Presentation"
@@ -190,6 +229,18 @@ extension PresenterStateRecord {
 }
 
 extension EventConnectionRecord {
+    /// Still on: the list links only these.
+    var isScheduled: Bool { scheduleStatus == "scheduled" }
+
+    /// YouTube opens the broadcast's live control room in YouTube Studio, where it's run, not its
+    /// public watch page; Facebook opens its event.
+    var link: URL? {
+        if platform == "youtube", let id = externalId, !id.isEmpty {
+            return URL(string: "https://studio.youtube.com/video/\(id)/livestreaming")
+        }
+        return (eventUrl ?? streamUrl).flatMap(URL.init(string:))
+    }
+
     var platformName: String {
         switch platform {
         case "youtube": "YouTube"

@@ -215,7 +215,8 @@ fn handwritten() -> Value {
                         "speaker":        { "type": "string" },
                         "recordingCount": { "type": "integer", "format": "int64", "description": "Number of recording files attached to this event" },
                         "createdAt":      { "type": "string", "format": "date-time" },
-                        "updatedAt":      { "type": "string", "format": "date-time" }
+                        "updatedAt":      { "type": "string", "format": "date-time" },
+                        "connections":    { "type": "array", "items": { "$ref": "#/components/schemas/EventConnection" }, "description": "The event's YouTube and Facebook broadcasts" }
                     }
                 },
                 "CreateEventRequest": {

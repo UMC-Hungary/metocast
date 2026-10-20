@@ -56,6 +56,7 @@ pub enum PresenterRenderMode {
     Svg,
 }
 
+use metocast_core::protocol::MAX_WS_MESSAGE_BYTES;
 pub use metocast_core::protocol::PresenterTheme;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, schemars::JsonSchema, PartialEq, Eq)]
@@ -423,10 +424,34 @@ pub fn load_pptx(
     file_path: &str,
     render_mode: PresenterRenderMode,
 ) -> Result<PresenterState, String> {
-    match render_mode {
+    let state = match render_mode {
         PresenterRenderMode::Text => parse_pptx(file_path).map(PresenterState::from_parsed),
         PresenterRenderMode::Svg => parse_pptx_svg(file_path).map(PresenterState::from_svg),
+    }?;
+    check_message_size(&state)?;
+    Ok(state)
+}
+
+/// Room for the `{"type":"presenter.state","state":…}` envelope around the state.
+const PRESENTER_STATE_ENVELOPE_BYTES: usize = 64;
+
+/// The whole deck goes to every client as one `presenter.state` message, and the Rust
+/// clients drop a message over `MAX_WS_MESSAGE_BYTES` along with the connection. Refuse such
+/// a deck here, where the operator can be told why, instead of every client losing the server.
+fn check_message_size(state: &PresenterState) -> Result<(), String> {
+    let bytes = serde_json::to_vec(state)
+        .map_err(|e| format!("Cannot encode the presentation: {e}"))?
+        .len()
+        + PRESENTER_STATE_ENVELOPE_BYTES;
+    if bytes > MAX_WS_MESSAGE_BYTES {
+        return Err(format!(
+            "This presentation is too large for the web presenter ({} MB, the limit is {} MB). \
+             Compress its pictures in PowerPoint (Picture Format → Compress Pictures) and open it again.",
+            bytes.div_ceil(1 << 20),
+            MAX_WS_MESSAGE_BYTES >> 20,
+        ));
     }
+    Ok(())
 }
 
 // ── Live presenter state ──────────────────────────────────────────────────────
@@ -806,6 +831,23 @@ mod tests {
             verse,
             text: text.to_string(),
         }
+    }
+
+    #[test]
+    fn a_deck_too_large_for_one_websocket_message_is_refused() {
+        let svg_slide = |svg: String| SvgSlideContent {
+            index: 1,
+            svg,
+            width_px: 1920,
+            height_px: 1080,
+        };
+        let mut state = PresenterState::empty();
+        state.svg_slides = vec![svg_slide("x".repeat(MAX_WS_MESSAGE_BYTES))];
+        let error = check_message_size(&state).unwrap_err();
+        assert!(error.contains("too large"), "{error}");
+
+        state.svg_slides = vec![svg_slide("x".repeat(20 << 20))];
+        assert!(check_message_size(&state).is_ok());
     }
 
     #[test]
