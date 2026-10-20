@@ -22,8 +22,8 @@ The same value is in each connection's `scheduleStatus`. Before a broadcast exis
 ### How it stays current
 
 - Going live or ending updates the badge right away.
-- While an event is within 12 hours of now, the server asks the platforms every minute about its
-  scheduled, starting and live broadcasts. That catches a broadcast started or ended in YouTube
+- Every minute the server asks the platforms about every starting or live broadcast, and about
+  scheduled ones on events within 12 hours of now. That catches a broadcast started or ended in YouTube
   Studio, or ended by YouTube itself. One YouTube call covers every broadcast (1 quota unit).
   Facebook gets one call per live video. With no service near, nothing is called.
 - Every change reaches every client as `event.changed`. Clients never poll.
@@ -72,6 +72,15 @@ Both ask for confirmation first.
   buttons.
 
   ![The event page's Streaming section: YouTube "Scheduled" with Open, and a red Go Live on YouTube button](../images/broadcast-controls/mac-event-streaming.png)
+
+- Once live, the badge turns red with a dot, everywhere, and the button becomes **End YouTube
+  Broadcast**. Ending asks first, because it can't be undone.
+
+  ![The Events list while live: a red "Live" badge](../images/broadcast-controls/mac-events-list-live.png)
+
+  ![The event page while live: "Live" badge and End YouTube Broadcast](../images/broadcast-controls/mac-event-live.png)
+
+  ![The end confirmation: "End the YouTube broadcast? Viewers will see it end, and it can't be restarted."](../images/broadcast-controls/mac-end-confirm.png)
 
 - **Event editor → YouTube**: when no enabled scheduled job pulls YouTube, a small note says so.
   It also says so when **Auto-upload** is on and no enabled job uploads. The ⓘ explains what a

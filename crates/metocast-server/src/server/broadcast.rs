@@ -154,9 +154,9 @@ struct Watched {
     id: String,
 }
 
-/// Every minute, re-reads the platform state of broadcasts that may change soon: scheduled,
-/// starting or live, on events within 12 hours of now. With none (any day without a service)
-/// it calls nothing. One YouTube call covers up to 50 broadcasts (1 quota unit).
+/// Every minute, re-reads the platform state of broadcasts that may change soon: any starting or
+/// live one, whatever its event's date (it is on air now), and scheduled ones on events within
+/// 12 hours of now. With none (any day without a service) it calls nothing. One YouTube call covers up to 50 broadcasts (1 quota unit).
 pub fn spawn_watcher(state: AppState) {
     tokio::spawn(async move {
         let mut tick = tokio::time::interval(Duration::from_secs(60));
@@ -174,8 +174,9 @@ async fn refresh(state: &AppState) -> anyhow::Result<()> {
         "SELECT c.event_id, c.platform, \
                 CASE c.platform WHEN 'facebook' THEN c.extra->>'stream_id' ELSE c.external_id END AS id \
          FROM event_connections c JOIN events e ON e.id = c.event_id \
-         WHERE c.schedule_status IN ('scheduled', 'starting', 'live') \
-           AND e.date_time BETWEEN NOW() - INTERVAL '12 hours' AND NOW() + INTERVAL '12 hours' \
+         WHERE (c.schedule_status IN ('starting', 'live') \
+                OR (c.schedule_status = 'scheduled' \
+                    AND e.date_time BETWEEN NOW() - INTERVAL '12 hours' AND NOW() + INTERVAL '12 hours')) \
            AND (CASE c.platform WHEN 'facebook' THEN c.extra->>'stream_id' ELSE c.external_id END) IS NOT NULL",
     )
     .fetch_all(&state.pool)
