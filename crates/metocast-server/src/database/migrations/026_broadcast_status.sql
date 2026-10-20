@@ -1,5 +1,5 @@
 -- ============================================================
--- 025_broadcast_status.sql
+-- 026_broadcast_status.sql
 -- schedule_status held YouTube's raw lifeCycleStatus once the pull job had run.
 -- Every platform now shares one vocabulary: not_scheduled, failed, scheduled,
 -- starting, live, ended.

@@ -97,8 +97,17 @@ enum WsCommand {
     #[serde(rename = "keynote.status")]
     KeynoteStatus,
     // ── PPT ──────────────────────────────────────────────────────────────────
+    /// Find decks in the watched slide folders by title, hymn number or slide text, accents ignored, best match first. The reply, `ppt.search_results`, goes to every client.
     #[serde(rename = "ppt.search")]
-    PptSearch { filter: String },
+    PptSearch {
+        filter: String,
+        /// Only this folder's decks.
+        #[serde(default)]
+        folder_id: Option<Uuid>,
+        /// How many decks to return: 5 when omitted, at most 200.
+        #[serde(default)]
+        limit: Option<u32>,
+    },
     #[serde(rename = "ppt.folders.list")]
     PptFoldersList,
     #[serde(rename = "ppt.folders.add")]
@@ -1181,15 +1190,21 @@ async fn handle_ws_command(
             client_tx.send(Message::Text(msg.into())).log_gone();
         }
         // ── PPT ──────────────────────────────────────────────────────────────
-        WsCommand::PptSearch { filter } => {
-            let files = ppt::search_files_internal(&state.pool, &filter).await;
-            let msg = json!({ "type": "ppt.search_results", "files": files, "filter": filter })
-                .to_string();
-            let clients = state.ws_clients.read().await;
-            for tx in clients.values() {
-                tx.send(Message::Text(msg.clone().into())).log_gone();
+        WsCommand::PptSearch {
+            filter,
+            folder_id,
+            limit,
+        } => match ppt::search_files_internal(state, &filter, folder_id, limit).await {
+            Ok(files) => {
+                let msg = json!({ "type": "ppt.search_results", "files": files, "filter": filter })
+                    .to_string();
+                let clients = state.ws_clients.read().await;
+                for tx in clients.values() {
+                    tx.send(Message::Text(msg.clone().into())).log_gone();
+                }
             }
-        }
+            Err(e) => ws_error(client_tx, &e.to_string()),
+        },
         WsCommand::PptFoldersList => {
             match sqlx::query_as::<_, ppt::PptFolder>(
                 "SELECT id, path, name, sort_order FROM ppt_folders ORDER BY sort_order, name",
@@ -1217,6 +1232,7 @@ async fn handle_ws_command(
             match result {
                 Ok(folder) => {
                     broadcast_ppt_folders_changed(&state.ws_clients).await;
+                    ppt::spawn_sync(state.clone());
                     let msg = json!({ "type": "ppt.folders.add", "folder": folder }).to_string();
                     client_tx.send(Message::Text(msg.into())).log_gone();
                 }
@@ -3554,6 +3570,8 @@ async fn handle_socket(
         .log_gone();
     }
     tx.send(Message::Text(state.transcription.snapshot_message().into()))
+        .log_gone();
+    tx.send(Message::Text(ppt::index_state_message().into()))
         .log_gone();
 
     // Push current connector statuses so the client doesn't have to poll.

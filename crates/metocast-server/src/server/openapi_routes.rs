@@ -802,6 +802,7 @@ pub fn paths() -> Value {
     );
 
     // ── Slide folders and Keynote ────────────────────────────────────────────
+    let highlight_part = object(json!({ "text": text(), "hit": flag() }), &["text", "hit"]);
     put(
         "/ppt/folders",
         "get",
@@ -847,17 +848,44 @@ pub fn paths() -> Value {
         op(
             "Search the slide folders for decks",
             "Presentations",
-            vec![query("filter", text(), "Part of a file name.")],
+            vec![
+                query(
+                    "filter",
+                    text(),
+                    "Words from the title or slide text, or a hymn number; accents and case are ignored and each word matches as a prefix. Empty lists every deck by title.",
+                ),
+                query("folderId", uuid(), "Only this folder's decks."),
+                query(
+                    "limit",
+                    json!({ "type": "integer", "minimum": 1, "maximum": 200, "default": 5 }),
+                    "How many decks to return.",
+                ),
+            ],
             None,
             (
                 "200",
-                "Matching files",
+                "Matching decks, best match first: hymn number, then title, then slide text",
                 Some(wrapped(list(object(
-                    json!({ "id": text(), "name": text(), "path": text(), "folderId": text() }),
-                    &["id", "name", "path"],
+                    json!({
+                        "id": text(), "name": text(), "path": text(), "folderId": text(),
+                        "title": text(),
+                        "number": json!({ "type": ["integer", "null"] }),
+                        "matchedIn": json!({ "type": ["string", "null"], "enum": ["number", "title", "text", null] }),
+                        "titleParts": list(highlight_part.clone()),
+                        "snippetParts": list(highlight_part),
+                    }),
+                    &[
+                        "id",
+                        "name",
+                        "path",
+                        "folderId",
+                        "title",
+                        "titleParts",
+                        "snippetParts",
+                    ],
                 )))),
             ),
-            &[],
+            &[fault],
         ),
     );
     put(

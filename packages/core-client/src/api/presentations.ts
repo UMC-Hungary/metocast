@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { coreConfig } from '../config.js';
+import { PptFileSchema } from '../schemas/ws-messages.js';
 import type { PptFolder, PptFile, KeynoteStatus } from '../schemas/ws-messages.js';
 import { apiFetch as typedApiFetch } from './client.js';
 
@@ -64,10 +65,26 @@ export async function removeFolder(id: string): Promise<boolean> {
 
 // ── File search ───────────────────────────────────────────────────────────────
 
-export async function searchFiles(filter: string): Promise<PptFile[]> {
-  const params = filter ? `?filter=${encodeURIComponent(filter)}` : '';
-  const result = await apiFetch<PptFile[]>(`/api/ppt/files${params}`);
-  return result.success && result.data ? result.data : [];
+export interface SearchFilesOptions {
+  /** Only this folder's decks. */
+  folderId?: string;
+  /** How many decks to return; the core answers 5 when omitted, at most 200. */
+  limit?: number;
+}
+
+/** Decks by title, hymn number or slide text, accents ignored, best match first. */
+export async function searchFiles(
+  filter: string,
+  options: SearchFilesOptions = {},
+): Promise<PptFile[]> {
+  const params = new URLSearchParams();
+  if (filter) params.set('filter', filter);
+  if (options.folderId) params.set('folderId', options.folderId);
+  if (options.limit !== undefined) params.set('limit', String(options.limit));
+  const query = params.size > 0 ? `?${params}` : '';
+  const result = await apiFetch<unknown>(`/api/ppt/files${query}`);
+  const files = z.array(PptFileSchema).safeParse(result.data);
+  return result.success && files.success ? files.data : [];
 }
 
 export function createSongPresentation(

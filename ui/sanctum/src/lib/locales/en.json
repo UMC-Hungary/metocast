@@ -960,13 +960,14 @@
   "library": {
     "title": "Slide library",
     "search": "Search slides",
-    "searchPlaceholder": "Search by name…",
+    "searchPlaceholder": "Title, hymn number or words from the lyrics…",
     "folder": "Folder",
     "allFolders": "All folders",
     "empty": "No decks here",
     "emptyHint": "Try another folder or name",
     "noFolders": "No slide folders yet",
-    "noFoldersHint": "Add a folder in the settings below"
+    "noFoldersHint": "Add a folder in the settings below",
+    "indexing": "Indexing the slide library: {n} decks"
   },
   "order": {
     "title": "Order of Service",
