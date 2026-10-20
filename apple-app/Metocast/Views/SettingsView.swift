@@ -78,11 +78,11 @@ struct SettingsView: View {
     }
 
     private var resetTitle: String {
-        model.mode == .server ? "Stop Hosting" : "Remove Access"
+        model.mode == .server ? String(localized: "Stop Hosting") : String(localized: "Remove Access")
     }
 
     #if os(macOS)
-    private func equipmentButton(_ title: String, systemImage: String, page: EquipmentPage) -> some View {
+    private func equipmentButton(_ title: LocalizedStringKey, systemImage: String, page: EquipmentPage) -> some View {
         Button(title, systemImage: systemImage) { model.equipment = page }
             .fontWeight(model.equipment == page ? .semibold : nil)
             .accessibilityAddTraits(model.equipment == page ? .isSelected : [])
@@ -122,7 +122,7 @@ private struct ServerSection: View {
                         .textSelection(.enabled)
                         .monospaced()
                         // Not "bullet" twelve times.
-                        .accessibilityLabel(isShowingToken && !Redaction.isOn ? server.token : "Hidden")
+                        .accessibilityLabel(isShowingToken && !Redaction.isOn ? server.token : String(localized: "Hidden"))
                     Button(isShowingToken ? "Hide Token" : "Show Token", systemImage: isShowingToken ? "eye.slash" : "eye") {
                         isShowingToken.toggle()
                     }
@@ -199,9 +199,9 @@ enum Appearance: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .system: "System"
-        case .light: "Light"
-        case .dark: "Dark"
+        case .system: String(localized: "System")
+        case .light: String(localized: "Light")
+        case .dark: String(localized: "Dark")
         }
     }
 

@@ -147,10 +147,10 @@ final class MetocastSession {
             for _ in 0..<100 {
                 if let result = discoveryResults[tool], result.id != previous { return result }
                 if let discoveryFailure { throw DiscoveryFailure(message: discoveryFailure) }
-                guard status == .connected else { throw DiscoveryFailure(message: "The server connection was lost.") }
+                guard status == .connected else { throw DiscoveryFailure(message: String(localized: "The server connection was lost.")) }
                 try await Task.sleep(for: .milliseconds(200))
             }
-            throw DiscoveryFailure(message: "The device scan timed out. Check the connector and try again.")
+            throw DiscoveryFailure(message: String(localized: "The device scan timed out. Check the connector and try again."))
         }
         return DiscoverySnapshot(devices: devices)
     }
@@ -508,9 +508,10 @@ final class MetocastSession {
     /// How this device names itself in everyone's connected-devices list.
     static var deviceLabel: String {
         #if os(macOS)
-        "Metocast on " + (Redaction.isOn ? Redaction.host : ProcessInfo.processInfo.hostName.replacingOccurrences(of: ".local", with: ""))
+        let name = Redaction.isOn ? Redaction.host : ProcessInfo.processInfo.hostName.replacingOccurrences(of: ".local", with: "")
+        return String(localized: "Metocast on \(name)")
         #else
-        "Metocast on " + UIDevice.current.name
+        return String(localized: "Metocast on \(UIDevice.current.name)")
         #endif
     }
 
@@ -524,16 +525,16 @@ final class MetocastSession {
     /// A refused command's server code, in words.
     private static func refusalText(_ message: String) -> String {
         if message.contains("rodecaster_multitrack_endpoint_missing") {
-            return "The RØDECaster's multitrack USB audio isn't reaching this Mac. Connect USB 1 and enable multitrack."
+            return String(localized: "The RØDECaster's multitrack USB audio isn't reaching this Mac. Connect USB 1 and enable multitrack.")
         }
         if message.hasPrefix("transcription_not_configured") {
-            return "Add an OpenAI API key in Settings → Connectors."
+            return String(localized: "Add an OpenAI API key in Settings → Connectors.")
         }
         if message.hasPrefix("rodecaster_audio_recording_disabled") {
-            return "Audio recording is off. Turn on Record Audio and choose a folder in Settings → Connectors → RØDECaster."
+            return String(localized: "Audio recording is off. Turn on Record Audio and choose a folder in Settings → Connectors → RØDECaster.")
         }
         if message.hasPrefix("recording_directory_not_found") {
-            return "The recording folder doesn't exist on the server's Mac. Set it in Settings → Connectors → RØDECaster."
+            return String(localized: "The recording folder doesn't exist on the server's Mac. Set it in Settings → Connectors → RØDECaster.")
         }
         return message.replacingOccurrences(of: "_", with: " ")
     }
@@ -591,8 +592,13 @@ final class MetocastSession {
                 }
             }
             if notify {
-                let what = remote ? "\(label)'s wireless mic" : label
-                onActivity(ActivityItem(icon: muted ? "mic.slash" : "mic", title: "\(what) \(muted ? "muted" : "unmuted")"))
+                let title = switch (remote, muted) {
+                case (true, true): String(localized: "\(label)'s wireless mic muted")
+                case (true, false): String(localized: "\(label)'s wireless mic unmuted")
+                case (false, true): String(localized: "\(label) muted")
+                case (false, false): String(localized: "\(label) unmuted")
+                }
+                onActivity(ActivityItem(icon: muted ? "mic.slash" : "mic", title: title))
             }
         case .event(.rodecasterRecorder(let state)):
             recorder = state
@@ -609,7 +615,7 @@ final class MetocastSession {
             }
             // A failure already reached the Notifications list as the server's own warning.
             if !run.didFail {
-                onActivity(ActivityItem(icon: "bolt.circle", title: "\(run.name) ran: \(run.cause)"))
+                onActivity(ActivityItem(icon: "bolt.circle", title: String(localized: "\(run.name) ran: \(run.cause)")))
             }
         case .event(.transcription(let state)):
             transcription = state
@@ -633,9 +639,9 @@ final class MetocastSession {
             let file = URL(fileURLWithPath: progress.outputPath).lastPathComponent
             switch progress.state {
             case .succeeded:
-                onActivity(ActivityItem(icon: "film", title: "Render finished: \(file)"))
+                onActivity(ActivityItem(icon: "film", title: String(localized: "Render finished: \(file)")))
             case .failed:
-                onActivity(ActivityItem(icon: "exclamationmark.triangle", title: "Render failed: \(progress.error ?? file)"))
+                onActivity(ActivityItem(icon: "exclamationmark.triangle", title: String(localized: "Render failed: \(progress.error ?? file)")))
             case .running, .cancelled:
                 break
             }
@@ -649,9 +655,9 @@ final class MetocastSession {
             let file = URL(fileURLWithPath: progress.outputPath).lastPathComponent
             switch progress.state {
             case .succeeded:
-                onActivity(ActivityItem(icon: "waveform", title: "Audio ready: \(file)"))
+                onActivity(ActivityItem(icon: "waveform", title: String(localized: "Audio ready: \(file)")))
             case .failed:
-                onActivity(ActivityItem(icon: "exclamationmark.triangle", title: "Audio failed: \(progress.error ?? file)"))
+                onActivity(ActivityItem(icon: "exclamationmark.triangle", title: String(localized: "Audio failed: \(progress.error ?? file)")))
             case .running, .cancelled:
                 break
             }
@@ -670,9 +676,9 @@ final class MetocastSession {
             let file = URL(fileURLWithPath: progress.outputPath).lastPathComponent
             switch progress.state {
             case .succeeded:
-                onActivity(ActivityItem(icon: "film.stack", title: "Video with audio ready: \(file)"))
+                onActivity(ActivityItem(icon: "film.stack", title: String(localized: "Video with audio ready: \(file)")))
             case .failed:
-                onActivity(ActivityItem(icon: "exclamationmark.triangle", title: "Video with audio failed: \(progress.error ?? file)"))
+                onActivity(ActivityItem(icon: "exclamationmark.triangle", title: String(localized: "Video with audio failed: \(progress.error ?? file)")))
             case .running, .cancelled:
                 break
             }
@@ -690,7 +696,7 @@ final class MetocastSession {
             if message.hasPrefix("transcription_") { transcriptRefusal = words }
             discoveryFailure = message.replacingOccurrences(of: "_", with: " ")
             // ponytail: codes show as words ("atem not connected"); map them to prose if they read badly.
-            onActivity(ActivityItem(icon: "exclamationmark.triangle", title: "Couldn't do that: \(words)", isAlert: true))
+            onActivity(ActivityItem(icon: "exclamationmark.triangle", title: String(localized: "Couldn't do that: \(words)"), isAlert: true))
         case .event(.connected), .event(.event), .event(.unknown):
             break
         }
@@ -706,7 +712,7 @@ final class MetocastSession {
             requestMixerProfile()
             show(.register(label: Self.deviceLabel, hostname: nil))
             if previous == .reconnecting {
-                onActivity(ActivityItem(icon: "checkmark.circle", title: "Reconnected to \(ServerAddress.displayName(baseURL))"))
+                onActivity(ActivityItem(icon: "checkmark.circle", title: String(localized: "Reconnected to \(ServerAddress.displayName(baseURL))")))
                 // Anything could have changed while the socket was down.
                 Task {
                     await refresh()
@@ -716,7 +722,7 @@ final class MetocastSession {
         case .reconnecting:
             status = .reconnecting
             if previous == .connected {
-                onActivity(ActivityItem(icon: "wifi.exclamationmark", title: "Lost connection to \(ServerAddress.displayName(baseURL))"))
+                onActivity(ActivityItem(icon: "wifi.exclamationmark", title: String(localized: "Lost connection to \(ServerAddress.displayName(baseURL))")))
             }
         case .authenticationFailed:
             status = .unauthorized
@@ -757,11 +763,11 @@ final class MetocastSession {
         let name = ConnectorInfo(id: status.connector).name
         switch status.status {
         case .connected:
-            onActivity(ActivityItem(icon: "checkmark.circle", title: "\(name) connected"))
+            onActivity(ActivityItem(icon: "checkmark.circle", title: String(localized: "\(name) connected")))
         case .error:
             onActivity(ActivityItem(icon: "exclamationmark.triangle", title: "\(name): \(status.detail ?? status.title)"))
         case .disconnected where previous == .connected:
-            onActivity(ActivityItem(icon: "bolt.horizontal.circle", title: "\(name) disconnected"))
+            onActivity(ActivityItem(icon: "bolt.horizontal.circle", title: String(localized: "\(name) disconnected")))
         case .disconnected, .connecting:
             break
         }

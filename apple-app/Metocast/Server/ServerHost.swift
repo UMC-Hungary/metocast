@@ -74,21 +74,21 @@ final class ServerHost {
         if state == .running { return true }
         guard process == nil else { return false }
         guard let helper = Self.helper else {
-            state = .failed("The Metocast server is missing from the app bundle.")
+            state = .failed(String(localized: "The Metocast server is missing from the app bundle."))
             return false
         }
         guard let probe = try? AppleClient(baseUrl: localURL, authToken: token) else {
-            state = .failed("The server address is invalid.")
+            state = .failed(String(localized: "The server address is invalid."))
             return false
         }
         // Another Metocast core (e.g. the Tauri app) already owns the ports. Starting ours would
         // make its PostgreSQL startup kill the other one's database on port 15432.
         if (try? await probe.health()) != nil {
-            state = .failed("Another Metocast server is already running on this Mac. Quit it, then try again.")
+            state = .failed(String(localized: "Another Metocast server is already running on this Mac. Quit it, then try again."))
             return false
         }
         log.removeAll()
-        state = .starting("Starting the server… The first start downloads PostgreSQL and can take a few minutes.")
+        state = .starting(String(localized: "Starting the server… The first start downloads PostgreSQL and can take a few minutes."))
 
         let process = Process()
         process.executableURL = helper
@@ -112,7 +112,7 @@ final class ServerHost {
         do {
             try process.run()
         } catch {
-            state = .failed("Couldn't start the server: \(error.localizedDescription)")
+            state = .failed(String(localized: "Couldn't start the server: \(error.localizedDescription)"))
             return false
         }
         self.process = process
@@ -129,7 +129,7 @@ final class ServerHost {
             try? await Task.sleep(for: .seconds(1))
         }
         await stop()
-        state = .failed("The server didn't start within 10 minutes. See the server log.")
+        state = .failed(String(localized: "The server didn't start within 10 minutes. See the server log."))
         return false
     }
 
@@ -211,8 +211,8 @@ final class ServerHost {
         // The binary prints `Error: …` when it gives up; otherwise use the last logged error.
         let reason = log.last(where: { $0.hasPrefix("Error:") })
             ?? log.last(where: { $0.contains(" ERROR ") })
-            ?? "exit code \(status)"
-        state = .failed("The server stopped. \(reason)")
+            ?? String(localized: "exit code \(status)")
+        state = .failed(String(localized: "The server stopped. \(reason)"))
     }
 }
 #endif

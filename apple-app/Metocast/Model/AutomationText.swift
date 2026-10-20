@@ -7,7 +7,7 @@ extension AutomationRecord: @retroactive Identifiable {}
 extension AutomationRunRecord: @retroactive Identifiable {}
 
 private func seconds(_ value: Float) -> String {
-    value == value.rounded() ? "\(Int(value)) s" : String(format: "%.1f s", value)
+    String(localized: "\(value.formatted(.number.precision(.fractionLength(0...1)))) s", comment: "A duration in seconds")
 }
 
 extension RecordTarget {
@@ -16,10 +16,10 @@ extension RecordTarget {
         switch self {
         case .obs: "OBS"
         case .atem: "ATEM"
-        case .blackmagicCamera: "Camera"
-        case .middlecontrol(let cameraId): cameraId.map { "Middle Control cam \($0)" } ?? "Middle Control"
+        case .blackmagicCamera: String(localized: "Camera")
+        case .middlecontrol(let cameraId): cameraId.map { String(localized: "Middle Control cam \($0)") } ?? "Middle Control"
         case .rodecaster: "RØDECaster SD"
-        case .rodecasterAudio: "Metocast audio"
+        case .rodecasterAudio: String(localized: "Metocast audio")
         }
     }
 }
@@ -29,23 +29,33 @@ extension AutomationTrigger {
     var shortText: String {
         switch self {
         case .middlecontrolPreset(let preset, let cameraId):
-            "Preset \(preset)" + (cameraId.map { " (cam \($0))" } ?? "")
+            cameraId.map { String(localized: "Preset \(preset) (cam \($0))") } ?? String(localized: "Preset \(preset)")
         case .rodecasterChannel(let channel, let label, let live, _, let hold):
-            (label.trimmed.isEmpty ? "Channel \(channel + 1)" : label.trimmed)
-                + (live ? " live" : " silent")
-                + (hold > 0 ? " for \(seconds(hold))" : "")
+            shortText(
+                name: label.trimmed.isEmpty ? String(localized: "Channel \(channel + 1)") : label.trimmed,
+                live: live,
+                hold: hold
+            )
         }
+    }
+
+    private func shortText(name: String, live: Bool, hold: Float) -> String {
+        let state = live ? String(localized: "\(name) live") : String(localized: "\(name) silent")
+        return hold > 0 ? String(localized: "\(state) for \(seconds(hold))", comment: "A channel's state, then how long it has to last") : state
     }
 }
 
 extension AutomationRecord {
     /// One line: "Preset 3 or Wireless 1 live → camera to preset 3, then start OBS, ATEM, Camera".
     var summary: String {
-        let when = triggers.map(\.shortText).joined(separator: " or ")
+        let when = triggers.map(\.shortText).joined(separator: String(localized: " or "))
         var parts: [String] = []
         var group: (verb: String, names: [String])?
         func flush() {
-            if let group { parts.append("\(group.verb) \(group.names.joined(separator: ", "))") }
+            if let group {
+                let names = group.names.joined(separator: ", ")
+                parts.append(group.verb == "start" ? String(localized: "start \(names)") : String(localized: "stop \(names)"))
+            }
             group = nil
         }
         for action in actions {
@@ -61,11 +71,11 @@ extension AutomationRecord {
                 }
             case .presetRecall(let preset, let cameraId, _):
                 flush()
-                parts.append("camera" + (cameraId.map { " \($0)" } ?? "") + " to preset \(preset)")
+                parts.append(cameraId.map { String(localized: "camera \($0) to preset \(preset)") } ?? String(localized: "camera to preset \(preset)"))
             }
         }
         flush()
-        let what = parts.isEmpty ? "does nothing" : parts.joined(separator: ", then ")
+        let what = parts.isEmpty ? String(localized: "does nothing") : parts.joined(separator: String(localized: ", then "))
         return when.isEmpty ? what : "\(when) → \(what)"
     }
 }
@@ -77,10 +87,10 @@ extension AutomationRunRecord {
 
     /// "All done", "1 failed", "Nothing to do".
     var outcomeText: String {
-        if failures > 0 { return "\(failures) failed" }
+        if failures > 0 { return String(localized: "\(failures) failed") }
         let done = results.filter { $0.outcome == .done }.count
-        if done > 0 { return results.count == done ? "All done" : "\(done) done" }
-        return "Nothing to do"
+        if done > 0 { return results.count == done ? String(localized: "All done") : String(localized: "\(done) done") }
+        return String(localized: "Nothing to do")
     }
 }
 
@@ -154,10 +164,10 @@ enum RecorderChoice: CaseIterable, Hashable {
         switch self {
         case .obs: "OBS"
         case .atem: "ATEM"
-        case .camera: "Blackmagic camera"
-        case .middlecontrol: "Middle Control cameras"
-        case .deskSD: "RØDECaster SD recorder"
-        case .audio: "Metocast audio recording"
+        case .camera: String(localized: "Blackmagic camera")
+        case .middlecontrol: String(localized: "Middle Control cameras")
+        case .deskSD: String(localized: "RØDECaster SD recorder")
+        case .audio: String(localized: "Metocast audio recording")
         }
     }
 

@@ -158,7 +158,7 @@ struct PresentationView: View {
                 Spacer(minLength: 0)
             }
             .padding()
-            .navigationTitle(status.documentName ?? "Presentation")
+            .navigationTitle(status.documentName ?? String(localized: "Presentation"))
         } else {
             ContentUnavailableView {
                 Label("No Presentation", systemImage: "play.rectangle")

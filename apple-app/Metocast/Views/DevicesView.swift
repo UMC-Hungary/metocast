@@ -38,7 +38,7 @@ struct DevicesView: View {
                 Text(selected.explanation)
                 LabeledContent("Scanning from", value: ServerAddress.displayName(session.baseURL))
                 if let status = session.connectors[selected.connector] {
-                    LabeledContent("Connector", value: String(describing: status.status).capitalized)
+                    LabeledContent("Connector", value: status.status.title)
                     if let message = status.message { Text(message).foregroundStyle(.secondary) }
                 }
                 if !connected { Text("Reconnect to the server to discover devices.").foregroundStyle(.secondary) }
@@ -140,7 +140,7 @@ struct DevicesView: View {
             configLoaded = true
         } catch is CancellationError {
         } catch {
-            if !Task.isCancelled { self.error = "Couldn't load the connection. Choose Retry Loading Connection." }
+            if !Task.isCancelled { self.error = String(localized: "Couldn't load the connection. Choose Retry Loading Connection.") }
         }
     }
 
@@ -156,14 +156,14 @@ struct DevicesView: View {
                 if !refreshOnly { try await Task.sleep(for: .seconds(6)) }
                 results[tool] = DiscoverySnapshot(
                     devices: try await session.savedBroadlinkDevices(),
-                    message: "Saved devices may include earlier scans. Discovery runs in the background; refresh to see later results."
+                    message: String(localized: "Saved devices may include earlier scans. Discovery runs in the background; refresh to see later results.")
                 )
             } else {
                 results[tool] = try await session.discover(tool)
             }
         } catch is CancellationError {
         } catch {
-            self.error = (error as? DiscoveryFailure)?.message ?? "Couldn't scan devices. Check the server connection and try again."
+            self.error = (error as? DiscoveryFailure)?.message ?? String(localized: "Couldn't scan devices. Check the server connection and try again.")
         }
     }
 
@@ -180,7 +180,7 @@ struct DevicesView: View {
                 try await session.saveNetworkDevice(atem: atem, config: config)
                 saved = true
             } catch {
-                self.error = "Couldn't save the connection. Check the server and try again."
+                self.error = String(localized: "Couldn't save the connection. Check the server and try again.")
             }
         }
     }
@@ -197,7 +197,7 @@ private extension DiscoveryTool {
         case .rodecaster: "rodecaster"
         }
     }
-    var title: String { self == .camera ? "Blackmagic Cameras" : ConnectorInfo(id: connector).name }
+    var title: String { self == .camera ? String(localized: "Blackmagic Cameras") : ConnectorInfo(id: connector).name }
     var icon: String {
         switch self {
         case .atem: "switch.2"
@@ -210,12 +210,12 @@ private extension DiscoveryTool {
     }
     var explanation: String {
         switch self {
-        case .atem: "Find ATEM switchers using Bonjour on the server's network. If discovery is unavailable, enter the switcher's IP address below."
-        case .camera: "Find Blackmagic cameras on the server's network. When no camera is configured, the server automatically adopts and connects the first camera found."
-        case .middlecontrol: "Find Middle Control on the server's network by checking its feedback ports."
-        case .broadlink: "Find Broadlink remotes on the server's network. Discovered devices are automatically saved."
-        case .obs: "Refresh displays, audio inputs and outputs, cameras, and capture cards available to the connected OBS instance."
-        case .rodecaster: "Inspect the connected RØDECaster's audio endpoint, sample rate, and input channel mappings on the server."
+        case .atem: String(localized: "Find ATEM switchers using Bonjour on the server's network. If discovery is unavailable, enter the switcher's IP address below.")
+        case .camera: String(localized: "Find Blackmagic cameras on the server's network. When no camera is configured, the server automatically adopts and connects the first camera found.")
+        case .middlecontrol: String(localized: "Find Middle Control on the server's network by checking its feedback ports.")
+        case .broadlink: String(localized: "Find Broadlink remotes on the server's network. Discovered devices are automatically saved.")
+        case .obs: String(localized: "Refresh displays, audio inputs and outputs, cameras, and capture cards available to the connected OBS instance.")
+        case .rodecaster: String(localized: "Inspect the connected RØDECaster's audio endpoint, sample rate, and input channel mappings on the server.")
         }
     }
 }

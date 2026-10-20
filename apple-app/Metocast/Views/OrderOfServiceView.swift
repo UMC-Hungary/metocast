@@ -46,7 +46,7 @@ struct OrderStepRow: View {
                 .foregroundStyle(isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
                 .frame(width: 20)
             VStack(alignment: .leading, spacing: 2) {
-                Text(item.title.isEmpty ? (item.detail ?? "Untitled") : item.title)
+                Text(item.title.isEmpty ? (item.detail ?? String(localized: "Untitled")) : item.title)
                     .fontWeight(isCurrent ? .semibold : .regular)
                 if let detail = subtitle {
                     Text(detail).font(.subheadline).foregroundStyle(.secondary)

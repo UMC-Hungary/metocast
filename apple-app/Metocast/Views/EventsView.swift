@@ -112,7 +112,7 @@ struct EventDetailView: View {
                                     BroadcastBadge(connection: connection)
                                 }
                                 if let link {
-                                    Link(connection.hasBroadcast ? "Open" : connection.stateName, destination: link)
+                                    Link(connection.hasBroadcast ? String(localized: "Open") : connection.stateName, destination: link)
                                 } else if !connection.hasBroadcast {
                                     Text(connection.stateName)
                                 }
@@ -125,7 +125,7 @@ struct EventDetailView: View {
                 ForEach(event.bibleReferences, id: \.referenceType) { reference in
                     // "RUF (v2)", not the stored code "RUF_v2" that VoiceOver spells out.
                     let translation = MetocastSession.bibleTranslations.first { $0.code == reference.translation }?.name ?? reference.translation
-                    Section("\(reference.referenceType.capitalized) · \(reference.reference) · \(translation)") {
+                    Section("\(reference.referenceType == "textus" ? "Textus" : "Lekció") · \(reference.reference) · \(translation)") {
                         ForEach(reference.verses, id: \.self) { verse in
                             Text("\(Text("\(verse.chapter):\(verse.verse)").foregroundStyle(.secondary)) \(verse.text)")
                         }
@@ -222,7 +222,7 @@ struct EventDetailView: View {
             }
             guard let files = try await model.session?.generateSlides(eventId: summary.id) else { return }
             let names = files.map { URL(filePath: $0).lastPathComponent }.joined(separator: ", ")
-            slidesResult = files.isEmpty ? "Nothing to write." : "Wrote \(names)."
+            slidesResult = files.isEmpty ? String(localized: "Nothing to write.") : String(localized: "Wrote \(names).")
         } catch {
             slidesResult = error.metocastMessage
         }
@@ -306,7 +306,7 @@ private struct RecordingsSection: View {
             parts.append(duration.formatted(.units(allowed: [.hours, .minutes], width: .narrow)))
         }
         if !recording.source.isEmpty { parts.append(recording.source) }
-        if recording.uploadable && !recording.uploaded { parts.append("queued for upload") }
+        if recording.uploadable && !recording.uploaded { parts.append(String(localized: "queued for upload")) }
         return parts.joined(separator: " · ")
     }
 

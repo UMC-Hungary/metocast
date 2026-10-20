@@ -25,10 +25,10 @@ struct LiveOutput: Identifiable {
 
     /// "OBS stream", "ATEM recording".
     var name: String {
-        if kind == .transcript { return "English transcript" }
+        if kind == .transcript { return String(localized: "English transcript") }
         if let title { return "\(ConnectorInfo(id: connector).name) \(title)" }
-        let device = connector == "middlecontrol" ? "Camera" : ConnectorInfo(id: connector).name
-        return "\(device) \(kind == .stream ? "stream" : "recording")"
+        let device = connector == "middlecontrol" ? String(localized: "Camera") : ConnectorInfo(id: connector).name
+        return kind == .stream ? String(localized: "\(device) stream") : String(localized: "\(device) recording")
     }
 }
 
@@ -82,7 +82,7 @@ extension MetocastSession {
             connector: "openai",
             kind: .transcript,
             state: outputState,
-            detail: event?.title ?? "No event",
+            detail: event?.title ?? String(localized: "No event"),
             since: running ? state.startedAt.flatMap(Date.init(rfc3339:)) : nil,
             showsInToolbar: true
         )
@@ -101,8 +101,8 @@ extension MetocastSession {
             connector: "rodecaster",
             kind: .recording,
             state: desk.status == .recording ? .on : .off,
-            detail: desk.status == .paused ? "Paused" : desk.mediaPresent || desk.status != .stopped ? nil : "No SD card or USB drive",
-            title: "SD recording"
+            detail: desk.status == .paused ? String(localized: "Paused") : desk.mediaPresent || desk.status != .stopped ? nil : String(localized: "No SD card or USB drive"),
+            title: String(localized: "SD recording")
         )
         if desk.status != .stopped {
             output.control = { _ in .rodecasterDeskRecording(on: false) }
@@ -122,7 +122,7 @@ extension MetocastSession {
             connector: "rodecaster",
             kind: .recording,
             state: recording ? .on : recorder.status == .failed ? .failed : .off,
-            detail: event?.title ?? "No event: saved as untracked",
+            detail: event?.title ?? String(localized: "No event: saved as untracked"),
             since: recording ? recorder.startedAt.flatMap(Date.init(rfc3339:)) : nil,
             showsInToolbar: true
         )
@@ -141,19 +141,19 @@ extension LiveOutput {
 
     var stateText: String {
         switch (kind, state) {
-        case (.stream, .off): "Off air"
-        case (.stream, .starting): "Going live…"
-        case (.stream, .on): "Live"
-        case (.stream, .stopping): "Ending…"
-        case (.recording, .off): "Not recording"
-        case (.recording, .starting): "Starting…"
-        case (.recording, .on): "Recording"
-        case (.recording, .stopping): "Stopping…"
-        case (.transcript, .off): "Not running"
-        case (.transcript, .starting): "Connecting…"
-        case (.transcript, .on): "Transcribing"
-        case (.transcript, .stopping): "Stopping…"
-        case (_, .failed): "Failed"
+        case (.stream, .off): String(localized: "Off air")
+        case (.stream, .starting): String(localized: "Going live…")
+        case (.stream, .on): String(localized: "Live")
+        case (.stream, .stopping): String(localized: "Ending…")
+        case (.recording, .off): String(localized: "Not recording")
+        case (.recording, .starting): String(localized: "Starting…")
+        case (.recording, .on): String(localized: "Recording")
+        case (.recording, .stopping): String(localized: "Stopping…")
+        case (.transcript, .off): String(localized: "Not running")
+        case (.transcript, .starting): String(localized: "Connecting…")
+        case (.transcript, .on): String(localized: "Transcribing")
+        case (.transcript, .stopping): String(localized: "Stopping…")
+        case (_, .failed): String(localized: "Failed")
         }
     }
 
@@ -169,9 +169,9 @@ extension LiveOutput {
     var kindTitle: String {
         if let title { return title }
         return switch kind {
-        case .stream: "Stream"
-        case .recording: "Recording"
-        case .transcript: "Transcript"
+        case .stream: String(localized: "Stream")
+        case .recording: String(localized: "Recording")
+        case .transcript: String(localized: "Transcript")
         }
     }
     var symbol: String {
@@ -183,21 +183,21 @@ extension LiveOutput {
     }
     /// "Record: RØDECaster recording" or "Stop Recording: RØDECaster recording".
     var actionName: String {
-        "\(isOn ? stopTitle : startTitle): \(name)"
+        String(localized: "\(isOn ? stopTitle : startTitle): \(name)", comment: "Button action, then the output it acts on")
     }
 
     var startTitle: String {
         switch kind {
-        case .stream: "Go Live"
-        case .recording: "Record"
-        case .transcript: "Start"
+        case .stream: String(localized: "Go Live")
+        case .recording: String(localized: "Record")
+        case .transcript: String(localized: "Start")
         }
     }
     var stopTitle: String {
         switch kind {
-        case .stream: "End Stream"
-        case .recording: "Stop Recording"
-        case .transcript: "Stop Transcript"
+        case .stream: String(localized: "End Stream")
+        case .recording: String(localized: "Stop Recording")
+        case .transcript: String(localized: "Stop Transcript")
         }
     }
 }

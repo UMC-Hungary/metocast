@@ -39,7 +39,7 @@ struct AutomationEditorView: View {
     }
 
     /// What the server would refuse it for, in its own words.
-    private var problem: String? { automationProblem(automation: draft) }
+    private var problem: String? { automationProblem(automation: draft).map(Self.problemText) }
 
     var body: some View {
         NavigationStack {
@@ -98,6 +98,16 @@ struct AutomationEditorView: View {
         #if os(macOS)
         .frame(minWidth: 560, minHeight: 640)
         #endif
+    }
+
+    /// The core's reason in the app's language, for the limits a rule written here can reach.
+    private static func problemText(_ problem: String) -> String {
+        switch problem {
+        case "at least one trigger is required": String(localized: "add at least one trigger")
+        case "at least one action is required": String(localized: "add at least one step")
+        case _ where problem.hasPrefix("name must be"): String(localized: "give the rule a name")
+        default: problem
+        }
     }
 
     // ── When ─────────────────────────────────────────────────────────────────────────────
@@ -177,7 +187,7 @@ struct AutomationEditorView: View {
 
     private var optionsSection: some View {
         Section {
-            valueStepper("Cooldown", value: "\(cooldown) s", number: $cooldown, in: 1...600)
+            valueStepper("Cooldown", value: String(localized: "\(cooldown) s"), number: $cooldown, in: 1...600)
             Toggle("Only when today has an event", isOn: $requireEvent)
         } header: {
             Text("Options")
@@ -276,7 +286,7 @@ private struct TriggerEditor: View {
                 .font(.headline)
                 .accessibilityAddTraits(.isHeader)
                 Spacer()
-                Button("Remove \(trigger.kind == .preset ? "Preset" : "Channel") Trigger", systemImage: "trash", role: .destructive, action: remove)
+                Button(trigger.kind == .preset ? "Remove Preset Trigger" : "Remove Channel Trigger", systemImage: "trash", role: .destructive, action: remove)
                     .labelStyle(.iconOnly)
                     .buttonStyle(.borderless)
             }
@@ -293,14 +303,21 @@ private struct TriggerEditor: View {
         Picker("Preset", selection: $trigger.preset) {
             ForEach(1...12, id: \.self) { Text("Preset \($0)").tag($0) }
         }
-        valueStepper("Camera", value: trigger.cameraId == 0 ? "Any" : "Camera \(trigger.cameraId)", number: $trigger.cameraId, in: 0...99)
-        Text("Preset \(trigger.preset) has finished moving" + (trigger.cameraId == 0 ? "" : " on camera \(trigger.cameraId)"))
+        valueStepper("Camera", value: trigger.cameraId == 0 ? String(localized: "Any") : String(localized: "Camera \(trigger.cameraId)"), number: $trigger.cameraId, in: 0...99)
+        Group {
+            if trigger.cameraId == 0 {
+                Text("Preset \(trigger.preset) has finished moving")
+            } else {
+                Text("Preset \(trigger.preset) has finished moving on camera \(trigger.cameraId)")
+            }
+        }
             .font(.subheadline)
             .foregroundStyle(.secondary)
         // Detection works when Middle Control's own feedback shows moves, so this is how to check
         // it before Sunday.
         if let last = session.middlecontrol?.lastPreset {
-            Text("Last seen: preset \(last.preset) on camera \(last.cameraId)" + (Date(rfc3339: last.at).map { ", " + $0.formatted(date: .omitted, time: .shortened) } ?? ""))
+            let time = Date(rfc3339: last.at).map { ", " + $0.formatted(date: .omitted, time: .shortened) } ?? ""
+            Text("Last seen: preset \(last.preset) on camera \(last.cameraId)\(time)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         } else {
@@ -337,7 +354,7 @@ private struct TriggerEditor: View {
             Text("Goes silent").tag(false)
         }
         .pickerStyle(.segmented)
-        valueStepper("For at least", value: trigger.holdSeconds == 0 ? "No wait" : "\(trigger.holdSeconds) s", number: $trigger.holdSeconds, in: 0...60)
+        valueStepper("For at least", value: trigger.holdSeconds == 0 ? String(localized: "No wait") : String(localized: "\(trigger.holdSeconds) s"), number: $trigger.holdSeconds, in: 0...60)
         DisclosureGroup("Advanced") {
             Picker("Counts as live", selection: $trigger.source) {
                 Text("Desk and transmitter").tag(ChannelSource.either)
@@ -351,14 +368,16 @@ private struct TriggerEditor: View {
     }
 
     private var savedChannelName: String {
-        trigger.label.trimmed.isEmpty ? "Fader \(trigger.channel + 1)" : "\(trigger.label) (fader \(trigger.channel + 1))"
+        trigger.label.trimmed.isEmpty
+            ? String(localized: "Fader \(trigger.channel + 1)")
+            : String(localized: "\(trigger.label) (fader \(trigger.channel + 1))")
     }
 
     private var sourceHelp: String {
         switch trigger.source {
-        case .either: "Live only while both the desk and the Wireless PRO transmitter are unmuted, so a pastor who mutes on the transmitter goes silent."
-        case .desk: "Only the desk's button (or Metocast's own mute toggle) counts."
-        case .transmitter: "Only the Wireless PRO transmitter's button counts."
+        case .either: String(localized: "Live only while both the desk and the Wireless PRO transmitter are unmuted, so a pastor who mutes on the transmitter goes silent.")
+        case .desk: String(localized: "Only the desk's button (or Metocast's own mute toggle) counts.")
+        case .transmitter: String(localized: "Only the Wireless PRO transmitter's button counts.")
         }
     }
 }
@@ -397,9 +416,9 @@ private struct StepEditor: View {
 
     private var title: String {
         switch step.kind {
-        case .camera: "Move camera to preset"
-        case .start: "Start recording"
-        case .stop: "Stop recording"
+        case .camera: String(localized: "Move camera to preset")
+        case .start: String(localized: "Start recording")
+        case .stop: String(localized: "Stop recording")
         }
     }
 
@@ -416,7 +435,7 @@ private struct StepEditor: View {
         Picker("Preset", selection: $step.preset) {
             ForEach(1...12, id: \.self) { Text("Preset \($0)").tag($0) }
         }
-        valueStepper("Camera", value: step.cameraId == 0 ? "Selected" : "Camera \(step.cameraId)", number: $step.cameraId, in: 0...99)
+        valueStepper("Camera", value: step.cameraId == 0 ? String(localized: "Selected") : String(localized: "Camera \(step.cameraId)"), number: $step.cameraId, in: 0...99)
         Toggle("Wait until it arrives", isOn: $step.waitForArrival)
         Text(step.waitForArrival
             ? "The steps after this one start once the camera has reached the preset."
@@ -437,7 +456,7 @@ private struct StepEditor: View {
                 ))
                 if step.recorders.contains(recorder) {
                     if recorder == .middlecontrol {
-                        valueStepper("Camera", value: step.middlecontrolCameraId == 0 ? "Every camera" : "Camera \(step.middlecontrolCameraId)", number: $step.middlecontrolCameraId, in: 0...99)
+                        valueStepper("Camera", value: step.middlecontrolCameraId == 0 ? String(localized: "Every camera") : String(localized: "Camera \(step.middlecontrolCameraId)"), number: $step.middlecontrolCameraId, in: 0...99)
                         .font(.subheadline)
                     }
                     if let warning = warning(for: recorder) {
@@ -458,10 +477,10 @@ private struct StepEditor: View {
     /// A device that isn't connected right now is a warning, not a block: the rule is for later.
     private func warning(for recorder: RecorderChoice) -> String? {
         if session.connectors[recorder.connector]?.status != .connected {
-            return "\(ConnectorInfo(id: recorder.connector).name) isn't connected right now."
+            return String(localized: "\(ConnectorInfo(id: recorder.connector).name) isn't connected right now.")
         }
         if recorder == .deskSD, session.deskRecorder?.mediaPresent == false {
-            return "The RØDECaster has no SD card or USB drive to record to."
+            return String(localized: "The RØDECaster has no SD card or USB drive to record to.")
         }
         return nil
     }
@@ -515,7 +534,7 @@ private struct ReverseRuleSheet: View {
 
 /// A stepper with its value written beside the title, such as "Any" for camera 0. VoiceOver reads
 /// that too, instead of the bare number.
-private func valueStepper<V: Strideable>(_ title: String, value: String, number: Binding<V>, in range: ClosedRange<V>) -> some View {
+private func valueStepper<V: Strideable>(_ title: LocalizedStringKey, value: String, number: Binding<V>, in range: ClosedRange<V>) -> some View {
     Stepper(value: number, in: range) {
         LabeledContent(title, value: value)
     }
