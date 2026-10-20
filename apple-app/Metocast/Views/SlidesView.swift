@@ -127,7 +127,7 @@ struct DeckList: View {
                 }
             }
         } label: {
-            Label(folders.first { $0.id == folderId }?.name ?? "All Folders", systemImage: "folder")
+            Label(folders.first { $0.id == folderId }?.name ?? String(localized: "All Folders"), systemImage: "folder")
         }
         #if os(macOS)
         .labelStyle(.titleAndIcon)
@@ -244,7 +244,7 @@ struct SongSlidesView: View {
         }
         Section {
             LabeledContent("Song Slides Folder") {
-                Text(folder.isEmpty ? "Not set" : folder)
+                Text(folder.isEmpty ? String(localized: "Not set") : folder)
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .textSelection(.enabled)
@@ -332,7 +332,7 @@ private struct SongPreview: View {
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Slide \(slide.id)")
-                .accessibilityValue(slide.lines.isEmpty ? "Blank" : slide.lines.joined(separator: "\n"))
+                .accessibilityValue(slide.lines.isEmpty ? String(localized: "Blank") : slide.lines.joined(separator: "\n"))
             }
         }
     }
@@ -341,8 +341,8 @@ private struct SongPreview: View {
 extension View {
     /// Asks for a folder on the server's Mac, then hands its path to `save`.
     func serverFolderPrompt(
-        _ title: String,
-        message: String,
+        _ title: LocalizedStringKey,
+        message: LocalizedStringKey,
         isPresented: Binding<Bool>,
         save: @escaping (String) async throws -> Void
     ) -> some View {
@@ -368,8 +368,8 @@ extension View {
 /// since a folder picked here would be on the wrong machine.
 private struct ServerFolderPrompt: ViewModifier {
     @Environment(AppModel.self) private var model
-    let title: String
-    let message: String
+    let title: LocalizedStringKey
+    let message: LocalizedStringKey
     @Binding var isPresented: Bool
     let save: (String) async throws -> Void
     @State private var path = ""
@@ -461,13 +461,13 @@ extension Error {
         guard let error = self as? AppleError else { return localizedDescription }
         return switch error {
         case .Server(let message): message
-        case .Authentication: "The server rejected this device's token."
-        case .Transport: "The server couldn't be reached."
-        case .Refused(let status): "The server refused this request (HTTP \(status))."
-        case .Contract: "The server's answer didn't match what this app expects."
-        case .NotConnected: "Not connected to the server."
-        case .InvalidInput: "Check what you entered and try again."
-        default: "Something went wrong."
+        case .Authentication: String(localized: "The server rejected this device's token.")
+        case .Transport: String(localized: "The server couldn't be reached.")
+        case .Refused(let status): String(localized: "The server refused this request (HTTP \(status)).")
+        case .Contract: String(localized: "The server's answer didn't match what this app expects.")
+        case .NotConnected: String(localized: "Not connected to the server.")
+        case .InvalidInput: String(localized: "Check what you entered and try again.")
+        default: String(localized: "Something went wrong.")
         }
     }
 }

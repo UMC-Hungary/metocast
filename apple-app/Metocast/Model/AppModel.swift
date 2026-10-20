@@ -66,21 +66,21 @@ final class AppModel {
     /// Makes `link` this device's server if it answers and accepts the token. Returns why not otherwise.
     func useServer(_ link: ConnectLink) async -> String? {
         guard let url = ServerAddress.normalized(link.url) else {
-            return "Enter a server address like 192.168.1.10:3737."
+            return String(localized: "Enter a server address like 192.168.1.10:3737.")
         }
         let token = link.token.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !token.isEmpty else { return "Enter the token shown in the server's Settings." }
+        guard !token.isEmpty else { return String(localized: "Enter the token shown in the server's Settings.") }
         guard let candidate = try? MetocastSession(baseURL: url, token: token) else {
-            return "Enter a server address like 192.168.1.10:3737."
+            return String(localized: "Enter a server address like 192.168.1.10:3737.")
         }
         await candidate.start()
         switch candidate.status {
         case .unreachable:
             candidate.stop()
-            return "Can't reach \(ServerAddress.displayName(url)). Check the address and that both devices are on the same network."
+            return String(localized: "Can't reach \(ServerAddress.displayName(url)). Check the address and that both devices are on the same network.")
         case .unauthorized:
             candidate.stop()
-            return "The server rejected this token."
+            return String(localized: "The server rejected this token.")
         default:
             break
         }

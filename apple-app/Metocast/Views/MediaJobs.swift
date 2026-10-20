@@ -67,7 +67,7 @@ struct MediaJobsButton: View {
         }
         .help("Media jobs")
         .accessibilityLabel("Media jobs")
-        .accessibilityValue(session.runningMediaJobs.first?.fraction.map { $0.formatted(.percent.precision(.fractionLength(0))) } ?? "Running")
+        .accessibilityValue(session.runningMediaJobs.first?.fraction.map { $0.formatted(.percent.precision(.fractionLength(0))) } ?? String(localized: "Running"))
         .popover(isPresented: $isShowing, arrowEdge: .bottom) {
             VStack(alignment: .leading, spacing: 12) { RunningJobs(session: session) }
                 .padding(14)
@@ -126,28 +126,29 @@ enum MediaJob {
     var step: String {
         switch self {
         case .render(let job):
-            guard job.totalFrames > 0, job.frame > 0, job.fps > 0 else { return "Waiting to start" }
+            guard job.totalFrames > 0, job.frame > 0, job.fps > 0 else { return String(localized: "Waiting to start") }
             let left = Double(job.totalFrames - min(job.frame, job.totalFrames)) / job.fps
-            return "\(job.fps.formatted(.number.precision(.fractionLength(1)))) fps · "
-                + Duration.seconds(left).formatted(.units(allowed: [.hours, .minutes], width: .abbreviated)) + " left"
+            let fps = job.fps.formatted(.number.precision(.fractionLength(1)))
+            let remaining = Duration.seconds(left).formatted(.units(allowed: [.hours, .minutes], width: .abbreviated))
+            return String(localized: "\(fps) fps · \(remaining) left")
         case .audio(let job):
             return switch job.step {
-            case .download: "Downloading jive-vocals"
-            case .prepare: "1 of 4 · Joining and mixing"
-            case .clean: "2 of 4 · Cleaning with jive-vocals"
-            case .align: "3 of 4 · Lining up with the source"
-            case .finish: "4 of 4 · Setting the loudness"
-            case nil: "Waiting to start"
+            case .download: String(localized: "Downloading jive-vocals")
+            case .prepare: String(localized: "1 of 4 · Joining and mixing")
+            case .clean: String(localized: "2 of 4 · Cleaning with jive-vocals")
+            case .align: String(localized: "3 of 4 · Lining up with the source")
+            case .finish: String(localized: "4 of 4 · Setting the loudness")
+            case nil: String(localized: "Waiting to start")
             }
         case .program(let job):
             return switch job.step {
-            case .download: "Downloading jive-vocals"
-            case .picture: "Grading and encoding the picture"
-            case .prepare: "Joining the audio"
-            case .sync: "Finding where the video starts in the audio"
-            case .clean: "Cleaning the voice with jive-vocals"
-            case .merge: job.report == nil ? "Putting the sound under the picture" : "Moving the sound"
-            case nil: "Waiting to start"
+            case .download: String(localized: "Downloading jive-vocals")
+            case .picture: String(localized: "Grading and encoding the picture")
+            case .prepare: String(localized: "Joining the audio")
+            case .sync: String(localized: "Finding where the video starts in the audio")
+            case .clean: String(localized: "Cleaning the voice with jive-vocals")
+            case .merge: job.report == nil ? String(localized: "Putting the sound under the picture") : String(localized: "Moving the sound")
+            case nil: String(localized: "Waiting to start")
             }
         }
     }
@@ -202,7 +203,7 @@ struct MediaJobRow: View {
             case .cancelled:
                 Label("Cancelled", systemImage: "xmark.circle").font(.caption).foregroundStyle(.secondary)
             case .failed:
-                Label(job.error ?? "Failed", systemImage: "exclamationmark.triangle")
+                Label(job.error ?? String(localized: "Failed"), systemImage: "exclamationmark.triangle")
                     .font(.caption)
                     .foregroundStyle(.red)
                 if case .program(let program) = job, let report = program.report {
@@ -363,47 +364,55 @@ private struct ProgramResult: View {
     private var placement: String {
         let sync = report.sync
         let method = switch sync.method {
-        case .none: "The video's own sound"
-        case .waveform: "Synced by the video's sound"
-        case .lips: "Synced by the lips"
-        case .clock: "Placed by the clocks"
-        case .manual: "Placed where you said"
+        case .none: String(localized: "The video's own sound")
+        case .waveform: String(localized: "Synced by the video's sound")
+        case .lips: String(localized: "Synced by the lips")
+        case .clock: String(localized: "Placed by the clocks")
+        case .manual: String(localized: "Placed where you said")
         }
         guard sync.method != .none else { return method }
-        let file = sync.startFile.map { " into \($0)" } ?? " into the recording"
-        return "\(method) · starts \(timestamp(sync.startFileSeconds ?? sync.offsetSeconds))\(file)"
+        let start = timestamp(sync.startFileSeconds ?? sync.offsetSeconds)
+        return sync.startFile.map { String(localized: "\(method) · starts \(start) into \($0)") }
+            ?? String(localized: "\(method) · starts \(start) into the recording")
     }
 
     private var details: [String] {
         let sync = report.sync
         var lines: [String] = []
         if let difference = sync.clockDifferenceSeconds, abs(difference) >= 1 {
-            lines.append("The camera's clock is \(timestamp(abs(difference))) \(difference > 0 ? "ahead of" : "behind") the recorder's")
+            let gap = timestamp(abs(difference))
+            lines.append(difference > 0
+                ? String(localized: "The camera's clock is \(gap) ahead of the recorder's")
+                : String(localized: "The camera's clock is \(gap) behind the recorder's"))
         }
         if sync.driftPpm != 0 {
-            lines.append("Clock drift corrected: \(sync.driftPpm.formatted(.number.precision(.fractionLength(1)))) ppm")
+            lines.append(String(localized: "Clock drift corrected: \(sync.driftPpm.formatted(.number.precision(.fractionLength(1)))) ppm"))
         }
         if sync.manualFrames != 0 {
             let frames = abs(sync.manualFrames)
-            lines.append("Moved \(frames) frame\(frames == 1 ? "" : "s") \(sync.manualFrames > 0 ? "later" : "earlier") by hand")
+            lines.append(sync.manualFrames > 0
+                ? String(localized: "Moved \(frames) frames later by hand")
+                : String(localized: "Moved \(frames) frames earlier by hand"))
         }
         if report.silentStartSeconds > 0.05 || report.silentEndSeconds > 0.05 {
             var silence: [String] = []
-            if report.silentStartSeconds > 0.05 { silence.append("\(timestamp(report.silentStartSeconds)) at the start") }
-            if report.silentEndSeconds > 0.05 { silence.append("\(timestamp(report.silentEndSeconds)) at the end") }
-            lines.append("No recording for " + silence.joined(separator: " and ") + "; that part is silent")
+            if report.silentStartSeconds > 0.05 { silence.append(String(localized: "\(timestamp(report.silentStartSeconds)) at the start")) }
+            if report.silentEndSeconds > 0.05 { silence.append(String(localized: "\(timestamp(report.silentEndSeconds)) at the end")) }
+            lines.append(String(localized: "No recording for \(silence.formatted(.list(type: .and))); that part is silent"))
         }
-        lines.append("Voice \(lufs(report.audio.inputLufs)) → \(lufs(report.audio.outputLufs)) LUFS · peak \(lufs(report.audio.outputTruePeakDbtp)) dBTP")
+        lines.append(String(localized: "Voice \(lufs(report.audio.inputLufs)) → \(lufs(report.audio.outputLufs)) LUFS · peak \(lufs(report.audio.outputTruePeakDbtp)) dBTP"))
         return lines
     }
 
     private func subtitleText(_ subtitle: SubtitleReport) -> String {
         let name = Locale.current.localizedString(forLanguageCode: subtitle.language) ?? subtitle.language
         guard subtitle.confident else {
-            return "\(name) transcript (\(subtitle.cues) lines) left as it was: it didn't clearly match the voice"
+            return String(localized: "\(name) transcript (\(subtitle.cues) lines) left as it was: it didn't clearly match the voice")
         }
-        let moved = abs(subtitle.shiftSeconds) < 0.05 ? "already in place" : "moved \(timestamp(subtitle.shiftSeconds))"
-        return "\(name) transcript (\(subtitle.cues) lines) \(moved), saved beside the video"
+        if abs(subtitle.shiftSeconds) < 0.05 {
+            return String(localized: "\(name) transcript (\(subtitle.cues) lines) already in place, saved beside the video")
+        }
+        return String(localized: "\(name) transcript (\(subtitle.cues) lines) moved \(timestamp(subtitle.shiftSeconds)), saved beside the video")
     }
 }
 
@@ -416,8 +425,8 @@ private extension RecordingRecord {
 
 /// A card's heading, in Middle Control's quiet style.
 struct CardTitle: View {
-    let title: String
-    init(_ title: String) { self.title = title }
+    let title: LocalizedStringKey
+    init(_ title: LocalizedStringKey) { self.title = title }
 
     var body: some View {
         Text(title).font(.title3).foregroundStyle(.secondary).accessibilityAddTraits(.isHeader)
@@ -446,17 +455,18 @@ func durationText(_ seconds: Double) -> String {
 }
 
 func audioText(_ audio: AudioInfo) -> String {
-    "\(audio.channels) ch, \(audio.sampleRate / 1000) kHz\(audio.bits.map { ", \($0)-bit" } ?? "")"
+    let rate = String(localized: "\(audio.channels) ch, \(audio.sampleRate / 1000) kHz")
+    return audio.bits.map { String(localized: "\(rate), \($0)-bit") } ?? rate
 }
 
 /// What to do about a tool the server lacks.
 func advice(_ tool: String) -> String {
     switch tool {
-    case "ffmpeg": "ffmpeg is missing from this build of Metocast"
-    case "jive-vocals": "The jive-vocals path in Media Processing doesn't point to a program"
-    case "lip-reader": "lip-reader is missing from this build of Metocast"
-    case "braw-decode": "braw-decode is missing: install Blackmagic RAW and rebuild Metocast"
-    case "blackmagic-raw-sdk": "Install Blackmagic RAW (free, from blackmagicdesign.com)"
+    case "ffmpeg": String(localized: "ffmpeg is missing from this build of Metocast")
+    case "jive-vocals": String(localized: "The jive-vocals path in Media Processing doesn't point to a program")
+    case "lip-reader": String(localized: "lip-reader is missing from this build of Metocast")
+    case "braw-decode": String(localized: "braw-decode is missing: install Blackmagic RAW and rebuild Metocast")
+    case "blackmagic-raw-sdk": String(localized: "Install Blackmagic RAW (free, from blackmagicdesign.com)")
     default: tool
     }
 }

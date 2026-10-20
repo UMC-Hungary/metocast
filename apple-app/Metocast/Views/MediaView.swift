@@ -26,9 +26,9 @@ enum MediaWork {
 
     var action: String {
         switch self {
-        case .program: "Produce"
-        case .render: "Render"
-        case .audio: "Process"
+        case .program: String(localized: "Produce")
+        case .render: String(localized: "Render")
+        case .audio: String(localized: "Process")
         }
     }
 }
@@ -182,7 +182,7 @@ final class MediaDraft {
                 audio = audioPaths.isEmpty ? nil : try await session.probeAudio(paths: audioPaths)
                 if let audio { audioSettings = audio.defaults }
             }
-            failure = videoPath == nil && !transcripts.isEmpty ? "A transcript needs the video it belongs to." : nil
+            failure = videoPath == nil && !transcripts.isEmpty ? String(localized: "A transcript needs the video it belongs to.") : nil
         } catch {
             failure = error.metocastMessage
         }
@@ -450,10 +450,10 @@ private struct FilesCard: View {
                 Label("The video's own sound", systemImage: "speaker.wave.2").foregroundStyle(.secondary)
             }
             ForEach(draft.transcripts, id: \.path) { transcript in
-                row(transcript.path, "captions.bubble", detail: "Transcript")
+                row(transcript.path, "captions.bubble", detail: String(localized: "Transcript"))
             }
             if let sidecarPath = draft.sidecarPath {
-                row(sidecarPath, "camera.filters", detail: "Resolve look (Camera RAW settings)")
+                row(sidecarPath, "camera.filters", detail: String(localized: "Resolve look (Camera RAW settings)"))
             }
             if let lutPath = draft.settings?.lutPath, draft.settings?.lutMode == .file {
                 Label(URL(fileURLWithPath: lutPath).lastPathComponent, systemImage: "camera.filters")
@@ -501,7 +501,7 @@ private struct SyncCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             CardTitle("Sync")
-            LabeledContent("Sync", value: "Automatic")
+            LabeledContent("Sync", value: String(localized: "Automatic"))
             LabeledContent("Method", value: methodText)
             LabeledContent("Video's Own Sound", value: soundText)
             ForEach(probe.warnings, id: \.self) { warning in
@@ -514,18 +514,18 @@ private struct SyncCard: View {
 
     private var soundText: String {
         let sound = probe.videoSound
-        guard sound.hasTrack else { return "None" }
+        guard sound.hasTrack else { return String(localized: "None") }
         let level = sound.levelDbfs.map { " (\($0.formatted(.number.precision(.fractionLength(0)))) dBFS)" } ?? ""
-        return (sound.usable ? "Usable" : "Silent") + level
+        return (sound.usable ? String(localized: "Usable") : String(localized: "Silent")) + level
     }
 
     private var methodText: String {
         switch probe.syncMethod {
-        case .none: "None needed"
-        case .waveform: "The video's sound"
-        case .lips: "The speaker's lips"
-        case .clock: "The clocks"
-        case .manual: "Where you say"
+        case .none: String(localized: "None needed")
+        case .waveform: String(localized: "The video's sound")
+        case .lips: String(localized: "The speaker's lips")
+        case .clock: String(localized: "The clocks")
+        case .manual: String(localized: "Where you say")
         }
     }
 }
@@ -567,12 +567,12 @@ private struct StartCard: View {
         .tint(.red)
         .controlSize(.extraLarge)
         .disabled(draft.work == nil || blocker != nil || !draft.missing.isEmpty || draft.isWorking)
-        .accessibilityLabel(draft.work?.action ?? "Start")
-        Text(draft.work?.action ?? "Drop files to start").font(.headline)
+        .accessibilityLabel(draft.work?.action ?? String(localized: "Start"))
+        Text(draft.work?.action ?? String(localized: "Drop files to start")).font(.headline)
         LabeledContent("Event") {
-            Button(draft.event?.title ?? "Unassigned", action: pickEvent)
+            Button(draft.event?.title ?? String(localized: "Unassigned"), action: pickEvent)
                 .accessibilityLabel("Event")
-                .accessibilityValue(draft.event?.title ?? "Unassigned")
+                .accessibilityValue(draft.event?.title ?? String(localized: "Unassigned"))
         }
         if !draft.transcripts.isEmpty, draft.event == nil {
             Text("Choose an event so the transcript goes to YouTube and Facebook with the video.")
@@ -679,7 +679,7 @@ private struct OutputCard: View {
                 if channels > 1 {
                     StepperRow(
                         "Voice",
-                        value: settings.wrappedValue.channels.first.map { "Channel \($0)" } ?? "All Mixed",
+                        value: settings.wrappedValue.channels.first.map { String(localized: "Channel \($0)") } ?? String(localized: "All Mixed"),
                         choices: [[]] + (1...channels).map { [$0] },
                         selection: settings.channels
                     )
@@ -716,7 +716,7 @@ private struct OutputCard: View {
 
     private var folderText: String {
         if !draft.saveFolder.isEmpty { return URL(fileURLWithPath: draft.saveFolder).lastPathComponent }
-        return draft.work == .audio ? "Music › Metocast Audio" : "Next to the video, in Metocast Renders"
+        return draft.work == .audio ? String(localized: "Music › Metocast Audio") : String(localized: "Next to the video, in Metocast Renders")
     }
 }
 
@@ -748,12 +748,12 @@ private struct SubtitlesCard: View {
 
 /// Middle Control's parameter row: the label, − and + buttons, and the value.
 private struct StepperRow<Value: Equatable>: View {
-    let title: String
+    let title: LocalizedStringKey
     let value: String
     let choices: [Value]
     @Binding var selection: Value
 
-    init(_ title: String, value: String, choices: [Value], selection: Binding<Value>) {
+    init(_ title: LocalizedStringKey, value: String, choices: [Value], selection: Binding<Value>) {
         self.title = title
         self.value = value
         self.choices = choices

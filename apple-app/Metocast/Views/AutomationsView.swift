@@ -138,7 +138,8 @@ private struct AutomationRow: View {
                         .lineLimit(3)
                     if let run = session.lastRun(of: rule.id) {
                         Label {
-                            Text("Last run " + (run.date.map { $0.formatted(date: .omitted, time: .shortened) + " · " } ?? "") + run.outcomeText)
+                            let time = run.date.map { $0.formatted(date: .omitted, time: .shortened) + " · " } ?? ""
+                            Text("Last run \(time)\(run.outcomeText)")
                         } icon: {
                             Image(systemName: run.didFail ? "exclamationmark.triangle.fill" : "checkmark.circle")
                         }
