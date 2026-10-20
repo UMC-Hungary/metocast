@@ -1,0 +1,26 @@
+meta {
+  name: Download Transcript
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/transcripts/{{transcriptId}}/download?format=srt&clean=false
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  The transcript as a file: format=txt|srt|vtt; clean=true for the AI-cleaned
+  lines (409 transcript_not_cleaned before a clean-up succeeded).
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+}

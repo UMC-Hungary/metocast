@@ -10,7 +10,11 @@ import { RecordingSchema, RecordingWithEventSchema } from './recording.js';
 import { UntrackedRecordingSchema } from './untracked-recording.js';
 import { QueueSummarySchema } from './queue.js';
 import { AudioProgressSchema, ProgramProgressSchema, RenderProgressSchema } from './media.js';
-import { CaptionsJobStateSchema, TranscriptMessageSchema } from './transcription.js';
+import {
+  CaptionsJobStateSchema,
+  CleanupProgressSchema,
+  TranscriptMessageSchema,
+} from './transcription.js';
 import { AutomationMessageSchema } from './automations.js';
 import {
   AtemStateSchema,
@@ -357,6 +361,7 @@ export const WsMessageSchema = z.discriminatedUnion('type', [
   // ── Live transcript and final-video captions ───────────────────────────────
   ...TranscriptMessageSchema.options,
   CaptionsJobStateSchema.extend({ type: z.literal('captions.job.state') }),
+  CleanupProgressSchema.extend({ type: z.literal('transcript.cleanup.state') }),
   // ── Events (WS command responses) ──────────────────────────────────────────
   z.object({ type: z.literal('events.list'), events: z.array(EventSummarySchema) }),
   z.object({

@@ -648,6 +648,40 @@
     ],
     "type": "object"
   },
+  "transcript.cleanup.state": {
+    "properties": {
+      "error": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "progress": {
+        "type": "number"
+      },
+      "sessionId": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "state": {
+        "type": "string"
+      },
+      "type": {
+        "const": "transcript.cleanup.state"
+      }
+    },
+    "required": [
+      "type",
+      "sessionId",
+      "state",
+      "progress"
+    ],
+    "type": "object"
+  },
   "transcription.credit": {
     "properties": {
       "credit": {

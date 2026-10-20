@@ -297,6 +297,7 @@
           <CreditLine />
           <p class="hint">
             <a href={resolve('/transcript')} target="_blank">{$_('transcript.open')}</a>
+            · <a href={resolve('/transcripts')}>{$_('transcripts.title')}</a>
           </p>
         </div>
       </article>

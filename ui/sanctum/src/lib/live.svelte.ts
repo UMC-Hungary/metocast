@@ -26,7 +26,7 @@ import type {
   PptFile,
 } from '@metocast/core-client/schemas/ws-messages';
 import type { EventSummary, OrderPosition } from '@metocast/core-client/schemas/event';
-import type { CreditStatus, TranscriptionState } from '@metocast/core-client';
+import type { CleanupProgress, CreditStatus, TranscriptionState } from '@metocast/core-client';
 import { siObsstudio, siYoutube, siFacebook, siBlackmagicdesign, siDiscord } from './brand-marks';
 import { rode } from './rode';
 import { notify, resolveByKey } from './notifications.svelte';
@@ -131,6 +131,7 @@ let currentEvent = $state<EventSummary | null>(null);
 let orderPosition = $state<OrderPosition | null>(null);
 /** Bumped when any event's Order of Service changes, so open views reload it. */
 let orderRevision = $state(0);
+let transcriptCleanup = $state<CleanupProgress | null>(null);
 
 export const live = {
   get streaming() {
@@ -198,6 +199,10 @@ export const live = {
   },
   get transcriptLine() {
     return transcriptLine;
+  },
+  /** The latest `transcript.cleanup.state`, for the transcript library. */
+  get transcriptCleanup() {
+    return transcriptCleanup;
   },
   get transcriptCredit() {
     return transcriptCredit;
@@ -402,6 +407,9 @@ export function handleWs(msg: WsMessage): void {
       break;
     case 'transcription.credit':
       transcriptCredit = msg.credit;
+      break;
+    case 'transcript.cleanup.state':
+      transcriptCleanup = msg;
       break;
     case 'notification':
       notify({

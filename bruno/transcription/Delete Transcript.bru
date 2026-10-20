@@ -1,0 +1,26 @@
+meta {
+  name: Delete Transcript
+  type: http
+  seq: 8
+}
+
+delete {
+  url: {{baseUrl}}/api/transcripts/{{transcriptId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  Deletes the session and its lines, raw and cleaned. 409 while it is live
+  or being cleaned up.
+}
+
+tests {
+  test("status is 204", function() {
+    expect(res.status).to.equal(204);
+  });
+}

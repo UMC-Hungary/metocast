@@ -1,0 +1,25 @@
+meta {
+  name: Get Transcript
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/transcripts/{{transcriptId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  One stored session with every line and its cleaned-up text.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+}

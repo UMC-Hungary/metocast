@@ -987,5 +987,30 @@
     "copied": "Másolva",
     "tokenNote": "A másolt szöveg tartalmazza a szerver hozzáférési tokenjét. Csak az ügynök beállításaiba illeszd be, máshová ne.",
     "toast": "AI ügynökök"
+  },
+  "transcripts": {
+    "title": "Mentett átiratok",
+    "loading": "Átiratok betöltése…",
+    "unavailable": "Az átiratok nem érhetők el",
+    "retry": "Újra",
+    "empty": "Még nincs átirat.",
+    "emptyHint": "Minden élő átirat ide kerül, amikor elindul",
+    "noEvent": "Nincs esemény",
+    "live": "Most élő",
+    "lines": "{count} sor",
+    "raw": "Eredeti",
+    "clean": "Javított",
+    "download": "{format} letöltése",
+    "cleanup": "Javítás AI-val",
+    "cleanupAgain": "Javítás újra",
+    "cleaning": "Javítás… {percent}%",
+    "cleanupHint": "Az OpenAI minden sort érthetőbb angolra ír át, az eredeti megmarad mellette.",
+    "cleanupFailed": "A javítás nem sikerült: {error}",
+    "delete": "Törlés",
+    "deleteConfirm": "Törlöd ezt az átiratot és a javított változatát? Nem vonható vissza.",
+    "cancel": "Mégse",
+    "deleted": "Átirat törölve",
+    "failed": "Az átirat művelete nem sikerült",
+    "back": "Vissza"
   }
 }

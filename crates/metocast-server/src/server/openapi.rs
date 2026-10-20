@@ -1201,6 +1201,53 @@ fn handwritten() -> Value {
                         "text": { "type": "string", "example": "Grace to you and peace." }
                     }
                 },
+                "CleanupStatus": { "type": "string", "enum": ["none", "running", "succeeded", "failed"] },
+                "StoredTranscript": {
+                    "type": "object",
+                    "required": ["id", "eventId", "eventTitle", "startedAt", "endedAt", "status", "live", "durationSeconds", "segmentCount", "cleanupStatus", "cleanupError"],
+                    "properties": {
+                        "id": { "type": "string", "format": "uuid" },
+                        "eventId": { "type": ["string", "null"], "format": "uuid" },
+                        "eventTitle": { "type": ["string", "null"] },
+                        "startedAt": { "type": "string", "format": "date-time" },
+                        "endedAt": { "type": ["string", "null"], "format": "date-time", "description": "Null while it runs, or when the server stopped without closing it" },
+                        "status": { "type": "string", "enum": ["running", "stopped", "stoppedOffline", "error"] },
+                        "live": { "type": "boolean", "description": "The session the live transcript is writing to now" },
+                        "durationSeconds": { "type": "number" },
+                        "segmentCount": { "type": "integer" },
+                        "cleanupStatus": { "$ref": "#/components/schemas/CleanupStatus" },
+                        "cleanupError": { "type": ["string", "null"] }
+                    }
+                },
+                "StoredSegment": {
+                    "type": "object",
+                    "required": ["seq", "startedAt", "endedAt", "text", "cleanText"],
+                    "properties": {
+                        "seq": { "type": "integer" },
+                        "startedAt": { "type": "string", "format": "date-time" },
+                        "endedAt": { "type": "string", "format": "date-time" },
+                        "text": { "type": "string", "example": "Grace to you and and peace." },
+                        "cleanText": { "type": ["string", "null"], "description": "The clean-up's version; empty when it dropped the line as filler", "example": "Grace to you and peace." }
+                    }
+                },
+                "TranscriptDetail": {
+                    "type": "object",
+                    "required": ["transcript", "segments"],
+                    "properties": {
+                        "transcript": { "$ref": "#/components/schemas/StoredTranscript" },
+                        "segments": { "type": "array", "items": { "$ref": "#/components/schemas/StoredSegment" } }
+                    }
+                },
+                "CleanupProgress": {
+                    "type": "object",
+                    "required": ["sessionId", "state", "progress", "error"],
+                    "properties": {
+                        "sessionId": { "type": "string", "format": "uuid" },
+                        "state": { "$ref": "#/components/schemas/CleanupStatus" },
+                        "progress": { "type": "number", "minimum": 0, "maximum": 1 },
+                        "error": { "type": ["string", "null"] }
+                    }
+                },
                 "CreditStatus": {
                     "type": "object",
                     "required": ["balanceUsd", "toppedUpUsd", "spentUsd", "asOf", "low"],
@@ -2623,6 +2670,81 @@ fn handwritten() -> Value {
                     }
                 }
             },
+            "/api/transcripts": {
+                "get": {
+                    "tags": ["Transcription"],
+                    "summary": "List stored live transcripts",
+                    "description": "Every live-transcript session kept in the database, newest first. A session's English lines are stored as they are committed; `live` marks the one being written now.",
+                    "operationId": "listTranscripts",
+                    "parameters": [
+                        { "name": "eventId", "in": "query", "required": false, "schema": { "type": "string", "format": "uuid" }, "description": "Only this event's sessions" }
+                    ],
+                    "responses": {
+                        "200": { "description": "The sessions", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/StoredTranscript" } } } } },
+                        "401": { "description": "Unauthorized" }
+                    }
+                }
+            },
+            "/api/transcripts/{id}": {
+                "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } } ],
+                "get": {
+                    "tags": ["Transcription"],
+                    "summary": "Read a stored transcript",
+                    "operationId": "getTranscript",
+                    "responses": {
+                        "200": { "description": "The session and every line, with the cleaned-up text when a clean-up ran", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TranscriptDetail" } } } },
+                        "401": { "description": "Unauthorized" },
+                        "404": { "description": "No such transcript" }
+                    }
+                },
+                "delete": {
+                    "tags": ["Transcription"],
+                    "summary": "Delete a stored transcript",
+                    "description": "Removes the session and all its lines, raw and cleaned. Cannot be undone.",
+                    "operationId": "deleteTranscript",
+                    "responses": {
+                        "204": { "description": "Deleted" },
+                        "401": { "description": "Unauthorized" },
+                        "404": { "description": "No such transcript" },
+                        "409": { "description": "`transcript_live` (it is being written now) or `transcript_cleanup_running`" }
+                    }
+                }
+            },
+            "/api/transcripts/{id}/download": {
+                "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } } ],
+                "get": {
+                    "tags": ["Transcription"],
+                    "parameters": [
+                        { "name": "format", "in": "query", "required": false, "schema": { "type": "string", "enum": ["txt", "srt", "vtt"], "default": "txt" } },
+                        { "name": "clean", "in": "query", "required": false, "schema": { "type": "boolean", "default": false }, "description": "The cleaned-up lines instead of the raw ones; lines the clean-up dropped as filler are left out" }
+                    ],
+                    "summary": "Download a stored transcript",
+                    "description": "Plain text, one line per sentence, or subtitles timed from the session's start. Sent as an attachment named after the start time.",
+                    "operationId": "downloadTranscript",
+                    "responses": {
+                        "200": { "description": "The file", "content": { "text/plain": { "schema": { "type": "string" } }, "application/x-subrip": { "schema": { "type": "string" } }, "text/vtt": { "schema": { "type": "string" } } } },
+                        "401": { "description": "Unauthorized" },
+                        "404": { "description": "No such transcript" },
+                        "409": { "description": "`transcript_not_cleaned`: `clean=true` before a clean-up succeeded" }
+                    }
+                }
+            },
+            "/api/transcripts/{id}/cleanup": {
+                "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } } ],
+                "post": {
+                    "tags": ["Transcription"],
+                    "summary": "Clean up a stored transcript with AI",
+                    "description": "Sends the finished English lines to OpenAI (`gpt-5-mini`, with the key of the `openai` connector) in chunks of 40 and keeps a rewritten version of each line next to the raw one: grammar and mistranslations fixed, filler dropped, nothing added. Progress arrives as `transcript.cleanup.state` WebSocket messages; a successful pass replaces an earlier clean version, a failed one leaves it.",
+                    "operationId": "cleanupTranscript",
+                    "responses": {
+                        "202": { "description": "Started", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CleanupProgress" } } } },
+                        "400": { "description": "`transcription_not_configured`" },
+                        "401": { "description": "Unauthorized" },
+                        "404": { "description": "No such transcript" },
+                        "409": { "description": "`transcript_live`, `transcript_cleanup_running` or `transcript_empty`" }
+                    }
+                }
+            },
             "/api/recordings/{id}/captions.vtt": {
                 "parameters": [
                     { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
@@ -2642,7 +2764,7 @@ fn handwritten() -> Value {
                 "get": {
                     "tags": ["WebSocket"],
                     "summary": "WebSocket live stream",
-                    "description": "**This endpoint performs a WebSocket upgrade — it cannot be tested with the HTTP \"Send\" button.**\n\nUse a dedicated WebSocket client instead:\n- [Hoppscotch](https://hoppscotch.io) → New request → WebSocket\n- [websocat](https://github.com/vi/websocat): `websocat 'ws://<host>/ws?token=<token>'`\n- Bruno: add a request with type `socket`\n\n---\n\n**Connection URL:** `ws://<host>/ws?token=<token>`\n\nAuthentication uses the same bearer token passed as a **query parameter** (the `Authorization` header is not available during the WebSocket handshake).\n\n### Initial messages (pushed immediately on connect)\n\n```json\n{ \"type\": \"connected\", \"serverId\": \"<uuid>\" }\n{ \"type\": \"connector.status\", \"connector\": \"obs\",  \"status\": { \"type\": \"connected\" } }\n{ \"type\": \"connector.status\", \"connector\": \"vmix\", \"status\": { \"type\": \"disconnected\" } }\n```\n\n### Broadcast messages (sent when data changes)\n\n| `type` | Trigger | Schema |\n|---|---|---|\n| `connector.status` | OBS or VMix connection state changes | `WsConnectorStatusMessage` |\n| `event.changed` | Event created, updated, or deleted | `WsEventChangedMessage` |\n| `recording.changed` | Recording created or updated | `WsRecordingChangedMessage` |\n| `media.render.progress` | A render's progress, about once a second, and once when it ends | `WsMediaRenderProgressMessage` |\n| `media.audio.progress` | An audio job's step and progress, and its report when it ends | `WsMediaAudioProgressMessage` |\n| `media.program.progress` | A program job's step and progress, and its report when it ends or is nudged | `WsMediaProgramProgressMessage` |\n| `transcription.snapshot` | On connect: the state, the last ~20 segments, the open line and the credit line | `{ type, state: TranscriptionState, segments: TranscriptSegment[], partial, credit: CreditStatus \\| null }` |\n| `transcription.state` | The live transcript's status changes | `{ type, state: TranscriptionState }` |\n| `transcription.partial` | The open English line grows (at most every ~150 ms; empty clears it) | `{ type, text }` |\n| `transcription.segment` | A line is committed | `{ type, segment: TranscriptSegment }` |\n| `transcription.credit` | Every 10 minutes and after a session, when an admin key is set | `{ type, credit: CreditStatus }` |\n| `captions.job.state` | A final-video captions job runs, succeeds or fails | `{ type, jobId, recordingId, state, progress, error }` |\n| `automations.changed` | The rules or the master switch changed; also sent on connect to clients with the token | `WsAutomationsChangedMessage` |\n| `automation.run` | A rule ran | `WsAutomationRunMessage` |\n| `rodecaster.record.state` | The RØDECaster's own SD/USB recorder started, paused or stopped, or a card or drive came or went; also sent on connect | `WsRodecasterRecordStateMessage` |\n| `connector.state` (`middlecontrol`) | Middle Control's feedback changed. `runningPreset` (1–12, or null at rest) is the preset moving the selected camera, `presetMoveActive` is derived from it, and `lastPreset { preset, cameraId, at }` is the last move Metocast watched run to its end | `{ type, connector, state: { selectedCamera, recording, recordingCameraIds, connectedCameraIds, connectedApcrIds, presetMoveActive, runningPreset, lastPreset } }` |\n| `presenter.state` | Presentation loaded or unloaded | `{ type, state: PresenterState }` with `renderMode: \"text\" | \"svg\"` |\n| `presenter.slide_changed` | Slide navigation | `{ type, currentSlide, totalSlides }` |\n\n### Presenter WS commands\n\n| Command | Fields | Description |\n|---|---|---|\n| `presenter.load` | `file_path`, optional `render_mode` | Load a .pptx into the presenter; defaults to text mode |\n| `presenter.load_bible_reference` | optional `event_id`, `reference_type` | Load an event Textus/Lekció Bible reference into the text presenter. If `event_id` is omitted, the backend-selected presenter event is used. |\n| `presenter.unload` | — | Clear the active presentation |\n| `presenter.next` | — | Advance one slide |\n| `presenter.prev` | — | Go back one slide |\n| `presenter.first` | — | Jump to slide 1 |\n| `presenter.last` | — | Jump to last slide |\n| `presenter.goto` | `slide` | Jump to a specific slide number |\n| `presenter.status` | — | Reply to requesting client with `presenter.state` |\n\n### Live transcript WS commands (token required)\n\n| Command | Fields | Description |\n|---|---|---|\n| `transcription.start` | optional `eventId` | Start translating the configured RØDECaster source for an event, or for none when `eventId` is omitted. Answered by `transcription.state`, or `error` with `transcription_not_configured` / `transcription_unavailable` (no RØDECaster) |\n| `transcription.stop` | — | Stop it; answered by `ok` |\n\n### Automation and RØDECaster recorder WS commands (token required)\n\n| Command | Fields | Description |\n|---|---|---|\n| `automations.list` | — | Answered by `automations.changed` |\n| `automations.run` | `id` | Run the rule now (ignores its cooldown, event check and the master switch); answered by `ok` or `error` (`not_found`), the run arrives as `automation.run` |\n| `automations.set_armed` | `armed` | The master switch; answered by `ok`, and `automations.changed` is broadcast |\n| `rodecaster.record.start` | — | Start (or resume) the desk's own SD/USB recorder; answered by `ok` or `error` (`rodecaster_not_connected`, `rodecaster_no_media`); the result arrives as `rodecaster.record.state` |\n| `rodecaster.record.stop` | — | Stop it |\n\n### Event WS commands for presenter controls\n\n| Command | Fields | Description |\n|---|---|---|\n| `events.presenter_list` | — | Return backend-ordered presenter event choices plus `selectedEventId` for the current/next event |\n\n`presentation.open` uses SVG mode by default in web-presenter mode. Send `render_mode: \"text\"` to force the text renderer.",
+                    "description": "**This endpoint performs a WebSocket upgrade — it cannot be tested with the HTTP \"Send\" button.**\n\nUse a dedicated WebSocket client instead:\n- [Hoppscotch](https://hoppscotch.io) → New request → WebSocket\n- [websocat](https://github.com/vi/websocat): `websocat 'ws://<host>/ws?token=<token>'`\n- Bruno: add a request with type `socket`\n\n---\n\n**Connection URL:** `ws://<host>/ws?token=<token>`\n\nAuthentication uses the same bearer token passed as a **query parameter** (the `Authorization` header is not available during the WebSocket handshake).\n\n### Initial messages (pushed immediately on connect)\n\n```json\n{ \"type\": \"connected\", \"serverId\": \"<uuid>\" }\n{ \"type\": \"connector.status\", \"connector\": \"obs\",  \"status\": { \"type\": \"connected\" } }\n{ \"type\": \"connector.status\", \"connector\": \"vmix\", \"status\": { \"type\": \"disconnected\" } }\n```\n\n### Broadcast messages (sent when data changes)\n\n| `type` | Trigger | Schema |\n|---|---|---|\n| `connector.status` | OBS or VMix connection state changes | `WsConnectorStatusMessage` |\n| `event.changed` | Event created, updated, or deleted | `WsEventChangedMessage` |\n| `recording.changed` | Recording created or updated | `WsRecordingChangedMessage` |\n| `media.render.progress` | A render's progress, about once a second, and once when it ends | `WsMediaRenderProgressMessage` |\n| `media.audio.progress` | An audio job's step and progress, and its report when it ends | `WsMediaAudioProgressMessage` |\n| `media.program.progress` | A program job's step and progress, and its report when it ends or is nudged | `WsMediaProgramProgressMessage` |\n| `transcription.snapshot` | On connect: the state, the last ~20 segments, the open line and the credit line | `{ type, state: TranscriptionState, segments: TranscriptSegment[], partial, credit: CreditStatus \\| null }` |\n| `transcription.state` | The live transcript's status changes | `{ type, state: TranscriptionState }` |\n| `transcription.partial` | The open English line grows (at most every ~150 ms; empty clears it) | `{ type, text }` |\n| `transcription.segment` | A line is committed | `{ type, segment: TranscriptSegment }` |\n| `transcription.credit` | Every 10 minutes and after a session, when an admin key is set | `{ type, credit: CreditStatus }` |\n| `captions.job.state` | A final-video captions job runs, succeeds or fails | `{ type, jobId, recordingId, state, progress, error }` |\n| `transcript.cleanup.state` | A stored transcript's AI clean-up runs a chunk, succeeds or fails | `CleanupProgress` plus `type` |\n| `automations.changed` | The rules or the master switch changed; also sent on connect to clients with the token | `WsAutomationsChangedMessage` |\n| `automation.run` | A rule ran | `WsAutomationRunMessage` |\n| `rodecaster.record.state` | The RØDECaster's own SD/USB recorder started, paused or stopped, or a card or drive came or went; also sent on connect | `WsRodecasterRecordStateMessage` |\n| `connector.state` (`middlecontrol`) | Middle Control's feedback changed. `runningPreset` (1–12, or null at rest) is the preset moving the selected camera, `presetMoveActive` is derived from it, and `lastPreset { preset, cameraId, at }` is the last move Metocast watched run to its end | `{ type, connector, state: { selectedCamera, recording, recordingCameraIds, connectedCameraIds, connectedApcrIds, presetMoveActive, runningPreset, lastPreset } }` |\n| `presenter.state` | Presentation loaded or unloaded | `{ type, state: PresenterState }` with `renderMode: \"text\" | \"svg\"` |\n| `presenter.slide_changed` | Slide navigation | `{ type, currentSlide, totalSlides }` |\n\n### Presenter WS commands\n\n| Command | Fields | Description |\n|---|---|---|\n| `presenter.load` | `file_path`, optional `render_mode` | Load a .pptx into the presenter; defaults to text mode |\n| `presenter.load_bible_reference` | optional `event_id`, `reference_type` | Load an event Textus/Lekció Bible reference into the text presenter. If `event_id` is omitted, the backend-selected presenter event is used. |\n| `presenter.unload` | — | Clear the active presentation |\n| `presenter.next` | — | Advance one slide |\n| `presenter.prev` | — | Go back one slide |\n| `presenter.first` | — | Jump to slide 1 |\n| `presenter.last` | — | Jump to last slide |\n| `presenter.goto` | `slide` | Jump to a specific slide number |\n| `presenter.status` | — | Reply to requesting client with `presenter.state` |\n\n### Live transcript WS commands (token required)\n\n| Command | Fields | Description |\n|---|---|---|\n| `transcription.start` | optional `eventId` | Start translating the configured RØDECaster source for an event, or for none when `eventId` is omitted. Answered by `transcription.state`, or `error` with `transcription_not_configured` / `transcription_unavailable` (no RØDECaster) |\n| `transcription.stop` | — | Stop it; answered by `ok` |\n\n### Automation and RØDECaster recorder WS commands (token required)\n\n| Command | Fields | Description |\n|---|---|---|\n| `automations.list` | — | Answered by `automations.changed` |\n| `automations.run` | `id` | Run the rule now (ignores its cooldown, event check and the master switch); answered by `ok` or `error` (`not_found`), the run arrives as `automation.run` |\n| `automations.set_armed` | `armed` | The master switch; answered by `ok`, and `automations.changed` is broadcast |\n| `rodecaster.record.start` | — | Start (or resume) the desk's own SD/USB recorder; answered by `ok` or `error` (`rodecaster_not_connected`, `rodecaster_no_media`); the result arrives as `rodecaster.record.state` |\n| `rodecaster.record.stop` | — | Stop it |\n\n### Event WS commands for presenter controls\n\n| Command | Fields | Description |\n|---|---|---|\n| `events.presenter_list` | — | Return backend-ordered presenter event choices plus `selectedEventId` for the current/next event |\n\n`presentation.open` uses SVG mode by default in web-presenter mode. Send `render_mode: \"text\"` to force the text renderer.",
                     "operationId": "connectWebSocket",
                     "security": [],
                     "parameters": [
@@ -2689,10 +2811,21 @@ mod tests {
             "/api/openai/verify",
             "/api/recordings/{id}/captions",
             "/api/recordings/{id}/captions.vtt",
+            "/api/transcripts",
+            "/api/transcripts/{id}",
+            "/api/transcripts/{id}/download",
+            "/api/transcripts/{id}/cleanup",
         ] {
             assert!(spec["paths"][path].is_object(), "{path} is missing");
         }
-        for schema in ["TranscriptionState", "TranscriptSegment", "CreditStatus"] {
+        for schema in [
+            "TranscriptionState",
+            "TranscriptSegment",
+            "CreditStatus",
+            "StoredTranscript",
+            "TranscriptDetail",
+            "CleanupProgress",
+        ] {
             assert!(
                 spec["components"]["schemas"][schema].is_object(),
                 "{schema} is missing"

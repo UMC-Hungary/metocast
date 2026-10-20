@@ -86,6 +86,11 @@ const REST: &[(&str, &str, &str, &str)] = &[
     ("DELETE", "/recordings/untracked/{id}", "recordings.untracked.delete", "Forget an untracked recording, optionally deleting the file"),
     ("POST", "/recordings/{id}/captions", "recordings_captions_create", "Queue English captions for a recording"),
     ("GET", "/recordings/{id}/captions.vtt", "recordings_captions_vtt", "Read a recording's English captions as WebVTT"),
+    ("GET", "/transcripts", "transcripts_list", "List stored live transcripts, newest first"),
+    ("GET", "/transcripts/{id}", "transcripts_get", "Read a stored live transcript, every line with its cleaned-up text"),
+    ("DELETE", "/transcripts/{id}", "transcripts_delete", "Delete a stored live transcript and its lines"),
+    ("GET", "/transcripts/{id}/download", "transcripts_download", "Read a stored transcript as .txt, .srt or .vtt"),
+    ("POST", "/transcripts/{id}/cleanup", "transcripts_cleanup", "Start the OpenAI clean-up of a finished transcript"),
     ("GET", "/settings/title-template", "settings_title_template_get", "Read the event title template"),
     ("PUT", "/settings/title-template", "settings_title_template_set", "Set the event title template"),
     ("GET", "/settings/slide-folder", "settings_slide_folder_get", "Read the folder event slide decks are saved in"),
@@ -235,7 +240,7 @@ struct Tool {
 
 impl Tool {
     /// Access hints from the name and verb (D6): GET and the list/get/status family are read-only;
-    /// delete, logout, stream and record-stop are destructive.
+    /// delete, logout, stream, record-stop and the transcript clean-up are destructive.
     fn new(name: String, about: String, input: Value, op: Op) -> Self {
         let (label, method) = match &op {
             // A command inherits the verb of its REST twin, so `auth.youtube.url` is a read.
@@ -270,6 +275,8 @@ impl Tool {
             && (method == "DELETE"
                 || has(&[
                     "delete", "remove", "logout", "purge", "clear", "close", "unload",
+                    // sends the transcript to OpenAI and replaces the clean version
+                    "cleanup",
                 ])
                 || label.contains(".stream.")
                 || label.contains(".record.stop")
@@ -1581,6 +1588,8 @@ mod tests {
             "jobs_purge",
             "auth_youtube_logout",
             "obs_record_stop",
+            "transcripts_delete",
+            "transcripts_cleanup",
         ] {
             assert!(find(name).destructive, "{name} should be destructive");
         }

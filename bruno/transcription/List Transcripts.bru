@@ -1,0 +1,29 @@
+meta {
+  name: List Transcripts
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/transcripts
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+script:post-response {
+  if (res.body.length > 0) bru.setVar("transcriptId", res.body[0].id);
+}
+
+docs {
+  Stored live-transcript sessions, newest first. Add ?eventId= for one event's.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+}

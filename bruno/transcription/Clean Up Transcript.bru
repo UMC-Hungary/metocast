@@ -1,0 +1,26 @@
+meta {
+  name: Clean Up Transcript
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/transcripts/{{transcriptId}}/cleanup
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  Starts the OpenAI clean-up of a finished session. Progress arrives as
+  transcript.cleanup.state on /ws.
+}
+
+tests {
+  test("status is 202", function() {
+    expect(res.status).to.equal(202);
+  });
+}

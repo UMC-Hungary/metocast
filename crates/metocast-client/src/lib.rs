@@ -23,6 +23,7 @@ use metocast_core::{
     protocol::ServerEvent,
     recordings::{FlagUpload, FlagUploadItem, Recording},
     slides::{CreateSongSlides, EventSlides, PptEnvelope, PptFile, PptFolder, SongSlides},
+    transcription::{CleanupProgress, StoredTranscript, TranscriptDetail},
 };
 use reqwest::{StatusCode, Url};
 use serde::{Serialize, de::DeserializeOwned};
@@ -658,6 +659,49 @@ impl MetocastClient {
     /// The core's own log. Only a core running inside the desktop app has one.
     pub async fn application_log(&self) -> Result<ApplicationLog, ClientError> {
         self.get_json("api/logs").await
+    }
+
+    // ── Transcript library ───────────────────────────────────────────────────
+
+    /// Stored live transcripts, newest first.
+    pub async fn transcripts(&self) -> Result<Vec<StoredTranscript>, ClientError> {
+        self.get_json("api/transcripts").await
+    }
+
+    pub async fn transcript(&self, id: Uuid) -> Result<TranscriptDetail, ClientError> {
+        self.get_json(&format!("api/transcripts/{id}")).await
+    }
+
+    /// Refused while it is live or being cleaned up.
+    pub async fn delete_transcript(&self, id: Uuid) -> Result<(), ClientError> {
+        self.delete(&format!("api/transcripts/{id}")).await
+    }
+
+    /// The file's text: `format` is `txt`, `srt` or `vtt`; `clean` takes the AI-cleaned lines.
+    pub async fn download_transcript(
+        &self,
+        id: Uuid,
+        format: &str,
+        clean: bool,
+    ) -> Result<String, ClientError> {
+        let mut url = self
+            .config
+            .endpoint(&format!("api/transcripts/{id}/download"))?;
+        url.query_pairs_mut()
+            .append_pair("format", format)
+            .append_pair("clean", if clean { "true" } else { "false" });
+        let response = self
+            .response(self.http.get(url).bearer_auth(self.config.token.expose()))
+            .await?;
+        Ok(response.text().await?)
+    }
+
+    /// Starts the OpenAI clean-up; progress arrives as `transcript.cleanup.state`.
+    pub async fn cleanup_transcript(&self, id: Uuid) -> Result<CleanupProgress, ClientError> {
+        let url = self
+            .config
+            .endpoint(&format!("api/transcripts/{id}/cleanup"))?;
+        self.send_json(self.http.post(url)).await
     }
 
     async fn delete(&self, path: &str) -> Result<(), ClientError> {
