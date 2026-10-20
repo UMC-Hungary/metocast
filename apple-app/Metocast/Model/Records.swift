@@ -15,7 +15,7 @@ extension Date {
     /// "Today, 10:00" for today and "Sun, 11 Jan, 10:00" otherwise.
     var eventDisplay: String {
         if Calendar.current.isDateInToday(self) {
-            return "Today, " + formatted(date: .omitted, time: .shortened)
+            return String(localized: "Today, \(formatted(date: .omitted, time: .shortened))")
         }
         return formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).hour().minute())
     }
@@ -75,7 +75,7 @@ struct ConnectorInfo {
         switch id {
         case "obs": "OBS"
         case "atem": "ATEM"
-        case "blackmagic-camera": "Camera"
+        case "blackmagic-camera": String(localized: "Camera")
         case "middlecontrol": "Middle Control"
         case "rodecaster": "RØDECaster"
         case "vmix": "vMix"
@@ -86,7 +86,8 @@ struct ConnectorInfo {
         case "discord": "Discord"
         case "szentiras": "Szentírás"
         case "openai": "OpenAI"
-        case "mcp": "AI Agents"
+        case "mcp": String(localized: "AI Agents")
+        case "media": String(localized: "Media")
         default: id.capitalized
         }
     }
@@ -136,22 +137,22 @@ enum ConnectorCategory: CaseIterable {
 
     var title: String {
         switch self {
-        case .production: "Video & Audio"
-        case .control: "Controllers & Room"
-        case .presentation: "Presentation"
-        case .publishing: "Streaming & Sharing"
-        case .services: "AI Services"
-        case .other: "Other"
+        case .production: String(localized: "Video & Audio")
+        case .control: String(localized: "Controllers & Room")
+        case .presentation: String(localized: "Presentation")
+        case .publishing: String(localized: "Streaming & Sharing")
+        case .services: String(localized: "AI Services")
+        case .other: String(localized: "Other")
         }
     }
 
     var footer: String {
         switch self {
-        case .production: "Switchers, cameras, recording and the audio mixer."
-        case .control: "Control surfaces and infrared remotes for the room's equipment."
-        case .presentation: "Slides and Bible verses shown on screen."
-        case .publishing: "Where streams, recordings and announcements go."
-        case .services: "Transcription, captions and AI agents."
+        case .production: String(localized: "Switchers, cameras, recording and the audio mixer.")
+        case .control: String(localized: "Control surfaces and infrared remotes for the room's equipment.")
+        case .presentation: String(localized: "Slides and Bible verses shown on screen.")
+        case .publishing: String(localized: "Where streams, recordings and announcements go.")
+        case .services: String(localized: "Transcription, captions and AI agents.")
         case .other: ""
         }
     }
@@ -160,10 +161,10 @@ enum ConnectorCategory: CaseIterable {
 extension ConnectorStatusCode {
     var title: String {
         switch self {
-        case .connected: "Connected"
-        case .connecting: "Connecting"
-        case .disconnected: "Off"
-        case .error: "Error"
+        case .connected: String(localized: "Connected")
+        case .connecting: String(localized: "Connecting")
+        case .disconnected: String(localized: "Off")
+        case .error: String(localized: "Error")
         }
     }
 
@@ -196,10 +197,10 @@ extension ConnectorStatusRecord {
 
     var title: String {
         switch code {
-        case "credentials_required": "Not set up"
-        case "login_required": "Not signed in"
-        case "relogin_required": "Sign-in expired"
-        default: status == .connected && ConnectorInfo(id: connector).signsIn ? "Signed in" : status.title
+        case "credentials_required": String(localized: "Not set up")
+        case "login_required": String(localized: "Not signed in")
+        case "relogin_required": String(localized: "Sign-in expired")
+        default: status == .connected && ConnectorInfo(id: connector).signsIn ? String(localized: "Signed in") : status.title
         }
     }
 
@@ -224,7 +225,7 @@ extension ConnectorStatusRecord {
 
 extension PresenterStateRecord {
     var fileName: String {
-        filePath.map { URL(filePath: $0).deletingPathExtension().lastPathComponent } ?? "Presentation"
+        filePath.map { URL(filePath: $0).deletingPathExtension().lastPathComponent } ?? String(localized: "Presentation")
     }
 }
 

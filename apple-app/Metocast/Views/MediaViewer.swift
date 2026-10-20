@@ -98,8 +98,8 @@ struct MediaViewer: View {
                     })
             }
         }
-        .overlay(alignment: .topLeading) { Pill("ORIGINAL").padding(8) }
-        .overlay(alignment: .topTrailing) { Pill("RESULT").padding(8) }
+        .overlay(alignment: .topLeading) { Pill(String(localized: "ORIGINAL")).padding(8) }
+        .overlay(alignment: .topTrailing) { Pill(String(localized: "RESULT")).padding(8) }
         .frame(maxWidth: .infinity, minHeight: 240, maxHeight: 620)
         // The split line is dragged; VoiceOver and the keyboard move it as a slider.
         .accessibilityRepresentation {
@@ -182,30 +182,30 @@ enum Tile: CaseIterable {
 
     var title: String {
         switch self {
-        case .iso: "ISO"
-        case .whiteBalance: "WB"
-        case .tint: "TINT"
-        case .exposure: "EXPOSURE"
-        case .gamma: "GAMMA"
-        case .gamut: "GAMUT"
-        case .lut: "LUT"
-        case .highlightRecovery: "HIGHLIGHTS"
-        case .gamutCompression: "GAMUT COMP."
+        case .iso: String(localized: "ISO")
+        case .whiteBalance: String(localized: "WB")
+        case .tint: String(localized: "TINT")
+        case .exposure: String(localized: "EXPOSURE")
+        case .gamma: String(localized: "GAMMA")
+        case .gamut: String(localized: "GAMUT")
+        case .lut: String(localized: "LUT")
+        case .highlightRecovery: String(localized: "HIGHLIGHTS")
+        case .gamutCompression: String(localized: "GAMUT COMP.")
         }
     }
 
     /// The title in words, for VoiceOver: "WB" would be spelled out.
     var spokenTitle: String {
         switch self {
-        case .iso: "ISO"
-        case .whiteBalance: "White balance"
-        case .tint: "Tint"
-        case .exposure: "Exposure"
-        case .gamma: "Gamma"
-        case .gamut: "Gamut"
-        case .lut: "LUT"
-        case .highlightRecovery: "Highlight recovery"
-        case .gamutCompression: "Gamut compression"
+        case .iso: String(localized: "ISO")
+        case .whiteBalance: String(localized: "White balance")
+        case .tint: String(localized: "Tint")
+        case .exposure: String(localized: "Exposure")
+        case .gamma: String(localized: "Gamma")
+        case .gamut: String(localized: "Gamut")
+        case .lut: String(localized: "LUT")
+        case .highlightRecovery: String(localized: "Highlight recovery")
+        case .gamutCompression: String(localized: "Gamut compression")
         }
     }
 
@@ -224,13 +224,13 @@ enum Tile: CaseIterable {
         case .gamma: settings.gamma.replacingOccurrences(of: "Blackmagic Design ", with: "")
         case .gamut: settings.gamut.replacingOccurrences(of: "Blackmagic Design", with: "BMD")
         case .lut: switch settings.lutMode {
-            case .embedded: "Camera"
-            case .file: settings.lutPath.map { URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent } ?? "File"
-            case .sidecar: "Sidecar"
-            case .none: "Off"
+            case .embedded: String(localized: "Camera")
+            case .file: settings.lutPath.map { URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent } ?? String(localized: "File")
+            case .sidecar: String(localized: "Sidecar")
+            case .none: String(localized: "Off")
             }
-        case .highlightRecovery: settings.highlightRecovery ? "ON" : "OFF"
-        case .gamutCompression: settings.gamutCompression ? "ON" : "OFF"
+        case .highlightRecovery: settings.highlightRecovery ? String(localized: "ON") : String(localized: "OFF")
+        case .gamutCompression: settings.gamutCompression ? String(localized: "ON") : String(localized: "OFF")
         }
     }
 }
@@ -329,10 +329,12 @@ private struct TileControl: View {
 
     private var lutChoices: [(String, LutMode)] {
         var choices: [(String, LutMode)] = []
-        if video.kind == .braw { choices.append(("Camera: \(video.embeddedLut ?? "embedded")", .embedded)) }
-        if settings.sidecarPath != nil { choices.append(("Resolve Sidecar", .sidecar)) }
+        if video.kind == .braw {
+            choices.append((String(localized: "Camera: \(video.embeddedLut ?? String(localized: "embedded"))"), .embedded))
+        }
+        if settings.sidecarPath != nil { choices.append((String(localized: "Resolve Sidecar"), .sidecar)) }
         if let path = settings.lutPath { choices.append((URL(fileURLWithPath: path).lastPathComponent, .file)) }
-        choices.append(("None", .none))
+        choices.append((String(localized: "None"), .none))
         return choices
     }
 
@@ -398,7 +400,7 @@ private struct RulerDial: View {
             .frame(minWidth: 260, maxWidth: 520)
             .accessibilityRepresentation {
                 Stepper(title) { step(index, 1) } onDecrement: { step(index, -1) }
-                    .accessibilityValue(label(current) + (isAsShot ? ", as shot" : ""))
+                    .accessibilityValue(isAsShot ? String(localized: "\(label(current)), as shot") : label(current))
             }
             Button("As Shot") { pick(nil) }
                 .buttonStyle(.bordered)

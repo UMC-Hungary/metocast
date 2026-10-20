@@ -9,7 +9,7 @@ func chooseFolder() -> URL? {
     panel.canChooseFiles = false
     panel.canChooseDirectories = true
     panel.canCreateDirectories = true
-    panel.prompt = "Choose"
+    panel.prompt = String(localized: "Choose")
     return panel.runModal() == .OK ? panel.url : nil
 }
 #endif

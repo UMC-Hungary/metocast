@@ -26,7 +26,7 @@ struct ConnectorsView: View {
 
     private func row(_ connector: ConnectorNameRecord) -> some View {
         NavigationLink {
-            ConnectorFormView(session: session, connector: connector.id, name: connector.name)
+            ConnectorFormView(session: session, connector: connector.id, name: String(localized: String.LocalizationValue(connector.name)))
                 .windowActions()
         } label: {
             LabeledContent {
@@ -37,7 +37,7 @@ struct ConnectorsView: View {
                         .font(.subheadline)
                 }
             } label: {
-                Label(connector.name, systemImage: ConnectorInfo(id: connector.id).icon)
+                Label(String(localized: String.LocalizationValue(connector.name)), systemImage: ConnectorInfo(id: connector.id).icon)
             }
         }
         // A Mac list row link is otherwise an element of unknown role.
@@ -202,15 +202,17 @@ struct ConnectorFormView: View {
 
     @ViewBuilder
     private func row(_ field: ConfigFieldRecord) -> some View {
+        // The core names its fields in English; Localizable.xcstrings has them as manual entries.
+        let label = String(localized: String.LocalizationValue(field.label))
         switch field.kind {
         case .toggle:
-            Toggle(field.label, isOn: Binding(
+            Toggle(label, isOn: Binding(
                 get: { values[field.key] == "true" },
                 set: { values[field.key] = $0 ? "true" : "false" }
             ))
         case .number:
-            LabeledContent(field.label) {
-                TextField(field.label, text: binding(field.key))
+            LabeledContent(label) {
+                TextField(label, text: binding(field.key))
                     .multilineTextAlignment(.trailing)
                     .labelsHidden()
                     #if os(iOS)
@@ -218,8 +220,8 @@ struct ConnectorFormView: View {
                     #endif
             }
         case .text:
-            LabeledContent(field.label) {
-                TextField(field.label, text: binding(field.key))
+            LabeledContent(label) {
+                TextField(label, text: binding(field.key))
                     .multilineTextAlignment(.trailing)
                     .labelsHidden()
                     #if os(iOS)
@@ -229,14 +231,14 @@ struct ConnectorFormView: View {
             }
         case .secret:
             VStack(alignment: .leading, spacing: 4) {
-                LabeledContent(field.label) {
-                    SecureField(field.label, text: binding(field.key), prompt: Text(field.isSet && !cleared.contains(field.key) ? "Stored" : "None"))
+                LabeledContent(label) {
+                    SecureField(label, text: binding(field.key), prompt: Text(field.isSet && !cleared.contains(field.key) ? "Stored" : "None"))
                         .multilineTextAlignment(.trailing)
                         .labelsHidden()
                         .accessibilityValue(field.isSet && !cleared.contains(field.key) ? "Stored" : "Not set")
                 }
                 if field.isSet, values[field.key].orEmpty.isEmpty {
-                    Button(cleared.contains(field.key) ? "Keep Stored \(field.label)" : "Forget Stored \(field.label)") {
+                    Button(cleared.contains(field.key) ? "Keep Stored \(label)" : "Forget Stored \(label)") {
                         if cleared.contains(field.key) { cleared.remove(field.key) } else { cleared.insert(field.key) }
                     }
                     .font(.subheadline)
@@ -281,7 +283,7 @@ struct ConnectorFormView: View {
         defer { isDiscovering = false }
         do {
             discovered = try await session.discover(tool).devices
-            failure = discovered.isEmpty ? "No devices answered. Enter the address by hand." : nil
+            failure = discovered.isEmpty ? String(localized: "No devices answered. Enter the address by hand.") : nil
         } catch {
             failure = error.metocastMessage
         }
@@ -306,7 +308,7 @@ struct ConnectorFormView: View {
         do {
             guard let url = try await session.authURL(connector) else {
                 // The server answered with something that is not a URL, which no retry fixes.
-                failure = "The server did not send a usable sign-in address."
+                failure = String(localized: "The server did not send a usable sign-in address.")
                 return
             }
             failure = nil
@@ -363,10 +365,10 @@ private struct AgentSetupSection: View {
             LabeledContent("Address") {
                 Text(url).font(.footnote.monospaced()).textSelection(.enabled)
             }
-            copyButton("Copy Command for Claude Code", text: claudeCode)
-            copyButton("Copy Config for Claude Desktop", text: claudeDesktop)
+            copyButton(String(localized: "Copy Command for Claude Code"), text: claudeCode)
+            copyButton(String(localized: "Copy Config for Claude Desktop"), text: claudeDesktop)
             Button("Install in Claude Desktop", systemImage: "square.and.arrow.down", action: installExtension)
-            copyButton("Copy Access Token", text: token)
+            copyButton(String(localized: "Copy Access Token"), text: token)
             Button("Test Connection", systemImage: "checkmark.circle") { Task { await test() } }
                 .disabled(testing)
             if let testResult {
@@ -396,7 +398,7 @@ private struct AgentSetupSection: View {
     /// for the access token, which the button above copies.
     private func installExtension() {
         guard let package = Bundle.main.url(forResource: "Metocast", withExtension: "mcpb") else {
-            testResult = "The Claude Desktop extension is missing from this build."
+            testResult = String(localized: "The Claude Desktop extension is missing from this build.")
             return
         }
         if !NSWorkspace.shared.open(package) {
@@ -407,7 +409,7 @@ private struct AgentSetupSection: View {
     /// Runs the bridge's own check, the same one support asks for: `metocast-server mcp-stdio --check`.
     private func test() async {
         guard let helper = ServerHost.helper else {
-            testResult = "The bridge is missing from this build."
+            testResult = String(localized: "The bridge is missing from this build.")
             return
         }
         testing = true
@@ -424,7 +426,7 @@ private struct AgentSetupSection: View {
             do {
                 try process.run()
             } catch {
-                return "Couldn't start the bridge: \(error.localizedDescription)"
+                return String(localized: "Couldn't start the bridge: \(error.localizedDescription)")
             }
             let text = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
             process.waitUntilExit()
@@ -433,7 +435,7 @@ private struct AgentSetupSection: View {
     }
 
     private func copyButton(_ title: String, text: String) -> some View {
-        Button(copied == title ? "Copied" : title, systemImage: "doc.on.doc") {
+        Button(copied == title ? String(localized: "Copied") : title, systemImage: "doc.on.doc") {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)
             copied = title

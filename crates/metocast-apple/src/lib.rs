@@ -488,6 +488,7 @@ pub enum OrderItemKind {
     Song,
     Bible,
     Block,
+    Announcements,
 }
 
 /// One step of an event's Order of Service. `id` is absent for a step added in this edit.

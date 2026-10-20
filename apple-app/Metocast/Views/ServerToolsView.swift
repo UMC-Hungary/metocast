@@ -44,7 +44,7 @@ struct ServerToolsView: View {
         .navigationTitle("Server Tools")
     }
 
-    private func tool(_ title: String, systemImage: String, @ViewBuilder destination: () -> some View) -> some View {
+    private func tool(_ title: LocalizedStringKey, systemImage: String, @ViewBuilder destination: () -> some View) -> some View {
         NavigationLink { destination().windowActions() } label: { Label(title, systemImage: systemImage) }
             // A Mac list row link is otherwise an element of unknown role; the trait says it opens.
             .accessibilityAddTraits(.isButton)
@@ -67,7 +67,13 @@ struct ScheduledJobsView: View {
                 } label: {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(job.name)
-                        Text("\(job.cronExpression)\(job.enabled ? "" : " · off")")
+                        Group {
+                            if job.enabled {
+                                Text(job.cronExpression)
+                            } else {
+                                Text("\(job.cronExpression) · off")
+                            }
+                        }
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -590,7 +596,7 @@ private struct CoreLogView: View {
     private func load() async {
         do {
             log = try await session.applicationLog()
-            failure = log.isEmpty ? "The log is empty." : nil
+            failure = log.isEmpty ? String(localized: "The log is empty.") : nil
         } catch {
             // A headless core keeps no log of its own, and the refusal alone leaves the
             // reader with nowhere to go, so name where the helper's output is kept.
@@ -601,7 +607,7 @@ private struct CoreLogView: View {
     /// The helper prints to its output, which this Mac keeps when it is the one hosting.
     private static func whereTheLogIs(hosting: Bool) -> String {
         hosting
-            ? "This Mac runs the core as a helper, which keeps its output in Settings → Server Log."
-            : "The core runs on another machine. Its output is in the Server Log on the Mac hosting it."
+            ? String(localized: "This Mac runs the core as a helper, which keeps its output in Settings → Server Log.")
+            : String(localized: "The core runs on another machine. Its output is in the Server Log on the Mac hosting it.")
     }
 }

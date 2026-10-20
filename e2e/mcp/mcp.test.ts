@@ -172,6 +172,11 @@ describe.skipIf(!isLive)('MCP server', () => {
     const listed = await call('events_list');
     expect(listed.text).toContain('MCP e2e event');
 
+    // A new event starts with the default Order of Service, whichever way it was created.
+    const order = await call('events_order_get', { id });
+    expect(order.isError).toBe(false);
+    expect((JSON.parse(order.text) as { items: unknown[] }).items).toHaveLength(10);
+
     const removed = await call('events_delete', { id });
     expect(removed.isError).toBe(false);
   });

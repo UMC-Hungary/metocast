@@ -45,7 +45,7 @@ struct PresentationSettingsView: View {
                                 Text("\(latency) ms").foregroundStyle(.secondary).monospacedDigit()
                             }
                         } label: {
-                            Text(client.label.isEmpty ? "Unnamed device" : client.label)
+                            Text(client.label.isEmpty ? String(localized: "Unnamed device") : client.label)
                             if let hostname = client.hostname {
                                 Text(hostname)
                             }
@@ -173,7 +173,7 @@ private enum PresentationFonts {
     static func openInFontBook() throws {
         let sources = try files.map { name in
             guard let url = Bundle.main.url(forResource: name, withExtension: nil) else {
-                throw CocoaError(.fileNoSuchFile, userInfo: [NSLocalizedDescriptionKey: "The app is missing its copy of \(name)."])
+                throw CocoaError(.fileNoSuchFile, userInfo: [NSLocalizedDescriptionKey: String(localized: "The app is missing its copy of \(name).")])
             }
             return url
         }
@@ -184,7 +184,7 @@ private enum PresentationFonts {
             }
         }
         guard let fontBook = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.FontBook") else {
-            throw CocoaError(.fileNoSuchFile, userInfo: [NSLocalizedDescriptionKey: "Font Book isn't on this Mac."])
+            throw CocoaError(.fileNoSuchFile, userInfo: [NSLocalizedDescriptionKey: String(localized: "Font Book isn't on this Mac.")])
         }
         NSWorkspace.shared.open(sources, withApplicationAt: fontBook, configuration: NSWorkspace.OpenConfiguration())
     }

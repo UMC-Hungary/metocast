@@ -332,7 +332,7 @@ struct SlideIndexBadge: View {
     @State private var isShowingInfo = false
 
     var body: some View {
-        let text = "Indexing the slide library: \(pending) \(pending == 1 ? "deck" : "decks")"
+        let text = String(localized: "Indexing the slide library: \(pending) decks")
         Button(text, systemImage: "text.magnifyingglass") { isShowingInfo = true }
             .symbolEffect(.pulse)
             .help(text)
@@ -364,7 +364,7 @@ struct NotificationsBell: View {
         }
         // Keyed to the total, not the unread count, so it rings for arrivals but not when they're read.
         .symbolEffect(.wiggle, value: model.activity.count)
-        .accessibilityValue(hasUnread ? "\(model.unreadCount) unread" : "")
+        .accessibilityValue(hasUnread ? String(localized: "\(model.unreadCount) unread") : "")
     }
 
     // iOS bar buttons take the app tint; Mac toolbar icons stay neutral like their neighbours.
@@ -387,12 +387,12 @@ enum MetocastPane: String, CaseIterable, Hashable {
 
     var title: String {
         switch self {
-        case .dashboard: "Dashboard"
-        case .events: "Events"
-        case .live: "Live"
-        case .presentation: "Presentation"
-        case .media: "Media"
-        case .settings: "Settings"
+        case .dashboard: String(localized: "Dashboard")
+        case .events: String(localized: "Events")
+        case .live: String(localized: "Live")
+        case .presentation: String(localized: "Presentation")
+        case .media: String(localized: "Media")
+        case .settings: String(localized: "Settings")
         }
     }
 

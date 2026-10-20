@@ -80,7 +80,7 @@ struct LiveView: View {
                                 }
                                 .pickerStyle(.segmented)
                             } else {
-                                LabeledContent("Camera", value: cameras.selectedCamera.map { "Camera \($0)" } ?? "None")
+                                LabeledContent("Camera", value: cameras.selectedCamera.map { String(localized: "Camera \($0)") } ?? String(localized: "None"))
                             }
                             if let preset = presetText(cameras) {
                                 LabeledContent("Preset") {
@@ -130,11 +130,11 @@ struct LiveView: View {
     /// "Preset 3 moving" while Middle Control runs a preset, then "Preset 3 reached" with the time.
     private func presetText(_ cameras: MiddlecontrolState) -> String? {
         if let running = cameras.runningPreset {
-            return "Preset \(running) moving"
+            return String(localized: "Preset \(running) moving")
         }
         guard let last = cameras.lastPreset else { return nil }
         let time = Date(rfc3339: last.at).map { " · " + $0.formatted(date: .omitted, time: .shortened) } ?? ""
-        return "Preset \(last.preset) reached\(time)"
+        return String(localized: "Preset \(last.preset) reached\(time)")
     }
 
     private func outputRows(_ outputs: [LiveOutput], for connector: String, session: MetocastSession) -> some View {
@@ -215,11 +215,11 @@ private struct TranscriptSection: View {
 
     private var problem: String? {
         switch (state.status, state.reason) {
-        case (.unavailable, _): "Connect the RØDECaster to transcribe."
-        case (.error, "noCredit"): "OpenAI has no credit left."
-        case (.error, "invalidKey"): "OpenAI rejected the API key. Check it in Settings → Connectors."
+        case (.unavailable, _): String(localized: "Connect the RØDECaster to transcribe.")
+        case (.error, "noCredit"): String(localized: "OpenAI has no credit left.")
+        case (.error, "invalidKey"): String(localized: "OpenAI rejected the API key. Check it in Settings → Connectors.")
         case (.error, let reason?): reason
-        case (.connecting, let reason?): "Retrying: \(reason)"
+        case (.connecting, let reason?): String(localized: "Retrying: \(reason)")
         default: session.transcriptRefusal
         }
     }
@@ -228,7 +228,7 @@ private struct TranscriptSection: View {
 /// One row of switcher inputs. The input on the bus is filled in its tally color, like the
 /// switcher's own buttons, so it reads at a glance.
 private struct InputBus: View {
-    let title: String
+    let title: LocalizedStringKey
     let inputs: [AtemInput]
     let selected: UInt16?
     let tint: Color
@@ -327,7 +327,7 @@ private struct OutputRow: View {
             } else if output.control != nil {
                 // The row names the output, so the stop button only needs the verb.
                 OutputButton(output: output, send: send) {
-                    Text(output.isOn ? (output.kind == .stream ? "End" : "Stop") : output.startTitle)
+                    Text(output.isOn ? (output.kind == .stream ? String(localized: "End") : String(localized: "Stop")) : output.startTitle)
                 }
                 .buttonStyle(.bordered)
                 .tint(output.isOn ? .red : .accentColor)
@@ -391,7 +391,7 @@ struct OutputToolbarButtons: View {
                     Label(output.actionName, systemImage: output.symbol)
                 }
             }
-            .help(output.control == nil ? "The RØDECaster isn't connected." : output.actionName)
+            .help(output.control == nil ? String(localized: "The RØDECaster isn't connected.") : output.actionName)
             // Two glass styles are two types, so the running one branches.
             if output.isOn {
                 button.buttonStyle(.glassProminent).tint(.red)

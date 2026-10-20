@@ -125,14 +125,15 @@ Two SystemStatus definitions exist:
   xcodebuild -project apple-app/Metocast.xcodeproj -scheme Metocast \
     -destination 'generic/platform=iOS Simulator' -derivedDataPath target/apple-app-derived \
     CODE_SIGNING_ALLOWED=NO build 2>&1 | tee /tmp/ios-build.log
-  # Must print nothing but the two accepted messages below:
+  # Must print nothing but the accepted messages below:
   grep -nE "error:|warning:|WARNING|note: " /tmp/mac-build.log /tmp/ios-build.log \
     | grep -vE "Target dependency graph|Building targets in dependency order|Emplaced|Using stub executor"
   ```
 
-  Two messages are accepted. Both are printed on every build and stay in the log: an accepted message is documented, never filtered out or hidden.
+  Three messages are accepted. All are printed on every build and stay in the log: an accepted message is documented, never filtered out or hidden.
   1. `note: Run script build phase 'Embed Metocast Server' will be run during every build…`: that phase has to run every build because it copies the helper, so it cannot declare outputs.
   2. `warning: Metadata extraction skipped. No AppIntents.framework dependency found.`, printed once per build by Xcode's own `appintentsmetadataprocessor`. The app declares no App Intents, so the step has nothing to extract. The only ways to remove the message are an undocumented build setting (`LM_SKIP_METADATA_EXTRACTION`, which would hide it) or a dependency on `AppIntents.framework` that the app does not use, and both are worse than seeing it. When the app first adds an App Intent or App Shortcut the message goes away: delete this entry then, and it must not be re-added by a setting.
+  3. `note: detected encoding of input file as Unicode (UTF-8)`, once for each `.strings` and `.stringsdict` file Xcode compiles from the app's String Catalogs (`Localizable.xcstrings`, `InfoPlist.xcstrings`), in each language. `xcstringstool` writes those files as XML property lists, and Xcode's `CopyStringsFile` step prints the note whenever it works out their encoding itself. Telling it the encoding (`STRINGS_FILE_INPUT_ENCODING = UTF-8`) fails the build with `could not decode input file using specified encoding`, because the step then reads the property list as a plain `.strings` file, so the note stays until Xcode stops printing it.
 
   Any other line, in either log, fails the change. When `crates/metocast-apple` changed, run `scripts/build-apple.sh` first so the Swift bindings and XCFramework are regenerated. Because that phase rewrites the helper on every build, an *incremental* build can leave the app's seal stale (`codesign --verify` says "a sealed resource is missing or invalid"); verify the signature on a build into a fresh `-derivedDataPath`, and expect it to be silent: `codesign --verify --deep --strict <Metocast.app>`. A new Swift warning, a new Xcode build setting that prints a message, or a new build phase that prints one is a regression to fix in the same change, and a message that cannot be fixed must be added to the accepted list in this rule with its reason.
 - Links and `goto()` in a UI go through `resolve()` from `$app/paths` (the ESLint rule `svelte/no-navigation-without-resolve` is on): `href={resolve('/events/[id]', { id })}`. A link to an external URL carries `rel="external"`. No HTML string is ever built for `{@html}`: parse into data and render it with the template.

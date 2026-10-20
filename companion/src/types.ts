@@ -105,6 +105,8 @@ export const OrderStateMessageSchema = z.object({
 /** The step on screen, as the module shows it. */
 export interface OrderStep {
 	title: string
+	/** The step after it, so the operator sees what comes next; empty on the last step. */
+	next: string
 	number: number
 	count: number
 }

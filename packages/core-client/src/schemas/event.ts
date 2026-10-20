@@ -121,9 +121,12 @@ export type UpdateEventPayload = CreateEventPayload;
 
 // ── Order of Service ──────────────────────────────────────────────────────────
 
-export const OrderItemKindSchema = z.enum(['song', 'bible', 'block']);
+export const OrderItemKindSchema = z.enum(['song', 'bible', 'block', 'announcements']);
 
-/** One step: a song deck, one of the event's readings, or a block with no slides. */
+/**
+ * One step: a song deck, one of the event's readings, the announcements (their `notes` are the
+ * bullet points, one per line, shown as slides), or a block with no slides.
+ */
 export const OrderItemSchema = z.object({
   /** Absent for a step added in this edit; send it back to keep the step live across edits. */
   id: z.string().uuid().nullish(),

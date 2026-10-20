@@ -5,8 +5,10 @@ struct NotificationsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var filter = Filter.all
 
-    private enum Filter: String, CaseIterable {
-        case all = "All", unread = "Unread"
+    private enum Filter: CaseIterable {
+        case all, unread
+
+        var title: LocalizedStringKey { self == .all ? "All" : "Unread" }
     }
 
     private var shown: [ActivityItem] {
@@ -92,7 +94,7 @@ struct NotificationsView: View {
     // A pop-up button: one choice between mutually exclusive views of the same list.
     private var filterPicker: some View {
         Picker("Show", selection: $filter) {
-            ForEach(Filter.allCases, id: \.self) { Text($0.rawValue) }
+            ForEach(Filter.allCases, id: \.self) { Text($0.title) }
         }
         .pickerStyle(.menu)
     }

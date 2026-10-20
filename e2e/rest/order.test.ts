@@ -8,7 +8,7 @@ import { apiClient } from '../helpers/client.js';
 
 interface OrderItem {
   id: string;
-  kind: 'song' | 'bible' | 'block';
+  kind: 'song' | 'bible' | 'block' | 'announcements';
   title: string;
   deckPath: string | null;
   bibleType: string | null;
@@ -24,7 +24,7 @@ describe.skipIf(!isLive)('Order of Service REST API', () => {
     if (eventId) await apiClient.delete(`/api/events/${eventId}`);
   });
 
-  it('starts empty, stores steps in order and keeps ids across edits', async () => {
+  it('starts with the template, stores steps in order and keeps ids across edits', async () => {
     const created = await apiClient.post<{ id: string }>('/api/events', {
       title: 'E2E Order of Service',
       date_time: new Date(Date.now() + 86400000).toISOString(),
@@ -32,9 +32,23 @@ describe.skipIf(!isLive)('Order of Service REST API', () => {
     expect(created.status).toBe(201);
     eventId = created.body.id;
 
-    const empty = await apiClient.get<{ items: OrderItem[] }>(`/api/events/${eventId}/order`);
-    expect(empty.status).toBe(200);
-    expect(empty.body.items).toEqual([]);
+    const template = await apiClient.get<{ items: OrderItem[] }>(`/api/events/${eventId}/order`);
+    expect(template.status).toBe(200);
+    expect(template.body.items.map((item) => item.title)).toEqual([
+      'Welcome message',
+      'Song 1',
+      'Song 2',
+      'Lekció',
+      'Song 3',
+      'Textus',
+      'Preaching',
+      'Song 4',
+      'Hirdetések, áldás',
+      'Song 4 last part',
+    ]);
+    expect(
+      template.body.items.filter((item) => item.kind === 'song').map((item) => item.deckPath),
+    ).toEqual([null, null, null, null, null]);
 
     const saved = await apiClient.put<{ items: OrderItem[] }>(`/api/events/${eventId}/order`, {
       items: [
@@ -63,6 +77,48 @@ describe.skipIf(!isLive)('Order of Service REST API', () => {
       items: [{ kind: 'song', title: '' }],
     });
     expect(nameless.status).toBe(400);
+  });
+
+  it('adds a reading step when a reading is set, and not again when it is re-sent', async () => {
+    await apiClient.put(`/api/events/${eventId}/order`, {
+      items: [{ kind: 'block', title: 'Köszöntés' }],
+    });
+    const update = (reference: string) =>
+      apiClient.put(`/api/events/${eventId}`, {
+        title: 'E2E Order of Service',
+        date_time: new Date(Date.now() + 86400000).toISOString(),
+        bible_references: [{ type: 'textus', reference, translation: 'RUF_v2' }],
+      });
+    expect((await update('Jn 3,16')).status).toBe(200);
+    const added = await apiClient.get<{ items: OrderItem[] }>(`/api/events/${eventId}/order`);
+    expect(added.body.items.map((item) => item.bibleType ?? item.kind)).toEqual([
+      'block',
+      'textus',
+    ]);
+
+    // The operator deletes the step; re-saving the same reading leaves it deleted.
+    await apiClient.put(`/api/events/${eventId}/order`, { items: [added.body.items[0]] });
+    await update('Jn 3,16');
+    const kept = await apiClient.get<{ items: OrderItem[] }>(`/api/events/${eventId}/order`);
+    expect(kept.body.items).toHaveLength(1);
+
+    // A changed reading brings it back.
+    await update('Jn 3,17');
+    const back = await apiClient.get<{ items: OrderItem[] }>(`/api/events/${eventId}/order`);
+    expect(back.body.items.map((item) => item.bibleType ?? item.kind)).toEqual(['block', 'textus']);
+  });
+
+  it('stores announcements with their bullets, but not without a title', async () => {
+    const saved = await apiClient.put<{ items: OrderItem[] }>(`/api/events/${eventId}/order`, {
+      items: [{ kind: 'announcements', title: 'Hirdetések', notes: 'Bibliaóra\nIfjúsági alkalom' }],
+    });
+    expect(saved.status).toBe(200);
+    expect(saved.body.items[0]?.kind).toBe('announcements');
+    expect(saved.body.items[0]?.notes).toBe('Bibliaóra\nIfjúsági alkalom');
+    const untitled = await apiClient.put(`/api/events/${eventId}/order`, {
+      items: [{ kind: 'announcements', title: '' }],
+    });
+    expect(untitled.status).toBe(400);
   });
 
   it('answers 404 for an unknown event', async () => {

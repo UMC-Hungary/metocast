@@ -215,6 +215,8 @@ pub enum OrderItemKind {
     Bible,
     /// A part of the service with no slides, such as a prayer or the sermon.
     Block,
+    /// The announcements: `notes` holds the bullet points, one per line, shown as slides.
+    Announcements,
 }
 
 impl OrderItemKind {
@@ -223,6 +225,7 @@ impl OrderItemKind {
             Self::Song => "song",
             Self::Bible => "bible",
             Self::Block => "block",
+            Self::Announcements => "announcements",
         }
     }
 
@@ -231,6 +234,7 @@ impl OrderItemKind {
             "song" => Some(Self::Song),
             "bible" => Some(Self::Bible),
             "block" => Some(Self::Block),
+            "announcements" => Some(Self::Announcements),
             _ => None,
         }
     }

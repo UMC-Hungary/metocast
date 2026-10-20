@@ -15,8 +15,9 @@ auth:bearer {
 }
 
 docs {
-  The event's steps in order: `song` (a deck, or none for a verse sung without slides), `bible` (the event's `textus` or `leckio`) and
-  `block` (no slides).
+  The event's steps in order: `song` (a deck, or none for a verse sung without slides), `bible` (the event's `textus` or `leckio`),
+  `announcements` (its `notes` are the bullet points, one per line, shown as slides) and `block` (no slides). A new event starts with the default template; a song placeholder
+  (*Song 1*…) has no `deckPath` until one is picked.
 }
 
 tests {

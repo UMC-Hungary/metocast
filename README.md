@@ -81,6 +81,10 @@ queues, the saved Broadlink commands, the OBS sources the server watches, record
 to no event, the caption overlay address and the core log. **Presentation → Open Slides** searches the server's watched folders, opens a deck in
 whichever backend the server uses, and writes a song deck from pasted lyrics.
 
+The app is in English and Hungarian and follows the device's language, or the one chosen for
+Metocast alone in System Settings or the iPhone's Settings; see
+[Hungarian in the Apple app](docs/features/apple-app-language.md).
+
 On Mac, open **Settings (⌘,) → Equipment → Discover Devices** for ATEM, Blackmagic
 camera, Middle Control, Broadlink, OBS device, and RØDECaster audio discovery. Scans run on
 the connected server (also in client mode). ATEM and Middle Control results can fill the

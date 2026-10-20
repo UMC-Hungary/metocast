@@ -16,7 +16,7 @@ struct TranscriptsView: View {
                         .windowActions()
                 } label: {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(transcript.eventTitle ?? "No event")
+                        Text(transcript.eventTitle ?? String(localized: "No event"))
                         Text(transcript.summary)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
@@ -89,7 +89,7 @@ private struct TranscriptDetailView: View {
                 Label(failure, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
             }
         }
-        .navigationTitle(detail?.transcript.eventTitle ?? "Transcript")
+        .navigationTitle(detail?.transcript.eventTitle ?? String(localized: "Transcript"))
         .toolbar {
             if let transcript = detail?.transcript {
                 Menu {
@@ -146,10 +146,10 @@ private struct TranscriptDetailView: View {
         switch transcript.cleanupStatus {
         case "running":
             let step = session.transcriptCleanup?.sessionId == id ? session.transcriptCleanup?.progress ?? 0 : 0
-            return "Cleaning up with AI… \(Int(step * 100))%"
-        case "failed": return "Clean-up failed: \(transcript.cleanupError ?? "unknown error")"
+            return String(localized: "Cleaning up with AI… \(step.formatted(.percent.precision(.fractionLength(0))))")
+        case "failed": return String(localized: "Clean-up failed: \(transcript.cleanupError ?? String(localized: "unknown error"))")
         case "none" where !transcript.live:
-            return "Clean Up with AI has OpenAI rewrite each line into clearer English and keeps the original."
+            return String(localized: "Clean Up with AI has OpenAI rewrite each line into clearer English and keeps the original.")
         default: return nil
         }
     }
@@ -227,9 +227,9 @@ private extension StoredTranscriptRecord {
     var summary: String {
         let date = Date(rfc3339: startedAt).map { $0.formatted(date: .abbreviated, time: .shortened) } ?? startedAt
         let minutes = Int((durationSeconds / 60).rounded())
-        var parts = [date, "\(minutes) min", "\(segmentCount) lines"]
-        if live { parts.append("live now") }
-        if cleanupStatus == "succeeded" { parts.append("cleaned up") }
+        var parts = [date, String(localized: "\(minutes) min"), String(localized: "\(segmentCount) lines")]
+        if live { parts.append(String(localized: "live now")) }
+        if cleanupStatus == "succeeded" { parts.append(String(localized: "cleaned up")) }
         return parts.joined(separator: " · ")
     }
 }

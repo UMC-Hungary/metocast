@@ -11,7 +11,21 @@ extension EventConnectionRecord {
     var canEnd: Bool { ["starting", "live"].contains(scheduleStatus) }
 
     /// "Scheduled", "Starting", "Live", "Ended".
-    var stateName: String { scheduleStatus.replacing("_", with: " ").localizedCapitalized }
+    var stateName: String {
+        switch scheduleStatus {
+        case "not_scheduled": String(localized: "Not scheduled")
+        case "created": String(localized: "Created")
+        case "scheduled": String(localized: "Scheduled")
+        case "ready": String(localized: "Ready")
+        case "testing": String(localized: "Testing")
+        case "starting": String(localized: "Starting")
+        case "live": String(localized: "Live")
+        case "complete", "ended": String(localized: "Ended")
+        case "revoked": String(localized: "Revoked")
+        case "failed": String(localized: "Failed")
+        default: scheduleStatus.replacing("_", with: " ").localizedCapitalized
+        }
+    }
 
     var stateTint: Color? {
         switch scheduleStatus {
@@ -71,12 +85,16 @@ struct BroadcastAction: Identifiable {
 
     var id: String { "\(eventId)-\(connection.platform)-\(start)" }
     var title: String {
-        start ? "Go live on \(connection.platformName) now?" : "End the \(connection.platformName) broadcast?"
+        start
+            ? String(localized: "Go live on \(connection.platformName) now?")
+            : String(localized: "End the \(connection.platformName) broadcast?")
     }
     var message: String {
-        start ? "Viewers will see the stream right away." : "Viewers will see it end, and it can't be restarted."
+        start
+            ? String(localized: "Viewers will see the stream right away.")
+            : String(localized: "Viewers will see it end, and it can't be restarted.")
     }
-    var verb: String { start ? "Go Live" : "End Broadcast" }
+    var verb: String { start ? String(localized: "Go Live") : String(localized: "End Broadcast") }
 }
 
 /// The Go Live / End items for an event's broadcasts, for a context menu, swipe actions or a form.
@@ -153,13 +171,13 @@ private struct BroadcastConfirmation: ViewModifier {
     private static func explain(_ error: Error, platform: String) -> String {
         guard case AppleError.Server(let code) = error else { return error.metocastMessage }
         return switch code {
-        case "encoder_not_streaming": "No video is reaching \(platform) yet. Start OBS (or your encoder) and try again."
-        case "not_authenticated": "Sign in to \(platform) under Connectors first."
-        case "not_scheduled": "This event has no \(platform) broadcast yet."
-        case "already_live": "It's already live."
-        case "not_live": "It isn't live."
-        case "broadcast_ended": "This broadcast has ended. Schedule a new one."
-        case "youtube_testing_timeout": "YouTube didn't get the stream ready in time. Try again."
+        case "encoder_not_streaming": String(localized: "No video is reaching \(platform) yet. Start OBS (or your encoder) and try again.")
+        case "not_authenticated": String(localized: "Sign in to \(platform) under Connectors first.")
+        case "not_scheduled": String(localized: "This event has no \(platform) broadcast yet.")
+        case "already_live": String(localized: "It's already live.")
+        case "not_live": String(localized: "It isn't live.")
+        case "broadcast_ended": String(localized: "This broadcast has ended. Schedule a new one.")
+        case "youtube_testing_timeout": String(localized: "YouTube didn't get the stream ready in time. Try again.")
         default: code
         }
     }

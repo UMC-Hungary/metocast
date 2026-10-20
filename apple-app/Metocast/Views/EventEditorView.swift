@@ -77,9 +77,9 @@ struct EventEditorView: View {
         let uploads = enabled.contains(where: \.autoUpload)
         return switch (pulls, uploads || !autoUpload) {
         case (true, true): nil
-        case (false, true): "No scheduled job pulls YouTube yet."
-        case (true, false): "No scheduled job uploads recordings yet."
-        case (false, false): "No scheduled job pulls YouTube or uploads recordings yet."
+        case (false, true): String(localized: "No scheduled job pulls YouTube yet.")
+        case (true, false): String(localized: "No scheduled job uploads recordings yet.")
+        case (false, false): String(localized: "No scheduled job pulls YouTube or uploads recordings yet.")
         }
     }
 
@@ -323,7 +323,7 @@ struct EventEditorView: View {
                 onSaved(saved)
                 dismiss()
             } catch {
-                self.error = "Couldn't save the event. Check the connection and try again."
+                self.error = String(localized: "Couldn't save the event. Check the connection and try again.")
                 isSaving = false
             }
         }
@@ -359,7 +359,7 @@ private struct ScheduledJobHint: View {
     let text: String
     let session: MetocastSession
     @State private var isExplaining = false
-    private let explanation = "A scheduled job imports broadcasts made in YouTube Studio and uploads flagged recordings. Add one with a schedule like */5 * * * * and turn on what it should do."
+    private let explanation = String(localized: "A scheduled job imports broadcasts made in YouTube Studio and uploads flagged recordings. Add one with a schedule like */5 * * * * and turn on what it should do.")
 
     var body: some View {
         LabeledContent {

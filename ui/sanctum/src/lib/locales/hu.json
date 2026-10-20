@@ -972,19 +972,17 @@
   "order": {
     "title": "Istentisztelet rendje",
     "hint": "Énekek, igék és az istentisztelet részei, sorrendben",
-    "empty": "Még nincs lépés",
-    "emptyHint": "Add hozzá az énekeket, az igéket és a többi részt",
     "emptyRun": "Nincs istentiszteleti rend",
     "emptyRunHint": "Az esemény oldalán adhatod hozzá",
     "kind": {
       "song": "Ének",
       "bible": "Ige",
-      "block": "Rész"
+      "block": "Rész",
+      "announcements": "Hirdetések"
     },
     "textus": "Textus",
     "leckio": "Lekció",
     "addSong": "Ének hozzáadása",
-    "addBlock": "Rész hozzáadása",
     "chooseSong": "Ének kiválasztása",
     "titlePlaceholder": "Cím, pl. Imádság",
     "notesPlaceholder": "Megjegyzés a szolgálóknak",
@@ -993,13 +991,20 @@
     "moveUp": "Feljebb",
     "moveDown": "Lejjebb",
     "remove": "Lépés törlése",
-    "save": "Rend mentése",
-    "saving": "Mentés…",
-    "saved": "Mentve",
     "previous": "Előző lépés",
     "next": "Következő lépés",
     "waiting": "Várakozás az istentisztelet kezdetére…",
-    "addSongNoSlides": "Ének diák nélkül"
+    "addStep": "Új lépés",
+    "editHint": "Húzd a sorrendhez, húzd balra a törléshez, kattints duplán az átnevezéshez. Az igék maguktól bekerülnek, amikor az eseményen megadod őket. A hirdetéseket soronként egy pontban írd be, diákként jelennek meg.",
+    "readingNotSet": "Az eseményen még nincs megadva",
+    "done": "Kész",
+    "rename": "{n}. lépés átnevezése",
+    "chooseDeck": "Dia kiválasztása",
+    "changeDeck": "Dia cseréje",
+    "announcementCount": "{n} hirdetés",
+    "noAnnouncements": "Még nincs hirdetés",
+    "bulletsPlaceholder": "Soronként egy hirdetés",
+    "stepBullets": "A(z) {n}. lépés hirdetései, soronként egy"
   },
   "mcp": {
     "title": "AI ügynökök (MCP)",

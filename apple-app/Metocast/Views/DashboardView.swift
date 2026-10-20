@@ -111,7 +111,7 @@ struct DashboardView: View {
         .refreshable { await model.session?.refresh() }
     }
 
-    private func section(_ title: String, @ViewBuilder content: () -> some View) -> some View {
+    private func section(_ title: LocalizedStringKey, @ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title).font(.title2.bold()).accessibilityAddTraits(.isHeader)
             content().card()
@@ -158,7 +158,7 @@ private struct ConnectionHeader: View {
     }
 
     private var caption: String {
-        model.mode == .server ? "Hosting on this Mac" : "Connected server"
+        model.mode == .server ? String(localized: "Hosting on this Mac") : String(localized: "Connected server")
     }
 
     private var title: String {
@@ -175,17 +175,17 @@ private struct ConnectionHeader: View {
         switch model.server.state {
         case .starting(let message): return .init(text: message, isBusy: true)
         case .failed(let message): return .init(text: message, symbol: "xmark.octagon.fill", color: .red, canRetry: true)
-        case .stopped where model.mode == .server: return .init(text: "Server stopped", symbol: "stop.circle", canRetry: true)
+        case .stopped where model.mode == .server: return .init(text: String(localized: "Server stopped"), symbol: "stop.circle", canRetry: true)
         case .running, .stopped: break
         }
         #endif
         switch model.session?.status {
-        case .connected: return .init(text: "Connected", symbol: "checkmark.circle.fill", color: .green)
-        case .connecting, nil: return .init(text: "Connecting…", isBusy: true)
-        case .reconnecting: return .init(text: "Reconnecting…", isBusy: true)
-        case .unreachable: return .init(text: "Can't reach the server", symbol: "wifi.exclamationmark", color: .orange, canRetry: true)
-        case .unauthorized: return .init(text: "The server rejected this device's token. Remove access in Settings and connect again.", symbol: "lock.fill", color: .red)
-        case .closed: return .init(text: "Disconnected", symbol: "bolt.horizontal.circle", canRetry: true)
+        case .connected: return .init(text: String(localized: "Connected"), symbol: "checkmark.circle.fill", color: .green)
+        case .connecting, nil: return .init(text: String(localized: "Connecting…"), isBusy: true)
+        case .reconnecting: return .init(text: String(localized: "Reconnecting…"), isBusy: true)
+        case .unreachable: return .init(text: String(localized: "Can't reach the server"), symbol: "wifi.exclamationmark", color: .orange, canRetry: true)
+        case .unauthorized: return .init(text: String(localized: "The server rejected this device's token. Remove access in Settings and connect again."), symbol: "lock.fill", color: .red)
+        case .closed: return .init(text: String(localized: "Disconnected"), symbol: "bolt.horizontal.circle", canRetry: true)
         }
     }
 }
@@ -347,9 +347,15 @@ private struct PresenterSummary: View {
             if let state, state.loaded {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(state.fileName)
-                    Text("Slide \(state.currentSlide) of \(state.totalSlides)\(state.muted ? " · Blacked out" : "")")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                    Group {
+                        if state.muted {
+                            Text("Slide \(state.currentSlide) of \(state.totalSlides) · Blacked out")
+                        } else {
+                            Text("Slide \(state.currentSlide) of \(state.totalSlides)")
+                        }
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                 }
             } else {
                 Text("No presentation open")
