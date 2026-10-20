@@ -56,10 +56,23 @@ Both ask for confirmation first.
 **Apple app (Mac, iPhone, iPad)**
 
 - **Events** and the **Dashboard**: each row shows the badges on Liquid Glass.
+
+  ![The Events list: Sunday Sermon with a glass "Scheduled" YouTube badge](../images/broadcast-controls/mac-events-list.png)
+
+  ![The Dashboard's Up Next row with the same badge](../images/broadcast-controls/mac-dashboard.png)
+
 - To go live or end, use the row's context menu (right-click, or long-press on iPhone), or swipe
   the row right on iPhone. Tapping the row still opens the event.
+
+  ![Right-clicking the row offers "Go Live on YouTube"](../images/broadcast-controls/mac-context-menu.png)
+
+  ![The confirmation: "Go live on YouTube now? Viewers will see the stream right away." with Cancel and Go Live](../images/broadcast-controls/mac-go-live-confirm.png)
+
 - **An event → Streaming** shows the same badges, with **Go Live on …** and **End … Broadcast**
   buttons.
+
+  ![The event page's Streaming section: YouTube "Scheduled" with Open, and a red Go Live on YouTube button](../images/broadcast-controls/mac-event-streaming.png)
+
 - **Event editor → YouTube**: when no enabled scheduled job pulls YouTube, a small note says so.
   It also says so when **Auto-upload** is on and no enabled job uploads. The ⓘ explains what a
   scheduled job does, and **Set Up…** opens **Server Tools → Scheduled Jobs**.
