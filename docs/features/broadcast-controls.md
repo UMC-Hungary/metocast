@@ -30,7 +30,11 @@ The same value is in each connection's `scheduleStatus`. Before a broadcast exis
 
 ## Go live
 
-**Start OBS (or your encoder) streaming first.** Going live then:
+**Start OBS (or your encoder) streaming first.** A Blackmagic camera or an ATEM switcher can
+stream on its own: **Settings → Connectors → the camera or ATEM → Send YouTube Stream Settings**
+(also on the **Live** page once the device is connected) sets its destination to the channel's
+stream address and key (`blackmagic-camera.stream.push_youtube`, `atem.stream.push_youtube`).
+Going live then:
 
 - **YouTube**:
   - binds the broadcast to the channel's stream when nothing is bound yet (the stream OBS, the
