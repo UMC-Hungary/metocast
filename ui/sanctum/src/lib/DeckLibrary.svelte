@@ -2,7 +2,12 @@
   import { _ } from 'svelte-i18n';
   import { List, Row, Select, EmptyState } from '@metocast/design-system';
   import { searchFiles, listFolders } from '@metocast/core-client';
-  import type { PptFile, PptFolder } from '@metocast/core-client/schemas/ws-messages';
+  import type {
+    HighlightPart,
+    PptFile,
+    PptFolder,
+  } from '@metocast/core-client/schemas/ws-messages';
+  import { live } from '$lib/live.svelte';
 
   /**
    * Every deck in the watched folders, narrowed by a search and a folder. A click hands the deck
@@ -23,10 +28,16 @@
 
   $effect(() => {
     const filter = query;
+    const folder = folderId === 'all' ? undefined : folderId;
+    // Search again when the core finishes indexing, so new decks show up.
+    void live.slideIndexRevision;
     // Typing shouldn't ask the server on every keystroke.
     const timer = setTimeout(
       async () => {
-        files = await searchFiles(filter);
+        files = await searchFiles(
+          filter,
+          folder ? { folderId: folder, limit: 100 } : { limit: 100 },
+        );
       },
       filter ? 250 : 0,
     );
@@ -37,9 +48,6 @@
     listFolders().then((list) => (folders = list));
   });
 
-  const shown = $derived(
-    folderId === 'all' ? files : files.filter((file) => file.folderId === folderId),
-  );
   const options = $derived([
     { value: 'all', label: $_('library.allFolders') },
     ...folders.map((folder) => ({ value: folder.id, label: folder.name })),
@@ -49,6 +57,10 @@
     return folders.find((folder) => folder.id === id)?.name ?? '';
   }
 </script>
+
+{#snippet marked(parts: HighlightPart[])}
+  {#each parts as part, i (i)}{#if part.hit}<mark>{part.text}</mark>{:else}{part.text}{/if}{/each}
+{/snippet}
 
 <div class="library">
   <div class="filters">
@@ -61,16 +73,21 @@
     />
     <Select {options} bind:value={folderId} label={$_('library.folder')} />
   </div>
-  {#if shown.length > 0}
+  {#if files.length > 0}
     <List as="ul" aria-label={$_('library.title')}>
-      {#each shown as file, index (file.id)}
+      {#each files as file, index (file.id)}
         <Row
-          title={file.name.replace(/\.pptx?$/i, '')}
           meta={folderName(file.folderId)}
+          detail={file.number === null ? '' : String(file.number)}
           current={file.path === openPath ? 'true' : false}
-          last={index === shown.length - 1}
+          last={index === files.length - 1}
           onclick={() => onpick(file)}
-        />
+        >
+          {@render marked(file.titleParts)}
+          {#if file.snippetParts.length > 0}
+            <span class="snippet">{@render marked(file.snippetParts)}</span>
+          {/if}
+        </Row>
       {/each}
     </List>
   {:else if folders.length === 0}
@@ -99,6 +116,24 @@
     background: var(--surface-raised);
     color: var(--text-primary);
     font: inherit;
+  }
+  mark {
+    background: none;
+    color: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-color: var(--accent);
+    text-underline-offset: 3px;
+  }
+  .snippet {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    margin-top: 2px;
+    font-size: var(--type-caption-size);
+    color: var(--text-muted);
   }
   @media (max-width: 520px) {
     .filters {

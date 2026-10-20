@@ -5,9 +5,15 @@ meta {
 }
 
 get {
-  url: {{baseUrl}}/api/ppt/files?filter=service
+  url: {{baseUrl}}/api/ppt/files?filter=hala&limit=20
   body: none
   auth: bearer
+}
+
+params:query {
+  filter: hala
+  limit: 20
+  ~folderId: 00000000-0000-0000-0000-000000000000
 }
 
 auth:bearer {
@@ -18,4 +24,16 @@ tests {
   test("status is 200", function() {
     expect(res.status).to.equal(200);
   });
+  test("results say why they matched", function() {
+    for (const file of res.body.data) {
+      expect(["number", "title", "text"]).to.include(file.matchedIn);
+      expect(file.titleParts).to.be.an("array");
+    }
+  });
+}
+
+docs {
+  Finds decks by title, hymn number or slide text, accents ignored, best match first
+  (number, then title, then text). `limit` defaults to 5 (max 200); `folderId` narrows to one
+  folder. Each search first re-reads decks whose file changed.
 }

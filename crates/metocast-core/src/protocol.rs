@@ -373,6 +373,9 @@ pub enum ServerEvent {
         #[serde(rename = "eventId")]
         event_id: uuid::Uuid,
     },
+    /// The slide library index started (`pending` decks to parse) or finished (0) parsing.
+    #[serde(rename = "ppt.index.state")]
+    PptIndexState { indexing: bool, pending: u32 },
     #[serde(rename = "notification")]
     Notification { level: String, message: String },
     #[serde(rename = "connector.state")]

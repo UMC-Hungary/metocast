@@ -55,6 +55,10 @@ final class MetocastSession {
     private(set) var orderPosition: (eventId: String, itemId: String)?
     /// Bumped when any event's Order of Service changes, so open screens reload it.
     private(set) var orderRevision = 0
+    /// Decks the server is parsing into the slide search index; 0 when idle.
+    private(set) var slideIndexPending: UInt32 = 0
+    /// Bumped when the server finishes indexing, so open deck lists search again.
+    private(set) var slideIndexRevision = 0
     private(set) var clients: [ConnectedClientRecord] = []
     /// Video renders this session has queued or heard about, by job id.
     private(set) var renders: [String: RenderProgressRecord] = [:]
@@ -436,9 +440,9 @@ final class MetocastSession {
         Task { try? await client.presentationControl(command: command) }
     }
 
-    /// PowerPoint files in the server's watched folders whose name contains `filter`.
-    func slideFiles(matching filter: String) async throws -> [PptFile] {
-        try await client.pptFiles(filter: filter)
+    /// Decks in the server's watched folders by title, hymn number or slide text, best match first.
+    func slideFiles(matching filter: String, folderId: String?) async throws -> [PptFile] {
+        try await client.pptFiles(filter: filter, folderId: folderId, limit: 100)
     }
 
     /// Writes a deck per Bible reference on the event. Returns the files written.
@@ -533,6 +537,9 @@ final class MetocastSession {
             orderPosition = eventId.flatMap { event in itemId.map { (event, $0) } }
         case .event(.eventOrderChanged):
             orderRevision += 1
+        case .event(.slideIndexState(let pending)):
+            if slideIndexPending > 0 && pending == 0 { slideIndexRevision += 1 }
+            slideIndexPending = pending
         case .event(.notification(let level, let message)):
             let icon = switch level {
             case "error": "exclamationmark.triangle"

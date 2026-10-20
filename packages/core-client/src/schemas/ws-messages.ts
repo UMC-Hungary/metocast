@@ -72,11 +72,26 @@ export const KeynoteStatusSchema = z.object({
   documentName: z.string().nullable(),
 });
 
+/** A run of text in a search result; `hit` marks the words the search matched. */
+export const HighlightPartSchema = z.object({
+  text: z.string(),
+  hit: z.boolean(),
+});
+
 export const PptFileSchema = z.object({
   id: z.string(),
   name: z.string(),
   path: z.string(),
   folderId: z.string(),
+  /** The file name without its extension. */
+  title: z.string(),
+  /** The hymn number, from the last "(47)" in the title. */
+  number: z.number().int().nullable(),
+  /** Why the deck matched; null when nothing was searched for. */
+  matchedIn: z.enum(['number', 'title', 'text']).nullable(),
+  titleParts: z.array(HighlightPartSchema),
+  /** Slide text around the match; empty unless `matchedIn` is `text`. */
+  snippetParts: z.array(HighlightPartSchema),
 });
 
 export const PptFolderSchema = z.object({
@@ -173,6 +188,7 @@ export const BroadlinkCommandSchema = z.object({
 
 export type KeynoteStatus = z.infer<typeof KeynoteStatusSchema>;
 export type PptFile = z.infer<typeof PptFileSchema>;
+export type HighlightPart = z.infer<typeof HighlightPartSchema>;
 export type PptFolder = z.infer<typeof PptFolderSchema>;
 export type ParagraphContent = z.infer<typeof ParagraphContentSchema>;
 export type SlideContent = z.infer<typeof SlideContentSchema>;
@@ -314,6 +330,13 @@ export const WsMessageSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('ppt.folders_changed'),
+  }),
+  z.object({
+    type: z.literal('ppt.index.state'),
+    /** True while the core parses new or changed decks into the search index. */
+    indexing: z.boolean(),
+    /** How many decks this run parses; 0 when idle. */
+    pending: z.number().int(),
   }),
   z.object({
     type: z.literal('upload.progress'),

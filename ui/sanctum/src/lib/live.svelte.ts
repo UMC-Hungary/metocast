@@ -131,6 +131,10 @@ let currentEvent = $state<EventSummary | null>(null);
 let orderPosition = $state<OrderPosition | null>(null);
 /** Bumped when any event's Order of Service changes, so open views reload it. */
 let orderRevision = $state(0);
+/** Decks the core is parsing into the slide search index; 0 when idle. */
+let slideIndexPending = $state(0);
+/** Bumped when the core finishes indexing, so open deck lists search again. */
+let slideIndexRevision = $state(0);
 
 export const live = {
   get streaming() {
@@ -192,6 +196,12 @@ export const live = {
   },
   get orderRevision() {
     return orderRevision;
+  },
+  get slideIndexPending() {
+    return slideIndexPending;
+  },
+  get slideIndexRevision() {
+    return slideIndexRevision;
   },
   get transcription() {
     return transcription;
@@ -379,6 +389,10 @@ export function handleWs(msg: WsMessage): void {
       break;
     case 'event.order.changed':
       orderRevision += 1;
+      break;
+    case 'ppt.index.state':
+      if (slideIndexPending > 0 && !msg.indexing) slideIndexRevision += 1;
+      slideIndexPending = msg.pending;
       break;
     case 'rodecaster.audio.discovery':
       rodecasterAudioDiscovery = msg.discovery;

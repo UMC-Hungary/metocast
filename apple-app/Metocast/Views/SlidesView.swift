@@ -3,8 +3,9 @@ import Metocast
 
 extension PptFile: @retroactive Identifiable {}
 
-/// The decks in the server's watched folders, narrowed by `query` and a folder filter. A click
-/// hands the deck to `onPick`: Presentation opens it, the Order of Service adds it as a song.
+/// The decks in the server's watched folders, found by title, hymn number or lyrics and narrowed
+/// to a folder; the server ranks them and marks what matched. A click hands the deck to `onPick`:
+/// Presentation opens it, the Order of Service adds it as a song.
 /// The folder menu also adds and removes watched folders, so no separate screen is needed.
 struct DeckList: View {
     let session: MetocastSession
@@ -18,8 +19,7 @@ struct DeckList: View {
     @State private var isAddingFolder = false
 
     var body: some View {
-        let shown = folderId.map { id in files.filter { $0.folderId == id } } ?? files
-        List(shown) { file in
+        List(files) { file in
             Button { onPick(file) } label: { row(file) }
                 .buttonStyle(.plain)
         }
@@ -37,7 +37,7 @@ struct DeckList: View {
                     Button("Add Folder…") { isAddingFolder = true }
                         .buttonStyle(.glassProminent)
                 }
-            } else if shown.isEmpty {
+            } else if files.isEmpty {
                 if query.isEmpty {
                     ContentUnavailableView("No Decks", systemImage: "rectangle.on.rectangle", description: Text("This folder has no PowerPoint decks."))
                 } else {
@@ -56,7 +56,8 @@ struct DeckList: View {
             try await session.addSlideFolder(path: path)
             await load()
         }
-        .task(id: query) {
+        // A finished index run searches again, so new decks show up.
+        .task(id: SearchKey(query: query, folderId: folderId, revision: session.slideIndexRevision)) {
             // Typing shouldn't ask the server on every keystroke.
             if !query.isEmpty {
                 try? await Task.sleep(for: .milliseconds(250))
@@ -72,13 +73,25 @@ struct DeckList: View {
             : session.presentationStatus?.documentName == file.name
         return HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text(file.name.replacing(/\.pptx?$/, with: ""))
+                Text(file.titleParts.isEmpty ? AttributedString(file.name.replacing(/\.pptx?$/, with: "")) : marked(file.titleParts))
+                if !file.snippetParts.isEmpty {
+                    Text(marked(file.snippetParts))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
                 Text(folders.first { $0.id == file.folderId }?.name ?? file.path)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             Spacer()
+            if let number = file.number {
+                Text(number, format: .number.grouping(.never))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel("Hymn \(number)")
+            }
             if isOpen {
                 Image(systemName: "play.fill")
                     .foregroundStyle(.tint)
@@ -86,6 +99,18 @@ struct DeckList: View {
             }
         }
         .contentShape(.rect)
+    }
+
+    /// The words the search matched, in bold and the accent color.
+    private func marked(_ parts: [HighlightPart]) -> AttributedString {
+        parts.reduce(into: AttributedString()) { text, part in
+            var run = AttributedString(part.text)
+            if part.hit {
+                run.inlinePresentationIntent = .stronglyEmphasized
+                run.foregroundColor = .accentColor
+            }
+            text += run
+        }
     }
 
     /// Which folder the list shows, plus adding and removing watched folders.
@@ -129,7 +154,7 @@ struct DeckList: View {
         isLoading = true
         defer { isLoading = false }
         do {
-            async let matches = session.slideFiles(matching: query)
+            async let matches = session.slideFiles(matching: query, folderId: folderId)
             folders = try await session.slideFolders()
             files = try await matches
             failure = nil
@@ -137,6 +162,13 @@ struct DeckList: View {
             failure = error.metocastMessage
         }
     }
+}
+
+/// What a deck search depends on; a change to any of them searches again.
+private struct SearchKey: Equatable {
+    let query: String
+    let folderId: String?
+    let revision: Int
 }
 
 /// Pasted lyrics become a deck on the server: a title slide, the lyric slides and a blank
@@ -403,12 +435,24 @@ extension View {
     func librarySearch(_ query: Binding<String>) -> some View {
         #if os(macOS)
         safeAreaInset(edge: .top, spacing: 0) {
-            TextField("Search Slides", text: query, prompt: Text("Search Slides"))
-                .textFieldStyle(.roundedBorder)
-                .padding(10)
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                TextField("Search Slides", text: query, prompt: Text("Title, number or lyrics"))
+                    .textFieldStyle(.plain)
+                if !query.wrappedValue.isEmpty {
+                    Button("Clear", systemImage: "xmark.circle.fill") { query.wrappedValue = "" }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .glassEffect(.regular.interactive(), in: .capsule)
+            .padding(10)
         }
         #else
-        searchable(text: query, prompt: "Search Slides")
+        searchable(text: query, prompt: "Title, number or lyrics")
         #endif
     }
 }

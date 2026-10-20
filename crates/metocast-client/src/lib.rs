@@ -703,9 +703,24 @@ impl MetocastClient {
     }
 
     /// PowerPoint files in the watched folders whose name contains `filter`.
-    pub async fn ppt_files(&self, filter: &str) -> Result<Vec<PptFile>, ClientError> {
+    /// Decks by title, hymn number or slide text, best match first; `limit` is 5 when `None`.
+    pub async fn ppt_files(
+        &self,
+        filter: &str,
+        folder_id: Option<Uuid>,
+        limit: Option<u32>,
+    ) -> Result<Vec<PptFile>, ClientError> {
         let mut url = self.config.endpoint("api/ppt/files")?;
-        url.query_pairs_mut().append_pair("filter", filter);
+        {
+            let mut query = url.query_pairs_mut();
+            query.append_pair("filter", filter);
+            if let Some(folder_id) = folder_id {
+                query.append_pair("folderId", &folder_id.to_string());
+            }
+            if let Some(limit) = limit {
+                query.append_pair("limit", &limit.to_string());
+            }
+        }
         let envelope: PptEnvelope<Vec<PptFile>> = self.send_json(self.http.get(url)).await?;
         Ok(envelope.data)
     }

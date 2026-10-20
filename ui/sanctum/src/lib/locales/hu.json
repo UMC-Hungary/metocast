@@ -929,13 +929,14 @@
   "library": {
     "title": "Diatár",
     "search": "Diák keresése",
-    "searchPlaceholder": "Keresés név szerint…",
+    "searchPlaceholder": "Cím, énekszám vagy szöveg a dalból…",
     "folder": "Mappa",
     "allFolders": "Minden mappa",
     "empty": "Itt nincs diasor",
     "emptyHint": "Próbálj másik mappát vagy nevet",
     "noFolders": "Még nincs diamappa",
-    "noFoldersHint": "Adj hozzá egy mappát lent a beállításokban"
+    "noFoldersHint": "Adj hozzá egy mappát lent a beállításokban",
+    "indexing": "A diatár indexelése: {n} diasor"
   },
   "order": {
     "title": "Istentisztelet rendje",

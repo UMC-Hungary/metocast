@@ -426,6 +426,25 @@
     ],
     "type": "object"
   },
+  "ppt.index.state": {
+    "properties": {
+      "indexing": {
+        "type": "boolean"
+      },
+      "pending": {
+        "type": "integer"
+      },
+      "type": {
+        "const": "ppt.index.state"
+      }
+    },
+    "required": [
+      "type",
+      "indexing",
+      "pending"
+    ],
+    "type": "object"
+  },
   "ppt.search_results": {
     "properties": {
       "files": {

@@ -34,7 +34,8 @@ Every connected device sees the same list and the same current step.
   - use **Previous Step** / **Next Step**.
   - The Dashboard's Presentation card links there.
 - **Presentation** is the slide library:
-  - every deck in the watched folders, with search and a folder filter;
+  - every deck in the watched folders, with search by title, hymn number or lyrics and a
+    folder filter (see [Slide library search](slide-library.md));
   - one click opens a deck;
   - the folder menu adds and removes watched folders.
 
@@ -81,5 +82,6 @@ Notes:
 - `order.status` is allowed without the token, like `presenter.status`, so the shared view works
   without logging in.
 
-The slide library uses the existing `GET /api/ppt/files`, `GET/POST /api/ppt/folders` and
-`DELETE /api/ppt/folders/{id}`.
+The slide library uses `GET /api/ppt/files`, `GET/POST /api/ppt/folders` and
+`DELETE /api/ppt/folders/{id}`; [Slide library search](slide-library.md) describes the search
+and its index.
