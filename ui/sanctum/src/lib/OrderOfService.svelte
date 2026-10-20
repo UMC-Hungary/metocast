@@ -6,6 +6,7 @@
     Row,
     Button,
     IconButton,
+    Icon,
     EmptyState,
     Sheet,
   } from '@metocast/design-system';
@@ -20,6 +21,7 @@
   import type { PptFile } from '@metocast/core-client/schemas/ws-messages';
   import { live } from './live.svelte';
   import DeckLibrary from './DeckLibrary.svelte';
+  import SwipeReveal from './SwipeReveal.svelte';
 
   /**
    * An event's Order of Service. `edit` builds it on the event's page; `run` steps through it
@@ -37,25 +39,32 @@
   type Step = { key: string; item: OrderItem };
   let steps = $state<Step[]>([]);
   let readings = $state<{ type: string; reference: string }[]>([]);
-  let dirty = $state(false);
-  let saving = $state(false);
+  /** The step whose title and notes are being typed, if any. */
+  let editing = $state<string | null>(null);
+  let newTitle = $state('');
   let error = $state('');
+  /** The song the deck picker chooses for; `null` adds a new song. */
+  let pickingFor = $state<string | null>(null);
   let picking = $state(false);
+  let dragged = $state<string | null>(null);
+  let saves = 0;
 
   const message = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause));
+  const toSteps = (items: OrderItem[]) =>
+    items.map((item) => ({ key: item.id ?? crypto.randomUUID(), item }));
 
   async function load() {
-    const items = await getEventOrder(eventId);
-    steps = items.map((item) => ({ key: item.id ?? crypto.randomUUID(), item }));
+    steps = toSteps(await getEventOrder(eventId));
   }
 
   $effect(() => {
     void live.orderRevision;
-    // A change from elsewhere mustn't throw away an edit in progress.
-    if (!dirty) load().catch((cause) => (error = message(cause)));
+    // A change from elsewhere mustn't throw away a rename being typed.
+    if (!editing) load().catch((cause) => (error = message(cause)));
   });
 
   $effect(() => {
+    void live.eventRevision;
     if (mode !== 'edit') return;
     getEvent(eventId).then(
       (event) =>
@@ -69,10 +78,6 @@
       : -1,
   );
 
-  function readingLabel(type: string | null | undefined): string {
-    return type === 'textus' ? $_('order.textus') : $_('order.leckio');
-  }
-
   function detail(item: OrderItem): string {
     if (item.kind === 'song')
       return (
@@ -81,51 +86,117 @@
           .pop()
           ?.replace(/\.pptx?$/i, '') ?? ''
       );
-    if (item.kind === 'bible') return readingLabel(item.bibleType);
+    if (item.kind === 'bible')
+      return (
+        readings.find((reading) => reading.type === item.bibleType)?.reference ??
+        $_('order.readingNotSet')
+      );
+    if (item.kind === 'announcements') {
+      const n = bullets(item).length;
+      return n ? $_('order.announcementCount', { values: { n } }) : $_('order.noAnnouncements');
+    }
     return '';
   }
 
-  function add(item: OrderItem) {
-    steps.push({ key: crypto.randomUUID(), item });
-    dirty = true;
-  }
+  /** The announcements' bullet points: the notes' non-empty lines. */
+  const bullets = (item: OrderItem) =>
+    item.notes
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
 
-  function addSong(file: PptFile) {
-    add({
-      kind: 'song',
-      title: file.name.replace(/\.pptx?$/i, ''),
-      deckPath: file.path,
-      notes: '',
-    });
-    picking = false;
-  }
+  /** Notes for the leaders; the announcements' notes are their slides, counted in the detail. */
+  const leaderNotes = (item: OrderItem) => (item.kind === 'announcements' ? '' : item.notes);
 
-  function move(index: number, by: number) {
-    const [step] = steps.splice(index, 1);
-    if (step) steps.splice(index + by, 0, step);
-    dirty = true;
-  }
-
-  function remove(index: number) {
-    steps.splice(index, 1);
-    dirty = true;
-  }
-
+  /**
+   * Sends the whole list after every edit. Only the latest save's answer is kept, so a slow
+   * reply can't undo a newer edit; a refused list is reloaded from the server.
+   */
   async function save() {
-    saving = true;
+    const attempt = ++saves;
     error = '';
     try {
       const stored = await setEventOrder(
         eventId,
         steps.map((step) => step.item),
       );
-      steps = stored.map((item) => ({ key: item.id ?? crypto.randomUUID(), item }));
-      dirty = false;
+      if (attempt === saves && !editing) steps = toSteps(stored);
     } catch (cause) {
       error = message(cause);
-    } finally {
-      saving = false;
+      await load();
     }
+  }
+
+  function addBlock(event: SubmitEvent) {
+    event.preventDefault();
+    const title = newTitle.trim();
+    if (!title) return;
+    steps.push({ key: crypto.randomUUID(), item: { kind: 'block', title, notes: '' } });
+    newTitle = '';
+    void save();
+  }
+
+  function pickDeck(key: string | null) {
+    pickingFor = key;
+    picking = true;
+  }
+
+  /** A song placeholder takes the deck and its name; with no step, the deck is a new song. */
+  function addSong(file: PptFile) {
+    const title = file.name.replace(/\.pptx?$/i, '');
+    const step = steps.find((candidate) => candidate.key === pickingFor);
+    if (step) {
+      step.item.deckPath = file.path;
+      step.item.title = title;
+    } else {
+      steps.push({
+        key: crypto.randomUUID(),
+        item: { kind: 'song', title, deckPath: file.path, notes: '' },
+      });
+    }
+    picking = false;
+    void save();
+  }
+
+  function move(index: number, to: number) {
+    const [step] = steps.splice(index, 1);
+    if (step) steps.splice(to, 0, step);
+    void save();
+  }
+
+  function drop(index: number) {
+    const from = steps.findIndex((step) => step.key === dragged);
+    dragged = null;
+    if (from >= 0 && from !== index) move(from, index);
+  }
+
+  function remove(key: string) {
+    steps = steps.filter((step) => step.key !== key);
+    editing = null;
+    void save();
+  }
+
+  function startEditing(key: string) {
+    if (editing) void save();
+    editing = key;
+  }
+
+  function stopEditing() {
+    if (!editing) return;
+    editing = null;
+    void save();
+  }
+
+  /** Leaving both fields finishes the rename, like Return does. */
+  function leave(event: FocusEvent) {
+    const next = event.relatedTarget;
+    if (!(next instanceof Node && (event.currentTarget as HTMLElement).contains(next)))
+      stopEditing();
+  }
+
+  /** Puts the cursor in the title as the fields appear. */
+  function focusOnMount(node: HTMLInputElement) {
+    node.focus();
   }
 </script>
 
@@ -142,7 +213,7 @@
         {#each steps as step, index (step.key)}
           <Row
             title={`${index + 1}. ${step.item.title || detail(step.item)}`}
-            meta={[step.item.title ? detail(step.item) : '', step.item.notes]
+            meta={[step.item.title ? detail(step.item) : '', leaderNotes(step.item)]
               .filter(Boolean)
               .join(' · ')}
             current={index === currentIndex ? 'step' : false}
@@ -163,84 +234,134 @@
       </div>
     {/if}
   {:else}
-    {#if steps.length === 0}
-      <EmptyState title={$_('order.empty')} hint={$_('order.emptyHint')} />
-    {/if}
     <ol class="steps">
       {#each steps as step, index (step.key)}
-        <li class="step">
-          <span class="number">{index + 1}</span>
-          <div class="fields">
-            <span class="kind"
-              >{$_(`order.kind.${step.item.kind}`)}{detail(step.item)
-                ? ` · ${detail(step.item)}`
-                : ''}</span
-            >
-            <input
-              class="title"
-              bind:value={step.item.title}
-              oninput={() => (dirty = true)}
-              placeholder={$_('order.titlePlaceholder')}
-              aria-label={$_('order.stepTitle', { values: { n: index + 1 } })}
-            />
-            <input
-              class="notes"
-              bind:value={step.item.notes}
-              oninput={() => (dirty = true)}
-              placeholder={$_('order.notesPlaceholder')}
-              aria-label={$_('order.stepNotes', { values: { n: index + 1 } })}
-            />
-          </div>
-          <div class="controls">
-            <IconButton
-              icon="up"
-              label={$_('order.moveUp')}
-              disabled={index === 0}
-              onclick={() => move(index, -1)}
-            />
-            <IconButton
-              icon="down"
-              label={$_('order.moveDown')}
-              disabled={index === steps.length - 1}
-              onclick={() => move(index, 1)}
-            />
-            <IconButton icon="close" label={$_('order.remove')} onclick={() => remove(index)} />
-          </div>
+        <li
+          class="step"
+          class:dragging={dragged === step.key}
+          ondragover={(event) => event.preventDefault()}
+          ondrop={(event) => {
+            event.preventDefault();
+            drop(index);
+          }}
+        >
+          <SwipeReveal onCommit={() => remove(step.key)} commitLabel={$_('order.remove')}>
+            <div class="row" class:current={index === currentIndex}>
+              <span
+                class="grip"
+                draggable="true"
+                role="presentation"
+                ondragstart={(event) => {
+                  dragged = step.key;
+                  const row = (event.currentTarget as HTMLElement).closest('li');
+                  if (row && event.dataTransfer) {
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setDragImage(row, 16, 16);
+                  }
+                }}
+                ondragend={() => (dragged = null)}
+              >
+                <Icon name="grip" size={18} stroke={2.6} />
+              </span>
+              <span class="number">{index + 1}</span>
+              {#if editing === step.key}
+                <form
+                  class="fields"
+                  onsubmit={(event) => {
+                    event.preventDefault();
+                    stopEditing();
+                  }}
+                  onfocusout={leave}
+                >
+                  <input
+                    class="title"
+                    bind:value={step.item.title}
+                    use:focusOnMount
+                    placeholder={$_('order.titlePlaceholder')}
+                    aria-label={$_('order.stepTitle', { values: { n: index + 1 } })}
+                  />
+                  {#if step.item.kind === 'announcements'}
+                    <textarea
+                      class="notes bullets"
+                      bind:value={step.item.notes}
+                      rows="5"
+                      placeholder={$_('order.bulletsPlaceholder')}
+                      aria-label={$_('order.stepBullets', { values: { n: index + 1 } })}
+                    ></textarea>
+                  {:else}
+                    <input
+                      class="notes"
+                      bind:value={step.item.notes}
+                      placeholder={$_('order.notesPlaceholder')}
+                      aria-label={$_('order.stepNotes', { values: { n: index + 1 } })}
+                    />
+                  {/if}
+                  <div class="edit-actions">
+                    <Button compact type="submit">{$_('order.done')}</Button>
+                    <Button compact variant="danger" onclick={() => remove(step.key)}
+                      >{$_('order.remove')}</Button
+                    >
+                  </div>
+                </form>
+              {:else}
+                <div
+                  class="fields"
+                  role="button"
+                  tabindex="-1"
+                  ondblclick={() => startEditing(step.key)}
+                >
+                  <span class="name">{step.item.title || detail(step.item)}</span>
+                  <span class="kind"
+                    >{$_(`order.kind.${step.item.kind}`)}{step.item.title && detail(step.item)
+                      ? ` · ${detail(step.item)}`
+                      : ''}{leaderNotes(step.item) ? ` · ${leaderNotes(step.item)}` : ''}</span
+                  >
+                </div>
+              {/if}
+              <div class="controls">
+                {#if step.item.kind === 'song'}
+                  <IconButton
+                    icon="slides"
+                    label={step.item.deckPath ? $_('order.changeDeck') : $_('order.chooseDeck')}
+                    onclick={() => pickDeck(step.key)}
+                  />
+                {/if}
+                {#if editing !== step.key}
+                  <IconButton
+                    icon="edit"
+                    label={$_('order.rename', { values: { n: index + 1 } })}
+                    onclick={() => startEditing(step.key)}
+                  />
+                {/if}
+                <IconButton
+                  icon="up"
+                  label={$_('order.moveUp')}
+                  disabled={index === 0}
+                  onclick={() => move(index, index - 1)}
+                />
+                <IconButton
+                  icon="down"
+                  label={$_('order.moveDown')}
+                  disabled={index === steps.length - 1}
+                  onclick={() => move(index, index + 1)}
+                />
+              </div>
+            </div>
+          </SwipeReveal>
         </li>
       {/each}
     </ol>
-    <div class="add">
-      <Button compact onclick={() => (picking = true)}>{$_('order.addSong')}</Button>
-      <Button compact onclick={() => add({ kind: 'song', title: '', notes: '' })}
-        >{$_('order.addSongNoSlides')}</Button
-      >
-      {#each readings as reading (reading.type)}
-        <Button
-          compact
-          onclick={() =>
-            add({
-              kind: 'bible',
-              title: readingLabel(reading.type),
-              bibleType: reading.type === 'textus' ? 'textus' : 'leckio',
-              notes: '',
-            })}>{readingLabel(reading.type)} · {reading.reference}</Button
-        >
-      {/each}
-      <Button compact onclick={() => add({ kind: 'block', title: '', notes: '' })}
-        >{$_('order.addBlock')}</Button
-      >
-    </div>
+    <form class="add" onsubmit={addBlock}>
+      <input
+        class="title"
+        bind:value={newTitle}
+        placeholder={$_('order.addStep')}
+        aria-label={$_('order.addStep')}
+      />
+      <Button compact onclick={() => pickDeck(null)}>{$_('order.addSong')}</Button>
+    </form>
+    <p class="hint">{$_('order.editHint')}</p>
     {#if error}<p class="error" role="alert">{error}</p>{/if}
-    <Button
-      variant="primary"
-      block
-      disabled={!dirty}
-      loading={saving}
-      loadingLabel={$_('order.saving')}
-      onclick={save}
-    >
-      {dirty ? $_('order.save') : $_('order.saved')}
-    </Button>
   {/if}
 </section>
 
@@ -273,24 +394,39 @@
     list-style: none;
   }
   .step {
-    display: grid;
-    grid-template-columns: 28px 1fr auto;
-    gap: 12px;
-    align-items: start;
-    padding: 12px;
+    overflow: hidden;
     border: var(--border-1) solid var(--border-hairline);
     border-radius: var(--radius-8);
-    background: var(--surface-raised);
+  }
+  .step.dragging {
+    opacity: 0.5;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: auto 24px 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 12px;
+  }
+  .row.current {
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+  .grip {
+    color: var(--text-muted);
+    cursor: grab;
   }
   .number {
-    padding-top: 2px;
     color: var(--text-muted);
     font-family: var(--font-mono);
     text-align: right;
   }
   .fields {
     display: grid;
-    gap: 6px;
+    gap: 4px;
+    min-width: 0;
+  }
+  .name {
+    color: var(--text-primary);
   }
   .kind {
     color: var(--text-muted);
@@ -310,9 +446,25 @@
   .notes {
     font-size: var(--type-body-sm-size);
   }
+  .bullets {
+    padding: 8px 10px;
+    resize: vertical;
+  }
+  .edit-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .add .title {
+    flex: 1;
+  }
   .controls {
     display: flex;
     gap: 2px;
+  }
+  .hint {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: var(--type-body-sm-size);
   }
   .error {
     margin: 0;

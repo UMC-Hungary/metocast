@@ -1507,7 +1507,7 @@ fn handwritten() -> Value {
                 "get": {
                     "tags": ["Events"],
                     "summary": "Get an event's Order of Service",
-                    "description": "The service's steps in order: songs (a deck), Bible readings (the event's Textus or Lekció) and blocks (no slides). Step through them live with the `order.go`, `order.next` and `order.previous` WebSocket commands; `order.state` says which step is on screen.",
+                    "description": "The service's steps in order: songs (a deck), Bible readings (the event's Textus or Lekció), announcements (their notes shown as bullet slides) and blocks (no slides). Step through them live with the `order.go`, `order.next` and `order.previous` WebSocket commands; `order.state` says which step is on screen.",
                     "operationId": "getEventOrder",
                     "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
                     "responses": {
@@ -1516,11 +1516,11 @@ fn handwritten() -> Value {
                 "required": ["kind"],
                 "properties": {
                     "id": { "type": "string", "format": "uuid", "description": "Omit for a new step; keep it so the live step survives the edit" },
-                    "kind": { "type": "string", "enum": ["song", "bible", "block"] },
-                    "title": { "type": "string", "maxLength": 200, "description": "Required for a block, and for a song with no deck" },
+                    "kind": { "type": "string", "enum": ["song", "bible", "block", "announcements"], "description": "`announcements` shows its notes as bullet slides" },
+                    "title": { "type": "string", "maxLength": 200, "description": "Required for a block and the announcements, and for a song with no deck" },
                     "deckPath": { "type": "string", "description": "Song: a deck on the server's disk. Optional: a song with none leaves the screen as it is" },
                     "bibleType": { "type": "string", "enum": ["textus", "leckio"], "description": "Bible: which of the event's readings" },
-                    "notes": { "type": "string", "maxLength": 2000 }
+                    "notes": { "type": "string", "maxLength": 2000, "description": "For the people leading. Announcements: the bullet points, one per line" }
                 }
             } } } } } } },
                         "401": { "description": "Unauthorized — missing or invalid token" },
@@ -1530,7 +1530,7 @@ fn handwritten() -> Value {
                 "put": {
                     "tags": ["Events"],
                     "summary": "Replace an event's Order of Service",
-                    "description": "Replaces the whole list and broadcasts `event.order.changed`. A step sent with its `id` keeps it, so the step on screen stays current; if that step was removed, `order.state` reports no step.",
+                    "description": "Replaces the whole list and broadcasts `event.order.changed`. A step sent with its `id` keeps it, so the step on screen stays current; `order.state` is re-sent when this event is on screen, and reports no step if that step was removed.",
                     "operationId": "setEventOrder",
                     "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
                     "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["items"], "properties": { "items": { "type": "array", "maxItems": 200, "items": {
@@ -1538,11 +1538,11 @@ fn handwritten() -> Value {
                 "required": ["kind"],
                 "properties": {
                     "id": { "type": "string", "format": "uuid", "description": "Omit for a new step; keep it so the live step survives the edit" },
-                    "kind": { "type": "string", "enum": ["song", "bible", "block"] },
+                    "kind": { "type": "string", "enum": ["song", "bible", "block", "announcements"], "description": "`announcements` shows its notes as bullet slides" },
                     "title": { "type": "string", "maxLength": 200, "description": "Required for a block" },
                     "deckPath": { "type": "string", "description": "Song: a deck on the server's disk" },
                     "bibleType": { "type": "string", "enum": ["textus", "leckio"], "description": "Bible: which of the event's readings" },
-                    "notes": { "type": "string", "maxLength": 2000 }
+                    "notes": { "type": "string", "maxLength": 2000, "description": "For the people leading. Announcements: the bullet points, one per line" }
                 }
             } } } } } } },
                     "responses": {
@@ -1551,11 +1551,11 @@ fn handwritten() -> Value {
                 "required": ["kind"],
                 "properties": {
                     "id": { "type": "string", "format": "uuid", "description": "Omit for a new step; keep it so the live step survives the edit" },
-                    "kind": { "type": "string", "enum": ["song", "bible", "block"] },
+                    "kind": { "type": "string", "enum": ["song", "bible", "block", "announcements"], "description": "`announcements` shows its notes as bullet slides" },
                     "title": { "type": "string", "maxLength": 200, "description": "Required for a block" },
                     "deckPath": { "type": "string", "description": "Song: a deck on the server's disk" },
                     "bibleType": { "type": "string", "enum": ["textus", "leckio"], "description": "Bible: which of the event's readings" },
-                    "notes": { "type": "string", "maxLength": 2000 }
+                    "notes": { "type": "string", "maxLength": 2000, "description": "For the people leading. Announcements: the bullet points, one per line" }
                 }
             } } } } } } },
                         "400": { "description": "A step is missing what it needs (a song's title or deck, a reading's type, a block's title), or an id repeats" },
@@ -1625,6 +1625,7 @@ fn handwritten() -> Value {
                 "post": {
                     "tags": ["Events"],
                     "summary": "Create event",
+                    "description": "Creates the event with the default Order of Service: Welcome message, Song 1, Song 2, Lekció, Song 3, Textus, Preaching, Song 4, Hirdetések, áldás, Song 4 last part. The songs have no deck until one is picked; read and change the steps with `/api/events/{id}/order`.",
                     "operationId": "createEvent",
                     "requestBody": {
                         "required": true,
@@ -1688,7 +1689,7 @@ fn handwritten() -> Value {
                 "put": {
                     "tags": ["Events"],
                     "summary": "Update event",
-                    "description": "Replaces all fields of an existing event. This is a full replacement — omitted optional fields revert to their defaults (empty string, `\"UF\"`, `\"private\"`, `false`).",
+                    "description": "Replaces all fields of an existing event. This is a full replacement — omitted optional fields revert to their defaults (empty string, `\"UF\"`, `\"private\"`, `false`). A Lekció or Textus that is set or changed gets a step in the Order of Service if it has none (the Lekció before the Textus); `event.order.changed` is broadcast when that happens.",
                     "operationId": "updateEvent",
                     "requestBody": {
                         "required": true,

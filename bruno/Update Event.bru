@@ -20,7 +20,23 @@ body:json {
     "date_time": "2026-02-22T21:28:36.985Z",
     "speaker": "Pastor",
     "description": "Updated description",
-    "textus": "Jn 3,16-21",
-    "leckio": "Rom 8,28-39"
+    "bible_references": [
+      { "type": "leckio", "reference": "Rom 8,28-39", "translation": "RUF_v2" },
+      { "type": "textus", "reference": "Jn 3,16-21", "translation": "RUF_v2" }
+    ]
   }
+}
+
+docs {
+  Replaces every field. A Lekció or Textus that is set or changed gets a step in the event's Order
+  of Service if it has none (the Lekció before the Textus, the Textus after the Lekció), and
+  `event.order.changed` is broadcast. A reading that is sent again unchanged adds nothing, so a
+  reading step the operator deleted stays deleted. An empty `reference` removes the reading but
+  leaves its step.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
 }

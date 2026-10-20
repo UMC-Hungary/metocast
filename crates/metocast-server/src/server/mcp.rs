@@ -66,13 +66,13 @@ pub struct McpConfig {
 #[rustfmt::skip]
 const REST: &[(&str, &str, &str, &str)] = &[
     ("GET", "/events", "events.list", "List service events"),
-    ("POST", "/events", "events.create", "Create a service event"),
+    ("POST", "/events", "events.create", "Create a service event; it starts with the default Order of Service (welcome, songs, Lekció, Textus, preaching, announcements)"),
     ("GET", "/events/{id}", "events.get", "Read one service event"),
-    ("PUT", "/events/{id}", "events.update", "Update a service event"),
+    ("PUT", "/events/{id}", "events.update", "Update a service event; a Lekció or Textus set or changed here gets a step in its Order of Service if it has none"),
     ("DELETE", "/events/{id}", "events.delete", "Delete a service event"),
     ("POST", "/events/{id}/slides", "events_slides_create", "Build the event's Bible-reading slide deck"),
     ("GET", "/events/{id}/order", "events_order_get", "An event's Order of Service: its songs, Bible readings and blocks, in order"),
-    ("PUT", "/events/{id}/order", "events_order_set", "Replace an event's Order of Service; steps keep their ids to stay the live step"),
+    ("PUT", "/events/{id}/order", "events_order_set", "Replace an event's Order of Service; steps keep their ids to stay the live step. Send the whole list after each edit"),
     ("GET", "/events/{id}/recordings", "recordings.list", "List an event's recordings"),
     ("POST", "/events/{id}/recordings", "recordings.create", "Attach a recording file to an event"),
     ("DELETE", "/events/{id}/recordings/{recording_id}", "recordings.delete", "Remove a recording from an event"),

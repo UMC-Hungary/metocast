@@ -11,6 +11,7 @@ struct PresentationView: View {
     @State private var isWritingSong = false
     @State private var isAskingForSongFolder = false
     @State private var isShowingSettings = false
+    @State private var isShowingOrder = true
 
     var body: some View {
         Group {
@@ -52,10 +53,7 @@ struct PresentationView: View {
 
     @ViewBuilder
     private func page(_ session: MetocastSession) -> some View {
-        let library = DeckList(session: session, query: query) { file in
-            session.show(.open(filePath: file.path))
-        }
-        .librarySearch($query)
+        let library = sidebar(session)
         #if os(macOS)
         HStack(spacing: 0) {
             library.frame(width: 340)
@@ -72,6 +70,39 @@ struct PresentationView: View {
         }
         .navigationTitle("Presentation")
         #endif
+    }
+
+    /// The event to step through: the one on screen, else the one under way or next.
+    private func orderEvent(_ session: MetocastSession) -> EventSummaryRecord? {
+        session.events.first { $0.id == session.orderPosition?.eventId }
+            ?? EventSchedule.current(in: session.events, now: .now)
+    }
+
+    /// The deck library, and with the web presenter the event's Order of Service beside it, so the
+    /// service can be stepped through from here.
+    @ViewBuilder
+    private func sidebar(_ session: MetocastSession) -> some View {
+        let event = session.usesWebPresenter ? orderEvent(session) : nil
+        VStack(spacing: 0) {
+            if event != nil {
+                Picker("Show", selection: $isShowingOrder) {
+                    Text("Order of Service").tag(true)
+                    Text("Library").tag(false)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .padding(10)
+            }
+            if let event, isShowingOrder {
+                Form { LiveOrderSection(session: session, event: event) }
+                    .formStyle(.grouped)
+            } else {
+                DeckList(session: session, query: query) { file in
+                    session.show(.open(filePath: file.path))
+                }
+                .librarySearch($query)
+            }
+        }
     }
 
     /// A song needs somewhere to go, so a missing folder is asked for before the page opens.

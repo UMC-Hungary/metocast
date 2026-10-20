@@ -21,3 +21,15 @@ body:json {
     "speaker": "Pastor"
   }
 }
+
+docs {
+  Creates the event with the default Order of Service: Welcome message, Song 1, Song 2, Lekció,
+  Song 3, Textus, Preaching, Song 4, Hirdetések, áldás, Song 4 last part. The songs have no deck
+  until one is picked. Read the steps with *order / Get Order of Service*.
+}
+
+tests {
+  test("status is 201", function() {
+    expect(res.status).to.equal(201);
+  });
+}

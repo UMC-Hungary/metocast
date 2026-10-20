@@ -1,19 +1,19 @@
 import SwiftUI
 import Metocast
 
-/// A step being edited. New steps have no server id yet, so the list keys them by a local one.
-private struct EditableStep: Identifiable {
-    let id = UUID()
-    var item: OrderItemRecord
-}
-
 extension OrderItemRecord {
     var icon: String {
         switch kind {
         case .song: "music.note"
         case .bible: "book"
         case .block: "text.alignleft"
+        case .announcements: "megaphone"
         }
+    }
+
+    /// The announcements' bullet points: the notes' non-empty lines.
+    var bullets: [String] {
+        notes.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
     }
 
     /// What the step shows, under its title: the deck, or which reading.
@@ -22,6 +22,7 @@ extension OrderItemRecord {
         case .song: deckPath.map { URL(filePath: $0).deletingPathExtension().lastPathComponent }
         case .bible: bibleType == "textus" ? "Textus" : "Lekció"
         case .block: nil
+        case .announcements: bullets.isEmpty ? "No announcements yet" : "\(bullets.count) announcements"
         }
     }
 }
@@ -32,6 +33,8 @@ struct OrderStepRow: View {
     let item: OrderItemRecord
     let number: Int
     var isCurrent = false
+    /// A reading step's reference, e.g. "Jn 3,16-21", when the row knows the event's readings.
+    var reading: String?
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -45,10 +48,11 @@ struct OrderStepRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title.isEmpty ? (item.detail ?? "Untitled") : item.title)
                     .fontWeight(isCurrent ? .semibold : .regular)
-                if let detail = item.detail, !item.title.isEmpty, detail != item.title {
+                if let detail = subtitle {
                     Text(detail).font(.subheadline).foregroundStyle(.secondary)
                 }
-                if !item.notes.isEmpty {
+                // The announcements' notes are their slides; the row counts them instead.
+                if !item.notes.isEmpty, item.kind != .announcements {
                     Text(item.notes).font(.subheadline).foregroundStyle(.secondary)
                 }
             }
@@ -63,206 +67,257 @@ struct OrderStepRow: View {
         .accessibilityElement(children: .combine)
         .accessibilityValue(isCurrent ? "On screen" : "")
     }
+
+    private var subtitle: String? {
+        if item.kind == .bible, let reading { return reading }
+        guard let detail = item.detail, !item.title.isEmpty, detail != item.title else { return nil }
+        return detail
+    }
 }
 
-/// The Order of Service on an event's page: the steps, and the way into editing them.
+/// The Order of Service on an event's page, edited in place: drag to reorder, swipe to delete,
+/// double-click (or the pencil on the Mac) to rename, and the last row adds a step. Every change
+/// is saved at once; steps keep their ids, so editing during the service is safe.
 struct EventOrderSection: View {
     let session: MetocastSession
     let event: EventRecord
-    @State private var items: [OrderItemRecord] = []
+    @State private var steps: [OrderStep] = []
+    @State private var renaming: String?
+    @State private var newTitle = ""
+    @State private var deckTarget: DeckTarget?
+    @State private var failure: String?
+    @State private var saves = 0
+    /// The row a dragged step would land on, for the drop line.
+    @State private var dropTarget: String?
 
     var body: some View {
         Section {
-            ForEach(Array(items.enumerated()), id: \.offset) { index, item in
-                OrderStepRow(item: item, number: index + 1, isCurrent: isCurrent(item))
+            ForEach($steps) { $step in
+                row($step)
             }
-            NavigationLink {
-                OrderEditorView(session: session, event: event).windowActions()
-            } label: {
-                Label(items.isEmpty ? "Add Order of Service" : "Edit Order of Service", systemImage: "list.number")
+            .onMove { from, to in
+                steps.move(fromOffsets: from, toOffset: to)
+                save()
             }
-            .accessibilityAddTraits(.isButton)
+            HStack {
+                TextField("Add a step", text: $newTitle)
+                    .onSubmit(addBlock)
+                Button("Song…", systemImage: "music.note") { deckTarget = DeckTarget(stepId: nil) }
+                    .buttonStyle(.glass)
+                    #if os(macOS)
+                    .labelStyle(.titleAndIcon)
+                    #endif
+            }
         } header: {
             Text("Order of Service")
         } footer: {
-            Text("The songs, readings and parts of the service, in order. Step through them on the Live page.")
+            Text("Drag to reorder, swipe left to delete, double-click to rename; the announcements take one bullet per line and show as slides. The readings join the list when they are set on the event. Step through it on the Live or Presentation page.")
         }
-        .task(id: session.orderRevision) {
-            items = (try? await session.order(eventId: event.id)) ?? items
-        }
-    }
-
-    private func isCurrent(_ item: OrderItemRecord) -> Bool {
-        session.orderPosition?.eventId == event.id && session.orderPosition?.itemId == item.id
-    }
-}
-
-/// Builds the Order of Service: add songs from the library, the event's readings and blocks,
-/// drag to reorder, and save. Steps keep their ids, so editing during the service is safe.
-struct OrderEditorView: View {
-    let session: MetocastSession
-    let event: EventRecord
-    @State private var steps: [EditableStep] = []
-    @State private var isLoaded = false
-    @State private var isSaving = false
-    @State private var isPickingSong = false
-    @State private var failure: String?
-
-    var body: some View {
-        List {
-            ForEach($steps) { $step in
-                StepEditor(item: $step.item)
-            }
-            .onMove { steps.move(fromOffsets: $0, toOffset: $1) }
-            .onDelete { steps.remove(atOffsets: $0) }
-        }
-        .overlay {
-            if isLoaded && steps.isEmpty {
-                ContentUnavailableView {
-                    Label("No Steps Yet", systemImage: "list.number")
-                } description: {
-                    Text("Add the songs, the readings and the other parts of the service.")
-                } actions: {
-                    if !event.bibleReferences.isEmpty {
-                        Button("Start with the Readings") { addReadings() }
-                            .buttonStyle(.glassProminent)
+        .sheet(item: $deckTarget) { target in
+            NavigationStack {
+                SongPickerView(session: session) { file in pick(file, for: target.stepId) }
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") { deckTarget = nil }
+                        }
                     }
-                }
             }
-        }
-        .navigationTitle("Order of Service")
-        .toolbar {
-            ToolbarItem {
-                addMenu
-            }
-            ToolbarItem(placement: .confirmationAction) {
-                SaveOrderButton(isDisabled: isSaving || !isLoaded) { await save() }
-            }
-        }
-        .navigationDestination(isPresented: $isPickingSong) {
-            SongPickerView(session: session) { file in
-                let name = file.name.replacing(/\.pptx?$/, with: "")
-                steps.append(EditableStep(item: OrderItemRecord(
-                    id: nil, kind: .song, title: name, deckPath: file.path, bibleType: nil, notes: ""
-                )))
-            }
-            .windowActions()
+            #if os(macOS)
+            .frame(minWidth: 420, minHeight: 480)
+            #endif
         }
         .alert("Couldn't Save", isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(failure ?? "")
         }
-        .task {
-            guard !isLoaded else { return }
+        .task(id: session.orderRevision) {
+            // A change from elsewhere mustn't throw away a rename being typed.
+            guard renaming == nil else { return }
+            if let items = try? await session.order(eventId: event.id) {
+                steps = items.map(OrderStep.init)
+            }
+        }
+    }
+
+    private func row(_ step: Binding<OrderStep>) -> some View {
+        let id = step.wrappedValue.id
+        let item = step.wrappedValue.item
+        return HStack(spacing: 8) {
+            if renaming == id {
+                StepFields(item: step.item) { finishRename() }
+            } else {
+                OrderStepRow(
+                    item: item,
+                    number: (steps.firstIndex { $0.id == id } ?? 0) + 1,
+                    isCurrent: session.orderPosition?.eventId == event.id && session.orderPosition?.itemId == item.id,
+                    reading: item.kind == .bible
+                        ? event.bibleReferences.first { $0.referenceType == item.bibleType }?.reference ?? "Not set on the event yet"
+                        : nil
+                )
+                .onTapGesture(count: 2) { rename(id) }
+            }
+            if item.kind == .song {
+                Button(item.deckPath == nil ? "Choose Deck" : "Change Deck", systemImage: "rectangle.stack") {
+                    deckTarget = DeckTarget(stepId: id)
+                }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.borderless)
+            }
+            #if os(macOS)
+            Button("Rename", systemImage: renaming == id ? "checkmark" : "pencil") {
+                renaming == id ? finishRename() : rename(id)
+            }
+            .labelStyle(.iconOnly)
+            .buttonStyle(.borderless)
+            #endif
+        }
+        #if os(macOS)
+        // A grouped Form on the Mac ignores `.onMove`, so rows drag and drop themselves.
+        .draggable(id)
+        .dropDestination(for: String.self) { ids, _ in
+            guard let dragged = ids.first else { return false }
+            return move(dragged, onto: id)
+        } isTargeted: { targeted in
+            dropTarget = targeted ? id : (dropTarget == id ? nil : dropTarget)
+        }
+        .overlay(alignment: .top) {
+            if dropTarget == id {
+                Rectangle().fill(.tint).frame(height: 2).offset(y: -6)
+            }
+        }
+        #endif
+        .swipeActions(edge: .trailing) {
+            Button("Delete", systemImage: "trash", role: .destructive) { delete(id) }
+        }
+        .contextMenu {
+            Button("Rename", systemImage: "pencil") { rename(id) }
+            Button("Delete", systemImage: "trash", role: .destructive) { delete(id) }
+        }
+    }
+
+    private func rename(_ id: String) {
+        if renaming != nil { save() }
+        renaming = id
+    }
+
+    private func finishRename() {
+        guard renaming != nil else { return }
+        renaming = nil
+        save()
+    }
+
+    /// Puts the dragged step where the target row is: above it when moving up, below when down.
+    private func move(_ dragged: String, onto target: String) -> Bool {
+        guard let from = steps.firstIndex(where: { $0.id == dragged }),
+              let to = steps.firstIndex(where: { $0.id == target }), from != to else { return false }
+        steps.move(fromOffsets: [from], toOffset: to > from ? to + 1 : to)
+        dropTarget = nil
+        save()
+        return true
+    }
+
+    private func delete(_ id: String) {
+        steps.removeAll { $0.id == id }
+        save()
+    }
+
+    /// The text field adds a block; a song is added from the deck picker.
+    private func addBlock() {
+        let title = newTitle.trimmingCharacters(in: .whitespaces)
+        guard !title.isEmpty else { return }
+        steps.append(OrderStep(OrderItemRecord(id: nil, kind: .block, title: title, deckPath: nil, bibleType: nil, notes: "")))
+        newTitle = ""
+        save()
+    }
+
+    /// A song placeholder takes the deck and its name; with no step, the deck is a new song.
+    private func pick(_ file: PptFile, for stepId: String?) {
+        let name = file.name.replacing(/\.pptx?$/, with: "")
+        if let index = steps.firstIndex(where: { $0.id == stepId }) {
+            steps[index].item.deckPath = file.path
+            steps[index].item.title = name
+        } else {
+            steps.append(OrderStep(OrderItemRecord(id: nil, kind: .song, title: name, deckPath: file.path, bibleType: nil, notes: "")))
+        }
+        save()
+    }
+
+    /// Sends the whole list. Only the latest save's answer is kept, so a slow reply can't undo a
+    /// newer edit; a refused list is reloaded from the server.
+    private func save() {
+        saves += 1
+        let attempt = saves
+        let items = steps.map(\.item)
+        Task {
             do {
-                steps = try await session.order(eventId: event.id).map { EditableStep(item: $0) }
-                isLoaded = true
+                let stored = try await session.saveOrder(eventId: event.id, items: items)
+                if attempt == saves, renaming == nil { steps = stored.map(OrderStep.init) }
             } catch {
                 failure = error.metocastMessage
+                if let items = try? await session.order(eventId: event.id) { steps = items.map(OrderStep.init) }
             }
-        }
-    }
-
-    private var addMenu: some View {
-        Menu {
-            Button("Song…", systemImage: "music.note") { isPickingSong = true }
-            // A verse sung without slides, such as the closing verse.
-            Button("Song Without Slides", systemImage: "music.note") {
-                steps.append(EditableStep(item: OrderItemRecord(
-                    id: nil, kind: .song, title: "", deckPath: nil, bibleType: nil, notes: ""
-                )))
-            }
-            ForEach(event.bibleReferences, id: \.referenceType) { reading in
-                Button("\(reading.referenceType == "textus" ? "Textus" : "Lekció") · \(reading.reference)", systemImage: "book") {
-                    add(reading: reading.referenceType)
-                }
-            }
-            Button("Block", systemImage: "text.alignleft") {
-                steps.append(EditableStep(item: OrderItemRecord(
-                    id: nil, kind: .block, title: "", deckPath: nil, bibleType: nil, notes: ""
-                )))
-            }
-        } label: {
-            Label("Add Step", systemImage: "plus")
-        }
-        #if os(macOS)
-        .labelStyle(.titleAndIcon)
-        #endif
-    }
-
-    /// The service reads the Lekció before the Textus.
-    private func addReadings() {
-        for type in ["leckio", "textus"] where event.bibleReferences.contains(where: { $0.referenceType == type }) {
-            add(reading: type)
-        }
-    }
-
-    private func add(reading type: String) {
-        steps.append(EditableStep(item: OrderItemRecord(
-            id: nil, kind: .bible, title: type == "textus" ? "Textus" : "Lekció",
-            deckPath: nil, bibleType: type, notes: ""
-        )))
-    }
-
-    /// True once the server has the steps, so the Save button can close the page.
-    private func save() async -> Bool {
-        isSaving = true
-        defer { isSaving = false }
-        do {
-            _ = try await session.saveOrder(eventId: event.id, items: steps.map(\.item))
-            return true
-        } catch {
-            failure = error.metocastMessage
-            return false
         }
     }
 }
 
-/// Saves, then closes the editor. It reads `\.dismiss` here rather than in the editor: the editor
-/// hosts the song picker's `navigationDestination`, and a view that reads `dismiss` and re-declares
-/// a destination re-evaluates on every change of it, which re-declares the destination, which
-/// changes `dismiss` again, without end (the Mac app froze on Add Step > Song…).
-private struct SaveOrderButton: View {
-    @Environment(\.dismiss) private var dismiss
-    let isDisabled: Bool
-    let save: () async -> Bool
+/// A step in the list, keyed by its server id, or by a local one until the server gives it one.
+private struct OrderStep: Identifiable {
+    let id: String
+    var item: OrderItemRecord
 
-    var body: some View {
-        Button("Save", systemImage: "checkmark") {
-            Task { if await save() { dismiss() } }
-        }
-        .buttonStyle(.glassProminent)
-        .tint(.accentColor)
-        .disabled(isDisabled)
-        #if os(macOS)
-        .labelStyle(.titleAndIcon)
-        #endif
+    init(_ item: OrderItemRecord) {
+        id = item.id ?? UUID().uuidString
+        self.item = item
     }
 }
 
-/// One step in the editor: its title and notes are typed in place.
-private struct StepEditor: View {
+/// Which song the deck picker is choosing for; none adds a new song.
+private struct DeckTarget: Identifiable {
+    let stepId: String?
+    var id: String { stepId ?? "" }
+}
+
+/// A step's title and notes typed in place. Return, or leaving both fields, finishes. The
+/// announcements take one bullet per line, so their text has room and a Done button.
+private struct StepFields: View {
     @Binding var item: OrderItemRecord
+    let done: () -> Void
+    @FocusState private var focus: Field?
+
+    private enum Field { case title, notes }
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Image(systemName: item.icon)
-                .foregroundStyle(.secondary)
-                .frame(width: 20)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 4) {
-                TextField(item.kind == .bible ? "Title" : "Title, e.g. Prayer or the song's name", text: $item.title)
-                    .fontWeight(.medium)
-                if let detail = item.detail {
-                    Text(detail).font(.subheadline).foregroundStyle(.secondary)
-                }
+        VStack(alignment: .leading, spacing: 4) {
+            TextField("Title", text: $item.title)
+                .fontWeight(.medium)
+                .focused($focus, equals: .title)
+            if item.kind == .announcements {
+                TextEditor(text: $item.notes)
+                    .frame(minHeight: 100)
+                    .focused($focus, equals: .notes)
+                    .overlay(alignment: .topLeading) {
+                        if item.notes.isEmpty {
+                            Text("One announcement per line")
+                                .foregroundStyle(.tertiary)
+                                .padding(.leading, 5)
+                                .allowsHitTesting(false)
+                        }
+                    }
+                Button("Done", action: done)
+                    .buttonStyle(.glassProminent)
+            } else {
                 TextField("Notes for the leaders", text: $item.notes, axis: .vertical)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .focused($focus, equals: .notes)
             }
         }
-        .padding(.vertical, 2)
+        .onSubmit(done)
+        .onAppear { focus = .title }
+        .onChange(of: focus) { _, field in
+            if field == nil { done() }
+        }
     }
 }
 

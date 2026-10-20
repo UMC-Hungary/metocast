@@ -43,6 +43,11 @@ Control Broadlink IR/RF devices and presentations through the Metocast desktop a
 - **Presentation: Toggle Blank Screen**
 - **Presentation: Show Bible Reference** — show Textus or Lekció through the app WebSocket presenter. Leave Event set to “Backend selected event” to let Metocast choose the current/next event.
 
+### Order of Service
+
+- **Order of Service: Next Step** — shows the next step of the running Order of Service. With none running, starts the presenter's selected event at step 1. Every new event starts with the default steps (Welcome message, songs, Lekció, Textus, Preaching, Hirdetések, áldás), so this works before anyone edits the list.
+- **Order of Service: Previous Step**
+
 Song and Bible slides use the Classic or Editorial design selected in the Metocast Presentations settings. Classic shows an imported deck's source artwork; Editorial renders its extracted text in the selected design, and a live design change does not require reopening the deck.
 
 ## Presets
@@ -52,14 +57,15 @@ Song and Bible slides use the Classic or Editorial design selected in the Metoca
 
 ## Feedbacks
 
-| Feedback                       | Description                            |
-| ------------------------------ | -------------------------------------- |
-| Connection Status              | Green when connected to Metocast       |
-| Command Available              | Blue when a specific command is loaded |
-| PPT: Slot Has File             | Green when a PPT slot contains a file  |
-| PPT: Filter Active             | Orange when a digit filter is applied  |
-| Presentation: Slideshow Active | Green when a slideshow is running      |
-| Presentation: Screen Blanked   | Black when the screen is blanked       |
+| Feedback                         | Description                                          |
+| -------------------------------- | ---------------------------------------------------- |
+| Connection Status                | Green when connected to Metocast                     |
+| Command Available                | Blue when a specific command is loaded               |
+| PPT: Slot Has File               | Green when a PPT slot contains a file                |
+| PPT: Filter Active               | Orange when a digit filter is applied                |
+| Presentation: Slideshow Active   | Green when a slideshow is running                    |
+| Presentation: Screen Blanked     | Black when the screen is blanked                     |
+| Order of Service: Step On Screen | Lit while a step of an Order of Service is on screen |
 
 ## Variables
 
@@ -82,6 +88,9 @@ Use your Companion connection label as the variable prefix. For example, if the 
 | `$(<connection-label>:ppt_blanked)`                         | YES / NO                                      |
 | `$(<connection-label>:presenter_event_count)`               | Number of backend-ordered presenter events    |
 | `$(<connection-label>:presenter_selected_event)`            | Backend-selected current/next presenter event |
+| `$(<connection-label>:order_step)`                          | Order of Service step on screen               |
+| `$(<connection-label>:order_step_number)`                   | Its number, e.g. `3/10`                       |
+| `$(<connection-label>:order_next_step)`                     | The step after it                             |
 
 ## Troubleshooting
 

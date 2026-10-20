@@ -31,6 +31,6 @@ mod tests {
             .iter()
             .map(|migration| migration.version)
             .collect::<Vec<_>>();
-        assert_eq!(versions, (1..=24).collect::<Vec<_>>());
+        assert_eq!(versions, (1..=25).collect::<Vec<_>>());
     }
 }

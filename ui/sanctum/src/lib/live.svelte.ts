@@ -132,6 +132,8 @@ let orderPosition = $state<OrderPosition | null>(null);
 /** Bumped when any event's Order of Service changes, so open views reload it. */
 let orderRevision = $state(0);
 let transcriptCleanup = $state<CleanupProgress | null>(null);
+/** Bumped on `event.changed`, so a page showing an event re-reads it. */
+let eventRevision = $state(0);
 
 export const live = {
   get streaming() {
@@ -193,6 +195,9 @@ export const live = {
   },
   get orderRevision() {
     return orderRevision;
+  },
+  get eventRevision() {
+    return eventRevision;
   },
   get transcription() {
     return transcription;
@@ -377,6 +382,7 @@ export function handleWs(msg: WsMessage): void {
       currentEvent = msg.events.find((e) => e.id === msg.selectedEventId) ?? null;
       break;
     case 'event.changed':
+      eventRevision += 1;
       sendWsCommand('events.presenter_list');
       break;
     case 'order.state':

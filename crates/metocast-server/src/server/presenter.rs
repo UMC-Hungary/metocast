@@ -14,6 +14,7 @@ const BIBLE_MAIN_FONT_SIZE_PT: f32 = 38.0;
 const BIBLE_COUNTER_FONT_SIZE_PT: f32 = 18.0;
 const SONG_FONT_SIZE_PT: f32 = 40.0;
 const SONG_TITLE_FONT_SIZE_PT: f32 = 52.0;
+const ANNOUNCEMENTS_PER_SLIDE: usize = 5;
 
 // ── Data types ────────────────────────────────────────────────────────────────
 
@@ -576,6 +577,56 @@ impl PresenterState {
         }
     }
 
+    /// The announcements as slides: the title, then the bullets, a few to a slide so they stay
+    /// readable from the back. With no bullets it is the title alone.
+    pub fn from_announcements(title: &str, notes: &str) -> Self {
+        let bullets: Vec<String> = notes
+            .lines()
+            .map(|line| line.trim().trim_start_matches(['•', '-', '*']).trim())
+            .filter(|line| !line.is_empty())
+            .map(|line| format!("• {line}"))
+            .collect();
+        let heading = |index| ParagraphContent {
+            lines: vec![title.trim().to_string()],
+            align: if index == 0 { "center" } else { "left" }.to_string(),
+            font_size_pt: SONG_TITLE_FONT_SIZE_PT,
+        };
+        let slides: Vec<SlideContent> = if bullets.is_empty() {
+            vec![SlideContent {
+                index: 1,
+                paragraphs: vec![heading(0)],
+            }]
+        } else {
+            bullets
+                .chunks(ANNOUNCEMENTS_PER_SLIDE)
+                .enumerate()
+                .map(|(index, page)| SlideContent {
+                    index: index as u32 + 1,
+                    paragraphs: vec![
+                        heading(1),
+                        ParagraphContent {
+                            lines: page.to_vec(),
+                            align: "left".to_string(),
+                            font_size_pt: BIBLE_MAIN_FONT_SIZE_PT,
+                        },
+                    ],
+                })
+                .collect()
+        };
+        Self {
+            loaded: true,
+            file_path: Some(title.trim().to_string()),
+            current_slide: 1,
+            total_slides: slides.len() as u32,
+            render_mode: PresenterRenderMode::Text,
+            slides,
+            svg_slides: Vec::new(),
+            muted: false,
+            slide_width_emu: 12192000,
+            slide_height_emu: 6858000,
+        }
+    }
+
     pub fn mute(&mut self) {
         self.muted = true;
     }
@@ -1031,6 +1082,22 @@ mod tests {
                 _ => {}
             }
         }
+    }
+
+    #[test]
+    fn announcements_become_bullet_slides() {
+        let notes = "Bibliaóra csütörtökön\n\n- Ifjúsági alkalom\n• Gyülekezeti kirándulás\nPresbiteri gyűlés\nKonfirmáció\nTemetés";
+        let deck = PresenterState::from_announcements("Hirdetések", notes);
+        assert_eq!(deck.total_slides, 2);
+        let first = &deck.slides[0].paragraphs;
+        assert_eq!(first[0].lines, ["Hirdetések"]);
+        assert_eq!(first[1].lines[1], "• Ifjúsági alkalom");
+        assert_eq!(first[1].lines[2], "• Gyülekezeti kirándulás");
+        assert_eq!(deck.slides[1].paragraphs[1].lines, ["• Temetés"]);
+
+        let empty = PresenterState::from_announcements("Hirdetések, áldás", " \n");
+        assert_eq!(empty.total_slides, 1);
+        assert_eq!(empty.slides[0].paragraphs.len(), 1);
     }
 
     #[test]

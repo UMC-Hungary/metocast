@@ -39,6 +39,7 @@ use crate::server::AppState;
 use crate::server::order;
 use crate::server::ppt;
 use crate::server::presenter;
+use crate::server::routes;
 
 // ── Connected client registry ─────────────────────────────────────────────────
 
@@ -567,43 +568,6 @@ enum WsCommand {
     /// Delete a device listener.
     #[serde(rename = "obs.listeners.delete")]
     ObsListenersDelete { id: Uuid },
-}
-
-/// Upsert or delete bible references inside an open transaction (mirrors routes.rs logic).
-async fn ws_upsert_bible_references(
-    event_id: Uuid,
-    refs: &Option<Vec<CreateBibleReference>>,
-    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-) -> anyhow::Result<()> {
-    let Some(refs) = refs else { return Ok(()) };
-    for br in refs {
-        let reference = br.reference.as_deref().unwrap_or("").trim();
-        if reference.is_empty() {
-            sqlx::query("DELETE FROM event_bible_references WHERE event_id = $1 AND type = $2")
-                .bind(event_id)
-                .bind(&br.r#type)
-                .execute(&mut **tx)
-                .await?;
-        } else {
-            let translation = br.translation.as_deref().unwrap_or("UF");
-            let verses = br.verses.clone().unwrap_or_else(|| serde_json::json!([]));
-            sqlx::query(
-                "INSERT INTO event_bible_references (event_id, type, reference, translation, verses) \
-                 VALUES ($1, $2, $3, $4, $5) \
-                 ON CONFLICT (event_id, type) DO UPDATE SET \
-                   reference = EXCLUDED.reference, translation = EXCLUDED.translation, \
-                   verses = EXCLUDED.verses, updated_at = NOW()",
-            )
-            .bind(event_id)
-            .bind(&br.r#type)
-            .bind(reference)
-            .bind(translation)
-            .bind(verses)
-            .execute(&mut **tx)
-            .await?;
-        }
-    }
-    Ok(())
 }
 
 async fn make_presentation_settings(state: &AppState) -> String {
@@ -1729,7 +1693,8 @@ async fn handle_ws_command(
                     .execute(&mut *tx)
                     .await?;
                 }
-                ws_upsert_bible_references(event_id, &body.bible_references, &mut tx).await?;
+                order::seed_template(&mut tx, event_id).await?;
+                routes::upsert_bible_references(event_id, &body.bible_references, &mut tx).await?;
                 tx.commit().await?;
                 fetch_event(event_id, &state.pool)
                     .await?
@@ -1767,7 +1732,7 @@ async fn handle_ws_command(
                 connections,
                 bible_references,
             };
-            let result: anyhow::Result<Option<Event>> = async {
+            let result: anyhow::Result<Option<(Event, bool)>> = async {
                 let mut tx = state.pool.begin().await?;
                 sqlx::query("SET LOCAL app.skip_sync_notify = 'true'")
                     .execute(&mut *tx)
@@ -1805,13 +1770,20 @@ async fn handle_ws_command(
                         }
                     }
                 }
-                ws_upsert_bible_references(id, &body.bible_references, &mut tx).await?;
+                let set =
+                    routes::upsert_bible_references(id, &body.bible_references, &mut tx).await?;
+                let order_changed = order::add_readings(&mut tx, id, &set).await?;
                 tx.commit().await?;
-                fetch_event(id, &state.pool).await
+                Ok(fetch_event(id, &state.pool)
+                    .await?
+                    .map(|event| (event, order_changed)))
             }
             .await;
             match result {
-                Ok(Some(event)) => {
+                Ok(Some((event, order_changed))) => {
+                    if order_changed && let Err(e) = order::announce(state, id).await {
+                        tracing::error!("events.update: {e}");
+                    }
                     let msg = json!({ "type": "events.update", "event": event }).to_string();
                     client_tx.send(Message::Text(msg.into())).log_gone();
                     broadcast_event_changed(state, "UPDATE", &event).await;

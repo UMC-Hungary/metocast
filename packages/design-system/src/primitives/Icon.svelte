@@ -34,6 +34,8 @@
     alert: 'M12 3.5 22 20H2L12 3.5zM12 10v4.5M12 17.5h.01',
     info: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 8h.01M11 12h1v5h1',
     retry: 'M20 12a8 8 0 1 1-2.34-5.66M20 4v4h-4',
+    edit: 'M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4',
+    grip: 'M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01',
   } as const;
 
   export type IconName = keyof typeof icons;

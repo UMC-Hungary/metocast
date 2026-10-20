@@ -30,6 +30,7 @@ export function GetVariableDefinitions(_instance: ModuleInstance): CompanionVari
 		{ variableId: 'last_automation', name: 'Last Automation Run' },
 		{ variableId: 'order_step', name: 'Order of Service Step On Screen' },
 		{ variableId: 'order_step_number', name: 'Order of Service Step Number (3/13)' },
+		{ variableId: 'order_next_step', name: 'Order of Service Next Step' },
 	]
 }
 
@@ -65,5 +66,6 @@ export function GetDefaultVariableValues(instance: ModuleInstance): Record<strin
 		last_automation: instance.lastAutomation,
 		order_step: instance.orderStep?.title ?? '',
 		order_step_number: instance.orderStep ? `${instance.orderStep.number}/${instance.orderStep.count}` : '',
+		order_next_step: instance.orderStep?.next ?? '',
 	}
 }
