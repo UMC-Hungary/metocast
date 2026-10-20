@@ -125,6 +125,7 @@ describe.skipIf(!isLive)('Push message payloads', () => {
       'event.changed',
       'recording.changed',
       'ppt.folders_changed',
+      'ppt.index.state',
     ]) {
       expect(types, `no ${expected} was seen`).toContain(expected);
     }

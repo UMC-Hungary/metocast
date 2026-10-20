@@ -223,6 +223,9 @@ private struct TabRootView: View {
         NavigationStack {
             content()
                 .toolbar {
+                    if let pending = model.slideIndexPending {
+                        ToolbarItem(placement: .topBarTrailing) { SlideIndexBadge(pending: pending) }
+                    }
                     ToolbarItem(placement: .topBarTrailing) {
                         NotificationsBell { isShowingNotifications = true }
                     }
@@ -250,6 +253,9 @@ private struct WindowActions: ViewModifier {
             Color.clear
                 .allowsHitTesting(false)
                 .toolbar {
+                    if let pending = model.slideIndexPending {
+                        ToolbarItem { SlideIndexBadge(pending: pending) }
+                    }
                     ToolbarItem {
                         // The Mac has room for a popover, which the HIG reserves for wide layouts.
                         NotificationsBell { isShowingNotifications = true }
@@ -278,6 +284,25 @@ struct NewEventButton: View {
         Button("New Event", systemImage: "calendar.badge.plus") {
             model.isAddingEvent = true
         }
+    }
+}
+
+/// Shown in the toolbar while the server parses decks into the slide search index. The Mac shows
+/// its text as a tooltip; the iPhone has no hover, so a tap shows it in a popover.
+struct SlideIndexBadge: View {
+    let pending: UInt32
+    @State private var isShowingInfo = false
+
+    var body: some View {
+        let text = "Indexing the slide library: \(pending) \(pending == 1 ? "deck" : "decks")"
+        Button(text, systemImage: "text.magnifyingglass") { isShowingInfo = true }
+            .symbolEffect(.pulse)
+            .help(text)
+            .popover(isPresented: $isShowingInfo) {
+                Text(text)
+                    .padding()
+                    .presentationCompactAdaptation(.popover)
+            }
     }
 }
 

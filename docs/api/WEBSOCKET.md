@@ -85,7 +85,7 @@ Connect to `ws://<host>/ws?token=<token>`. Send `{"type": "<command>", …fields
 | `ppt.folders.add` | `name`*, `path`* | `POST /api/ppt/folders` |
 | `ppt.folders.list` | — | `GET /api/ppt/folders` |
 | `ppt.folders.remove` | `id`* | `DELETE /api/ppt/folders/{id}` |
-| `ppt.search` | `filter`* | `GET /api/ppt/files` |
+| `ppt.search` | `filter`*, `folder_id`, `limit` | `GET /api/ppt/files` |
 | `presentation.close` | — | — |
 | `presentation.close_all` | — | — |
 | `presentation.first` | — | — |
@@ -161,6 +161,7 @@ Connect to `ws://<host>/ws?token=<token>`. Send `{"type": "<command>", …fields
 | `order.state` | The Order of Service step on screen and its event's steps; sent on connect, on change and for `order.status` | `position` object?, `items` array |
 | `ping` | Latency probe; answer with `pong` | `pingId` integer |
 | `ppt.folders_changed` | The slide folders list changed | none |
+| `ppt.index.state` | The slide library index started or finished parsing decks; also sent on connect | `indexing` boolean, `pending` integer |
 | `ppt.search_results` | Reply to `ppt.search` | `files` array, `filter` string |
 | `presentation.settings` | Reply to `presentation.get_settings`, and sent on change | `useWebPresenter` boolean, `presenterTheme` string |
 | `presenter.slide_changed` | The presenter moved to another slide | `currentSlide` integer?, `totalSlides` integer? |

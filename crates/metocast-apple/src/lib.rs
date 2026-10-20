@@ -40,7 +40,7 @@ use metocast_core::{
         ServerEvent, SlideContent, SvgSlideContent,
     },
     recordings::Recording,
-    slides::{CreateSongSlides, PptFile, SongSlides},
+    slides::{CreateSongSlides, DeckMatch, HighlightPart, PptFile, SongSlides},
     transcription::{CreditStatus, StoredTranscript, TranscriptionState, TranscriptionStatus},
 };
 use serde::Serialize;
@@ -463,6 +463,24 @@ pub struct PptFile {
     pub name: String,
     pub path: String,
     pub folder_id: String,
+    pub title: String,
+    pub number: Option<i32>,
+    pub matched_in: Option<DeckMatch>,
+    pub title_parts: Vec<HighlightPart>,
+    pub snippet_parts: Vec<HighlightPart>,
+}
+
+#[uniffi::remote(Enum)]
+pub enum DeckMatch {
+    Number,
+    Title,
+    Text,
+}
+
+#[uniffi::remote(Record)]
+pub struct HighlightPart {
+    pub text: String,
+    pub hit: bool,
 }
 
 #[uniffi::remote(Enum)]
@@ -1268,6 +1286,10 @@ pub enum AppleEvent {
     TranscriptionCredit {
         credit: CreditRecord,
     },
+    /// The server is parsing `pending` decks into the slide search index; 0 when done.
+    SlideIndexState {
+        pending: u32,
+    },
     /// A stored transcript's AI clean-up ran a step, finished or failed.
     TranscriptCleanup {
         session_id: String,
@@ -1998,10 +2020,17 @@ impl AppleClient {
             .await
     }
 
-    /// PowerPoint files in the server's watched folders whose name contains `filter`.
-    pub async fn ppt_files(&self, filter: String) -> Result<Vec<PptFile>, AppleError> {
+    /// Decks in the server's watched folders by title, hymn number or slide text, best match
+    /// first. `folder_id` narrows to one folder; `limit` is 5 when absent.
+    pub async fn ppt_files(
+        &self,
+        filter: String,
+        folder_id: Option<String>,
+        limit: Option<u32>,
+    ) -> Result<Vec<PptFile>, AppleError> {
+        let folder_id = folder_id.map(|id| parse_id(&id)).transpose()?;
         let client = self.client.clone();
-        self.run(async move { client.ppt_files(&filter).await })
+        self.run(async move { client.ppt_files(&filter, folder_id, limit).await })
             .await
     }
 
@@ -2943,6 +2972,9 @@ impl From<ServerEvent> for AppleEvent {
             },
             ServerEvent::TranscriptionCredit { credit } => Self::TranscriptionCredit {
                 credit: credit.into(),
+            },
+            ServerEvent::PptIndexState { indexing, pending } => Self::SlideIndexState {
+                pending: if indexing { pending.max(1) } else { 0 },
             },
             ServerEvent::TranscriptCleanupState { progress } => Self::TranscriptCleanup {
                 session_id: progress.session_id.to_string(),
