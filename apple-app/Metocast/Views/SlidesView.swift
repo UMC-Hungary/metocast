@@ -86,12 +86,6 @@ struct DeckList: View {
                     .lineLimit(1)
             }
             Spacer()
-            if let number = file.number {
-                Text(number, format: .number.grouping(.never))
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-                    .accessibilityLabel("Hymn \(number)")
-            }
             if isOpen {
                 Image(systemName: "play.fill")
                     .foregroundStyle(.tint)

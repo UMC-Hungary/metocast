@@ -43,10 +43,16 @@ the file, and a folder that becomes unreadable or readable again.
 - **Presentation** and the Order of Service's **Song…** picker share the library list.
 - Type in the search field at the top of the list (on the iPhone, the search bar).
 - The folder menu in the toolbar picks a folder and adds or removes watched folders.
-- A row shows the title with the matched words highlighted, the hymn number on the right, and
-  the matching slide text when the lyrics matched.
+- A row shows the title with the matched words highlighted and the matching slide text when
+  the lyrics matched.
 - While the server indexes, a pulsing magnifier shows in the toolbar beside the bell. On the Mac,
   hover over it for the deck count; on the iPhone, tap it.
+
+![Searching "hala" on the iPhone: two title matches, then a lyric match with its slide text](../images/slide-library/iphone-search.png)
+
+![The indexing icon in the iPhone toolbar, beside the bell](../images/slide-library/iphone-indexing.png)
+
+![The indexing icon in the Mac toolbar, before the bell](../images/slide-library/mac-indexing.png)
 
 **Sanctum**
 

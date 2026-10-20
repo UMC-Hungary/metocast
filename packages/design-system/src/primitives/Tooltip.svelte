@@ -50,6 +50,8 @@
     transform: translateX(-50%);
     z-index: var(--z-tooltip);
     display: none;
+    /* Sized by its text, not by the (often icon-sized) anchor; max-width still wraps long text. */
+    width: max-content;
     max-width: var(--c-tooltip-max-width);
     padding: var(--c-tooltip-padding-block) var(--c-tooltip-padding-inline);
     background: var(--surface-inverse);

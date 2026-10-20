@@ -78,7 +78,6 @@
       {#each files as file, index (file.id)}
         <Row
           meta={folderName(file.folderId)}
-          detail={file.number === null ? '' : String(file.number)}
           current={file.path === openPath ? 'true' : false}
           last={index === files.length - 1}
           onclick={() => onpick(file)}
