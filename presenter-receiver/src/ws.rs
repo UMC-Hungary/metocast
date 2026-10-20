@@ -4,7 +4,10 @@ use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use tokio_tungstenite::{connect_async, tungstenite::Message};
+use tokio_tungstenite::{
+    connect_async_with_config,
+    tungstenite::{Message, protocol::WebSocketConfig},
+};
 
 // ── Message types from the server ────────────────────────────────────────────
 
@@ -147,13 +150,25 @@ pub struct DisplayDims {
 
 // ── Internal connection loop ──────────────────────────────────────────────────
 
+/// Matches `MAX_WS_MESSAGE_BYTES` in metocast-core: a deck with photos arrives as one
+/// `presenter.state` message larger than tungstenite's default 16 MiB frame limit.
+const MAX_WS_MESSAGE_BYTES: usize = 64 << 20;
+
+fn websocket_config() -> WebSocketConfig {
+    WebSocketConfig {
+        max_message_size: Some(MAX_WS_MESSAGE_BYTES),
+        max_frame_size: Some(MAX_WS_MESSAGE_BYTES),
+        ..WebSocketConfig::default()
+    }
+}
+
 async fn connect_and_receive(
     url: &str,
     tx: &std::sync::mpsc::Sender<Frame>,
     dims: DisplayDims,
     conn_state: Arc<Mutex<ConnectionState>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let (ws_stream, _) = connect_async(url).await?;
+    let (ws_stream, _) = connect_async_with_config(url, Some(websocket_config()), false).await?;
     *conn_state.lock().unwrap() = ConnectionState::Connected;
     eprintln!("[ws] Connected.");
 

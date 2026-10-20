@@ -20,14 +20,14 @@ use metocast_core::{
         ApplicationLog, BibleSuggestion, BroadlinkCommand, CronJob, CronJobDraft, QueueJob,
         QueueSummary, UntrackedRecording,
     },
-    protocol::ServerEvent,
+    protocol::{MAX_WS_MESSAGE_BYTES, ServerEvent},
     recordings::{FlagUpload, FlagUploadItem, Recording},
     slides::{CreateSongSlides, EventSlides, PptEnvelope, PptFile, PptFolder, SongSlides},
 };
 use reqwest::{StatusCode, Url};
 use serde::{Serialize, de::DeserializeOwned};
 use tokio::sync::{broadcast, mpsc, watch};
-use tokio_tungstenite::tungstenite::Message;
+use tokio_tungstenite::tungstenite::{Message, protocol::WebSocketConfig};
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -918,7 +918,11 @@ async fn run_websocket(
             ConnectionState::Connecting
         });
         let socket = tokio::select! {
-            socket = tokio_tungstenite::connect_async(url.as_str()) => socket,
+            socket = tokio_tungstenite::connect_async_with_config(
+                url.as_str(),
+                Some(websocket_config()),
+                false,
+            ) => socket,
             _ = shutdown.changed() => {
                 break;
             }
@@ -955,7 +959,11 @@ async fn run_websocket(
                         Some(Ok(Message::Ping(payload))) => {
                             if sink.send(Message::Pong(payload)).await.is_err() { break; }
                         }
-                        Some(Ok(Message::Close(_))) | Some(Err(_)) | None => break,
+                        Some(Err(error)) => {
+                            tracing::warn!(%error, "WebSocket connection to the server dropped");
+                            break;
+                        }
+                        Some(Ok(Message::Close(_))) | None => break,
                         _ => {}
                     }
                 }
@@ -969,6 +977,15 @@ async fn run_websocket(
         reconnecting = true;
     }
     state.send_replace(ConnectionState::Closed);
+}
+
+/// tungstenite's default 16 MiB frame limit is smaller than a web presenter deck with photos.
+fn websocket_config() -> WebSocketConfig {
+    WebSocketConfig {
+        max_message_size: Some(MAX_WS_MESSAGE_BYTES),
+        max_frame_size: Some(MAX_WS_MESSAGE_BYTES),
+        ..WebSocketConfig::default()
+    }
 }
 
 /// The server pings with `pingId` but reads the reply's field as `ping_id`.
