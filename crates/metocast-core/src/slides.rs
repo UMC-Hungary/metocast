@@ -8,7 +8,8 @@ pub struct PptEnvelope<T> {
     pub data: T,
 }
 
-/// One file from `GET /api/ppt/files`.
+/// One deck from `GET /api/ppt/files`. The search fields default, so an older server's
+/// answer (file names only) still reads.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PptFile {
@@ -16,6 +17,36 @@ pub struct PptFile {
     pub name: String,
     pub path: String,
     pub folder_id: String,
+    /// The file name without its extension.
+    #[serde(default)]
+    pub title: String,
+    /// The hymn number, from the last "(47)" in the title.
+    #[serde(default)]
+    pub number: Option<i32>,
+    /// Why the deck matched; absent when nothing was searched for.
+    #[serde(default)]
+    pub matched_in: Option<DeckMatch>,
+    #[serde(default)]
+    pub title_parts: Vec<HighlightPart>,
+    /// Slide text around the match; empty unless `matched_in` is `Text`.
+    #[serde(default)]
+    pub snippet_parts: Vec<HighlightPart>,
+}
+
+/// What a search matched in a deck.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DeckMatch {
+    Number,
+    Title,
+    Text,
+}
+
+/// A run of text in a search result; `hit` marks the words the search matched.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HighlightPart {
+    pub text: String,
+    pub hit: bool,
 }
 
 /// One watched folder from `GET /api/ppt/folders`.
@@ -62,6 +93,14 @@ mod tests {
         )
         .unwrap();
         assert_eq!(files.data[0].folder_id, "f1");
+
+        let hits: PptEnvelope<Vec<PptFile>> = serde_json::from_str(
+            r#"{"success":true,"data":[{"id":"a1","name":"Hála (47).pptx","path":"/Decks/Hála (47).pptx","folderId":"f1","title":"Hála (47)","number":47,"matchedIn":"text","titleParts":[{"text":"Hála (47)","hit":false}],"snippetParts":[{"text":"ki ","hit":false},{"text":"hálát","hit":true}]}]}"#,
+        )
+        .unwrap();
+        assert_eq!(hits.data[0].number, Some(47));
+        assert_eq!(hits.data[0].matched_in, Some(DeckMatch::Text));
+        assert!(hits.data[0].snippet_parts[1].hit);
 
         let folders: PptEnvelope<Vec<PptFolder>> = serde_json::from_str(
             r#"{"success":true,"data":[{"id":"6f2c1f8e-9a3e-4a8b-9f6e-2d8a1b7c3e10","path":"/Decks","name":"Decks","sortOrder":0}]}"#,

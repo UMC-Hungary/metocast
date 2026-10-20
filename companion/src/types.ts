@@ -33,11 +33,24 @@ export interface PptFolder {
 	name: string
 }
 
+export interface HighlightPart {
+	text: string
+	hit: boolean
+}
+
 export interface PptFile {
 	id: string
 	name: string
 	path: string
 	folderId: string
+	/** The file name without its extension; absent from servers before the search index. */
+	title?: string
+	/** The hymn number, from the last "(47)" in the title. */
+	number?: number | null
+	/** Why the deck matched; null when nothing was searched for. */
+	matchedIn?: 'number' | 'title' | 'text' | null
+	titleParts?: HighlightPart[]
+	snippetParts?: HighlightPart[]
 }
 
 export interface PptFilesResponse {

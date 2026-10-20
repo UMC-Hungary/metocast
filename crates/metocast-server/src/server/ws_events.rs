@@ -137,6 +137,11 @@ pub const EVENTS: &[Event] = &[
     ),
     ("ppt.folders_changed", "The slide folders list changed", &[]),
     (
+        "ppt.index.state",
+        "The slide library index started or finished parsing decks; also sent on connect",
+        &[("indexing", "boolean"), ("pending", "integer")],
+    ),
+    (
         "ppt.search_results",
         "Reply to `ppt.search`",
         &[("files", "array"), ("filter", "string")],

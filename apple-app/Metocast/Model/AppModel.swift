@@ -35,6 +35,11 @@ final class AppModel {
 
     var unreadCount: Int { activity.count { !$0.isRead } }
 
+    /// Decks the server is parsing into the slide search index, or nil when it is not indexing.
+    var slideIndexPending: UInt32? {
+        session.flatMap { $0.slideIndexPending > 0 ? $0.slideIndexPending : nil }
+    }
+
     /// Reconnects to whatever this device was set up for.
     func resume() async {
         guard session == nil else { return }

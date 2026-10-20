@@ -72,7 +72,8 @@ button: every change is saved at once.
   - use **Previous Step** / **Next Step**.
   - The Dashboard's Presentation card links there.
 - **Presentation** is the slide library:
-  - every deck in the watched folders, with search and a folder filter;
+  - every deck in the watched folders, with search by title, hymn number or lyrics and a
+    folder filter (see [Slide library search](slide-library.md));
   - one click opens a deck;
   - the folder menu adds and removes watched folders.
   - With the web presenter, the sidebar (on the iPhone, the top of the page) switches between
@@ -138,5 +139,6 @@ Notes:
   slides comes to under half a megabyte. Only decks with very many distinct pictures still
   reach the limit; shrink those in PowerPoint with _Picture Format → Compress Pictures_.
 
-The slide library uses the existing `GET /api/ppt/files`, `GET/POST /api/ppt/folders` and
-`DELETE /api/ppt/folders/{id}`.
+The slide library uses `GET /api/ppt/files`, `GET/POST /api/ppt/folders` and
+`DELETE /api/ppt/folders/{id}`; [Slide library search](slide-library.md) describes the search
+and its index.
