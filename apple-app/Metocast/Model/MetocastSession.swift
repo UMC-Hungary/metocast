@@ -39,6 +39,8 @@ final class MetocastSession {
     private(set) var transcription: TranscriptionRecord?
     private(set) var transcriptLine = ""
     private(set) var transcriptCredit: CreditRecord?
+    /// The latest step of a stored transcript's AI clean-up.
+    private(set) var transcriptCleanup: TranscriptCleanup?
     /// Why the server turned down the last transcript start; the next start clears it.
     private(set) var transcriptRefusal: String?
     private(set) var camera: CameraState?
@@ -320,6 +322,21 @@ final class MetocastSession {
         try await client.bibleSuggestions(term: term)
     }
 
+    /// Stored live transcripts, newest first.
+    func transcripts() async throws -> [StoredTranscriptRecord] { try await client.transcripts() }
+
+    func transcript(id: String) async throws -> TranscriptDetailRecord { try await client.transcript(id: id) }
+
+    func deleteTranscript(id: String) async throws { try await client.deleteTranscript(id: id) }
+
+    /// The file's text; `format` is `txt`, `srt` or `vtt`.
+    func downloadTranscript(id: String, format: String, clean: Bool) async throws -> String {
+        try await client.downloadTranscript(id: id, format: format, clean: clean)
+    }
+
+    /// Starts the OpenAI clean-up; its steps arrive in `transcriptCleanup`.
+    func cleanupTranscript(id: String) async throws { try await client.cleanupTranscript(id: id) }
+
     /// The core's own log; only a core inside the desktop app has one.
     func applicationLog() async throws -> String { try await client.applicationLog() }
 
@@ -592,6 +609,8 @@ final class MetocastSession {
             transcriptLine = text
         case .event(.transcriptionCredit(let credit)):
             transcriptCredit = credit
+        case .event(.transcriptCleanup(let sessionId, let state, let progress, let error)):
+            transcriptCleanup = TranscriptCleanup(sessionId: sessionId, state: state, progress: progress, error: error)
         case .event(.cameraState(let streaming, let recording, let status)):
             camera = CameraState(streaming: streaming, recording: recording, streamStatus: status)
         case .event(.deviceAlerts(let listeners)):
@@ -795,4 +814,12 @@ struct DiscoverySnapshot {
 struct DiscoveryFailure: LocalizedError {
     var message: String
     var errorDescription: String? { message }
+}
+
+/// One step of a stored transcript's AI clean-up: `running`, `succeeded` or `failed`.
+struct TranscriptCleanup: Equatable {
+    let sessionId: String
+    let state: String
+    let progress: Double
+    let error: String?
 }

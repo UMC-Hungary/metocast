@@ -8,6 +8,7 @@
 pub mod audio;
 pub mod captions_job;
 mod credit;
+pub mod library;
 mod youtube_captions;
 
 use metocast_core::best_effort::LogGone;

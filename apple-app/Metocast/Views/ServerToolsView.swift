@@ -11,10 +11,11 @@ struct ServerToolsView: View {
             Section {
                 tool("Uploads", systemImage: "arrow.up.circle") { UploadsView(session: session) }
                 tool("Unassigned Recordings", systemImage: "questionmark.folder") { UntrackedRecordingsView(session: session) }
+                tool("Transcripts", systemImage: "captions.bubble") { TranscriptsView(session: session) }
             } header: {
                 Text("Recordings")
             } footer: {
-                Text("Uploads and other background work, and recordings that belong to no event yet.")
+                Text("Uploads and other background work, recordings that belong to no event yet, and the stored English transcripts.")
             }
             Section {
                 tool("Caption Overlay", systemImage: "text.below.photo") { CaptionOverlayView(session: session) }

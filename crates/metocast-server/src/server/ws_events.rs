@@ -198,6 +198,16 @@ pub const EVENTS: &[Event] = &[
         &[("state", "object?")],
     ),
     (
+        "transcript.cleanup.state",
+        "A stored transcript's AI clean-up ran a step, finished or failed",
+        &[
+            ("sessionId", "uuid"),
+            ("state", "string"),
+            ("progress", "number"),
+            ("error", "string?"),
+        ],
+    ),
+    (
         "transcription.credit",
         "OpenAI credit balance for live transcription",
         &[("credit", "object")],
@@ -319,6 +329,7 @@ const NOT_MESSAGES: &[&str] = &[
     "error",
     "http",
     "integer",
+    "json_schema",
     "null",
     "number",
     "object",

@@ -477,6 +477,12 @@ pub enum ServerEvent {
     TranscriptionCredit {
         credit: crate::transcription::CreditStatus,
     },
+    /// A stored transcript's AI clean-up ran a step, finished or failed.
+    #[serde(rename = "transcript.cleanup.state")]
+    TranscriptCleanupState {
+        #[serde(flatten)]
+        progress: crate::transcription::CleanupProgress,
+    },
     #[serde(rename = "ping")]
     Ping {
         #[serde(rename = "pingId")]

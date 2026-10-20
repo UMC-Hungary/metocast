@@ -172,6 +172,7 @@ Connect to `ws://<host>/ws?token=<token>`. Send `{"type": "<command>", …fields
 | `rodecaster.audio.discovery` | Reply to `rodecaster.audio.discover` | `discovery` object |
 | `rodecaster.mute` | A RØDECaster channel was muted or unmuted | `channel` integer, `label` string, `muted` boolean, `remote` boolean, `notify` boolean |
 | `rodecaster.record.state` | The RØDECaster desk recorder state | `state` object? |
+| `transcript.cleanup.state` | A stored transcript's AI clean-up ran a step, finished or failed | `sessionId` uuid, `state` string, `progress` number, `error` string? |
 | `transcription.credit` | OpenAI credit balance for live transcription | `credit` object |
 | `transcription.partial` | A live transcript line still being spoken | `text` string |
 | `transcription.segment` | A finished live transcript line | `segment` object |

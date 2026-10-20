@@ -52,6 +52,42 @@ export const CaptionsJobStateSchema = z.object({
   error: z.string().nullable(),
 });
 
+export const CleanupStatusSchema = z.enum(['none', 'running', 'succeeded', 'failed']);
+
+/** One stored live-transcript session, as `GET /api/transcripts` lists it. */
+export const StoredTranscriptSchema = z.object({
+  id: z.string().uuid(),
+  eventId: z.string().uuid().nullable(),
+  eventTitle: z.string().nullable(),
+  startedAt: z.string(),
+  /** Null while it runs, or when the server stopped without closing it. */
+  endedAt: z.string().nullable(),
+  status: z.string(),
+  /** The session the live transcript is writing to now. */
+  live: z.boolean(),
+  durationSeconds: z.number(),
+  segmentCount: z.number().int(),
+  cleanupStatus: CleanupStatusSchema,
+  cleanupError: z.string().nullable(),
+});
+
+export const StoredSegmentSchema = TranscriptSegmentSchema.extend({
+  /** The AI clean-up's version; empty when it dropped the line as filler. */
+  cleanText: z.string().nullable(),
+});
+
+export const TranscriptDetailSchema = z.object({
+  transcript: StoredTranscriptSchema,
+  segments: z.array(StoredSegmentSchema),
+});
+
+export const CleanupProgressSchema = z.object({
+  sessionId: z.string().uuid(),
+  state: CleanupStatusSchema,
+  progress: z.number(),
+  error: z.string().nullable(),
+});
+
 /** Every `transcription.*` broadcast, for a page that listens to nothing else. */
 export const TranscriptMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('transcription.state'), state: TranscriptionStateSchema }),
@@ -74,3 +110,8 @@ export type CreditStatus = z.infer<typeof CreditStatusSchema>;
 export type OpenAiVerifyResult = z.infer<typeof OpenAiVerifyResultSchema>;
 export type CaptionsJobState = z.infer<typeof CaptionsJobStateSchema>;
 export type TranscriptMessage = z.infer<typeof TranscriptMessageSchema>;
+export type CleanupStatus = z.infer<typeof CleanupStatusSchema>;
+export type StoredTranscript = z.infer<typeof StoredTranscriptSchema>;
+export type StoredSegment = z.infer<typeof StoredSegmentSchema>;
+export type TranscriptDetail = z.infer<typeof TranscriptDetailSchema>;
+export type CleanupProgress = z.infer<typeof CleanupProgressSchema>;
