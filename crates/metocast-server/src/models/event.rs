@@ -168,7 +168,10 @@ pub async fn fetch_event_summaries(pool: &PgPool) -> Result<Vec<EventSummary>, s
     .fetch_all(pool)
     .await?
     {
-        connections.entry(row.event_id).or_default().push(row.connection.into());
+        connections
+            .entry(row.event_id)
+            .or_default()
+            .push(row.connection.into());
     }
     Ok(rows
         .into_iter()
