@@ -76,6 +76,18 @@ export async function apiFetch<S extends z.ZodType>(
   return schema.parse(data) as z.infer<S>;
 }
 
+/** A non-JSON body, such as a transcript download, as text. */
+export async function apiFetchText(path: string): Promise<string> {
+  const token = await waitForToken();
+  const res = await fetchWhenServerUp(`${coreConfig().serverUrl}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    throw new ApiError(res.status, `API error ${res.status}: ${await res.text()}`);
+  }
+  return res.text();
+}
+
 /** Outcome of probing a core the UI is not yet configured against. */
 export type CoreProbe =
   | { ok: true }

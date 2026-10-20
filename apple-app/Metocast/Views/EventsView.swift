@@ -94,7 +94,7 @@ struct EventDetailView: View {
                 if !event.connections.isEmpty {
                     Section("Streaming") {
                         ForEach(event.connections, id: \.platform) { connection in
-                            let link = (connection.eventUrl ?? connection.streamUrl).flatMap(URL.init(string:))
+                            let link = connection.link
                             // "not_scheduled" → "Not Scheduled"
                             let status = connection.scheduleStatus.replacing("_", with: " ").localizedCapitalized
                             LabeledContent(connection.platformName) {

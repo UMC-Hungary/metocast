@@ -3,13 +3,16 @@ use quick_xml::Reader;
 use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
 use std::fs;
-use std::io::Read;
+use std::io::{Cursor, Read};
 use std::path::{Component, Path, PathBuf};
 use zip::ZipArchive;
 
 const DEFAULT_WIDTH_EMU: i64 = 9_144_000;
 const DEFAULT_HEIGHT_EMU: i64 = 6_858_000;
 const EMU_PER_PT: f64 = 12_700.0;
+/// Pictures at most this large are inlined as they are: re-encoding them saves too little.
+const KEEP_MEDIA_BYTES: usize = 64 * 1024;
+const MEDIA_JPEG_QUALITY: u8 = 85;
 
 #[derive(Clone, Debug)]
 struct Theme {
@@ -222,7 +225,7 @@ pub fn convert_pptx_to_inline_svg(
         .map(|bytes| parse_slide_size(&bytes).unwrap_or((DEFAULT_WIDTH_EMU, DEFAULT_HEIGHT_EMU)))
         .unwrap_or((DEFAULT_WIDTH_EMU, DEFAULT_HEIGHT_EMU));
     let (width_px, height_px) = svg_pixel_size(width, height);
-    let media_data_uris = read_media_data_uris(&mut archive)?;
+    let media_data_uris = read_media_data_uris(&mut archive, width_px, height_px)?;
     let slide_names = slide_entry_names(&mut archive)?;
 
     let flatten_options = build_flatten_options();
@@ -252,6 +255,8 @@ pub fn convert_pptx_to_inline_svg(
 }
 fn read_media_data_uris(
     archive: &mut ZipArchive<fs::File>,
+    max_width: u32,
+    max_height: u32,
 ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
     let mut media = HashMap::new();
     for i in 0..archive.len() {
@@ -266,12 +271,77 @@ fn read_media_data_uris(
         };
         let mut bytes = Vec::new();
         entry.read_to_end(&mut bytes)?;
+        let (mime, bytes) = shrink_media(&name, mime, bytes, max_width, max_height);
         media.insert(
             name,
             format!("data:{mime};base64,{}", BASE64_STANDARD.encode(bytes)),
         );
     }
     Ok(media)
+}
+
+/// Every picture is inlined into each slide that shows it, and the whole deck travels to every
+/// device as one WebSocket message, so a camera photo must not go out at full size. No picture
+/// needs more pixels than the slide it is drawn on: scale it down to fit the slide, and store an
+/// opaque one as JPEG. The original is kept when it is small, cannot be decoded, is a GIF (which
+/// may be animated) or an SVG, or when the result would not be smaller.
+fn shrink_media(
+    name: &str,
+    mime: &'static str,
+    bytes: Vec<u8>,
+    max_width: u32,
+    max_height: u32,
+) -> (&'static str, Vec<u8>) {
+    let format = match mime {
+        "image/png" => image::ImageFormat::Png,
+        "image/jpeg" => image::ImageFormat::Jpeg,
+        "image/bmp" => image::ImageFormat::Bmp,
+        "image/webp" => image::ImageFormat::WebP,
+        _ => return (mime, bytes),
+    };
+    if bytes.len() <= KEEP_MEDIA_BYTES {
+        return (mime, bytes);
+    }
+    let decoded = match image::load_from_memory_with_format(&bytes, format) {
+        Ok(decoded) => decoded,
+        Err(err) => {
+            eprintln!("[svg-gen] cannot decode {name}, inlining it unchanged: {err}");
+            return (mime, bytes);
+        }
+    };
+    let fitted = if decoded.width() > max_width || decoded.height() > max_height {
+        decoded.resize(
+            max_width,
+            max_height,
+            image::imageops::FilterType::CatmullRom,
+        )
+    } else {
+        decoded
+    };
+
+    let encoded = if is_opaque(&fitted) {
+        let mut out = Vec::new();
+        image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, MEDIA_JPEG_QUALITY)
+            .encode_image(&fitted.to_rgb8())
+            .map(|()| ("image/jpeg", out))
+    } else {
+        let mut out = Cursor::new(Vec::new());
+        fitted
+            .write_to(&mut out, image::ImageFormat::Png)
+            .map(|()| ("image/png", out.into_inner()))
+    };
+    match encoded {
+        Ok((new_mime, new_bytes)) if new_bytes.len() < bytes.len() => (new_mime, new_bytes),
+        Ok(_) => (mime, bytes),
+        Err(err) => {
+            eprintln!("[svg-gen] cannot re-encode {name}, inlining it unchanged: {err}");
+            (mime, bytes)
+        }
+    }
+}
+
+fn is_opaque(image: &image::DynamicImage) -> bool {
+    !image.color().has_alpha() || image.to_rgba8().pixels().all(|pixel| pixel.0[3] == u8::MAX)
 }
 
 fn mime_for_zip_path(path: &str) -> Option<&'static str> {
@@ -1236,5 +1306,143 @@ mod tests {
         let items = parse_slide(slide, &HashMap::new(), &Theme::default(), None).unwrap();
 
         assert!(items.is_empty(), "{items:#?}");
+    }
+
+    /// A photo-like picture: smooth colour with grain, which PNG cannot compress well.
+    fn photo(width: u32, height: u32, alpha: u8) -> image::RgbaImage {
+        let mut seed = 0x2545_f491_u32;
+        image::RgbaImage::from_fn(width, height, |x, y| {
+            seed ^= seed << 13;
+            seed ^= seed >> 17;
+            seed ^= seed << 5;
+            let grain = (seed % 24) as u8;
+            image::Rgba([
+                ((x * 255 / width) as u8).saturating_add(grain),
+                ((y * 255 / height) as u8).saturating_add(grain),
+                (((x + y) * 127 / (width + height)) as u8).saturating_add(grain),
+                alpha,
+            ])
+        })
+    }
+
+    fn png_bytes(image: &image::RgbaImage) -> Vec<u8> {
+        let mut out = Cursor::new(Vec::new());
+        image.write_to(&mut out, image::ImageFormat::Png).unwrap();
+        out.into_inner()
+    }
+
+    #[test]
+    fn large_opaque_picture_is_scaled_to_the_slide_and_stored_as_jpeg() {
+        let original = png_bytes(&photo(2400, 1800, u8::MAX));
+
+        let (mime, bytes) = shrink_media(
+            "ppt/media/image1.png",
+            "image/png",
+            original.clone(),
+            1280,
+            720,
+        );
+
+        assert_eq!(mime, "image/jpeg");
+        assert!(
+            bytes.len() < original.len() / 4,
+            "{} -> {}",
+            original.len(),
+            bytes.len()
+        );
+        let shrunk = image::load_from_memory(&bytes).unwrap();
+        assert_eq!((shrunk.width(), shrunk.height()), (960, 720));
+    }
+
+    #[test]
+    fn transparent_picture_stays_png() {
+        let original = png_bytes(&photo(2400, 1800, 128));
+
+        let (mime, bytes) = shrink_media(
+            "ppt/media/image1.png",
+            "image/png",
+            original.clone(),
+            1280,
+            720,
+        );
+
+        assert_eq!(mime, "image/png");
+        let shrunk = image::load_from_memory(&bytes).unwrap();
+        assert_eq!((shrunk.width(), shrunk.height()), (960, 720));
+        assert!(shrunk.color().has_alpha());
+    }
+
+    #[test]
+    fn small_or_undecodable_pictures_are_kept() {
+        let small = png_bytes(&photo(40, 30, u8::MAX));
+        assert_eq!(
+            shrink_media("ppt/media/a.png", "image/png", small.clone(), 1280, 720),
+            ("image/png", small)
+        );
+
+        let garbage = vec![7_u8; KEEP_MEDIA_BYTES + 1];
+        assert_eq!(
+            shrink_media("ppt/media/b.png", "image/png", garbage.clone(), 1280, 720),
+            ("image/png", garbage)
+        );
+    }
+
+    /// The deck that motivated shrinking: one big photo shown on four slides.
+    #[test]
+    fn deck_with_one_photo_on_several_slides_stays_small() {
+        use std::io::Write as _;
+
+        let photo_png = png_bytes(&photo(3000, 2000, u8::MAX));
+        assert!(
+            photo_png.len() > 2 << 20,
+            "fixture photo is {} bytes",
+            photo_png.len()
+        );
+
+        let dir = std::env::temp_dir().join(format!("metocast-svg-media-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("photo-deck.pptx");
+        let mut zip = zip::ZipWriter::new(fs::File::create(&path).unwrap());
+        let options = zip::write::SimpleFileOptions::default();
+        zip.start_file("ppt/presentation.xml", options).unwrap();
+        zip.write_all(
+            br#"<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:sldSz cx="12192000" cy="6858000"/></p:presentation>"#,
+        )
+        .unwrap();
+        zip.start_file("ppt/media/image1.png", options).unwrap();
+        zip.write_all(&photo_png).unwrap();
+        for n in 1..=4 {
+            zip.start_file(format!("ppt/slides/slide{n}.xml"), options)
+                .unwrap();
+            zip.write_all(
+                br#"<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><p:cSld><p:spTree><p:pic><p:blipFill><a:blip r:embed="rId2"/></p:blipFill><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="12192000" cy="6858000"/></a:xfrm></p:spPr></p:pic></p:spTree></p:cSld></p:sld>"#,
+            )
+            .unwrap();
+            zip.start_file(format!("ppt/slides/_rels/slide{n}.xml.rels"), options)
+                .unwrap();
+            zip.write_all(
+                br#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/></Relationships>"#,
+            )
+            .unwrap();
+        }
+        zip.finish().unwrap();
+
+        let deck = convert_pptx_to_inline_svg(&path).unwrap();
+        metocast_core::best_effort::remove_dir_all_if_present(&dir);
+
+        assert_eq!(deck.slides.len(), 4);
+        let total: usize = deck.slides.iter().map(|slide| slide.svg.len()).sum();
+        for slide in &deck.slides {
+            assert!(
+                slide.svg.contains("data:image/jpeg;base64,"),
+                "slide {}",
+                slide.index
+            );
+        }
+        assert!(
+            total < 2 << 20,
+            "4 slides of a {} byte photo came to {total} bytes",
+            photo_png.len()
+        );
     }
 }

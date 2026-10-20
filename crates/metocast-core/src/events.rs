@@ -102,6 +102,9 @@ pub struct EventSummary {
     pub created_at: DateTime<Utc>,
     #[serde(alias = "updated_at")]
     pub updated_at: DateTime<Utc>,
+    /// Its YouTube and Facebook broadcasts, so a list can link them without loading each event.
+    #[serde(default)]
+    pub connections: Vec<EventConnection>,
 }
 
 pub fn current_event(events: &[EventSummary], now: DateTime<Utc>) -> Option<&EventSummary> {
@@ -191,6 +194,7 @@ mod tests {
             is_completed: false,
             created_at: timestamp,
             updated_at: timestamp,
+            connections: Vec::new(),
         };
         let value = serde_json::to_value(event).unwrap();
         assert_eq!(value["recordingCount"], 0);

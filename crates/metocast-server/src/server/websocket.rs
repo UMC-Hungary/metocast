@@ -700,17 +700,7 @@ pub(crate) async fn open_presentation(
 ) {
     if state.use_web_presenter.load(Ordering::Relaxed) {
         let mode = render_mode.unwrap_or(presenter::PresenterRenderMode::Svg);
-        let result =
-            tokio::task::spawn_blocking(move || presenter::load_pptx(&file_path, mode)).await;
-        match result {
-            Ok(Ok(new_state)) => {
-                *state.presenter_state.write().await = new_state;
-                broadcast_presenter_state(&state.ws_clients, &*state.presenter_state.read().await)
-                    .await;
-            }
-            Ok(Err(e)) => ws_error(client_tx, &e),
-            Err(e) => ws_error(client_tx, &e.to_string()),
-        }
+        load_presenter_deck(state, file_path, mode, client_tx).await;
     } else {
         #[cfg(target_os = "macos")]
         {
@@ -720,6 +710,34 @@ pub(crate) async fn open_presentation(
         }
     }
     broadcast_presentation_status(&state.ws_clients, state).await;
+}
+
+/// Parses a deck for the web presenter and shows it on every client. A deck that cannot be
+/// shown, even one that panics the parser, leaves the current deck on screen, is logged, and
+/// is reported to the client that asked for it.
+async fn load_presenter_deck(
+    state: &AppState,
+    file_path: String,
+    mode: presenter::PresenterRenderMode,
+    client_tx: &mpsc::UnboundedSender<Message>,
+) {
+    let path = file_path.clone();
+    let result = tokio::task::spawn_blocking(move || presenter::load_pptx(&path, mode)).await;
+    let error = match result {
+        Ok(Ok(new_state)) => {
+            *state.presenter_state.write().await = new_state;
+            broadcast_presenter_state(&state.ws_clients, &*state.presenter_state.read().await)
+                .await;
+            return;
+        }
+        Ok(Err(error)) => error,
+        Err(join_error) => {
+            tracing::error!(%join_error, file_path, "The presentation parser crashed");
+            "The presentation could not be opened: reading it crashed the parser.".to_string()
+        }
+    };
+    tracing::warn!(%error, file_path, "The web presenter could not open a presentation");
+    ws_error(client_tx, &error);
 }
 
 pub(crate) async fn broadcast_json(
@@ -1260,20 +1278,7 @@ async fn handle_ws_command(
             render_mode,
         } => {
             let mode = render_mode.unwrap_or(presenter::PresenterRenderMode::Text);
-            let result =
-                tokio::task::spawn_blocking(move || presenter::load_pptx(&file_path, mode)).await;
-            match result {
-                Ok(Ok(new_state)) => {
-                    *state.presenter_state.write().await = new_state;
-                    broadcast_presenter_state(
-                        &state.ws_clients,
-                        &*state.presenter_state.read().await,
-                    )
-                    .await;
-                }
-                Ok(Err(e)) => ws_error(client_tx, &e),
-                Err(e) => ws_error(client_tx, &e.to_string()),
-            }
+            load_presenter_deck(state, file_path, mode, client_tx).await;
             broadcast_presentation_status(&state.ws_clients, state).await;
         }
         WsCommand::PresenterLoadBibleReference {

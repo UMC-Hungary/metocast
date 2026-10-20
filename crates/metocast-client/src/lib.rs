@@ -20,14 +20,15 @@ use metocast_core::{
         ApplicationLog, BibleSuggestion, BroadlinkCommand, CronJob, CronJobDraft, QueueJob,
         QueueSummary, UntrackedRecording,
     },
-    protocol::ServerEvent,
+    protocol::{MAX_WS_MESSAGE_BYTES, ServerEvent},
     recordings::{FlagUpload, FlagUploadItem, Recording},
     slides::{CreateSongSlides, EventSlides, PptEnvelope, PptFile, PptFolder, SongSlides},
+    transcription::{CleanupProgress, StoredTranscript, TranscriptDetail},
 };
 use reqwest::{StatusCode, Url};
 use serde::{Serialize, de::DeserializeOwned};
 use tokio::sync::{broadcast, mpsc, watch};
-use tokio_tungstenite::tungstenite::Message;
+use tokio_tungstenite::tungstenite::{Message, protocol::WebSocketConfig};
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -660,6 +661,49 @@ impl MetocastClient {
         self.get_json("api/logs").await
     }
 
+    // ── Transcript library ───────────────────────────────────────────────────
+
+    /// Stored live transcripts, newest first.
+    pub async fn transcripts(&self) -> Result<Vec<StoredTranscript>, ClientError> {
+        self.get_json("api/transcripts").await
+    }
+
+    pub async fn transcript(&self, id: Uuid) -> Result<TranscriptDetail, ClientError> {
+        self.get_json(&format!("api/transcripts/{id}")).await
+    }
+
+    /// Refused while it is live or being cleaned up.
+    pub async fn delete_transcript(&self, id: Uuid) -> Result<(), ClientError> {
+        self.delete(&format!("api/transcripts/{id}")).await
+    }
+
+    /// The file's text: `format` is `txt`, `srt` or `vtt`; `clean` takes the AI-cleaned lines.
+    pub async fn download_transcript(
+        &self,
+        id: Uuid,
+        format: &str,
+        clean: bool,
+    ) -> Result<String, ClientError> {
+        let mut url = self
+            .config
+            .endpoint(&format!("api/transcripts/{id}/download"))?;
+        url.query_pairs_mut()
+            .append_pair("format", format)
+            .append_pair("clean", if clean { "true" } else { "false" });
+        let response = self
+            .response(self.http.get(url).bearer_auth(self.config.token.expose()))
+            .await?;
+        Ok(response.text().await?)
+    }
+
+    /// Starts the OpenAI clean-up; progress arrives as `transcript.cleanup.state`.
+    pub async fn cleanup_transcript(&self, id: Uuid) -> Result<CleanupProgress, ClientError> {
+        let url = self
+            .config
+            .endpoint(&format!("api/transcripts/{id}/cleanup"))?;
+        self.send_json(self.http.post(url)).await
+    }
+
     async fn delete(&self, path: &str) -> Result<(), ClientError> {
         let url = self.config.endpoint(path)?;
         self.response(
@@ -933,7 +977,11 @@ async fn run_websocket(
             ConnectionState::Connecting
         });
         let socket = tokio::select! {
-            socket = tokio_tungstenite::connect_async(url.as_str()) => socket,
+            socket = tokio_tungstenite::connect_async_with_config(
+                url.as_str(),
+                Some(websocket_config()),
+                false,
+            ) => socket,
             _ = shutdown.changed() => {
                 break;
             }
@@ -970,7 +1018,11 @@ async fn run_websocket(
                         Some(Ok(Message::Ping(payload))) => {
                             if sink.send(Message::Pong(payload)).await.is_err() { break; }
                         }
-                        Some(Ok(Message::Close(_))) | Some(Err(_)) | None => break,
+                        Some(Err(error)) => {
+                            tracing::warn!(%error, "WebSocket connection to the server dropped");
+                            break;
+                        }
+                        Some(Ok(Message::Close(_))) | None => break,
                         _ => {}
                     }
                 }
@@ -984,6 +1036,15 @@ async fn run_websocket(
         reconnecting = true;
     }
     state.send_replace(ConnectionState::Closed);
+}
+
+/// tungstenite's default 16 MiB frame limit is smaller than a web presenter deck with photos.
+fn websocket_config() -> WebSocketConfig {
+    WebSocketConfig {
+        max_message_size: Some(MAX_WS_MESSAGE_BYTES),
+        max_frame_size: Some(MAX_WS_MESSAGE_BYTES),
+        ..WebSocketConfig::default()
+    }
 }
 
 /// The server pings with `pingId` but reads the reply's field as `ping_id`.

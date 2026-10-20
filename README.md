@@ -495,6 +495,10 @@ the RØDECaster source.
   WebVTT is uploaded as the "English" track (`captions` job queue). Download it from
   `GET /api/recordings/{id}/captions.vtt`. Uploading captions needs the `youtube.force-ssl` scope,
   so log in to YouTube again once.
+- **Stored transcripts:** every session is kept in the database. **Settings → Server Tools →
+  Transcripts** in the Mac app, or Sanctum's `/transcripts`, lists them and reads, downloads
+  (`.txt`, `.srt`, `.vtt`) and deletes them. It can also have OpenAI clean them up after the
+  service. See [docs/features/transcripts.md](docs/features/transcripts.md).
 - **Credit:** with an optional admin key and the top-ups you entered, the dashboard shows
   "AI credit: $X.XX", in red below $5. It is computed from the Costs API.
 - **Cost:** about $0.034 per minute of audio.

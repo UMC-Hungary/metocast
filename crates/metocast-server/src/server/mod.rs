@@ -277,6 +277,9 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
     crate::automations::spawn(state.clone(), automation_jobs).await;
     crate::media::spawn_worker(state.clone());
     crate::media::spawn_camera_clip_log(state.clone());
+    if let Err(e) = crate::transcription::library::fail_interrupted(&state.pool).await {
+        tracing::error!("transcripts: cannot close interrupted clean-ups: {e}");
+    }
     crate::transcription::captions_job::spawn_worker(state.clone());
     state.transcription.spawn_watchers();
 
@@ -973,6 +976,23 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
         .route(
             "/recordings/{id}/captions.vtt",
             get(crate::transcription::captions_job::vtt_route),
+        )
+        .route(
+            "/transcripts",
+            get(crate::transcription::library::list_route),
+        )
+        .route(
+            "/transcripts/{id}",
+            get(crate::transcription::library::get_route)
+                .delete(crate::transcription::library::delete_route),
+        )
+        .route(
+            "/transcripts/{id}/download",
+            get(crate::transcription::library::download_route),
+        )
+        .route(
+            "/transcripts/{id}/cleanup",
+            post(crate::transcription::library::cleanup_route),
         )
         .merge(ppt_routes)
         .merge(keynote_routes)

@@ -149,6 +149,11 @@ export type {
 export { LOW_CREDIT_USD } from './schemas/transcription.js';
 export type {
   CaptionsJobState,
+  CleanupProgress,
+  CleanupStatus,
+  StoredSegment,
+  StoredTranscript,
+  TranscriptDetail,
   CreditStatus,
   OpenAiVerifyResult,
   TranscriptMessage,

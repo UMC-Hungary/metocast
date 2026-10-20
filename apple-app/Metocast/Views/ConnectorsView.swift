@@ -31,8 +31,8 @@ struct ConnectorsView: View {
         } label: {
             LabeledContent {
                 if let status = session.connectors[connector.id] {
-                    Label(status.status.title, systemImage: status.status.symbol)
-                        .foregroundStyle(status.status.color)
+                    Label(status.title, systemImage: status.symbol)
+                        .foregroundStyle(status.color)
                         .labelStyle(.titleAndIcon)
                         .font(.subheadline)
                 }
@@ -73,16 +73,16 @@ struct ConnectorFormView: View {
         }
     }
 
-    private var signsIn: Bool { connector == "youtube" || connector == "facebook" }
+    private var signsIn: Bool { ConnectorInfo(id: connector).signsIn }
 
     var body: some View {
         Form {
             if let status = session.connectors[connector] {
                 Section {
                     LabeledContent("State") {
-                        Text(status.status.title).foregroundStyle(status.status.color)
+                        Text(status.title).foregroundStyle(status.color)
                     }
-                    if let message = status.message, !message.isEmpty {
+                    if let message = status.detail {
                         Text(message).foregroundStyle(.secondary)
                     }
                 }

@@ -116,6 +116,93 @@ pub struct TranscriptSegment {
     pub text: String,
 }
 
+/// Where a stored transcript's AI clean-up pass stands.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum CleanupStatus {
+    #[default]
+    None,
+    Running,
+    Succeeded,
+    Failed,
+}
+
+impl CleanupStatus {
+    /// The value kept in `transcript_sessions.cleanup_status`.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Running => "running",
+            Self::Succeeded => "succeeded",
+            Self::Failed => "failed",
+        }
+    }
+
+    /// Reads the stored value; anything unknown is `None`.
+    #[must_use]
+    pub fn parse(value: &str) -> Self {
+        match value {
+            "running" => Self::Running,
+            "succeeded" => Self::Succeeded,
+            "failed" => Self::Failed,
+            _ => Self::None,
+        }
+    }
+}
+
+/// One stored live-transcript session, as the transcript library lists it.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct StoredTranscript {
+    pub id: Uuid,
+    pub event_id: Option<Uuid>,
+    pub event_title: Option<String>,
+    pub started_at: DateTime<Utc>,
+    /// `None` while it runs, or when the server stopped without closing it.
+    pub ended_at: Option<DateTime<Utc>>,
+    /// `running`, `stopped`, `stoppedOffline` or `error`, as the session ended.
+    pub status: String,
+    /// The session the live transcript is writing to right now.
+    pub live: bool,
+    /// From the start to the end, or to the last line when it has no end.
+    pub duration_seconds: f64,
+    pub segment_count: u32,
+    pub cleanup_status: CleanupStatus,
+    pub cleanup_error: Option<String>,
+}
+
+/// One committed line of a stored transcript, with its cleaned-up text when there is one.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StoredSegment {
+    pub seq: u32,
+    pub started_at: DateTime<Utc>,
+    pub ended_at: DateTime<Utc>,
+    pub text: String,
+    /// The AI clean-up's version of `text`; empty when it dropped the line as filler.
+    pub clean_text: Option<String>,
+}
+
+/// A stored transcript with every line.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TranscriptDetail {
+    pub transcript: StoredTranscript,
+    pub segments: Vec<StoredSegment>,
+}
+
+/// `transcript.cleanup.state`: a clean-up pass ran a step, finished or failed.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CleanupProgress {
+    pub session_id: Uuid,
+    pub state: CleanupStatus,
+    /// 0 to 1.
+    pub progress: f64,
+    pub error: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct CreditStatus {

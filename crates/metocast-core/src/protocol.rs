@@ -317,6 +317,11 @@ pub struct PresenterState {
     pub slide_height_emu: u64,
 }
 
+/// Largest WebSocket message the server sends and the Rust clients accept. A web presenter
+/// deck travels as one `presenter.state` message with every slide's SVG and images inlined,
+/// so this caps the size of a deck the presenter can show.
+pub const MAX_WS_MESSAGE_BYTES: usize = 64 << 20;
+
 const fn default_slide_width() -> u64 {
     12_192_000
 }
@@ -474,6 +479,12 @@ pub enum ServerEvent {
     #[serde(rename = "transcription.credit")]
     TranscriptionCredit {
         credit: crate::transcription::CreditStatus,
+    },
+    /// A stored transcript's AI clean-up ran a step, finished or failed.
+    #[serde(rename = "transcript.cleanup.state")]
+    TranscriptCleanupState {
+        #[serde(flatten)]
+        progress: crate::transcription::CleanupProgress,
     },
     #[serde(rename = "ping")]
     Ping {

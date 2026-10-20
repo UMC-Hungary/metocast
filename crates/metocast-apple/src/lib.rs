@@ -41,7 +41,7 @@ use metocast_core::{
     },
     recordings::Recording,
     slides::{CreateSongSlides, DeckMatch, HighlightPart, PptFile, SongSlides},
-    transcription::{CreditStatus, TranscriptionState, TranscriptionStatus},
+    transcription::{CreditStatus, StoredTranscript, TranscriptionState, TranscriptionStatus},
 };
 use serde::Serialize;
 
@@ -86,6 +86,7 @@ pub struct EventSummaryRecord {
     pub is_completed: bool,
     pub created_at: String,
     pub updated_at: String,
+    pub connections: Vec<EventConnectionRecord>,
 }
 
 #[derive(Clone, uniffi::Record)]
@@ -317,6 +318,37 @@ pub struct TranscriptionRecord {
     pub started_at: Option<String>,
     /// Why live YouTube captions are failing, while they are.
     pub youtube_error: Option<String>,
+}
+
+/// One stored live transcript in the library.
+#[derive(Clone, uniffi::Record)]
+pub struct StoredTranscriptRecord {
+    pub id: String,
+    pub event_title: Option<String>,
+    /// RFC 3339.
+    pub started_at: String,
+    pub duration_seconds: f64,
+    pub segment_count: u32,
+    /// Being written by the live transcript now: it cannot be deleted or cleaned up.
+    pub live: bool,
+    /// `none`, `running`, `succeeded` or `failed`.
+    pub cleanup_status: String,
+    pub cleanup_error: Option<String>,
+}
+
+/// One line of a stored transcript.
+#[derive(Clone, uniffi::Record)]
+pub struct TranscriptLineRecord {
+    pub seq: u32,
+    pub text: String,
+    /// The AI clean-up's version; empty when it dropped the line as filler.
+    pub clean_text: Option<String>,
+}
+
+#[derive(Clone, uniffi::Record)]
+pub struct TranscriptDetailRecord {
+    pub transcript: StoredTranscriptRecord,
+    pub lines: Vec<TranscriptLineRecord>,
 }
 
 /// Prepaid OpenAI credit left.
@@ -1258,6 +1290,14 @@ pub enum AppleEvent {
     SlideIndexState {
         pending: u32,
     },
+    /// A stored transcript's AI clean-up ran a step, finished or failed.
+    TranscriptCleanup {
+        session_id: String,
+        /// `running`, `succeeded` or `failed`.
+        state: String,
+        progress: f64,
+        error: Option<String>,
+    },
     Unknown,
 }
 
@@ -1782,6 +1822,61 @@ impl AppleClient {
             .collect())
     }
 
+    // ── Transcript library ───────────────────────────────────────────────────
+
+    pub async fn transcripts(&self) -> Result<Vec<StoredTranscriptRecord>, AppleError> {
+        let client = self.client.clone();
+        let list = self.run(async move { client.transcripts().await }).await?;
+        Ok(list.into_iter().map(Into::into).collect())
+    }
+
+    pub async fn transcript(&self, id: String) -> Result<TranscriptDetailRecord, AppleError> {
+        let id = parse_id(&id)?;
+        let client = self.client.clone();
+        let detail = self.run(async move { client.transcript(id).await }).await?;
+        Ok(TranscriptDetailRecord {
+            transcript: detail.transcript.into(),
+            lines: detail
+                .segments
+                .into_iter()
+                .map(|s| TranscriptLineRecord {
+                    seq: s.seq,
+                    text: s.text,
+                    clean_text: s.clean_text,
+                })
+                .collect(),
+        })
+    }
+
+    pub async fn delete_transcript(&self, id: String) -> Result<(), AppleError> {
+        let id = parse_id(&id)?;
+        let client = self.client.clone();
+        self.run(async move { client.delete_transcript(id).await })
+            .await
+    }
+
+    /// The file's text; `format` is `txt`, `srt` or `vtt`.
+    pub async fn download_transcript(
+        &self,
+        id: String,
+        format: String,
+        clean: bool,
+    ) -> Result<String, AppleError> {
+        let id = parse_id(&id)?;
+        let client = self.client.clone();
+        self.run(async move { client.download_transcript(id, &format, clean).await })
+            .await
+    }
+
+    /// Starts the OpenAI clean-up; progress arrives as `TranscriptCleanup` events.
+    pub async fn cleanup_transcript(&self, id: String) -> Result<(), AppleError> {
+        let id = parse_id(&id)?;
+        let client = self.client.clone();
+        self.run(async move { client.cleanup_transcript(id).await })
+            .await
+            .map(drop)
+    }
+
     /// The core's own log. Only a core inside the desktop app has one.
     pub async fn application_log(&self) -> Result<String, AppleError> {
         let client = self.client.clone();
@@ -2129,6 +2224,7 @@ impl From<EventSummary> for EventSummaryRecord {
             is_completed: event.is_completed,
             created_at: event.created_at.to_rfc3339(),
             updated_at: event.updated_at.to_rfc3339(),
+            connections: event.connections.into_iter().map(Into::into).collect(),
         }
     }
 }
@@ -2673,6 +2769,21 @@ impl From<ConnectedClient> for ConnectedClientRecord {
     }
 }
 
+impl From<StoredTranscript> for StoredTranscriptRecord {
+    fn from(t: StoredTranscript) -> Self {
+        Self {
+            id: t.id.to_string(),
+            event_title: t.event_title,
+            started_at: t.started_at.to_rfc3339(),
+            duration_seconds: t.duration_seconds,
+            segment_count: t.segment_count,
+            live: t.live,
+            cleanup_status: t.cleanup_status.as_str().to_string(),
+            cleanup_error: t.cleanup_error,
+        }
+    }
+}
+
 impl From<TranscriptionState> for TranscriptionRecord {
     fn from(state: TranscriptionState) -> Self {
         Self {
@@ -2864,6 +2975,12 @@ impl From<ServerEvent> for AppleEvent {
             },
             ServerEvent::PptIndexState { indexing, pending } => Self::SlideIndexState {
                 pending: if indexing { pending.max(1) } else { 0 },
+            },
+            ServerEvent::TranscriptCleanupState { progress } => Self::TranscriptCleanup {
+                session_id: progress.session_id.to_string(),
+                state: progress.state.as_str().to_string(),
+                progress: progress.progress,
+                error: progress.error,
             },
             ServerEvent::ConnectorState(ConnectorState::Other)
             | ServerEvent::TranscriptionPartial { .. }

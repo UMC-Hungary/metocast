@@ -988,5 +988,30 @@
     "copied": "Copied",
     "tokenNote": "The copied text contains this server's access token. Paste it into your agent's settings and nowhere else.",
     "toast": "AI agents"
+  },
+  "transcripts": {
+    "title": "Stored transcripts",
+    "loading": "Loading transcripts…",
+    "unavailable": "Transcripts unavailable",
+    "retry": "Try again",
+    "empty": "No transcripts yet.",
+    "emptyHint": "Each live transcript is kept here when it starts",
+    "noEvent": "No event",
+    "live": "Live now",
+    "lines": "{count} lines",
+    "raw": "Original",
+    "clean": "Cleaned up",
+    "download": "Download {format}",
+    "cleanup": "Clean up with AI",
+    "cleanupAgain": "Clean up again",
+    "cleaning": "Cleaning up… {percent}%",
+    "cleanupHint": "OpenAI rewrites each line into clearer English and keeps the original next to it.",
+    "cleanupFailed": "Clean-up failed: {error}",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this transcript and its cleaned-up version? This cannot be undone.",
+    "cancel": "Cancel",
+    "deleted": "Transcript deleted",
+    "failed": "Transcript action failed",
+    "back": "Back"
   }
 }
