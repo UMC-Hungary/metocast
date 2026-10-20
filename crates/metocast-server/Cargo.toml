@@ -18,6 +18,7 @@ flac-bound = { version = "0.5.0", default-features = false, features = ["libflac
 futures-util.workspace = true
 hex = "0.4"
 if-addrs = "0.13"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "bmp", "gif"] }
 liblzma = { version = "0.4.6", features = ["static"] }
 local-ip-address = "0.6"
 mdns-sd = "0.11"

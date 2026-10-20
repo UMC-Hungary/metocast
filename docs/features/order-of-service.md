@@ -80,6 +80,13 @@ Notes:
 - The live position is kept in memory, so a server restart starts with no step on screen.
 - `order.status` is allowed without the token, like `presenter.status`, so the shared view works
   without logging in.
+- The web presenter sends a whole deck, pictures included, to every device as one message of at
+  most 64 MB. A larger deck is refused: the screen keeps showing the current deck, and the device
+  that opened it gets an error saying how large the deck is. Every picture is embedded again on
+  each slide that uses it, so the server first scales each picture down to the slide's size
+  (1280 pixels on the long side) and stores opaque ones as JPEG: a 15 MB photo shown on four
+  slides comes to under half a megabyte. Only decks with very many distinct pictures still
+  reach the limit; shrink those in PowerPoint with *Picture Format → Compress Pictures*.
 
 The slide library uses the existing `GET /api/ppt/files`, `GET/POST /api/ppt/folders` and
 `DELETE /api/ppt/folders/{id}`.
