@@ -70,6 +70,8 @@ const REST: &[(&str, &str, &str, &str)] = &[
     ("GET", "/events/{id}", "events.get", "Read one service event"),
     ("PUT", "/events/{id}", "events.update", "Update a service event; a Lekció or Textus set or changed here gets a step in its Order of Service if it has none"),
     ("DELETE", "/events/{id}", "events.delete", "Delete a service event"),
+    ("POST", "/events/{id}/stream/{platform}/start", "events.stream.start", "Take the event's YouTube or Facebook broadcast live now"),
+    ("POST", "/events/{id}/stream/{platform}/stop", "events.stream.stop", "End the event's live YouTube or Facebook broadcast"),
     ("POST", "/events/{id}/slides", "events_slides_create", "Build the event's Bible-reading slide deck"),
     ("GET", "/events/{id}/order", "events_order_get", "An event's Order of Service: its songs, Bible readings and blocks, in order"),
     ("PUT", "/events/{id}/order", "events_order_set", "Replace an event's Order of Service; steps keep their ids to stay the live step. Send the whole list after each edit"),
@@ -1590,6 +1592,8 @@ mod tests {
             "obs_record_stop",
             "transcripts_delete",
             "transcripts_cleanup",
+            "events_stream_start",
+            "events_stream_stop",
         ] {
             assert!(find(name).destructive, "{name} should be destructive");
         }

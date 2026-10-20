@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod broadcast;
 pub mod caption;
 pub mod mcp;
 pub mod mcp_content;
@@ -274,6 +275,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
     };
 
     crate::queue::spawn_worker(state.clone());
+    broadcast::spawn_watcher(state.clone());
     crate::automations::spawn(state.clone(), automation_jobs).await;
     crate::media::spawn_worker(state.clone());
     crate::media::spawn_camera_clip_log(state.clone());
@@ -909,6 +911,14 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
         .route(
             "/connectors/facebook/stream-key",
             get(routes::get_facebook_stream_key),
+        )
+        .route(
+            "/events/{id}/stream/{platform}/start",
+            post(routes::start_event_stream),
+        )
+        .route(
+            "/events/{id}/stream/{platform}/stop",
+            post(routes::stop_event_stream),
         )
         .route(
             "/connectors/youtube/schedule/{event_id}",

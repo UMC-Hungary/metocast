@@ -113,6 +113,33 @@
       "live": "Live",
       "past": "Past",
       "scheduled": "Scheduled"
+    },
+    "broadcast": {
+      "status": {
+        "scheduled": "Scheduled",
+        "starting": "Starting",
+        "live": "Live",
+        "ended": "Ended"
+      },
+      "goLive": "Go live on {platform}",
+      "end": "End {platform} broadcast",
+      "confirmStartTitle": "Go live on {platform} now?",
+      "confirmStartBody": "Viewers will see the stream right away.",
+      "confirmEndTitle": "End the {platform} broadcast?",
+      "confirmEndBody": "Viewers will see it end, and it can't be restarted.",
+      "confirmStart": "Go live",
+      "confirmEnd": "End broadcast",
+      "cancel": "Cancel",
+      "failed": "Couldn't change the broadcast",
+      "errors": {
+        "encoder_not_streaming": "No video is reaching {platform} yet. Start OBS (or your encoder) and try again.",
+        "not_authenticated": "Sign in to {platform} under Connectors first.",
+        "not_scheduled": "This event has no {platform} broadcast yet.",
+        "already_live": "It's already live.",
+        "not_live": "It isn't live.",
+        "broadcast_ended": "This broadcast has ended. Schedule a new one.",
+        "youtube_testing_timeout": "YouTube didn't get the stream ready in time. Try again."
+      }
     }
   },
   "editor": {
@@ -181,13 +208,9 @@
       "status": {
         "not_scheduled": "Not scheduled",
         "scheduled": "Scheduled",
-        "created": "Created",
-        "ready": "Ready",
-        "testing": "Testing",
+        "starting": "Starting",
         "live": "Live",
-        "liveStarting": "Going live",
-        "complete": "Ended",
-        "revoked": "Revoked",
+        "ended": "Ended",
         "failed": "Failed"
       },
       "sync": {
@@ -206,7 +229,15 @@
     },
     "captions": "English captions",
     "captionsQueued": "English captions queued; they follow on the Queues page.",
-    "captionsFailed": "Could not queue the captions"
+    "captionsFailed": "Could not queue the captions",
+    "cronHint": {
+      "pull": "No scheduled job pulls YouTube yet.",
+      "upload": "No scheduled job uploads recordings yet.",
+      "both": "No scheduled job pulls YouTube or uploads recordings yet.",
+      "tooltip": "A scheduled job imports broadcasts made in YouTube Studio and uploads flagged recordings. Add one with a schedule like */5 * * * * and turn on what it should do.",
+      "link": "Set up",
+      "about": "About scheduled jobs"
+    }
   },
   "presentations": {
     "title": "Slides",

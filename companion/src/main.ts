@@ -205,6 +205,7 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 			presenter_selected_event: selected?.title ?? '',
 		})
 		this.updateDefinitions()
+		this.checkFeedbacks('broadcast_live')
 		this.log('debug', `Loaded ${this.presenterEvents.length} presenter events`)
 	}
 

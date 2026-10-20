@@ -48,6 +48,10 @@ pub const FEATURES: &[(&str, &str)] = &[
         "connector-automations",
         include_str!("../../../../docs/features/connector-automations.md"),
     ),
+    (
+        "broadcast-controls",
+        include_str!("../../../../docs/features/broadcast-controls.md"),
+    ),
 ];
 
 /// Which state resources a pushed message makes stale, so a subscriber hears about it.
@@ -165,7 +169,9 @@ pub const PROMPTS: &[Prompt] = &[
          5. `recordings_untracked_list`.\n\
          Summarise what is ready and what is not. Then ask the operator which of these to run and \
          wait for an explicit yes before each: `obs_stream_start`, `obs_record_start`, \
-         `rodecaster_audio_record_start` (needs `event_id`), `atem_stream_start`. Never call a \
+         `rodecaster_audio_record_start` (needs `event_id`), `atem_stream_start`, and once the \
+         encoder streams, `events_stream_start` for the event's YouTube or Facebook broadcast. \
+         Never call a \
          stream or record tool without a yes in this conversation.",
     ),
     (

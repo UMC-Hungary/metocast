@@ -45,6 +45,8 @@ const AUTHENTICATED = [
   { method: 'POST', path: '/api/ppt/song' },
   { method: 'GET', path: '/api/events/00000000-0000-0000-0000-000000000000/order' },
   { method: 'PUT', path: '/api/events/00000000-0000-0000-0000-000000000000/order' },
+  { method: 'POST', path: '/api/events/00000000-0000-0000-0000-000000000000/stream/youtube/start' },
+  { method: 'POST', path: '/api/events/00000000-0000-0000-0000-000000000000/stream/youtube/stop' },
   { method: 'GET', path: '/api/connectors/szentiras/config/secrets' },
   { method: 'GET', path: '/api/connectors/media/config' },
   { method: 'POST', path: '/api/media/probe' },

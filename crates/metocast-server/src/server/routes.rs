@@ -3190,6 +3190,39 @@ pub async fn clear_application_log(State(state): State<AppState>) -> impl IntoRe
     }
 }
 
+// ── Going live and ending broadcasts ──────────────────────────────────────────
+
+pub async fn start_event_stream(
+    State(state): State<AppState>,
+    Path((event_id, platform)): Path<(Uuid, crate::server::broadcast::Platform)>,
+) -> impl IntoResponse {
+    stream_reply(crate::server::broadcast::control(&state, event_id, platform, true).await)
+}
+
+pub async fn stop_event_stream(
+    State(state): State<AppState>,
+    Path((event_id, platform)): Path<(Uuid, crate::server::broadcast::Platform)>,
+) -> impl IntoResponse {
+    stream_reply(crate::server::broadcast::control(&state, event_id, platform, false).await)
+}
+
+fn stream_reply(result: Result<(), String>) -> axum::response::Response {
+    let Err(error) = result else {
+        return Json(json!({ "ok": true })).into_response();
+    };
+    let status = match error.as_str() {
+        "not_found" => StatusCode::NOT_FOUND,
+        "not_authenticated" => StatusCode::UNAUTHORIZED,
+        "not_scheduled"
+        | "already_live"
+        | "not_live"
+        | "broadcast_ended"
+        | "encoder_not_streaming" => StatusCode::CONFLICT,
+        _ => StatusCode::BAD_GATEWAY,
+    };
+    (status, Json(json!({ "error": error }))).into_response()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

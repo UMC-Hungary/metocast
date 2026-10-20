@@ -64,7 +64,7 @@
   });
 
   $effect(() => {
-    void live.eventRevision;
+    void live.eventsRevision;
     if (mode !== 'edit') return;
     getEvent(eventId).then(
       (event) =>

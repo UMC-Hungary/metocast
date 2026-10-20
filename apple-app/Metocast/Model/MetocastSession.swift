@@ -359,6 +359,12 @@ final class MetocastSession {
         try await client.flagUpload(eventId: eventId, recordingId: recordingId, platforms: platforms)
     }
 
+    /// Takes the event's YouTube or Facebook broadcast live, or ends it. Every list updates from the
+    /// `event.changed` that follows.
+    func eventStream(eventId: String, platform: String, start: Bool) async throws {
+        try await client.eventStream(eventId: eventId, platform: platform, start: start)
+    }
+
     /// The server's slide folders and title template.
     func serverSettings() async throws -> ServerSettingsRecord {
         try await client.serverSettings()

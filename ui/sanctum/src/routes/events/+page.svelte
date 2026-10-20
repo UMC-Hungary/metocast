@@ -23,6 +23,8 @@
   import { goto } from '$app/navigation';
   import { monthAbbr, dayNum, timeShort, eventTitle } from '$lib/format';
   import NotifBell from '$lib/NotifBell.svelte';
+  import BroadcastBadges from '$lib/BroadcastBadges.svelte';
+  import BroadcastControls from '$lib/BroadcastControls.svelte';
 
   type Filter = 'upcoming' | 'live' | 'past';
   const filters: Filter[] = ['upcoming', 'live', 'past'];
@@ -109,6 +111,7 @@
         speaker: 'Rev. Anna Kovács',
         recordingCount: 0,
         isCompleted: false,
+        connections: [],
         createdAt: dateTime,
         updatedAt: dateTime,
       },
@@ -117,6 +120,14 @@
   }
 
   onMount(notificationPreview ? loadPreview : load);
+
+  // A broadcast went live or ended somewhere: re-read quietly, keeping the list on screen.
+  $effect(() => {
+    if (live.eventsRevision === 0 || notificationPreview) return;
+    listEvents()
+      .then((fresh) => (events = fresh))
+      .catch(() => (phase = 'error'));
+  });
 </script>
 
 <PageHeader
@@ -181,6 +192,7 @@
                 month={monthAbbr(e.dateTime, loc)}
                 day={dayNum(e.dateTime, loc)}
               />{/snippet}
+            {#snippet control()}<BroadcastBadges connections={e.connections} />{/snippet}
             <span class="rowtitle">
               {eventTitle(e)}
               {#if e.id === currentId}<Dot color="var(--status-live)" size={6} pulse />{/if}
@@ -211,6 +223,10 @@
             {:else}
               <Badge tone="ok">{$_('events.status.scheduled')}</Badge>
             {/if}
+          </p>
+          <p class="broadcasts">
+            <BroadcastBadges connections={featured.connections} />
+            <BroadcastControls eventId={featured.id} connections={featured.connections} />
           </p>
           <Button
             variant="primary"
@@ -267,6 +283,12 @@
   }
   .pad {
     padding: 0 24px;
+  }
+  .broadcasts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
   }
   .rowtitle {
     line-height: 1.24;

@@ -326,6 +326,52 @@ export function GetActions(instance: ModuleInstance): CompanionActionDefinitions
 			},
 		},
 
+		event_broadcast: {
+			name: 'Event: Go Live / End Broadcast',
+			description:
+				"Take the event's YouTube or Facebook broadcast live, or end it. Destructive: viewers see it start or end, and an ended broadcast can't be restarted. YouTube refuses until OBS (or the encoder) is streaming.",
+			options: [
+				{
+					type: 'dropdown',
+					id: 'platform',
+					label: 'Platform',
+					default: 'youtube',
+					choices: [
+						{ id: 'youtube', label: 'YouTube' },
+						{ id: 'facebook', label: 'Facebook' },
+					],
+				},
+				{
+					type: 'dropdown',
+					id: 'operation',
+					label: 'Operation',
+					default: 'start',
+					choices: [
+						{ id: 'start', label: 'Go live' },
+						{ id: 'stop', label: 'End broadcast' },
+					],
+				},
+				{
+					type: 'dropdown',
+					id: 'event_id',
+					label: 'Event',
+					default: '',
+					choices: presenterEventChoices,
+				},
+			],
+			callback: (action: CompanionActionEvent) => {
+				const eventId = (action.options['event_id'] as string) || instance.selectedPresenterEventId
+				if (!eventId) {
+					instance.log('warn', 'No event today to broadcast')
+					return
+				}
+				const operation = action.options['operation'] === 'stop' ? 'stop' : 'start'
+				const platform = action.options['platform'] === 'facebook' ? 'facebook' : 'youtube'
+				if (!instance.api.sendWsCommand(`events.stream.${operation}`, { event_id: eventId, platform }))
+					instance.log('error', 'Broadcast command failed: WebSocket not connected')
+			},
+		},
+
 		obs_stream: {
 			name: 'OBS: Streaming',
 			description: 'Start or stop streaming from OBS',

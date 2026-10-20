@@ -229,9 +229,6 @@ extension PresenterStateRecord {
 }
 
 extension EventConnectionRecord {
-    /// Still on: the list links only these.
-    var isScheduled: Bool { scheduleStatus == "scheduled" }
-
     /// YouTube opens the broadcast's live control room in YouTube Studio, where it's run, not its
     /// public watch page; Facebook opens its event.
     var link: URL? {

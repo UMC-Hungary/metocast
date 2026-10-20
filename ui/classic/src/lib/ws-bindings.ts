@@ -92,6 +92,7 @@ function handleMessage(msg: WsMessage): void {
           speaker: rec.speaker,
           recordingCount: existing?.recordingCount ?? 0,
           isCompleted: existing?.isCompleted ?? false,
+          connections: rec.connections,
           createdAt: rec.createdAt,
           updatedAt: rec.updatedAt,
         };

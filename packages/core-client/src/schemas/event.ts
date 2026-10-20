@@ -17,6 +17,20 @@ export const BibleReferenceSchema = z.object({
 
 export type BibleReference = z.infer<typeof BibleReferenceSchema>;
 
+/** `schedule_status`: Metocast's own states, then the platform's, the same for every platform. */
+export const BroadcastStatusSchema = z.enum([
+  'not_scheduled',
+  'failed',
+  'scheduled',
+  'starting',
+  'live',
+  'ended',
+]);
+
+export type BroadcastStatus = z.infer<typeof BroadcastStatusSchema>;
+
+export type BroadcastPlatform = 'youtube' | 'facebook';
+
 export const EventConnectionSchema = z.object({
   platform: z.string(),
   externalId: z.string().nullable().default(null),
@@ -56,6 +70,7 @@ export const EventSummarySchema = z.object({
   speaker: z.string(),
   recordingCount: z.number().int().nonnegative(),
   isCompleted: z.boolean(),
+  connections: z.array(EventConnectionSchema).default([]),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

@@ -1,10 +1,12 @@
-import type { z } from 'zod';
+import { z } from 'zod';
 import { coreConfig } from '../config.js';
 
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
     message: string,
+    /** The server's refusal code (`{ "error": "…" }`), such as `encoder_not_streaming`. */
+    public readonly code: string | null = null,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -66,7 +68,8 @@ export async function apiFetch<S extends z.ZodType>(
   const res = await fetchWhenServerUp(`${base}${path}`, init);
 
   if (!res.ok) {
-    throw new ApiError(res.status, `API error ${res.status}: ${await res.text()}`);
+    const text = await res.text();
+    throw new ApiError(res.status, `API error ${res.status}: ${text}`, errorCode(text));
   }
 
   if (res.status === 204) {
@@ -111,4 +114,14 @@ export async function probeCore(url: string, token: string): Promise<CoreProbe> 
   if (response.status === 401) return { ok: false, reason: 'unauthorized' };
   if (!response.ok) return { ok: false, reason: 'unexpected', status: response.status };
   return { ok: true };
+}
+
+const ErrorBodySchema = z.object({ error: z.string() });
+
+function errorCode(text: string): string | null {
+  try {
+    return ErrorBodySchema.safeParse(JSON.parse(text)).data?.error ?? null;
+  } catch {
+    return null; // Not JSON: the status is all there is.
+  }
 }

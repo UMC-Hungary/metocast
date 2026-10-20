@@ -35,6 +35,8 @@ struct EventEditorView: View {
     @State private var template = MetocastSession.defaultTitleTemplate
     @State private var isSaving = false
     @State private var error: String?
+    /// The server's scheduled jobs; nil until loaded, and left nil when they can't be, so no hint shows.
+    @State private var jobs: [CronJobRecord]?
 
     /// A new event when `event` is nil.
     init(event: EventRecord? = nil, onSaved: @escaping (EventRecord) -> Void = { _ in }) {
@@ -66,6 +68,19 @@ struct EventEditorView: View {
 
     private var publishedTitle: String {
         renderTitle(template, TitleValues(date: date, title: title, textus: textus, leckio: leckio, speaker: speaker))
+    }
+
+    /// What no enabled scheduled job does yet, of what this event relies on.
+    private var jobHint: String? {
+        guard let enabled = jobs?.filter(\.enabled) else { return nil }
+        let pulls = enabled.contains(where: \.pullYoutube)
+        let uploads = enabled.contains(where: \.autoUpload)
+        return switch (pulls, uploads || !autoUpload) {
+        case (true, true): nil
+        case (false, true): "No scheduled job pulls YouTube yet."
+        case (true, false): "No scheduled job uploads recordings yet."
+        case (false, false): "No scheduled job pulls YouTube or uploads recordings yet."
+        }
     }
 
     private var canSave: Bool {
@@ -161,6 +176,9 @@ struct EventEditorView: View {
                     Text("Private").tag("private")
                 }
                 Toggle("Auto-upload after event", isOn: $autoUpload)
+                if let hint = jobHint, let session = model.session {
+                    ScheduledJobHint(text: hint, session: session)
+                }
             } header: {
                 Text("YouTube")
             } footer: {
@@ -177,6 +195,7 @@ struct EventEditorView: View {
         // Switches on both platforms; the Mac would otherwise draw checkboxes.
         .toggleStyle(.switch)
         .task { template = await model.session?.titleTemplate() ?? template }
+        .task { jobs = try? await model.session?.cronJobs() }
         .task(id: textusLookup) { await lookUp(textusLookup) }
         .task(id: leckioLookup) { await lookUp(leckioLookup) }
         .task(id: textus) { await suggest("Textus", text: textus) }
@@ -333,4 +352,31 @@ struct EventEditorView: View {
 private struct Lookup: Hashable {
     let translation: String
     let reference: String
+}
+
+/// A quiet note that a scheduled job is missing, how to add one, and a way there.
+private struct ScheduledJobHint: View {
+    let text: String
+    let session: MetocastSession
+    @State private var isExplaining = false
+    private let explanation = "A scheduled job imports broadcasts made in YouTube Studio and uploads flagged recordings. Add one with a schedule like */5 * * * * and turn on what it should do."
+
+    var body: some View {
+        LabeledContent {
+            NavigationLink("Set Up…") { ScheduledJobsView(session: session) }
+        } label: {
+            HStack(spacing: 6) {
+                Text(text)
+                Button("About Scheduled Jobs", systemImage: "info.circle") { isExplaining = true }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                    .help(explanation)
+                    .popover(isPresented: $isExplaining) {
+                        Text(explanation).padding().frame(idealWidth: 280).presentationCompactAdaptation(.popover)
+                    }
+            }
+        }
+        .font(.footnote)
+        .foregroundStyle(.secondary)
+    }
 }

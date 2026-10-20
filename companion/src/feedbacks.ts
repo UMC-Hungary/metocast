@@ -17,6 +17,35 @@ export function GetFeedbacks(instance: ModuleInstance): CompanionFeedbackDefinit
 			},
 		},
 
+		broadcast_live: {
+			type: 'boolean',
+			name: 'Event: Broadcast Live',
+			description: "Lit while the selected event's YouTube or Facebook broadcast is live on the platform",
+			defaultStyle: {
+				bgcolor: combineRgb(200, 0, 0),
+				color: combineRgb(255, 255, 255),
+			},
+			options: [
+				{
+					type: 'dropdown',
+					id: 'platform',
+					label: 'Platform',
+					default: 'youtube',
+					choices: [
+						{ id: 'youtube', label: 'YouTube' },
+						{ id: 'facebook', label: 'Facebook' },
+					],
+				},
+			],
+			callback: (feedback) => {
+				const event = instance.presenterEvents.find((e) => e.id === instance.selectedPresenterEventId)
+				return (
+					event?.connections.some((c) => c.platform === feedback.options['platform'] && c.scheduleStatus === 'live') ??
+					false
+				)
+			},
+		},
+
 		order_running: {
 			type: 'boolean',
 			name: 'Order of Service: Step On Screen',

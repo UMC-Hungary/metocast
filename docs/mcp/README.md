@@ -116,7 +116,7 @@ update notifications (see Subscriptions below); a `GET` without that answers `40
   changed; read it again for the new value. Clients without subscriptions use `events_poll`.
 - **Manual resources**: `metocast://docs/openapi.json`, `metocast://docs/websocket.md`,
   `metocast://docs/mcp-tools.md`, and a guide per feature at `metocast://docs/features/{name}.md`
-  (`mcp`, `media`, `connector-automations`).
+  (`mcp`, `media`, `connector-automations`, `broadcast-controls`).
 - **Prompts** that walk through routines and name the tools to use: `prepare_service`
   (`event_id`, optional), `go_live_checklist`, and `post_service_upload` (`event_id`). They read
   first and ask before anything goes on air.

@@ -1,0 +1,33 @@
+meta {
+  name: Go Live
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/events/{{eventId}}/stream/youtube/start
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  Takes the event's YouTube broadcast live NOW (swap `youtube` for `facebook` for its live video).
+  Viewers see the stream. YouTube binds the channel's stream when nothing is bound, refuses with 409
+  `encoder_not_streaming` while no video reaches it (start OBS or the encoder first), then goes through
+  `testing` to `live`, which takes up to ~30 s. Facebook publishes the live video and stays `starting`
+  until video arrives. Other 409s: `not_scheduled`, `already_live`, `broadcast_ended`. Every client gets
+  `event.changed`.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("answers ok", function() {
+    expect(res.body.ok).to.equal(true);
+  });
+}
