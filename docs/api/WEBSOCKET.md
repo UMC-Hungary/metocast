@@ -61,6 +61,8 @@ Connect to `ws://<host>/ws?token=<token>`. Send `{"type": "<command>", …fields
 | `events.get` | `id`* | `GET /api/events/{id}` |
 | `events.list` | — | `GET /api/events` |
 | `events.presenter_list` | — | — |
+| `events.stream.start` | `event_id`*, `platform`* | `POST /api/events/{id}/stream/{platform}/start` |
+| `events.stream.stop` | `event_id`*, `platform`* | `POST /api/events/{id}/stream/{platform}/stop` |
 | `events.update` | `auto_upload_enabled`, `bible_references`, `computed_title`, `connections`, `date_time`*, `description`, `id`*, `speaker`, `title`* | `PUT /api/events/{id}` |
 | `middlecontrol.camera.select` | `camera_id`* | — |
 | `middlecontrol.preset.recall` | `camera_id`, `preset`* | — |
@@ -150,7 +152,7 @@ Connect to `ws://<host>/ws?token=<token>`. Send `{"type": "<command>", …fields
 | `connector.state` | A connector's live state (OBS output, camera, ATEM, Middle Control) | `connector` string, `isStreaming` boolean?, `isRecording` boolean?, `state` object? |
 | `connector.status` | A connector connected, disconnected or failed | `connector` string, `status` object |
 | `cron.youtube_pull` | A scheduled YouTube pull ran | `hasLive` boolean |
-| `event.changed` | A service event was inserted, updated or deleted | `data` object |
+| `event.changed` | A service event was inserted, updated or deleted, or a broadcast's `scheduleStatus` changed (`scheduled`, `starting`, `live`, `ended`) | `data` object |
 | `event.order.changed` | An event's Order of Service was replaced; carries the new list | `eventId` uuid, `items` array |
 | `keynote.status` | Keynote status, sent on connect and on change (macOS) | `status` object |
 | `media.audio.progress` | Progress of an audio master render | `progress` object |

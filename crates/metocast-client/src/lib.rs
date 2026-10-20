@@ -746,6 +746,29 @@ impl MetocastClient {
         Ok(())
     }
 
+    /// Takes the event's broadcast on `platform` (`youtube`, `facebook`) live (`start`) or ends
+    /// it. The server answers a refusal with a code such as `encoder_not_streaming`.
+    pub async fn event_stream(
+        &self,
+        event_id: Uuid,
+        platform: &str,
+        start: bool,
+    ) -> Result<(), ClientError> {
+        let action = if start { "start" } else { "stop" };
+        let url = self
+            .config
+            .endpoint(&format!("api/events/{event_id}/stream/{platform}/{action}"))?;
+        self.response(
+            self.http
+                .post(url)
+                .bearer_auth(self.config.token.expose())
+                // YouTube's testing step alone can take 30 s.
+                .timeout(Duration::from_secs(90)),
+        )
+        .await?;
+        Ok(())
+    }
+
     /// PowerPoint files in the watched folders whose name contains `filter`.
     pub async fn ppt_files(&self, filter: &str) -> Result<Vec<PptFile>, ClientError> {
         let mut url = self.config.endpoint("api/ppt/files")?;

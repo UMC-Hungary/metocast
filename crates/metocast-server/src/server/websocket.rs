@@ -142,6 +142,18 @@ enum WsCommand {
     },
     #[serde(rename = "events.delete")]
     EventsDelete { id: Uuid },
+    /// Take the event's YouTube broadcast or Facebook live video live now: viewers see the stream. YouTube refuses with `encoder_not_streaming` until video reaches it; Facebook waits as `starting`. Replies `ok` once done (YouTube takes up to ~30 s); every client gets `event.changed`.
+    #[serde(rename = "events.stream.start")]
+    EventsStreamStart {
+        event_id: Uuid,
+        platform: crate::server::broadcast::Platform,
+    },
+    /// End the event's live YouTube broadcast or Facebook live video. It can't be restarted. Every client gets `event.changed`.
+    #[serde(rename = "events.stream.stop")]
+    EventsStreamStop {
+        event_id: Uuid,
+        platform: crate::server::broadcast::Platform,
+    },
     // ── Recordings ───────────────────────────────────────────────────────────
     #[serde(rename = "recordings.list")]
     RecordingsList { event_id: Uuid },
@@ -762,6 +774,24 @@ pub(crate) async fn broadcast_notification(
     for tx in clients.values() {
         tx.send(Message::Text(msg.clone().into())).log_gone();
     }
+}
+
+/// Going live on YouTube takes up to ~30 s, so it runs beside this client's other commands.
+fn spawn_stream_control(
+    state: &AppState,
+    client_tx: &mpsc::UnboundedSender<Message>,
+    event_id: Uuid,
+    platform: crate::server::broadcast::Platform,
+    start: bool,
+) {
+    let state = state.clone();
+    let client_tx = client_tx.clone();
+    tokio::spawn(async move {
+        match crate::server::broadcast::control(&state, event_id, platform, start).await {
+            Ok(()) => ws_ok(&client_tx),
+            Err(error) => ws_error(&client_tx, &error),
+        }
+    });
 }
 
 fn ws_ok(tx: &mpsc::UnboundedSender<Message>) {
@@ -2423,6 +2453,12 @@ async fn handle_ws_command(
             .to_string();
             client_tx.send(Message::Text(msg.into())).log_gone();
         }
+        WsCommand::EventsStreamStart { event_id, platform } => {
+            spawn_stream_control(state, client_tx, event_id, platform, true);
+        }
+        WsCommand::EventsStreamStop { event_id, platform } => {
+            spawn_stream_control(state, client_tx, event_id, platform, false);
+        }
         WsCommand::ConnectorsYoutubeSchedule { event_id } => {
             let event = match fetch_event(event_id, &state.pool).await {
                 Ok(Some(e)) => e,
@@ -3904,7 +3940,9 @@ pub fn spawn_scheduling_tasks(event: Event, state: AppState) {
             let fb_privacy_status = fb_conn
                 .and_then(|c| c.privacy_status.as_deref())
                 .unwrap_or("EVERYONE");
-            if !config.page_id.is_empty() && fb_schedule_status != "scheduled" {
+            if !config.page_id.is_empty()
+                && matches!(fb_schedule_status, "not_scheduled" | "failed")
+            {
                 match facebook::schedule_event(
                     &event.title,
                     &event.date_time,

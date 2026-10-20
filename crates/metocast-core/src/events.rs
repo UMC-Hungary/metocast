@@ -14,6 +14,8 @@ pub struct EventConnection {
     pub stream_url: Option<String>,
     #[serde(alias = "event_url")]
     pub event_url: Option<String>,
+    /// `not_scheduled`, `failed`, or the platform's own state: `scheduled`, `starting`, `live`,
+    /// `ended` (see `connectors::broadcast_status`).
     #[serde(alias = "schedule_status")]
     pub schedule_status: String,
     #[serde(alias = "privacy_status")]

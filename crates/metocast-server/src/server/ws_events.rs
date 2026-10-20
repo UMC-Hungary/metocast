@@ -87,7 +87,7 @@ pub const EVENTS: &[Event] = &[
     ),
     (
         "event.changed",
-        "A service event was inserted, updated or deleted",
+        "A service event was inserted, updated or deleted, or a broadcast's `scheduleStatus` changed (`scheduled`, `starting`, `live`, `ended`)",
         &[("data", "object")],
     ),
     (

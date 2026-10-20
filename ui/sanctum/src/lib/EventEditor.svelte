@@ -18,6 +18,8 @@
     StatusDot,
     Badge,
     Button,
+    Tooltip,
+    Icon,
   } from '@metocast/design-system';
   import type { ReferenceResult } from '@metocast/design-system';
   import {
@@ -28,6 +30,7 @@
     createEventSlides,
     bibleApi,
     listJobs,
+    listCronJobs,
     openExternal,
     getTitleTemplate,
     listRecordings,
@@ -37,6 +40,7 @@
   } from '@metocast/core-client';
   import type { Event, BibleVerse, EventConnection } from '@metocast/core-client/schemas/event';
   import type { Job } from '@metocast/core-client/schemas/queue';
+  import type { CronJob } from '@metocast/core-client';
   import type { Recording } from '@metocast/core-client/schemas/recording';
   import { nextSundayAt } from '@metocast/core-client/utils/next-sunday';
   import { live } from '$lib/live.svelte';
@@ -206,6 +210,9 @@
   ]);
 
   onMount(async () => {
+    listCronJobs()
+      .then((all) => (cronJobs = all))
+      .catch(() => (cronJobs = null));
     listEvents()
       .then((events) => (pastSpeakers = events.map((e) => e.speaker.trim()).filter(Boolean)))
       .catch(() => {});
@@ -275,20 +282,27 @@
   const STATUS_TONE = {
     not_scheduled: 'off',
     scheduled: 'ok',
-    ready: 'ok',
-    created: 'warn',
-    testing: 'warn',
+    starting: 'warn',
     live: 'live',
-    liveStarting: 'live',
-    complete: 'neutral',
-    revoked: 'neutral',
+    ended: 'neutral',
     failed: 'error',
   } as const;
 
   let jobs = $state<Job[]>([]);
 
+  // The server's scheduled jobs; null until loaded or when they can't be, so no hint shows.
+  let cronJobs = $state<CronJob[] | null>(null);
+  const cronHint = $derived.by(() => {
+    if (!cronJobs) return null;
+    const enabled = cronJobs.filter((j) => j.enabled);
+    const pulls = enabled.some((j) => j.pullYoutube);
+    const uploads = enabled.some((j) => j.autoUpload) || !autoUpload;
+    if (pulls && uploads) return null;
+    return pulls ? 'upload' : uploads ? 'pull' : 'both';
+  });
+
   const statusTone = (s: string) => STATUS_TONE[s as keyof typeof STATUS_TONE];
-  // Anything YouTube's lifeCycleStatus adds later shows through raw rather than as a missing key.
+  // A state the server adds later shows through raw rather than as a missing key.
   const statusLabel = (s: string) => (statusTone(s) ? $_(`editor.platform.status.${s}`) : s);
 
   const platforms = $derived(
@@ -559,6 +573,19 @@
           options={privacyOptions}
           label={$_('editor.privacyLabel')}
         />
+        {#if cronHint}
+          <p class="cron-hint">
+            {$_(`editor.cronHint.${cronHint}`)}
+            <Tooltip text={$_('editor.cronHint.tooltip')}>
+              {#snippet children({ describedby })}
+                <button type="button" class="cron-info" aria-describedby={describedby}
+                  ><Icon name="info" size={13} label={$_('editor.cronHint.about')} /></button
+                >
+              {/snippet}
+            </Tooltip>
+            <a href={resolve('/settings')}>{$_('editor.cronHint.link')}</a>
+          </p>
+        {/if}
       </FormSection>
 
       <FormSection number="05" label={$_('editor.recording')} last={!eventId}>
@@ -730,5 +757,22 @@
     .sticky-preview {
       padding-inline: 32px;
     }
+  }
+  .cron-hint {
+    margin: 10px 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .cron-info {
+    display: inline-flex;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: help;
   }
 </style>

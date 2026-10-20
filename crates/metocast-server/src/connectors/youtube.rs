@@ -1030,3 +1030,165 @@ pub async fn live_stream_ingestion(access_token: &str) -> anyhow::Result<Ingesti
         key: item.cdn.ingestion_info.stream_name,
     })
 }
+
+// ── Going live and ending ────────────────────────────────────────────────────
+
+const BROADCASTS: &str = "https://www.googleapis.com/youtube/v3/liveBroadcasts";
+
+/// Sends a YouTube Data API request and returns its JSON body. An error carries YouTube's reason
+/// code (`errorStreamInactive`, `redundantTransition`, …) so callers can match on it.
+async fn youtube_call(request: reqwest::RequestBuilder) -> anyhow::Result<serde_json::Value> {
+    let response = request.send().await?;
+    let status = response.status();
+    let body: serde_json::Value = response.json().await.unwrap_or_default();
+    if status.is_success() {
+        return Ok(body);
+    }
+    let reason = body["error"]["errors"][0]["reason"].as_str().unwrap_or("");
+    anyhow::bail!(
+        "youtube_api_{}: {reason} {}",
+        status.as_u16(),
+        body["error"]["message"]
+    )
+}
+
+/// The broadcasts' states, normalized by [`super::broadcast_status`]; one call (1 quota unit)
+/// for up to 50 ids. A broadcast YouTube no longer knows is missing from the map.
+pub async fn broadcast_statuses(
+    ids: &[String],
+    access_token: &str,
+) -> anyhow::Result<std::collections::HashMap<String, &'static str>> {
+    let list = youtube_call(
+        reqwest::Client::new()
+            .get(BROADCASTS)
+            .query(&[("part", "status"), ("id", ids.join(",").as_str())])
+            .bearer_auth(access_token),
+    )
+    .await?;
+    Ok(list["items"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|item| {
+            let raw = item["status"]["lifeCycleStatus"].as_str()?;
+            Some((
+                item["id"].as_str()?.to_string(),
+                super::broadcast_status("youtube", raw)?,
+            ))
+        })
+        .collect())
+}
+
+async fn transition(broadcast_id: &str, to: &str, access_token: &str) -> anyhow::Result<()> {
+    match youtube_call(
+        reqwest::Client::new()
+            .post(format!("{BROADCASTS}/transition"))
+            .query(&[
+                ("broadcastStatus", to),
+                ("id", broadcast_id),
+                ("part", "status"),
+            ])
+            .bearer_auth(access_token),
+    )
+    .await
+    {
+        Err(error) if error.to_string().contains("redundantTransition") => Ok(()),
+        Err(error) if error.to_string().contains("errorStreamInactive") => {
+            anyhow::bail!("encoder_not_streaming")
+        }
+        other => other.map(drop),
+    }
+}
+
+/// Takes a scheduled broadcast live: binds it to the channel's stream if nothing is bound yet,
+/// refuses with `encoder_not_streaming` while no video reaches that stream, then goes through
+/// `testing` (our broadcasts have a monitor stream, so YouTube requires it) to `live`.
+/// About 150 quota units.
+pub async fn go_live(broadcast_id: &str, access_token: &str) -> anyhow::Result<()> {
+    let client = reqwest::Client::new();
+    let list = youtube_call(
+        client
+            .get(BROADCASTS)
+            .query(&[("part", "status,contentDetails"), ("id", broadcast_id)])
+            .bearer_auth(access_token),
+    )
+    .await?;
+    let broadcast = &list["items"][0];
+    let raw = broadcast["status"]["lifeCycleStatus"]
+        .as_str()
+        .ok_or_else(|| anyhow::anyhow!("broadcast_not_found"))?;
+    match super::broadcast_status("youtube", raw) {
+        Some("live") => anyhow::bail!("already_live"),
+        Some("ended") => anyhow::bail!("broadcast_ended"),
+        _ => {}
+    }
+
+    let stream_id = match broadcast["contentDetails"]["boundStreamId"].as_str() {
+        Some(id) if !id.is_empty() => id.to_string(),
+        _ => {
+            let streams = youtube_call(
+                client
+                    .get("https://www.googleapis.com/youtube/v3/liveStreams")
+                    .query(&[("part", "id"), ("mine", "true")])
+                    .bearer_auth(access_token),
+            )
+            .await?;
+            let id = streams["items"][0]["id"]
+                .as_str()
+                .ok_or_else(|| anyhow::anyhow!("no_stream_found"))?
+                .to_string();
+            youtube_call(
+                client
+                    .post(format!("{BROADCASTS}/bind"))
+                    .query(&[
+                        ("id", broadcast_id),
+                        ("part", "id"),
+                        ("streamId", id.as_str()),
+                    ])
+                    .bearer_auth(access_token),
+            )
+            .await?;
+            id
+        }
+    };
+
+    let stream = youtube_call(
+        client
+            .get("https://www.googleapis.com/youtube/v3/liveStreams")
+            .query(&[("part", "status"), ("id", stream_id.as_str())])
+            .bearer_auth(access_token),
+    )
+    .await?;
+    if stream["items"][0]["status"]["streamStatus"].as_str() != Some("active") {
+        anyhow::bail!("encoder_not_streaming");
+    }
+
+    if raw != "testing" {
+        transition(broadcast_id, "testing", access_token).await?;
+        // YouTube takes a few seconds to reach `testing`; `live` is refused until it has.
+        let mut tested = false;
+        for _ in 0..15 {
+            tokio::time::sleep(Duration::from_secs(2)).await;
+            let list = youtube_call(
+                client
+                    .get(BROADCASTS)
+                    .query(&[("part", "status"), ("id", broadcast_id)])
+                    .bearer_auth(access_token),
+            )
+            .await?;
+            if list["items"][0]["status"]["lifeCycleStatus"].as_str() == Some("testing") {
+                tested = true;
+                break;
+            }
+        }
+        if !tested {
+            anyhow::bail!("youtube_testing_timeout");
+        }
+    }
+    transition(broadcast_id, "live", access_token).await
+}
+
+/// Ends a live broadcast. It can't be restarted afterwards.
+pub async fn end_broadcast(broadcast_id: &str, access_token: &str) -> anyhow::Result<()> {
+    transition(broadcast_id, "complete", access_token).await
+}

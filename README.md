@@ -505,6 +505,16 @@ the RØDECaster source.
 - **Developer tool:** `cargo run -p metocast-transcription --bin metocast-transcribe -- <file>`
   replays a file at live pace, with `--serve` for a browser viewer.
 
+## Broadcast controls
+
+Each event's YouTube broadcast and Facebook live video show in the events list as **Scheduled**,
+**Starting**, **Live** or **Ended**: the platform's own state, refreshed every minute while a
+service is near. **Go Live** and **End** run from the list (Mac, iPhone, Sanctum, Companion, MCP)
+instead of YouTube Studio or Facebook Live Producer; YouTube refuses to go live until OBS or the
+encoder is streaming. `POST /api/events/{id}/stream/{youtube|facebook}/{start|stop}`, or the
+WebSocket commands `events.stream.start` / `events.stream.stop`. See
+[docs/features/broadcast-controls.md](docs/features/broadcast-controls.md).
+
 ## Connector automations
 
 Metocast drives several devices, but an operator used to start each recorder by hand. **Automations**
