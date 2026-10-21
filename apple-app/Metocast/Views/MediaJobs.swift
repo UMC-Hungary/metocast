@@ -349,7 +349,7 @@ private struct ProgramResult: View {
             Label(placement, systemImage: sync.confident ? "checkmark.circle" : "questionmark.circle")
                 .foregroundStyle(sync.confident ? .green : .orange)
             if report.damagedFrames > 0 {
-                Label(String(localized: "The recording didn't end cleanly: \(report.damagedFrames) damaged frames at its end were left out"),
+                Label(String(localized: "The recording didn't end cleanly: the last good frame stands in for \(report.damagedFrames) damaged frames at its end"),
                       systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.orange)
             }

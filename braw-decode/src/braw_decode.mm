@@ -848,8 +848,8 @@ int Info(const Options& options)
     // A recording that ended uncleanly counts frames that were never fully written, and reading
     // them fails (0x8000FFFF), scattered among good ones. The clip's readable part ends at the
     // first such frame in its last two seconds (each read is a whole frame, about 6 MB from the
-    // card, so the probe reads no more), so a render can stop there instead of failing at the
-    // very end. Damage further in still fails the render: dropping it would shift the sound.
+    // card, so the probe reads no more), so a render can stop decoding there instead of failing
+    // at the very end. Damage further in still fails the render.
     const uint64_t kTailFrames = static_cast<uint64_t>(std::ceil(frameRate * 2));
     uint64_t readableFrames = frameCount;
     for (uint64_t index = frameCount > kTailFrames ? frameCount - kTailFrames : 1; index < frameCount; ++index)

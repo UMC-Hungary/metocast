@@ -1140,7 +1140,7 @@ fn handwritten() -> Value {
                         "coverage": { "type": "number", "minimum": 0, "maximum": 1, "description": "The share of the picture the audio covers" },
                         "silentStartSeconds": { "type": "number" },
                         "silentEndSeconds": { "type": "number" },
-                        "damagedFrames": { "type": "integer", "minimum": 0, "description": "Frames left off the end of the picture because the clip's last seconds couldn't be read (a recording that didn't end cleanly)" },
+                        "damagedFrames": { "type": "integer", "minimum": 0, "description": "Frames at the end of the clip that couldn't be read (a recording that didn't end cleanly), replaced by the last good frame held so the picture keeps its length" },
                         "audioOutputPath": { "type": "string", "description": "The program's own WAV: the picture's length, aligned to its first frame" },
                         "subtitles": { "type": "array", "items": { "$ref": "#/components/schemas/SubtitleReport" } }
                     }

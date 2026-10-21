@@ -176,7 +176,7 @@ struct Probed {
     tools: Tools,
     /// What `braw-decode frames` writes.
     pixel_format: String,
-    /// Unreadable frames at the clip's end, left out of `probe.frame_count`.
+    /// Frames at the clip's end that can't be read; renders hold the last good frame over them.
     damaged_frames: u64,
 }
 
@@ -362,7 +362,7 @@ async fn probe_source(
                     info.width,
                     info.height,
                     info.active_area,
-                    readable,
+                    info.frame_count,
                     info.pixel_format.clone(),
                     Some(info.raw_options()),
                     info.frame_count.saturating_sub(readable),
@@ -714,6 +714,7 @@ async fn preview(state: &AppState, body: PreviewRequest) -> Result<Json<PreviewF
         fps_num: probe.fps_num,
         fps_den: probe.fps_den,
         frame_count: probe.frame_count,
+        damaged_frames: probed.damaged_frames,
         start_timecode: None,
         audio_channels: None,
         pixel_format: &probed.pixel_format,
@@ -721,7 +722,12 @@ async fn preview(state: &AppState, body: PreviewRequest) -> Result<Json<PreviewF
     let (_, args) = command::preview_args(
         &command_source,
         body.settings.as_ref(),
-        body.frame.min(probe.frame_count.saturating_sub(1)),
+        body.frame.min(
+            probe
+                .frame_count
+                .saturating_sub(probed.damaged_frames)
+                .saturating_sub(1),
+        ),
         body.max_width.unwrap_or(1600).clamp(160, 3840),
         probed.tools.braw_sdk.as_deref(),
     );

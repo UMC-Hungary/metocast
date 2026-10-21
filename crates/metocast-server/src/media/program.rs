@@ -286,7 +286,7 @@ async fn examine(
     let mut warnings = Vec::new();
     if video.damaged_frames > 0 {
         warnings.push(format!(
-            "The recording didn't end cleanly: {} frames near the end of the clip can't be read, so the program stops just before them.",
+            "The recording didn't end cleanly: {} frames near the end of the clip can't be read, so the last good frame is held over them. The sound and transcripts are unaffected.",
             video.damaged_frames
         ));
     }
@@ -1360,6 +1360,7 @@ async fn render_picture(
         fps_num: probe.fps_num,
         fps_den: probe.fps_den,
         frame_count: probe.frame_count,
+        damaged_frames: facts.video.damaged_frames,
         start_timecode: probe.start_timecode.as_deref(),
         // The program's audio comes later; the render carries none.
         audio_channels: None,

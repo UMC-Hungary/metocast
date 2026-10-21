@@ -7816,7 +7816,7 @@
         }
       }
     },
-    "The recording didn't end cleanly: %llu damaged frames at its end were left out" : {
+    "The recording didn't end cleanly: the last good frame stands in for %llu damaged frames at its end" : {
       "localizations" : {
         "en" : {
           "variations" : {
@@ -7824,13 +7824,13 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "The recording didn't end cleanly: %llu damaged frame at its end was left out"
+                  "value" : "The recording didn't end cleanly: the last good frame stands in for %llu damaged frame at its end"
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "The recording didn't end cleanly: %llu damaged frames at its end were left out"
+                  "value" : "The recording didn't end cleanly: the last good frame stands in for %llu damaged frames at its end"
                 }
               }
             }
@@ -7839,7 +7839,7 @@
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "A felvétel nem zárult le rendesen: a végéről %llu sérült képkocka kimaradt"
+            "value" : "A felvétel nem zárult le rendesen: a végén %llu sérült képkocka helyén az utolsó ép kocka áll"
           }
         }
       }

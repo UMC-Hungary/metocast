@@ -38,10 +38,12 @@ Media Processing**; changes on the page apply to that job unless saved as the de
 A Blackmagic RAW recording that didn't end cleanly (the card pulled or the power cut mid-write)
 can count frames at its end that were never fully written. Reading one fails with
 `reading frame N failed (0x8000FFFF)`. The probe reads the clip's last two seconds frame by frame,
-so the Files card warns before the job starts, and the render stops just before the first
-unreadable frame instead of failing at the very end. The finished job says how many frames were
-left out (`damagedFrames` in the program's `report`). Unreadable frames earlier in the clip still
-fail the job, because leaving them out would pull the sound out of sync.
+so the Files card warns before the job starts. The render decodes up to the first unreadable
+frame and holds the last good one over the rest, instead of failing at the very end: the picture
+keeps its length, so the program's sound and transcripts come out exactly as for an undamaged clip.
+The finished job says how many frames were held (`damagedFrames` in the program's `report`).
+Unreadable frames earlier in the clip still fail the job; a frozen picture there would hide a
+real problem.
 
 Blackmagic RAW also needs the free Blackmagic RAW install on that Mac, which holds the framework
 the app develops clips with. A job that stops with `this Mac is missing: braw-decode` means the

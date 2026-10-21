@@ -463,8 +463,8 @@ A program, when it ends (and again after each nudge), with the sync it found:
 `prepare`, `clean`, `align` or `finish`. Its `fraction` is `null` during `clean`, because
 jive-vocals reports no progress. A program's `step` is `download`, `picture`, `prepare`, `sync`,
 `clean` or `merge`. A sync `method` of `clock`, or `confident: false`, means the operator should
-check the result; `manual` means the request gave `startSeconds`. `damagedFrames` counts frames left off the
-picture's end because a recording that didn't end cleanly left them unreadable (see
+check the result; `manual` means the request gave `startSeconds`. `damagedFrames` counts frames at the clip's
+end that a recording that didn't end cleanly left unreadable, shown as the last good frame held (see
 [the media page](docs/features/media.md#a-clip-whose-end-is-damaged)).
 
 Each finished file becomes a recording (`media_kind` `video` or `audio`). Its `metadata` holds the
