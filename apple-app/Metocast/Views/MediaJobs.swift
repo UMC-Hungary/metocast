@@ -348,6 +348,11 @@ private struct ProgramResult: View {
         VStack(alignment: .leading, spacing: 3) {
             Label(placement, systemImage: sync.confident ? "checkmark.circle" : "questionmark.circle")
                 .foregroundStyle(sync.confident ? .green : .orange)
+            if report.damagedFrames > 0 {
+                Label(String(localized: "The recording didn't end cleanly: \(report.damagedFrames) damaged frames at its end were left out"),
+                      systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.orange)
+            }
             if !sync.confident {
                 Text("Metocast isn't sure about this sync. Play the file and check the lips; move the sound below if needed.")
                     .foregroundStyle(.orange)

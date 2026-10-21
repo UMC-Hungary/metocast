@@ -734,6 +734,14 @@ public:
             Fail(m_error, 70);
     }
 
+    // WaitForSettings for a frame that may be unreadable: a failed read is the answer.
+    bool ReadSucceeded()
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        m_changed.wait(lock, [&] { return m_done || ! m_error.empty(); });
+        return m_error.empty();
+    }
+
     void ReadAudioComplete(IBlackmagicRawJob*, HRESULT, IBlackmagicRawAudioBuffer*) override {}
     void DecodeComplete(IBlackmagicRawJob*, HRESULT) override {}
     void TrimProgress(IBlackmagicRawJob*, float) override {}
@@ -836,10 +844,32 @@ int Info(const Options& options)
     SubmitRead(clip, 0);
     callback.WaitForSettings();
     decoder.codec->FlushJobs();
+
+    // A recording that ended uncleanly counts frames that were never fully written, and reading
+    // them fails (0x8000FFFF), scattered among good ones. The clip's readable part ends at the
+    // first such frame in its last two seconds (each read is a whole frame, about 6 MB from the
+    // card, so the probe reads no more), so a render can stop there instead of failing at the
+    // very end. Damage further in still fails the render: dropping it would shift the sound.
+    const uint64_t kTailFrames = static_cast<uint64_t>(std::ceil(frameRate * 2));
+    uint64_t readableFrames = frameCount;
+    for (uint64_t index = frameCount > kTailFrames ? frameCount - kTailFrames : 1; index < frameCount; ++index)
+    {
+        Callback probe(options, attributes, decoder.format);
+        probe.readSettingsOnly = true;
+        Check(decoder.codec->SetCallback(&probe), "setting the callback");
+        SubmitRead(clip, index);
+        const bool readable = probe.ReadSucceeded();
+        decoder.codec->FlushJobs();
+        if (! readable)
+        {
+            readableFrames = index;
+            break;
+        }
+    }
     decoder.codec->SetCallback(nullptr); // the callback dies before the codec
 
-    std::printf("{\"width\":%u,\"height\":%u,\"frameRate\":%.6g,\"frameCount\":%llu,", width, height, frameRate,
-                static_cast<unsigned long long>(frameCount));
+    std::printf("{\"width\":%u,\"height\":%u,\"frameRate\":%.6g,\"frameCount\":%llu,\"readableFrames\":%llu,", width,
+                height, frameRate, static_cast<unsigned long long>(frameCount), static_cast<unsigned long long>(readableFrames));
     std::printf("\"activeArea\":{\"x\":%u,\"y\":%u,\"width\":%u,\"height\":%u},", active.x, active.y, active.width, active.height);
     std::printf("\"startTimecode\":%s,\"camera\":%s,", JsonString(timecode).c_str(), JsonString(camera).c_str());
     std::printf("\"gamma\":%s,\"gamut\":%s,\"colorScienceGen\":%s,",

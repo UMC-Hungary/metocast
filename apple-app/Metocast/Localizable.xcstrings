@@ -7816,6 +7816,34 @@
         }
       }
     },
+    "The recording didn't end cleanly: %llu damaged frames at its end were left out" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The recording didn't end cleanly: %llu damaged frame at its end was left out"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The recording didn't end cleanly: %llu damaged frames at its end were left out"
+                }
+              }
+            }
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A felvétel nem zárult le rendesen: a végéről %llu sérült képkocka kimaradt"
+          }
+        }
+      }
+    },
     "The recording folder doesn't exist on the server's Mac. Set it in Settings → Connectors → RØDECaster." : {
       "localizations" : {
         "hu" : {

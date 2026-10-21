@@ -284,6 +284,12 @@ async fn examine(
         }));
 
     let mut warnings = Vec::new();
+    if video.damaged_frames > 0 {
+        warnings.push(format!(
+            "The recording didn't end cleanly: {} frames near the end of the clip can't be read, so the program stops just before them.",
+            video.damaged_frames
+        ));
+    }
     let mut blocker = None;
     if alone && !video_sound.usable {
         blocker = Some(
@@ -1284,6 +1290,7 @@ async fn produce(
         coverage,
         silent_start_seconds: silent_start,
         silent_end_seconds: silent_end,
+        damaged_frames: facts.video.damaged_frames,
         audio_output_path: payload.audio_output_path.clone(),
         subtitles: place_subtitles(&ffmpeg, payload, &output, &audio_output, cancel).await,
     };
@@ -1352,6 +1359,7 @@ async fn render_picture(
         height: probe.height,
         fps_num: probe.fps_num,
         fps_den: probe.fps_den,
+        frame_count: probe.frame_count,
         start_timecode: probe.start_timecode.as_deref(),
         // The program's audio comes later; the render carries none.
         audio_channels: None,

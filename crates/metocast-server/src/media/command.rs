@@ -15,6 +15,8 @@ pub struct Source<'a> {
     pub height: u32,
     pub fps_num: u32,
     pub fps_den: u32,
+    /// The frames to render: fewer than the clip counts when its end is damaged.
+    pub frame_count: u64,
     pub start_timecode: Option<&'a str>,
     pub audio_channels: Option<u32>,
     /// What `braw-decode frames` writes: `rgb48le` or `rgba64le`.
@@ -105,6 +107,8 @@ fn decoder_args(
     args.extend([
         "--crop".to_string(),
         format!("{},{},{},{}", crop.x, crop.y, crop.width, crop.height),
+        "--count".to_string(),
+        source.frame_count.to_string(),
         path_arg(source.path),
     ]);
     args
@@ -310,6 +314,7 @@ mod tests {
             height: 4032,
             fps_num: 24,
             fps_den: 1,
+            frame_count: 28_448,
             start_timecode: Some("10:26:20:15"),
             audio_channels: Some(4),
             pixel_format: "rgb48le",
@@ -355,6 +360,7 @@ mod tests {
         assert_eq!(value_after(&decoder, "--lut-mode"), Some("embedded"));
         assert_eq!(value_after(&decoder, "--crop"), Some("0,315,6048,3402"));
         assert_eq!(value_after(&decoder, "--iso"), None, "as shot");
+        assert_eq!(value_after(&decoder, "--count"), Some("28448"));
         assert_eq!(
             decoder.last().unwrap(),
             "/Volumes/A002/Untitled CAM 1 05.braw"
@@ -427,6 +433,7 @@ mod tests {
             height: 1080,
             fps_num: 30,
             fps_den: 1,
+            frame_count: 900,
             start_timecode: None,
             audio_channels: None,
             pixel_format: "",

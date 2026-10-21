@@ -770,6 +770,10 @@ pub struct ProgramReport {
     /// Silence put under the picture because the audio starts later or ends sooner.
     pub silent_start_seconds: f64,
     pub silent_end_seconds: f64,
+    /// Frames left off the end of the picture because the clip's last seconds couldn't be read
+    /// (a recording that didn't end cleanly).
+    #[serde(default)]
+    pub damaged_frames: u64,
     /// The program audio on its own: the picture's length, aligned to its first frame.
     pub audio_output_path: String,
     #[serde(default)]

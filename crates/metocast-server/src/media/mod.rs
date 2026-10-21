@@ -176,6 +176,8 @@ struct Probed {
     tools: Tools,
     /// What `braw-decode frames` writes.
     pixel_format: String,
+    /// Unreadable frames at the clip's end, left out of `probe.frame_count`.
+    damaged_frames: u64,
 }
 
 #[derive(Debug)]
@@ -344,7 +346,7 @@ async fn probe_source(
         width: facts.width,
         height: facts.height,
     };
-    let (width, height, active_area, frame_count, pixel_format, raw_options) =
+    let (width, height, active_area, frame_count, pixel_format, raw_options, damaged_frames) =
         match (facts.kind, &tools.braw_decode) {
             (MediaKind::Braw, Some(braw_decode)) if tools.braw_sdk.is_some() => {
                 let info =
@@ -355,13 +357,15 @@ async fn probe_source(
                     info.apply_to(&mut defaults);
                     defaults.sidecar_path = Some(sidecar.to_string_lossy().into_owned());
                 }
+                let readable = info.readable_frames.unwrap_or(info.frame_count);
                 (
                     info.width,
                     info.height,
                     info.active_area,
-                    info.frame_count,
+                    readable,
                     info.pixel_format.clone(),
                     Some(info.raw_options()),
+                    info.frame_count.saturating_sub(readable),
                 )
             }
             _ => (
@@ -371,6 +375,7 @@ async fn probe_source(
                 facts.frame_count,
                 "rgb48le".to_string(),
                 None,
+                0,
             ),
         };
     if let Some(options) = &raw_options {
@@ -415,6 +420,7 @@ async fn probe_source(
         probe,
         tools,
         pixel_format,
+        damaged_frames,
     })
 }
 
@@ -707,6 +713,7 @@ async fn preview(state: &AppState, body: PreviewRequest) -> Result<Json<PreviewF
         height: probe.height,
         fps_num: probe.fps_num,
         fps_den: probe.fps_den,
+        frame_count: probe.frame_count,
         start_timecode: None,
         audio_channels: None,
         pixel_format: &probed.pixel_format,

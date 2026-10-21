@@ -240,6 +240,8 @@ export const ProgramReportSchema = z.object({
   coverage: z.number(),
   silentStartSeconds: z.number(),
   silentEndSeconds: z.number(),
+  /** Frames left off the picture's end because the clip's last seconds couldn't be read. */
+  damagedFrames: z.number().int().nonnegative(),
   audioOutputPath: z.string(),
   subtitles: z.array(SubtitleReportSchema),
 });

@@ -452,6 +452,7 @@ A program, when it ends (and again after each nudge), with the sync it found:
       "coverage": 1.0,
       "silentStartSeconds": 0.0,
       "silentEndSeconds": 0.0,
+      "damagedFrames": 0,
       "audioOutputPath": "/Volumes/A002/Metocast Renders/Untitled CAM 1 05.wav"
     }
   }
@@ -462,7 +463,9 @@ A program, when it ends (and again after each nudge), with the sync it found:
 `prepare`, `clean`, `align` or `finish`. Its `fraction` is `null` during `clean`, because
 jive-vocals reports no progress. A program's `step` is `download`, `picture`, `prepare`, `sync`,
 `clean` or `merge`. A sync `method` of `clock`, or `confident: false`, means the operator should
-check the result; `manual` means the request gave `startSeconds`.
+check the result; `manual` means the request gave `startSeconds`. `damagedFrames` counts frames left off the
+picture's end because a recording that didn't end cleanly left them unreadable (see
+[the media page](docs/features/media.md#a-clip-whose-end-is-damaged)).
 
 Each finished file becomes a recording (`media_kind` `video` or `audio`). Its `metadata` holds the
 settings used (`render` or `audio`), an audio master's `report`, and a `timeline` object for the
