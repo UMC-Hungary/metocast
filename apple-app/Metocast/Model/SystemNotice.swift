@@ -9,11 +9,26 @@ enum SystemNotice {
         ) async -> UNNotificationPresentationOptions {
             [.banner, .list, .sound]
         }
+
+        nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+            let pane = (response.notification.request.content.userInfo["pane"] as? String).flatMap(MetocastPane.init)
+            await MainActor.run { if let pane { SystemNotice.open(pane) } }
+        }
     }
 
     private static let presenter = Presenter()
 
-    static func post(_ message: String) {
+    /// Shows the page a tapped notification names.
+    static var open: (MetocastPane) -> Void = { _ in }
+
+    /// Asks for permission now, while the operator is here to answer, instead of on the first banner.
+    static func ask() {
+        let center = UNUserNotificationCenter.current()
+        center.delegate = presenter
+        Task { _ = try? await center.requestAuthorization(options: [.alert, .sound]) }
+    }
+
+    static func post(_ message: String, opening pane: MetocastPane? = nil) {
         let center = UNUserNotificationCenter.current()
         center.delegate = presenter
         Task {
@@ -22,6 +37,7 @@ enum SystemNotice {
             let content = UNMutableNotificationContent()
             content.title = "Metocast"
             content.body = message
+            if let pane { content.userInfo = ["pane": pane.rawValue] }
             try? await center.add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
         }
     }

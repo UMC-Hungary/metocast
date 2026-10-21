@@ -219,6 +219,8 @@ final class MediaDraft {
 
     func start() async {
         guard let work else { return }
+        // The job ends with a notification; ask for it while the operator is here to answer.
+        SystemNotice.ask()
         isWorking = true
         defer { isWorking = false }
         do {
@@ -358,6 +360,7 @@ private struct MediaPage: View {
     @State private var draft: MediaDraft
     @State private var isTargeted = false
     @State private var isPickingEvent = false
+    @State private var scroll = ScrollPosition(edge: .top)
 
     init(session: MetocastSession) {
         _draft = State(initialValue: MediaDraft(session: session))
@@ -367,6 +370,7 @@ private struct MediaPage: View {
         ScrollView {
             VStack(spacing: 16) {
                 Text("Media").font(.system(size: 34, weight: .light)).padding(.top, 4).accessibilityAddTraits(.isHeader)
+                MediaJobsCard(session: draft.session)
                 // Cards in a row share the tallest one's height.
                 HStack(alignment: .top, spacing: 16) {
                     FilesCard(draft: draft, isTargeted: isTargeted) {
@@ -395,12 +399,14 @@ private struct MediaPage: View {
                 if !draft.transcripts.isEmpty {
                     SubtitlesCard(draft: draft)
                 }
-                MediaJobsCard(session: draft.session)
             }
             .padding(20)
             .frame(maxWidth: 1400)
             .frame(maxWidth: .infinity)
         }
+        .scrollPosition($scroll)
+        // A result just arrived at the top; bring it into view.
+        .onChange(of: draft.session.mediaJobsEnded.count) { withAnimation { scroll.scrollTo(edge: .top) } }
         .navigationTitle("Media")
         .task { await draft.loadFolders() }
         .sheet(isPresented: $isPickingEvent) {

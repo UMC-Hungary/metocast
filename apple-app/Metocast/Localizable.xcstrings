@@ -176,6 +176,16 @@
         }
       }
     },
+    "%@ is still being made. Quitting Metocast stops this Mac's server, and the export with it." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A(z) %@ még készül. Ha kilépsz a Metocastból, leáll a Mac szervere, és vele az exportálás is."
+          }
+        }
+      }
+    },
     "%@ isn't connected right now." : {
       "localizations" : {
         "hu" : {
@@ -1686,6 +1696,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mégse"
+          }
+        }
+      }
+    },
+    "Cancel Export and Quit" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exportálás leállítása és kilépés"
           }
         }
       }
@@ -3886,6 +3906,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A hang összefűzése"
+          }
+        }
+      }
+    },
+    "Keep Running" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fusson tovább"
           }
         }
       }
@@ -7360,6 +7390,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Felvétel leállítása"
+          }
+        }
+      }
+    },
+    "Stop the export and quit?" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leállítod az exportálást, és kilépsz?"
           }
         }
       }
