@@ -612,6 +612,16 @@
         }
       }
     },
+    "%lld announcements" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld hirdetés"
+          }
+        }
+      }
+    },
     "%lld done" : {
       "localizations" : {
         "hu" : {
@@ -1088,6 +1098,16 @@
         }
       }
     },
+    "Add a step" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Új lépés"
+          }
+        }
+      }
+    },
     "Add an OpenAI API key in Settings → Connectors." : {
       "localizations" : {
         "hu" : {
@@ -1198,6 +1218,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Más eszközök engedélyezése a hálózaton"
+          }
+        }
+      }
+    },
+    "Announcements" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hirdetések"
           }
         }
       }
@@ -1752,6 +1782,16 @@
         }
       }
     },
+    "Change Deck" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dia cseréje"
+          }
+        }
+      }
+    },
     "Change Folder…" : {
       "localizations" : {
         "hu" : {
@@ -1808,6 +1848,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kiválasztás"
+          }
+        }
+      }
+    },
+    "Choose Deck" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dia kiválasztása"
           }
         }
       }
@@ -2906,6 +2956,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A jive-vocals letöltése"
+          }
+        }
+      }
+    },
+    "Drag to reorder, swipe left (on the Mac, the trash button) to delete, double-click to rename. Announcements take one bullet per line and a slide one paragraph per line; both show on screen. The readings join the list when they are set on the event. Step through it on the Live or Presentation page." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Húzd a sorrendhez, húzd balra a törléshez (Macen a kuka gombbal), kattints duplán az átnevezéshez. A hirdetéseket soronként egy pontban, a dia bekezdéseit soronként egyben írd be; mindkettő kivetítésre kerül. Az igék maguktól bekerülnek a listába, amikor az eseményen megadod őket. A lépéseken az Élő vagy a Prezentáció oldalon haladhatsz végig."
           }
         }
       }
@@ -4036,12 +4096,32 @@
         }
       }
     },
+    "Lekció" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lekció"
+          }
+        }
+      }
+    },
     "Less" : {
       "localizations" : {
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kevesebb"
+          }
+        }
+      }
+    },
+    "Library" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Könyvtár"
           }
         }
       }
@@ -4738,6 +4818,16 @@
         }
       }
     },
+    "No announcements yet" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Még nincs hirdetés"
+          }
+        }
+      }
+    },
     "No devices answered. Enter the address by hand." : {
       "localizations" : {
         "hu" : {
@@ -4858,6 +4948,16 @@
         }
       }
     },
+    "No verses found for %@." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nincs vers ehhez: %@."
+          }
+        }
+      }
+    },
     "No video is reaching %@ yet. Start OBS (or your encoder) and try again." : {
       "localizations" : {
         "hu" : {
@@ -4974,6 +5074,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nincs megadva"
+          }
+        }
+      }
+    },
+    "Not set on the event yet" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az eseményen még nincs megadva"
           }
         }
       }
@@ -5212,6 +5322,16 @@
         }
       }
     },
+    "One announcement per line" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Soronként egy hirdetés"
+          }
+        }
+      }
+    },
     "Only the Wireless PRO transmitter's button counts." : {
       "localizations" : {
         "hu" : {
@@ -5370,6 +5490,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Megnyitja őket a Betűkönyvben; ott válaszd a Telepítés gombot. A létrehozott diasorok ezeket a betűtípusokat használják."
+          }
+        }
+      }
+    },
+    "Optional paragraphs, one per line" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bekezdések (nem kötelező), soronként egy"
           }
         }
       }
@@ -6116,6 +6246,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lépés eltávolítása"
+          }
+        }
+      }
+    },
+    "Rename" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Átnevezés"
           }
         }
       }
@@ -7022,6 +7162,16 @@
         }
       }
     },
+    "Slide" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dia"
+          }
+        }
+      }
+    },
     "Slide %lld" : {
       "localizations" : {
         "hu" : {
@@ -7592,6 +7742,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tesztelés"
+          }
+        }
+      }
+    },
+    "Textus" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Textus"
           }
         }
       }
@@ -8696,6 +8856,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Webhook URL"
+          }
+        }
+      }
+    },
+    "Welcome" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Köszöntés"
           }
         }
       }

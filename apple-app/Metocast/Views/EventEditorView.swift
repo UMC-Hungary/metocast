@@ -204,7 +204,7 @@ struct EventEditorView: View {
 
     private func referenceField(_ label: String, text: Binding<String>, translation: Binding<String>) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            translationPicker(label, selection: translation)
+            BibleTranslationPicker(label: label, selection: translation)
             referenceRow(label, text: text, translation: translation.wrappedValue)
             if let message = lookupFailures[Lookup(translation: translation.wrappedValue, reference: text.wrappedValue.trimmingCharacters(in: .whitespaces))] {
                 Text(message)
@@ -225,23 +225,6 @@ struct EventEditorView: View {
                 .scrollIndicators(.hidden)
             }
         }
-    }
-
-    private func translationPicker(_ label: String, selection: Binding<String>) -> some View {
-        // A translation stored by another app, such as plain "UF", stays selectable.
-        var options = MetocastSession.bibleTranslations
-        if !options.contains(where: { $0.code == selection.wrappedValue }) {
-            options.append(.init(code: selection.wrappedValue, name: selection.wrappedValue))
-        }
-        return Picker("\(label) Translation", selection: selection) {
-            Section("Our API") {
-                ForEach(options.filter(\.isOurs), id: \.code) { Text($0.name).tag($0.code) }
-            }
-            Section("Szentírás.eu") {
-                ForEach(options.filter { !$0.isOurs }, id: \.code) { Text($0.name).tag($0.code) }
-            }
-        }
-        .pointingHand()
     }
 
     private func referenceRow(_ label: String, text: Binding<String>, translation: String) -> some View {
@@ -378,5 +361,111 @@ private struct ScheduledJobHint: View {
         }
         .font(.footnote)
         .foregroundStyle(.secondary)
+    }
+}
+
+/// Picks a reading's translation: ours first, then szentiras.eu's.
+struct BibleTranslationPicker: View {
+    let label: String
+    @Binding var selection: String
+
+    var body: some View {
+        // A translation stored by another app, such as plain "UF", stays selectable.
+        var options = MetocastSession.bibleTranslations
+        if !options.contains(where: { $0.code == selection }) {
+            options.append(.init(code: selection, name: selection))
+        }
+        return Picker("\(label) Translation", selection: $selection) {
+            Section("Our API") {
+                ForEach(options.filter(\.isOurs), id: \.code) { Text($0.name).tag($0.code) }
+            }
+            Section("Szentírás.eu") {
+                ForEach(options.filter { !$0.isOurs }, id: \.code) { Text($0.name).tag($0.code) }
+            }
+        }
+        .pointingHand()
+    }
+}
+
+/// One of the event's readings on its page, edited in place: a changed reference (on Return) or
+/// translation looks the verses up and saves the event, and its Order of Service step follows.
+struct EventReadingSection: View {
+    let session: MetocastSession
+    let event: EventRecord
+    /// `leckio` or `textus`.
+    let type: String
+    let onSaved: (EventRecord) -> Void
+    @State private var reference = ""
+    @State private var translation = MetocastSession.defaultBibleTranslation
+    @State private var isSaving = false
+    @State private var failure: String?
+
+    private var stored: BibleReferenceRecord? { event.bibleReferences.first { $0.referenceType == type } }
+    private var label: String { type == "textus" ? "Textus" : "Lekció" }
+
+    var body: some View {
+        Section {
+            LabeledContent(label) {
+                HStack {
+                    TextField(label, text: $reference, prompt: Text("Jn 3,16-21"))
+                        .labelsHidden()
+                        .autocorrectionDisabled()
+                        .onSubmit { Task { await save() } }
+                    if isSaving { ProgressView().controlSize(.small) }
+                }
+            }
+            BibleTranslationPicker(label: label, selection: $translation)
+                .onChange(of: translation) { Task { await save() } }
+            if let failure {
+                Text(failure).font(.footnote).foregroundStyle(.red)
+            }
+            ForEach(stored?.verses ?? [], id: \.self) { verse in
+                Text("\(Text("\(verse.chapter):\(verse.verse)").foregroundStyle(.secondary)) \(verse.text)")
+            }
+        } header: {
+            Text(label)
+        }
+        .task(id: event.updatedAt) {
+            reference = stored?.reference ?? ""
+            translation = stored?.translation ?? MetocastSession.defaultBibleTranslation
+        }
+    }
+
+    /// Saves only a real change, so loading the stored values saves nothing. An empty reference
+    /// removes the reading; one that finds no verses is not saved.
+    private func save() async {
+        let key = reference.trimmingCharacters(in: .whitespaces)
+        let changed = key != (stored?.reference ?? "") || (!key.isEmpty && translation != stored?.translation)
+        guard changed, !isSaving else { return }
+        isSaving = true
+        defer { isSaving = false }
+        failure = nil
+        do {
+            let verses = key.isEmpty ? [] : try await session.verses(for: key, translation: translation)
+            if !key.isEmpty, verses.isEmpty {
+                failure = String(localized: "No verses found for \(key).")
+                return
+            }
+            let other = { (type: String) in event.bibleReferences.first { $0.referenceType == type }?.reference ?? "" }
+            let values = TitleValues(
+                date: event.date, title: event.title,
+                textus: type == "textus" ? key : other("textus"),
+                leckio: type == "leckio" ? key : other("leckio"),
+                speaker: event.speaker
+            )
+            let draft = EventDraftRecord(
+                title: event.title,
+                computedTitle: renderTitle(await session.titleTemplate(), values),
+                dateTime: event.dateTime,
+                speaker: event.speaker,
+                description: event.description,
+                autoUploadEnabled: event.autoUploadEnabled,
+                youtubePrivacy: event.connections.first { $0.platform == "youtube" }?.privacyStatus ?? "public",
+                bibleReferences: [BibleReferenceRecord(referenceType: type, reference: key, translation: translation, verses: verses)]
+            )
+            onSaved(try await session.save(draft, id: event.id))
+        } catch {
+            failure = error.metocastMessage
+        }
     }
 }

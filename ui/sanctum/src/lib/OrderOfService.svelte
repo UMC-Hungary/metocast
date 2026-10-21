@@ -95,6 +95,7 @@
       const n = bullets(item).length;
       return n ? $_('order.announcementCount', { values: { n } }) : $_('order.noAnnouncements');
     }
+    if (item.kind === 'text') return $_('order.slide');
     return '';
   }
 
@@ -105,8 +106,11 @@
       .map((line) => line.trim())
       .filter(Boolean);
 
-  /** Notes for the leaders; the announcements' notes are their slides, counted in the detail. */
-  const leaderNotes = (item: OrderItem) => (item.kind === 'announcements' ? '' : item.notes);
+  /** Whether the notes are what the step shows (bullets or paragraphs), not notes for the leaders. */
+  const notesAreSlides = (item: OrderItem) => item.kind === 'announcements' || item.kind === 'text';
+
+  /** Notes for the leaders; the announcements' and a slide's notes are what they show. */
+  const leaderNotes = (item: OrderItem) => (notesAreSlides(item) ? '' : item.notes);
 
   /**
    * Sends the whole list after every edit. Only the latest save's answer is kept, so a slow
@@ -127,13 +131,23 @@
     }
   }
 
-  function addBlock(event: SubmitEvent) {
-    event.preventDefault();
-    const title = newTitle.trim();
+  /**
+   * Adds a step named by the text field. A block needs a name; announcements and a slide get one
+   * if it's empty and open for editing, since what they show is typed in them.
+   */
+  function add(kind: 'block' | 'announcements' | 'text') {
+    const fallback = {
+      block: '',
+      announcements: $_('order.kind.announcements'),
+      text: $_('order.welcome'),
+    };
+    const title = newTitle.trim() || fallback[kind];
     if (!title) return;
-    steps.push({ key: crypto.randomUUID(), item: { kind: 'block', title, notes: '' } });
+    const key = crypto.randomUUID();
+    steps.push({ key, item: { kind, title, notes: '' } });
     newTitle = '';
-    void save();
+    if (kind === 'block') void save();
+    else startEditing(key);
   }
 
   function pickDeck(key: string | null) {
@@ -280,13 +294,17 @@
                     placeholder={$_('order.titlePlaceholder')}
                     aria-label={$_('order.stepTitle', { values: { n: index + 1 } })}
                   />
-                  {#if step.item.kind === 'announcements'}
+                  {#if notesAreSlides(step.item)}
                     <textarea
                       class="notes bullets"
                       bind:value={step.item.notes}
                       rows="5"
-                      placeholder={$_('order.bulletsPlaceholder')}
-                      aria-label={$_('order.stepBullets', { values: { n: index + 1 } })}
+                      placeholder={step.item.kind === 'text'
+                        ? $_('order.paragraphsPlaceholder')
+                        : $_('order.bulletsPlaceholder')}
+                      aria-label={step.item.kind === 'text'
+                        ? $_('order.stepParagraphs', { values: { n: index + 1 } })
+                        : $_('order.stepBullets', { values: { n: index + 1 } })}
                     ></textarea>
                   {:else}
                     <input
@@ -351,7 +369,13 @@
         </li>
       {/each}
     </ol>
-    <form class="add" onsubmit={addBlock}>
+    <form
+      class="add"
+      onsubmit={(event) => {
+        event.preventDefault();
+        add('block');
+      }}
+    >
       <input
         class="title"
         bind:value={newTitle}
@@ -359,6 +383,8 @@
         aria-label={$_('order.addStep')}
       />
       <Button compact onclick={() => pickDeck(null)}>{$_('order.addSong')}</Button>
+      <Button compact onclick={() => add('announcements')}>{$_('order.addAnnouncements')}</Button>
+      <Button compact onclick={() => add('text')}>{$_('order.addSlide')}</Button>
     </form>
     <p class="hint">{$_('order.editHint')}</p>
     {#if error}<p class="error" role="alert">{error}</p>{/if}

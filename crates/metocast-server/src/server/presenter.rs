@@ -627,6 +627,44 @@ impl PresenterState {
         }
     }
 
+    /// One slide of its own, such as the welcome: the title, and each non-empty line of `notes`
+    /// as a paragraph under it.
+    pub fn from_text(title: &str, notes: &str) -> Self {
+        let mut paragraphs = vec![ParagraphContent {
+            lines: vec![title.trim().to_string()],
+            align: "center".to_string(),
+            font_size_pt: SONG_TITLE_FONT_SIZE_PT,
+        }];
+        let lines: Vec<String> = notes
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .map(str::to_string)
+            .collect();
+        if !lines.is_empty() {
+            paragraphs.push(ParagraphContent {
+                lines,
+                align: "center".to_string(),
+                font_size_pt: BIBLE_MAIN_FONT_SIZE_PT,
+            });
+        }
+        Self {
+            loaded: true,
+            file_path: Some(title.trim().to_string()),
+            current_slide: 1,
+            total_slides: 1,
+            render_mode: PresenterRenderMode::Text,
+            slides: vec![SlideContent {
+                index: 1,
+                paragraphs,
+            }],
+            svg_slides: Vec::new(),
+            muted: false,
+            slide_width_emu: 12192000,
+            slide_height_emu: 6858000,
+        }
+    }
+
     pub fn mute(&mut self) {
         self.muted = true;
     }
@@ -1082,6 +1120,27 @@ mod tests {
                 _ => {}
             }
         }
+    }
+
+    #[test]
+    fn a_text_step_is_one_slide_with_its_paragraphs() {
+        let deck = PresenterState::from_text(
+            "Köszöntjük!",
+            "Isten hozott mindenkit\n\nKérjük, némítsa le telefonját",
+        );
+        assert_eq!(deck.total_slides, 1);
+        let paragraphs = &deck.slides[0].paragraphs;
+        assert_eq!(paragraphs[0].lines, ["Köszöntjük!"]);
+        assert_eq!(
+            paragraphs[1].lines,
+            ["Isten hozott mindenkit", "Kérjük, némítsa le telefonját"]
+        );
+        assert_eq!(
+            PresenterState::from_text("Köszöntjük!", "").slides[0]
+                .paragraphs
+                .len(),
+            1
+        );
     }
 
     #[test]

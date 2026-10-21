@@ -8,7 +8,7 @@ import { apiClient } from '../helpers/client.js';
 
 interface OrderItem {
   id: string;
-  kind: 'song' | 'bible' | 'block' | 'announcements';
+  kind: 'song' | 'bible' | 'block' | 'announcements' | 'text';
   title: string;
   deckPath: string | null;
   bibleType: string | null;
@@ -119,6 +119,26 @@ describe.skipIf(!isLive)('Order of Service REST API', () => {
       items: [{ kind: 'announcements', title: '' }],
     });
     expect(untitled.status).toBe(400);
+  });
+
+  it('starts with a welcome slide and stores a text slide with paragraphs', async () => {
+    const created = await apiClient.post<{ id: string }>('/api/events', {
+      title: 'E2E welcome slide',
+      date_time: new Date(Date.now() + 86400000).toISOString(),
+    });
+    const order = await apiClient.get<{ items: OrderItem[] }>(
+      `/api/events/${created.body.id}/order`,
+    );
+    expect(order.body.items[0]).toMatchObject({ kind: 'text', title: 'Welcome message' });
+    const saved = await apiClient.put<{ items: OrderItem[] }>(
+      `/api/events/${created.body.id}/order`,
+      {
+        items: [{ kind: 'text', title: 'Köszöntjük!', notes: 'Isten hozott mindenkit' }],
+      },
+    );
+    expect(saved.status).toBe(200);
+    expect(saved.body.items[0]?.notes).toBe('Isten hozott mindenkit');
+    await apiClient.delete(`/api/events/${created.body.id}`);
   });
 
   it('answers 404 for an unknown event', async () => {

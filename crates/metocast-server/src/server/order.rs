@@ -79,7 +79,9 @@ fn invalid(items: &[OrderItem]) -> Option<String> {
             {
                 return Some(format!("Step {step} must be the Textus or the Lekció"));
             }
-            OrderItemKind::Block | OrderItemKind::Announcements if item.title.trim().is_empty() => {
+            OrderItemKind::Block | OrderItemKind::Announcements | OrderItemKind::Text
+                if item.title.trim().is_empty() =>
+            {
                 return Some(format!("Step {step} needs a title"));
             }
             _ => {}
@@ -184,9 +186,9 @@ fn template() -> Vec<OrderItem> {
         bible_type: bible_type.map(str::to_string),
         notes: String::new(),
     };
-    use OrderItemKind::{Announcements, Bible, Block, Song};
+    use OrderItemKind::{Announcements, Bible, Block, Song, Text};
     vec![
-        step(Block, "Welcome message", None),
+        step(Text, "Welcome message", None),
         step(Song, "Song 1", None),
         step(Song, "Song 2", None),
         step(Bible, "Lekció", Some("leckio")),
@@ -316,7 +318,7 @@ async fn broadcast_position(state: &AppState) {
 }
 
 /// Shows one step: a song opens its deck, a Bible step loads the event's reading, the
-/// announcements become slides of their bullets, and a block leaves the screen as it is. Then every client hears which step is current.
+/// announcements become slides of their bullets, a text step its own slide, and a block leaves the screen as it is. Then every client hears which step is current.
 pub async fn go(
     state: &AppState,
     event_id: Uuid,
@@ -346,6 +348,10 @@ pub async fn go(
             .await?
         }
         OrderItemKind::Block => {}
+        OrderItemKind::Text => {
+            let deck = PresenterState::from_text(&item.title, &item.notes);
+            show_deck(state, deck, "szoveg.pptx").await?
+        }
         OrderItemKind::Announcements => {
             let deck = PresenterState::from_announcements(&item.title, &item.notes);
             show_deck(state, deck, "hirdetesek.pptx").await?
@@ -419,8 +425,8 @@ async fn show_reading(state: &AppState, event_id: Uuid, bible_type: &str) -> Res
     show_deck(state, deck, file_name).await
 }
 
-/// Puts a deck the server built on screen: into the web presenter, or written to the Bible slide
-/// folder as `file_name` for Keynote to open.
+/// Puts a deck the server built on screen: into the web presenter, or written as `file_name` for
+/// Keynote to open, into the Bible slide folder or, with none set, a temporary folder.
 async fn show_deck(state: &AppState, deck: PresenterState, file_name: &str) -> Result<(), String> {
     if state
         .use_web_presenter
@@ -438,9 +444,11 @@ async fn show_deck(state: &AppState, deck: PresenterState, file_name: &str) -> R
 
     let folder =
         settings::get_json::<SlideFolder>(&state.pool, routes::BIBLE_SLIDE_FOLDER_KEY).await;
-    let dir = std::path::PathBuf::from(&folder.path);
+    let mut dir = std::path::PathBuf::from(&folder.path);
     if folder.path.is_empty() || !dir.is_dir() {
-        return Err("Set a Bible slides folder first, so Keynote has a deck to open".to_string());
+        dir = std::env::temp_dir().join("metocast-slides");
+        std::fs::create_dir_all(&dir)
+            .map_err(|e| format!("Couldn't make a folder for the slides: {e}"))?;
     }
     let path = dir.join(file_name);
     let theme = *state.presenter_theme.read().await;

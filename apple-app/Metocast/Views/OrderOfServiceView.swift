@@ -8,10 +8,15 @@ extension OrderItemRecord {
         case .bible: "book"
         case .block: "text.alignleft"
         case .announcements: "megaphone"
+        case .text: "text.below.photo"
         }
     }
 
-    /// The announcements' bullet points: the notes' non-empty lines.
+    /// Whether the notes are what the step shows on screen (bullets or paragraphs), not notes
+    /// for the people leading.
+    var notesAreSlides: Bool { kind == .announcements || kind == .text }
+
+    /// The announcements' bullet points, or a text slide's paragraphs: the notes' non-empty lines.
     var bullets: [String] {
         notes.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
     }
@@ -22,7 +27,8 @@ extension OrderItemRecord {
         case .song: deckPath.map { URL(filePath: $0).deletingPathExtension().lastPathComponent }
         case .bible: bibleType == "textus" ? "Textus" : "Lekció"
         case .block: nil
-        case .announcements: bullets.isEmpty ? "No announcements yet" : "\(bullets.count) announcements"
+        case .announcements: bullets.isEmpty ? String(localized: "No announcements yet") : String(localized: "\(bullets.count) announcements")
+        case .text: String(localized: "Slide")
         }
     }
 }
@@ -51,8 +57,8 @@ struct OrderStepRow: View {
                 if let detail = subtitle {
                     Text(detail).font(.subheadline).foregroundStyle(.secondary)
                 }
-                // The announcements' notes are their slides; the row counts them instead.
-                if !item.notes.isEmpty, item.kind != .announcements {
+                // The announcements' and a slide's notes are what they show; the row counts the bullets.
+                if !item.notes.isEmpty, !item.notesAreSlides {
                     Text(item.notes).font(.subheadline).foregroundStyle(.secondary)
                 }
             }
@@ -101,17 +107,25 @@ struct EventOrderSection: View {
             }
             HStack {
                 TextField("Add a step", text: $newTitle)
-                    .onSubmit(addBlock)
-                Button("Song…", systemImage: "music.note") { deckTarget = DeckTarget(stepId: nil) }
-                    .buttonStyle(.glass)
-                    #if os(macOS)
-                    .labelStyle(.titleAndIcon)
-                    #endif
+                    .onSubmit { add(.block) }
+                Menu {
+                    Button("Song…", systemImage: "music.note") { deckTarget = DeckTarget(stepId: nil) }
+                    Button("Announcements", systemImage: "megaphone") { add(.announcements) }
+                    Button("Slide", systemImage: "text.below.photo") { add(.text) }
+                    Button("Block", systemImage: "text.alignleft") { add(.block) }
+                } label: {
+                    Label("Add", systemImage: "plus")
+                }
+                .buttonStyle(.glass)
+                .fixedSize()
+                #if os(macOS)
+                .labelStyle(.titleAndIcon)
+                #endif
             }
         } header: {
             Text("Order of Service")
         } footer: {
-            Text("Drag to reorder, swipe left to delete, double-click to rename; the announcements take one bullet per line and show as slides. The readings join the list when they are set on the event. Step through it on the Live or Presentation page.")
+            Text("Drag to reorder, swipe left (on the Mac, the trash button) to delete, double-click to rename. Announcements take one bullet per line and a slide one paragraph per line; both show on screen. The readings join the list when they are set on the event. Step through it on the Live or Presentation page.")
         }
         .sheet(item: $deckTarget) { target in
             NavigationStack {
@@ -165,11 +179,16 @@ struct EventOrderSection: View {
                 .buttonStyle(.borderless)
             }
             #if os(macOS)
+            // Swipe isn't a Mac gesture, and `.draggable` takes the right-click menu: the row's own buttons.
             Button("Rename", systemImage: renaming == id ? "checkmark" : "pencil") {
                 renaming == id ? finishRename() : rename(id)
             }
             .labelStyle(.iconOnly)
             .buttonStyle(.borderless)
+            Button("Delete", systemImage: "trash", role: .destructive) { delete(id) }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.borderless)
+                .foregroundStyle(.red)
             #endif
         }
         #if os(macOS)
@@ -222,13 +241,21 @@ struct EventOrderSection: View {
         save()
     }
 
-    /// The text field adds a block; a song is added from the deck picker.
-    private func addBlock() {
-        let title = newTitle.trimmingCharacters(in: .whitespaces)
-        guard !title.isEmpty else { return }
-        steps.append(OrderStep(OrderItemRecord(id: nil, kind: .block, title: title, deckPath: nil, bibleType: nil, notes: "")))
+    /// Adds a step named by the text field. A block needs a name; announcements and a slide get
+    /// one if it's empty and open for editing, since what they show is typed in them.
+    private func add(_ kind: OrderItemKind) {
+        var title = newTitle.trimmingCharacters(in: .whitespaces)
+        if title.isEmpty {
+            switch kind {
+            case .announcements: title = String(localized: "Announcements")
+            case .text: title = String(localized: "Welcome")
+            default: return
+            }
+        }
+        let step = OrderStep(OrderItemRecord(id: nil, kind: kind, title: title, deckPath: nil, bibleType: nil, notes: ""))
+        steps.append(step)
         newTitle = ""
-        save()
+        if kind == .block { save() } else { rename(step.id) }
     }
 
     /// A song placeholder takes the deck and its name; with no step, the deck is a new song.
@@ -279,7 +306,8 @@ private struct DeckTarget: Identifiable {
 }
 
 /// A step's title and notes typed in place. Return, or leaving both fields, finishes. The
-/// announcements take one bullet per line, so their text has room and a Done button.
+/// announcements (one bullet per line) and a slide (one paragraph per line) get room for their
+/// text and a Done button.
 private struct StepFields: View {
     @Binding var item: OrderItemRecord
     let done: () -> Void
@@ -292,14 +320,20 @@ private struct StepFields: View {
             TextField("Title", text: $item.title)
                 .fontWeight(.medium)
                 .focused($focus, equals: .title)
-            if item.kind == .announcements {
+            if item.notesAreSlides {
                 TextEditor(text: $item.notes)
                     .frame(minHeight: 100)
                     .focused($focus, equals: .notes)
                     .overlay(alignment: .topLeading) {
                         if item.notes.isEmpty {
-                            Text("One announcement per line")
-                                .foregroundStyle(.tertiary)
+                            Group {
+                                if item.kind == .announcements {
+                                    Text("One announcement per line")
+                                } else {
+                                    Text("Optional paragraphs, one per line")
+                                }
+                            }
+                            .foregroundStyle(.tertiary)
                                 .padding(.leading, 5)
                                 .allowsHitTesting(false)
                         }

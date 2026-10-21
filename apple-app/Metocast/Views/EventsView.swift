@@ -122,13 +122,10 @@ struct EventDetailView: View {
                             .buttonStyle(.glassProminent)
                     }
                 }
-                ForEach(event.bibleReferences, id: \.referenceType) { reference in
-                    // "RUF (v2)", not the stored code "RUF_v2" that VoiceOver spells out.
-                    let translation = MetocastSession.bibleTranslations.first { $0.code == reference.translation }?.name ?? reference.translation
-                    Section("\(reference.referenceType == "textus" ? "Textus" : "Lekció") · \(reference.reference) · \(translation)") {
-                        ForEach(reference.verses, id: \.self) { verse in
-                            Text("\(Text("\(verse.chapter):\(verse.verse)").foregroundStyle(.secondary)) \(verse.text)")
-                        }
+                if let session = model.session {
+                    // Lekció before Textus, as the service reads them.
+                    ForEach(["leckio", "textus"], id: \.self) { type in
+                        EventReadingSection(session: session, event: event, type: type) { self.event = $0 }
                     }
                 }
                 if let session = model.session {

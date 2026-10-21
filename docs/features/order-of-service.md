@@ -1,7 +1,7 @@
 # Order of Service and the slide library
 
 An event's **Order of Service** is the service's steps in order, the way the printed sheet lists
-them. Each step is one of four kinds:
+them. Each step is one of five kinds:
 
 - **Song**: a deck from the slide library. The hymn number goes in the title and the verses in the
   notes, e.g. _Ó, hála az Úrnak (47)_ with _2. vers – közben kollekta_. A song can also have no
@@ -11,7 +11,10 @@ them. Each step is one of four kinds:
 - **Announcements**: _Hirdetések, áldás_. You type the announcements into the step, one per
   line, and the server turns them into slides: the title, then the bullet points, five to a slide.
   Like a song, they open in the web presenter, or, in Keynote mode, as `hirdetesek.pptx` in the
-  Bible slides folder. An announcements step with no bullets yet shows its title alone.
+  Bible slides folder (a temporary folder when none is set). An announcements step with no
+  bullets yet shows its title alone.
+- **Slide**: one slide of its own, such as the _Welcome message_: its title, and under it optional
+  paragraphs, one per line, typed into the step. In Keynote mode it opens as `szoveg.pptx`.
 - **Block**: a part with no slides, such as _Köszöntés, imádság_ or _Igehirdetés_ (the speaker goes
   in the notes).
 
@@ -19,7 +22,7 @@ During the service the operator steps through the list:
 
 - a song opens its deck in the web presenter or Keynote;
 - a reading loads the event's verses;
-- the announcements show their bullet points as slides;
+- the announcements show their bullet points as slides, and a slide step its slide;
 - a block leaves the screen as it is.
 
 Every connected device sees the same list and the same current step.
@@ -28,7 +31,7 @@ Every connected device sees the same list and the same current step.
 
 Every new event starts with these steps, whichever app or tool created it:
 
-1. Welcome message
+1. Welcome message (a slide)
 2. Song 1
 3. Song 2
 4. Lekció
@@ -41,8 +44,9 @@ Every new event starts with these steps, whichever app or tool created it:
 
 The songs are placeholders with no deck: pick one from the slide library and the step takes the
 deck and its name. Lekció and Textus are the event's readings, and each shows its reference once it
-is set on the event. _Hirdetések, áldás_ is an announcements step: double-tap it and type this
-week's announcements, one per line. The server adds the steps when it creates the event, so Live, Companion's
+is set on the event. _Welcome message_ is a slide: double-tap it to change its title and add
+paragraphs. _Hirdetések, áldás_ is an announcements step: double-tap it and type this week's
+announcements, one per line. The server adds the steps when it creates the event, so Live, Companion's
 _Next Step_ and every other client can step through a new event before anyone edits it.
 
 **The readings join by themselves.** When a Lekció or Textus is set or changed on an event whose
@@ -58,15 +62,18 @@ button: every change is saved at once.
 
 **Apple app**
 
+- **Events → an event → Lekció / Textus**: type the reference and press Return, or pick another
+  translation. The verses are looked up and the event is saved; the Order of Service's reading step
+  follows (and is added if the list has none). Empty the reference to remove the reading.
 - **Events → an event → Order of Service**:
   - drag a step to move it;
-  - swipe left to delete it (or right-click → Delete on the Mac);
+  - swipe left to delete it on the iPhone; on the Mac click its trash button;
   - double-tap a step to rename it and edit its notes, or click its pencil on the Mac. Return, or
-    clicking elsewhere, finishes. On the announcements the notes box takes one bullet per line,
-    and **Done** finishes;
+    clicking elsewhere, finishes. On the announcements the box takes one bullet per line, on a
+    slide one paragraph per line, and **Done** finishes;
   - the deck button on a song picks or changes its deck from the library;
-  - the last row adds a step: type its name and press Return, or use **Song…** to add a song
-    from the library.
+  - the last row adds a step: type its name and press Return for a block, or use **Add** for a
+    **Song…** from the library, **Announcements**, a **Slide** or a **Block**.
 - **Live** shows the current event's Order of Service:
   - click a step to show it;
   - use **Previous Step** / **Next Step**.
@@ -85,7 +92,9 @@ button: every change is saved at once.
 
 - **Events**: the event's page has the same list under the event form, edited in place: drag a
   step by its handle (or use the arrows), swipe left to delete, double-click or the pencil to
-  rename, the deck button on a song, and _Add a step_ at the end. Every change is saved at once.
+  rename, the deck button on a song, and _Add a step_ at the end (with _Add song_, _Add
+  announcements_ and _Add slide_). Every change is saved at once. The readings are edited in the
+  event form above it.
 - **Home** runs the current event's Order of Service.
 - **Presentations** has the full library under the quick search.
 

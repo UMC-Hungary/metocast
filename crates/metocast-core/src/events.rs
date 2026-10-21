@@ -217,6 +217,9 @@ pub enum OrderItemKind {
     Block,
     /// The announcements: `notes` holds the bullet points, one per line, shown as slides.
     Announcements,
+    /// A slide of its own, such as the welcome: the title, and `notes` as optional paragraphs,
+    /// one per line.
+    Text,
 }
 
 impl OrderItemKind {
@@ -226,6 +229,7 @@ impl OrderItemKind {
             Self::Bible => "bible",
             Self::Block => "block",
             Self::Announcements => "announcements",
+            Self::Text => "text",
         }
     }
 
@@ -235,6 +239,7 @@ impl OrderItemKind {
             "bible" => Some(Self::Bible),
             "block" => Some(Self::Block),
             "announcements" => Some(Self::Announcements),
+            "text" => Some(Self::Text),
             _ => None,
         }
     }

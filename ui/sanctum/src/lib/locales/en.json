@@ -978,7 +978,8 @@
       "song": "Song",
       "bible": "Reading",
       "block": "Block",
-      "announcements": "Announcements"
+      "announcements": "Announcements",
+      "text": "Slide"
     },
     "textus": "Textus",
     "leckio": "Lekció",
@@ -1004,7 +1005,13 @@
     "announcementCount": "{n, plural, one {# announcement} other {# announcements}}",
     "noAnnouncements": "No announcements yet",
     "bulletsPlaceholder": "One announcement per line",
-    "stepBullets": "Announcements of step {n}, one per line"
+    "stepBullets": "Announcements of step {n}, one per line",
+    "slide": "Slide",
+    "welcome": "Welcome",
+    "paragraphsPlaceholder": "Optional paragraphs, one per line",
+    "stepParagraphs": "Paragraphs of step {n}, one per line",
+    "addAnnouncements": "Add announcements",
+    "addSlide": "Add slide"
   },
   "mcp": {
     "title": "AI Agents (MCP)",
