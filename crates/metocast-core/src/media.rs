@@ -691,9 +691,10 @@ pub struct SubtitleSource {
 pub struct SubtitleReport {
     pub language: String,
     pub cues: u32,
-    /// Seconds the transcript was moved to meet the voice.
+    /// Seconds the transcript was moved: to meet the voice, or with the recording.
     pub shift_seconds: f64,
-    /// The voice backed the shift clearly; otherwise it was left unmoved.
+    /// The voice backed the shift clearly. Otherwise a transcript running past the program moved
+    /// with the recording (by the sync), and any other was left unmoved.
     pub confident: bool,
     pub srt_path: String,
 }

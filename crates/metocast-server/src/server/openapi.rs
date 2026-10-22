@@ -904,8 +904,8 @@ fn handwritten() -> Value {
                     "properties": {
                         "language": { "type": "string" },
                         "cues": { "type": "integer" },
-                        "shiftSeconds": { "type": "number", "description": "How far the transcript was moved to meet the voice" },
-                        "confident": { "type": "boolean", "description": "The voice backed the shift clearly; otherwise the transcript was left unmoved" },
+                        "shiftSeconds": { "type": "number", "description": "How far the transcript was moved: to meet the voice, or with the recording when the voice did not say" },
+                        "confident": { "type": "boolean", "description": "The voice backed the shift clearly. Otherwise a transcript running past the program moved with the recording (by the sync), and any other was left unmoved" },
                         "srtPath": { "type": "string" }
                     }
                 },

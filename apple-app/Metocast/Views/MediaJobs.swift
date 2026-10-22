@@ -414,7 +414,10 @@ private struct ProgramResult: View {
     private func subtitleText(_ subtitle: SubtitleReport) -> String {
         let name = Locale.current.localizedString(forLanguageCode: subtitle.language) ?? subtitle.language
         guard subtitle.confident else {
-            return String(localized: "\(name) transcript (\(subtitle.cues) lines) left as it was: it didn't clearly match the voice")
+            guard abs(subtitle.shiftSeconds) >= 0.05 else {
+                return String(localized: "\(name) transcript (\(subtitle.cues) lines) left as it was: it didn't clearly match the voice")
+            }
+            return String(localized: "\(name) transcript (\(subtitle.cues) lines) moved \(timestamp(subtitle.shiftSeconds)) with the recording; it didn't clearly match the voice, so check it")
         }
         if abs(subtitle.shiftSeconds) < 0.05 {
             return String(localized: "\(name) transcript (\(subtitle.cues) lines) already in place, saved beside the video")

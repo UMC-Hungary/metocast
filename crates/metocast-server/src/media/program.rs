@@ -1277,6 +1277,8 @@ async fn produce(
         video_seconds,
         audio_seconds,
     );
+    // The recording's time 0 falls this far into the picture (drift, at most a few ppm, aside).
+    let recording_shift = -sync.offset_seconds;
     let report = ProgramReport {
         sync,
         audio: AudioReport {
@@ -1292,7 +1294,15 @@ async fn produce(
         silent_end_seconds: silent_end,
         damaged_frames: facts.video.damaged_frames,
         audio_output_path: payload.audio_output_path.clone(),
-        subtitles: place_subtitles(&ffmpeg, payload, &output, &audio_output, cancel).await,
+        subtitles: place_subtitles(
+            &ffmpeg,
+            payload,
+            &output,
+            &audio_output,
+            recording_shift,
+            cancel,
+        )
+        .await,
     };
     register(state, payload, &facts, &report, &output).await;
     Ok(report)
@@ -1305,6 +1315,7 @@ async fn place_subtitles(
     payload: &ProgramPayload,
     output: &FsPath,
     audio_output: &FsPath,
+    recording_shift: f64,
     cancel: watch::Receiver<bool>,
 ) -> Vec<SubtitleReport> {
     if payload.subtitles.is_empty() {
@@ -1322,7 +1333,8 @@ async fn place_subtitles(
         .iter()
         .filter_map(|source| {
             let placed = subtitles::read(source).and_then(|cues| {
-                let (cues, shift_seconds, confident) = subtitles::place(&cues, &voice);
+                let (cues, shift_seconds, confident) =
+                    subtitles::place(&cues, &voice, recording_shift);
                 let srt = subtitles::write_srt(output, &source.language, &cues)?;
                 Ok(SubtitleReport {
                     language: source.language.clone(),

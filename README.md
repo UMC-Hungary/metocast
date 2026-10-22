@@ -274,7 +274,10 @@ goes out with the program:
 - **Lined up with the voice.** It may be timed to the video or to the audio recording (for
   example made from the Wireless PRO file). Metocast matches where its lines are against where
   the program's voice speaks, finds the shift, and moves every line by it. If the match isn't
-  clear, the transcript is left as it was and the job says so.
+  clear (common for a live translation, whose lines trail the speech by varying seconds), a
+  transcript that runs past the end of the program can only be timed to the recording, so it
+  moves with the recording, where the sync put it; any other is left as it was. Either way the
+  job says the match wasn't clear, so check it.
 - **Saved beside the program** as `<name>.<language>.srt`.
 - **Sent with the uploads** when the program is filed under an event: YouTube gets it as a
   caption track in its language, and Facebook gets it after the video upload. English captions
