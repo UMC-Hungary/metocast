@@ -349,6 +349,44 @@
         }
       }
     },
+    "%@ transcript (%u lines) moved %@ with the recording; it didn't clearly match the voice, so check it" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ transcript (%#@lines@) moved %3$@ with the recording; it didn't clearly match the voice, so check it"
+          },
+          "substitutions" : {
+            "lines" : {
+              "argNum" : 2,
+              "formatSpecifier" : "u",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg line"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg lines"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ átirat (%2$u sor) a felvétellel együtt %3$@ eltolva; nem illeszkedett egyértelműen a hanghoz, ellenőrizd"
+          }
+        }
+      }
+    },
     "%@ transcript (%u lines) moved %@, saved beside the video" : {
       "localizations" : {
         "en" : {
@@ -7812,6 +7850,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A réteg az aktuális esemény címét mutatja, amelyet a szerver tölt ki."
+          }
+        }
+      }
+    },
+    "The recording didn't end cleanly: the last good frame stands in for %llu damaged frames at its end" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The recording didn't end cleanly: the last good frame stands in for %llu damaged frame at its end"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The recording didn't end cleanly: the last good frame stands in for %llu damaged frames at its end"
+                }
+              }
+            }
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A felvétel nem zárult le rendesen: a végén %llu sérült képkocka helyén az utolsó ép kocka áll"
           }
         }
       }

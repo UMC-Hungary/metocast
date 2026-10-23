@@ -904,8 +904,8 @@ fn handwritten() -> Value {
                     "properties": {
                         "language": { "type": "string" },
                         "cues": { "type": "integer" },
-                        "shiftSeconds": { "type": "number", "description": "How far the transcript was moved to meet the voice" },
-                        "confident": { "type": "boolean", "description": "The voice backed the shift clearly; otherwise the transcript was left unmoved" },
+                        "shiftSeconds": { "type": "number", "description": "How far the transcript was moved: to meet the voice, or with the recording when the voice did not say" },
+                        "confident": { "type": "boolean", "description": "The voice backed the shift clearly. Otherwise a transcript running past the program moved with the recording (by the sync), and any other was left unmoved" },
                         "srtPath": { "type": "string" }
                     }
                 },
@@ -1140,6 +1140,7 @@ fn handwritten() -> Value {
                         "coverage": { "type": "number", "minimum": 0, "maximum": 1, "description": "The share of the picture the audio covers" },
                         "silentStartSeconds": { "type": "number" },
                         "silentEndSeconds": { "type": "number" },
+                        "damagedFrames": { "type": "integer", "minimum": 0, "description": "Frames at the end of the clip that couldn't be read (a recording that didn't end cleanly), replaced by the last good frame held so the picture keeps its length" },
                         "audioOutputPath": { "type": "string", "description": "The program's own WAV: the picture's length, aligned to its first frame" },
                         "subtitles": { "type": "array", "items": { "$ref": "#/components/schemas/SubtitleReport" } }
                     }

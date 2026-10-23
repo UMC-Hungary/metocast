@@ -1016,6 +1016,7 @@ pub struct ProgramReport {
     pub coverage: f64,
     pub silent_start_seconds: f64,
     pub silent_end_seconds: f64,
+    pub damaged_frames: u64,
     pub audio_output_path: String,
     pub subtitles: Vec<SubtitleReport>,
 }

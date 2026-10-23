@@ -274,7 +274,10 @@ goes out with the program:
 - **Lined up with the voice.** It may be timed to the video or to the audio recording (for
   example made from the Wireless PRO file). Metocast matches where its lines are against where
   the program's voice speaks, finds the shift, and moves every line by it. If the match isn't
-  clear, the transcript is left as it was and the job says so.
+  clear (common for a live translation, whose lines trail the speech by varying seconds), a
+  transcript that runs past the end of the program can only be timed to the recording, so it
+  moves with the recording, where the sync put it; any other is left as it was. Either way the
+  job says the match wasn't clear, so check it.
 - **Saved beside the program** as `<name>.<language>.srt`.
 - **Sent with the uploads** when the program is filed under an event: YouTube gets it as a
   caption track in its language, and Facebook gets it after the video upload. English captions
@@ -452,6 +455,7 @@ A program, when it ends (and again after each nudge), with the sync it found:
       "coverage": 1.0,
       "silentStartSeconds": 0.0,
       "silentEndSeconds": 0.0,
+      "damagedFrames": 0,
       "audioOutputPath": "/Volumes/A002/Metocast Renders/Untitled CAM 1 05.wav"
     }
   }
@@ -462,7 +466,9 @@ A program, when it ends (and again after each nudge), with the sync it found:
 `prepare`, `clean`, `align` or `finish`. Its `fraction` is `null` during `clean`, because
 jive-vocals reports no progress. A program's `step` is `download`, `picture`, `prepare`, `sync`,
 `clean` or `merge`. A sync `method` of `clock`, or `confident: false`, means the operator should
-check the result; `manual` means the request gave `startSeconds`.
+check the result; `manual` means the request gave `startSeconds`. `damagedFrames` counts frames at the clip's
+end that a recording that didn't end cleanly left unreadable, shown as the last good frame held (see
+[the media page](docs/features/media.md#a-clip-whose-end-is-damaged)).
 
 Each finished file becomes a recording (`media_kind` `video` or `audio`). Its `metadata` holds the
 settings used (`render` or `audio`), an audio master's `report`, and a `timeline` object for the
