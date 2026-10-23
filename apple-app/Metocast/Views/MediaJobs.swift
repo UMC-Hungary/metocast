@@ -144,12 +144,13 @@ enum MediaJob {
             }
         case .program(let job):
             return switch job.step {
-            case .download: String(localized: "Downloading jive-vocals")
+            case .download: String(localized: "Downloading tools (first time only)")
             case .picture: String(localized: "Grading and encoding the picture")
             case .prepare: String(localized: "Joining the audio")
             case .sync: String(localized: "Finding where the video starts in the audio")
             case .clean: String(localized: "Cleaning the voice with jive-vocals")
             case .merge: job.report == nil ? String(localized: "Putting the sound under the picture") : String(localized: "Moving the sound")
+            case .captions: String(localized: "Placing the transcript on the speech")
             case nil: String(localized: "Waiting to start")
             }
         }
@@ -413,6 +414,9 @@ private struct ProgramResult: View {
 
     private func subtitleText(_ subtitle: SubtitleReport) -> String {
         let name = Locale.current.localizedString(forLanguageCode: subtitle.language) ?? subtitle.language
+        if subtitle.onSpeech {
+            return String(localized: "\(name) transcript: \(subtitle.cues) sentences placed on the speech, \(subtitle.matched) matched by word, saved beside the video")
+        }
         guard subtitle.confident else {
             guard abs(subtitle.shiftSeconds) >= 0.05 else {
                 return String(localized: "\(name) transcript (\(subtitle.cues) lines) left as it was: it didn't clearly match the voice")

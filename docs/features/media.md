@@ -47,13 +47,37 @@ real problem.
 
 ### Transcripts
 
-A transcript dropped with the video is moved to where its lines match the program's voice. A live
-English translation rarely matches clearly: its lines trail the speech by a few seconds that vary.
-When the match isn't clear and the transcript runs past the end of the program, it must be timed
-to the recording, so it moves with the recording, to where the sync put it. The Finished card then
-says it moved with the recording and should be checked. A transcript that fits within the program
-is left as it was. Each language is saved beside the program as `<name>.<language>.srt`
-(`subtitles` in the program's `report`).
+To caption a program with the live English translation:
+
+1. After the service, open **Settings → Server Tools → Transcripts**, open the session and
+   **Download** it as `.vtt` (or `.srt`). Use the cleaned-up text if you ran the AI clean-up.
+2. On the Media page, drop the video, the transcript and, if there is one, the audio recording.
+   Pick **English** for the transcript on the Subtitles card.
+3. Start the job.
+
+The transcript can count from the start of the live session: the job finds where the program sits
+in it. After the picture and sound are done, the **Placing the transcript on the speech** step:
+
+- rebuilds the live text into whole sentences. The live translation arrives 2–6 s late, in
+  fragments and with stray quote marks;
+- has Whisper (bundled in the app) translate the program's own audio with a time for every word;
+- starts each sentence when its first word is spoken.
+
+The Finished card then says, for example, "English transcript: 239 sentences placed on the speech,
+225 matched by word". The first such job downloads Whisper's model (3.1 GB); the Files card says
+so when an English transcript is dropped. The step takes about a fifth of the program's length on
+an M1.
+
+Other languages, or an English transcript when Whisper can't run or the text doesn't match the
+speech, are moved as a whole to where their lines match the program's voice. A live translation
+rarely matches clearly that way. When the match isn't clear and the transcript runs past the end
+of the program, it must be timed to the recording, so it moves with the recording, to where the
+sync put it, and the Finished card says to check it. A transcript that fits within the program is
+left as it was.
+
+Each language is saved beside the program as `<name>.<language>.srt` (`subtitles` in the
+program's `report`: `onSpeech` and `matched` when it was placed sentence by sentence). The step
+is `captions` in `media.program.progress`.
 
 Blackmagic RAW also needs the free Blackmagic RAW install on that Mac, which holds the framework
 the app develops clips with. A job that stops with `this Mac is missing: braw-decode` means the

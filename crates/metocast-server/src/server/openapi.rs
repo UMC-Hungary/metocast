@@ -906,7 +906,9 @@ fn handwritten() -> Value {
                         "cues": { "type": "integer" },
                         "shiftSeconds": { "type": "number", "description": "How far the transcript was moved: to meet the voice, or with the recording when the voice did not say" },
                         "confident": { "type": "boolean", "description": "The voice backed the shift clearly. Otherwise a transcript running past the program moved with the recording (by the sync), and any other was left unmoved" },
-                        "srtPath": { "type": "string" }
+                        "srtPath": { "type": "string" },
+                        "onSpeech": { "type": "boolean", "description": "Rebuilt into whole sentences, each placed where Whisper heard it spoken (English transcripts on a Mac with the bundled whisper-cli). shiftSeconds is then the offset found for the whole file, and cues the sentence captions written" },
+                        "matched": { "type": "integer", "minimum": 0, "description": "With onSpeech: captions with a word matched to the speech; the rest sit between them" }
                     }
                 },
                 "MediaProbe": {
@@ -1151,7 +1153,7 @@ fn handwritten() -> Value {
                     "properties": {
                         "jobId": { "type": "string", "format": "uuid", "description": "The program job, also while it's being nudged" },
                         "state": { "type": "string", "enum": ["running", "succeeded", "failed", "cancelled"] },
-                        "step": { "type": ["string", "null"], "enum": ["download", "picture", "prepare", "sync", "clean", "merge", null] },
+                        "step": { "type": ["string", "null"], "enum": ["download", "picture", "prepare", "sync", "clean", "merge", "captions", null] },
                         "fraction": { "type": ["number", "null"] },
                         "outputPath": { "type": "string" },
                         "error": { "type": ["string", "null"] },

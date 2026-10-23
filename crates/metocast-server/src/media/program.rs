@@ -44,8 +44,8 @@ use metocast_core::media::{
 use super::audio::{self, CANCELLED, HEARTBEAT, StepProgress, arg, strings};
 use super::sync::{self, ENVELOPE_RATE, Envelope};
 use super::{
-    MEDIA_QUEUE, MediaError, Probed, RENDERS_FOLDER, command, file_recording, load_config,
-    partial_path, probe_source, subtitles, tools, validate_source, worker,
+    MEDIA_QUEUE, MediaError, Probed, RENDERS_FOLDER, Tools, command, file_recording, load_config,
+    partial_path, probe_source, subtitles, tools, validate_source, whisper, worker,
 };
 use crate::queue::{self, Job};
 use crate::server::AppState;
@@ -346,6 +346,14 @@ async fn examine(
     }
     if sync_method != SyncMethod::None && video.tools.lip_reader.is_none() {
         missing.push("lip-reader".to_string());
+    }
+    // Only a job with an English transcript needs it; the Media page says so when one is dropped.
+    let tools_dir = &state.media.tools_dir;
+    if video.tools.whisper.is_some()
+        && !(tools::WHISPER_MODEL.path(tools_dir).is_file()
+            && tools::WHISPER_VAD.path(tools_dir).is_file())
+    {
+        downloads.push("whisper".to_string());
     }
     let picture = if video.probe.kind == MediaKind::Braw {
         PictureMode::Grade
@@ -1279,6 +1287,19 @@ async fn produce(
     );
     // The recording's time 0 falls this far into the picture (drift, at most a few ppm, aside).
     let recording_shift = -sync.offset_seconds;
+    let heard = hear_program(
+        state,
+        reporter,
+        tools,
+        payload,
+        &audio_output,
+        work,
+        cancel.clone(),
+    )
+    .await?;
+    if heard.is_some() {
+        clock.done("captions");
+    }
     let report = ProgramReport {
         sync,
         audio: AudioReport {
@@ -1300,6 +1321,7 @@ async fn produce(
             &output,
             &audio_output,
             recording_shift,
+            heard.as_deref(),
             cancel,
         )
         .await,
@@ -1308,14 +1330,80 @@ async fn produce(
     Ok(report)
 }
 
-/// Each transcript moved onto the program's voice and written beside it. The program is already
-/// in place, so a transcript that fails is logged and left out rather than failing the job.
+/// The English words Whisper hears in the program, when an English transcript was dropped to be
+/// placed on them. The models download on first use. Placing falls back to the voice match when
+/// this can't run (no `whisper-cli` on this host, a failed download), so only cancelling fails.
+async fn hear_program(
+    state: &AppState,
+    reporter: &Reporter<'_>,
+    tools: &Tools,
+    payload: &ProgramPayload,
+    audio_output: &FsPath,
+    work: &FsPath,
+    cancel: watch::Receiver<bool>,
+) -> Result<Option<Vec<whisper::Heard>>, String> {
+    let wanted = payload
+        .subtitles
+        .iter()
+        .any(|source| source.language == whisper::PLACEABLE_LANGUAGE);
+    let Some(whisper_cli) = tools.whisper.as_ref().filter(|_| wanted) else {
+        if wanted {
+            tracing::warn!(
+                "media: no whisper-cli here; the transcript is placed by its voice match"
+            );
+        }
+        return Ok(None);
+    };
+    let tools_dir = &state.media.tools_dir;
+    let models = async {
+        if !tools::WHISPER_MODEL.path(tools_dir).is_file()
+            || !tools::WHISPER_VAD.path(tools_dir).is_file()
+        {
+            reporter.step(ProgramStep::Download, None).await;
+        }
+        Ok::<_, String>((
+            tools::ensure(&tools::WHISPER_MODEL, tools_dir).await?,
+            tools::ensure(&tools::WHISPER_VAD, tools_dir).await?,
+        ))
+    };
+    let (model, vad) = match models.await {
+        Ok(models) => models,
+        Err(e) => {
+            tracing::warn!("media: Whisper's model is unavailable, placing by voice instead: {e}");
+            return Ok(None);
+        }
+    };
+    reporter.step(ProgramStep::Captions, None).await;
+    match whisper::hear(
+        whisper_cli,
+        &model,
+        &vad,
+        audio_output,
+        &work.join("heard"),
+        cancel,
+    )
+    .await
+    {
+        Ok(heard) => Ok(Some(heard)),
+        Err(e) if e == CANCELLED => Err(e),
+        Err(e) => {
+            tracing::warn!("media: Whisper failed, placing the transcript by voice instead: {e}");
+            Ok(None)
+        }
+    }
+}
+
+/// Each transcript placed on the program and written beside it: an English one on the speech
+/// Whisper heard (`heard`), as whole sentences, and otherwise moved as a whole onto the voice.
+/// The program is already in place, so a transcript that fails is logged and left out rather
+/// than failing the job.
 async fn place_subtitles(
     ffmpeg: &FsPath,
     payload: &ProgramPayload,
     output: &FsPath,
     audio_output: &FsPath,
     recording_shift: f64,
+    heard: Option<&[whisper::Heard]>,
     cancel: watch::Receiver<bool>,
 ) -> Vec<SubtitleReport> {
     if payload.subtitles.is_empty() {
@@ -1333,8 +1421,22 @@ async fn place_subtitles(
         .iter()
         .filter_map(|source| {
             let placed = subtitles::read(source).and_then(|cues| {
-                let (cues, shift_seconds, confident) =
-                    subtitles::place(&cues, &voice, recording_shift);
+                let on_speech = heard
+                    .filter(|_| source.language == whisper::PLACEABLE_LANGUAGE)
+                    .and_then(|heard| whisper::place_on_speech(&cues, heard, voice.duration()));
+                let (cues, shift_seconds, confident, matched) = match on_speech {
+                    Some(placed) => (
+                        placed.cues,
+                        placed.offset_seconds,
+                        true,
+                        Some(placed.matched),
+                    ),
+                    None => {
+                        let (cues, shift, confident) =
+                            subtitles::place(&cues, &voice, recording_shift);
+                        (cues, shift, confident, None)
+                    }
+                };
                 let srt = subtitles::write_srt(output, &source.language, &cues)?;
                 Ok(SubtitleReport {
                     language: source.language.clone(),
@@ -1342,6 +1444,8 @@ async fn place_subtitles(
                     shift_seconds,
                     confident,
                     srt_path: srt.to_string_lossy().into_owned(),
+                    on_speech: matched.is_some(),
+                    matched: matched.unwrap_or(0),
                 })
             });
             placed

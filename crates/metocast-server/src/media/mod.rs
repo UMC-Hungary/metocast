@@ -11,6 +11,7 @@ mod program;
 mod subtitles;
 mod sync;
 mod tools;
+mod whisper;
 mod worker;
 
 use metocast_core::best_effort::LogGone;
@@ -91,6 +92,8 @@ struct Tools {
     jive_vocals: Option<PathBuf>,
     /// Reads lip movement for audio/video sync; shipped next to the server in the Mac app.
     lip_reader: Option<PathBuf>,
+    /// Places a dropped transcript on the speech; shipped next to the server in the Mac app.
+    whisper: Option<PathBuf>,
 }
 
 impl Tools {
@@ -142,6 +145,11 @@ impl Tools {
             .map(PathBuf::from)
             .or_else(|| beside_server("lip-reader"))
             .and_then(existing);
+        // METOCAST_WHISPER points a dev build at `whisper/build/whisper-cli`.
+        let whisper = std::env::var_os("METOCAST_WHISPER")
+            .map(PathBuf::from)
+            .or_else(|| beside_server("whisper-cli"))
+            .and_then(existing);
         Self {
             ffmpeg,
             ffprobe,
@@ -149,6 +157,7 @@ impl Tools {
             braw_sdk,
             jive_vocals,
             lip_reader,
+            whisper,
         }
     }
 

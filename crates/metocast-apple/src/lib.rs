@@ -833,6 +833,8 @@ pub struct SubtitleReport {
     pub shift_seconds: f64,
     pub confident: bool,
     pub srt_path: String,
+    pub on_speech: bool,
+    pub matched: u32,
 }
 
 /// A video file on the server's disk, and the render the stored settings would make of it.
@@ -969,6 +971,7 @@ pub enum ProgramStep {
     Sync,
     Clean,
     Merge,
+    Captions,
 }
 
 #[uniffi::remote(Record)]

@@ -697,6 +697,13 @@ pub struct SubtitleReport {
     /// with the recording (by the sync), and any other was left unmoved.
     pub confident: bool,
     pub srt_path: String,
+    /// Rebuilt into whole sentences, each placed where Whisper heard it spoken; `shiftSeconds`
+    /// is then the offset found for the whole file, and `cues` the sentence captions written.
+    #[serde(default)]
+    pub on_speech: bool,
+    /// With `onSpeech`: captions with a word matched to the speech; the rest sit between them.
+    #[serde(default)]
+    pub matched: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -714,6 +721,8 @@ pub enum ProgramStep {
     Clean,
     /// Placing the audio under the picture and writing the file.
     Merge,
+    /// Whisper listening to the program, to place a dropped English transcript on the speech.
+    Captions,
 }
 
 /// One stretch of the picture the sync was measured on.
