@@ -78,11 +78,11 @@ struct PresentationView: View {
             ?? EventSchedule.current(in: session.events, now: .now)
     }
 
-    /// The deck library, and with the web presenter the event's Order of Service beside it, so the
-    /// service can be stepped through from here.
+    /// The deck library, and the event's Order of Service beside it, so the service can be stepped
+    /// through from here, with the web presenter or Keynote.
     @ViewBuilder
     private func sidebar(_ session: MetocastSession) -> some View {
-        let event = session.usesWebPresenter ? orderEvent(session) : nil
+        let event = orderEvent(session)
         VStack(spacing: 0) {
             if event != nil {
                 Picker("Show", selection: $isShowingOrder) {

@@ -387,8 +387,9 @@ struct BibleTranslationPicker: View {
     }
 }
 
-/// One of the event's readings on its page, edited in place: a changed reference (on Return) or
-/// translation looks the verses up and saves the event, and its Order of Service step follows.
+/// One of the event's readings on its page, edited in place: once typing pauses, a changed
+/// reference or translation looks the verses up and saves the event, and its Order of Service
+/// step follows.
 struct EventReadingSection: View {
     let session: MetocastSession
     let event: EventRecord
@@ -410,12 +411,10 @@ struct EventReadingSection: View {
                     TextField(label, text: $reference, prompt: Text("Jn 3,16-21"))
                         .labelsHidden()
                         .autocorrectionDisabled()
-                        .onSubmit { Task { await save() } }
                     if isSaving { ProgressView().controlSize(.small) }
                 }
             }
             BibleTranslationPicker(label: label, selection: $translation)
-                .onChange(of: translation) { Task { await save() } }
             if let failure {
                 Text(failure).font(.footnote).foregroundStyle(.red)
             }
@@ -428,6 +427,15 @@ struct EventReadingSection: View {
         .task(id: event.updatedAt) {
             reference = stored?.reference ?? ""
             translation = stored?.translation ?? MetocastSession.defaultBibleTranslation
+        }
+        // Like the editor: saved once typing pauses; a newer edit cancels the wait.
+        .task(id: "\(reference)|\(translation)") {
+            do {
+                try await Task.sleep(for: .milliseconds(800))
+            } catch {
+                return
+            }
+            await save()
         }
     }
 

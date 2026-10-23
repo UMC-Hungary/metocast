@@ -62,8 +62,8 @@ button: every change is saved at once.
 
 **Apple app**
 
-- **Events → an event → Lekció / Textus**: type the reference and press Return, or pick another
-  translation. The verses are looked up and the event is saved; the Order of Service's reading step
+- **Events → an event → Lekció / Textus**: type the reference or pick another translation. Once
+  you stop typing, the verses are looked up and the event is saved; the Order of Service's reading step
   follows (and is added if the list has none). Empty the reference to remove the reading.
 - **Events → an event → Order of Service**:
   - drag a step to move it;
@@ -83,7 +83,7 @@ button: every change is saved at once.
     folder filter (see [Slide library search](slide-library.md));
   - one click opens a deck;
   - the folder menu adds and removes watched folders.
-  - With the web presenter, the sidebar (on the iPhone, the top of the page) switches between
+  - The sidebar (on the iPhone, the top of the page) switches between
     **Order of Service** and **Library**. Order of Service is the list of the event on screen, or
     else the one under way or next, with the same steps and **Previous Step** / **Next Step** as
     Live, so the service can be stepped through while watching the slides.
