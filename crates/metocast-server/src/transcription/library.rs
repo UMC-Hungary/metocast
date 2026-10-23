@@ -254,8 +254,9 @@ pub async fn download_route(
         Format::Srt => ("application/x-subrip; charset=utf-8", "srt"),
         Format::Vtt => ("text/vtt; charset=utf-8", "vtt"),
     };
+    // The library holds English only: `.en` lets the Media page take it as English when dropped.
     let name = format!(
-        "transcript-{}{}.{extension}",
+        "transcript-{}{}.en.{extension}",
         detail.transcript.started_at.format("%Y-%m-%d-%H%M"),
         if query.clean { "-clean" } else { "" }
     );

@@ -38,7 +38,8 @@ use metocast_core::media::{
     AUDIO_SAMPLE_RATE, AudioReport, AudioSettings, ClockEstimate, MediaConfig, MediaKind,
     MediaProbe, NudgeRequest, PictureMode, ProgramProbe, ProgramProbeRequest, ProgramProgress,
     ProgramReport, ProgramRequest, ProgramStep, RenderQueued, RenderSettings, RenderState,
-    SubtitleReport, SubtitleSource, SyncMethod, SyncReport, VideoSound, output_crop,
+    SubtitleReport, SubtitleSource, SubtitlesRequest, SyncMethod, SyncReport, VideoSound,
+    output_crop,
 };
 
 use super::audio::{self, CANCELLED, HEARTBEAT, StepProgress, arg, strings};
@@ -52,6 +53,7 @@ use crate::server::AppState;
 
 pub const PROGRAM_JOB: &str = "produce_program";
 pub const NUDGE_JOB: &str = "nudge_program";
+pub const SUBTITLES_JOB: &str = "subtitle_program";
 
 /// Lip windows: four 90-second stretches find a sermon in an hour of audio at 12σ or more.
 const LIP_WINDOWS: u32 = 4;
@@ -477,6 +479,16 @@ struct NudgePayload {
     frames: i32,
 }
 
+/// Transcripts dropped on a finished program, placed as its own job would have.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SubtitlesPayload {
+    program_job_id: Uuid,
+    output_path: String,
+    audio_output_path: String,
+    subtitles: Vec<SubtitleSource>,
+}
+
 // ── REST handlers ─────────────────────────────────────────────────────────────
 
 pub async fn probe_program(
@@ -574,18 +586,7 @@ async fn queue_program(state: &AppState, body: ProgramRequest) -> Result<RenderQ
             )));
         }
     }
-    for (at, source) in body.subtitles.iter().enumerate() {
-        subtitles::read(source).map_err(MediaError::BadRequest)?;
-        if body.subtitles[..at]
-            .iter()
-            .any(|earlier| earlier.language == source.language)
-        {
-            return Err(MediaError::BadRequest(format!(
-                "one transcript per language: two are {}",
-                source.language
-            )));
-        }
-    }
+    check_subtitles(&body.subtitles)?;
     if let Some(event_id) = body.event_id {
         let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM events WHERE id = $1)")
             .bind(event_id)
@@ -670,6 +671,23 @@ async fn queue_program(state: &AppState, body: ProgramRequest) -> Result<RenderQ
     })
 }
 
+/// Each transcript readable, and one per language.
+fn check_subtitles(sources: &[SubtitleSource]) -> Result<(), MediaError> {
+    for (at, source) in sources.iter().enumerate() {
+        subtitles::read(source).map_err(MediaError::BadRequest)?;
+        if sources[..at]
+            .iter()
+            .any(|earlier| earlier.language == source.language)
+        {
+            return Err(MediaError::BadRequest(format!(
+                "one transcript per language: two are {}",
+                source.language
+            )));
+        }
+    }
+    Ok(())
+}
+
 pub async fn nudge_program(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -693,6 +711,32 @@ async fn queue_nudge(state: &AppState, id: Uuid, frames: i32) -> Result<RenderQu
             "move the audio by 1 to {MAX_NUDGE_FRAMES} frames either way"
         )));
     }
+    let program = finished_program(state, id).await?;
+    let payload = NudgePayload {
+        program_job_id: id,
+        output_path: program.output_path,
+        audio_output_path: program.audio_output_path,
+        frames,
+    };
+    let job_id: Uuid = sqlx::query_scalar(
+        "INSERT INTO job_queue (queue, job_type, payload, max_attempts) \
+         VALUES ($1, $2, $3, 1) RETURNING id",
+    )
+    .bind(MEDIA_QUEUE)
+    .bind(NUDGE_JOB)
+    .bind(serde_json::to_value(&payload).map_err(|e| MediaError::Internal(e.to_string()))?)
+    .fetch_one(&state.pool)
+    .await?;
+    state.media.wake.notify_one();
+    Ok(RenderQueued {
+        job_id,
+        output_path: payload.output_path,
+    })
+}
+
+/// A finished program's job payload, while its files are where it wrote them and nothing else is
+/// adjusting it (a nudge or added transcripts).
+async fn finished_program(state: &AppState, id: Uuid) -> Result<ProgramPayload, MediaError> {
     let payload: Option<Value> = sqlx::query_scalar(
         "SELECT payload FROM job_queue WHERE id = $1 AND queue = $2 AND job_type = $3 \
          AND status = 'succeeded'",
@@ -713,11 +757,11 @@ async fn queue_nudge(state: &AppState, id: Uuid, frames: i32) -> Result<RenderQu
         ));
     }
     let busy: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM job_queue WHERE queue = $1 AND job_type = $2 \
+        "SELECT EXISTS(SELECT 1 FROM job_queue WHERE queue = $1 AND job_type = ANY($2) \
          AND status IN ('pending', 'processing') AND payload->>'programJobId' = $3)",
     )
     .bind(MEDIA_QUEUE)
-    .bind(NUDGE_JOB)
+    .bind([NUDGE_JOB, SUBTITLES_JOB])
     .bind(id.to_string())
     .fetch_one(&state.pool)
     .await?;
@@ -726,18 +770,50 @@ async fn queue_nudge(state: &AppState, id: Uuid, frames: i32) -> Result<RenderQu
             "this program is already being adjusted".to_string(),
         ));
     }
-    let payload = NudgePayload {
+    Ok(program)
+}
+
+pub async fn add_program_subtitles(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    Json(body): Json<SubtitlesRequest>,
+) -> impl IntoResponse {
+    match queue_subtitles(&state, id, body.subtitles).await {
+        Ok(queued) => {
+            tracing::info!(program = %id, job = %queued.job_id, "media: transcripts queued for a finished program");
+            (StatusCode::ACCEPTED, Json(queued)).into_response()
+        }
+        Err(error) => {
+            tracing::warn!(program = %id, "media: transcripts refused: {error}");
+            error.into_response()
+        }
+    }
+}
+
+async fn queue_subtitles(
+    state: &AppState,
+    id: Uuid,
+    sources: Vec<SubtitleSource>,
+) -> Result<RenderQueued, MediaError> {
+    if sources.is_empty() {
+        return Err(MediaError::BadRequest(
+            "add at least one transcript".to_string(),
+        ));
+    }
+    check_subtitles(&sources)?;
+    let program = finished_program(state, id).await?;
+    let payload = SubtitlesPayload {
         program_job_id: id,
         output_path: program.output_path,
         audio_output_path: program.audio_output_path,
-        frames,
+        subtitles: sources,
     };
     let job_id: Uuid = sqlx::query_scalar(
         "INSERT INTO job_queue (queue, job_type, payload, max_attempts) \
          VALUES ($1, $2, $3, 1) RETURNING id",
     )
     .bind(MEDIA_QUEUE)
-    .bind(NUDGE_JOB)
+    .bind(SUBTITLES_JOB)
     .bind(serde_json::to_value(&payload).map_err(|e| MediaError::Internal(e.to_string()))?)
     .fetch_one(&state.pool)
     .await?;
@@ -1291,7 +1367,7 @@ async fn produce(
         state,
         reporter,
         tools,
-        payload,
+        &payload.subtitles,
         &audio_output,
         work,
         cancel.clone(),
@@ -1317,7 +1393,7 @@ async fn produce(
         audio_output_path: payload.audio_output_path.clone(),
         subtitles: place_subtitles(
             &ffmpeg,
-            payload,
+            &payload.subtitles,
             &output,
             &audio_output,
             recording_shift,
@@ -1337,13 +1413,12 @@ async fn hear_program(
     state: &AppState,
     reporter: &Reporter<'_>,
     tools: &Tools,
-    payload: &ProgramPayload,
+    sources: &[SubtitleSource],
     audio_output: &FsPath,
     work: &FsPath,
     cancel: watch::Receiver<bool>,
 ) -> Result<Option<Vec<whisper::Heard>>, String> {
-    let wanted = payload
-        .subtitles
+    let wanted = sources
         .iter()
         .any(|source| source.language == whisper::PLACEABLE_LANGUAGE);
     let Some(whisper_cli) = tools.whisper.as_ref().filter(|_| wanted) else {
@@ -1373,13 +1448,18 @@ async fn hear_program(
             return Ok(None);
         }
     };
-    reporter.step(ProgramStep::Captions, None).await;
+    reporter.step(ProgramStep::Captions, Some(0.0)).await;
+    let step = Step {
+        reporter,
+        step: ProgramStep::Captions,
+    };
     match whisper::hear(
         whisper_cli,
         &model,
         &vad,
         audio_output,
         &work.join("heard"),
+        &step,
         cancel,
     )
     .await
@@ -1399,14 +1479,14 @@ async fn hear_program(
 /// than failing the job.
 async fn place_subtitles(
     ffmpeg: &FsPath,
-    payload: &ProgramPayload,
+    sources: &[SubtitleSource],
     output: &FsPath,
     audio_output: &FsPath,
     recording_shift: f64,
     heard: Option<&[whisper::Heard]>,
     cancel: watch::Receiver<bool>,
 ) -> Vec<SubtitleReport> {
-    if payload.subtitles.is_empty() {
+    if sources.is_empty() {
         return Vec::new();
     }
     let voice = match read_envelope(ffmpeg, audio_output, None, cancel).await {
@@ -1416,8 +1496,7 @@ async fn place_subtitles(
             return Vec::new();
         }
     };
-    payload
-        .subtitles
+    sources
         .iter()
         .filter_map(|source| {
             let placed = subtitles::read(source).and_then(|cues| {
@@ -1842,6 +1921,128 @@ async fn register(
     }
 }
 
+// ── Adjusting a finished program ──────────────────────────────────────────────
+
+/// A finished program's recording: its metadata, whether it is filed under an event (else it is
+/// untracked), and the report the program job wrote into it.
+async fn stored_program(
+    state: &AppState,
+    output_path: &str,
+) -> Result<(Value, bool, ProgramReport), String> {
+    let stored: Option<(Value, bool)> = sqlx::query_as(
+        "SELECT metadata, true FROM recordings WHERE file_path = $1 \
+         UNION ALL SELECT metadata, false FROM untracked_recordings WHERE file_path = $1 \
+         LIMIT 1",
+    )
+    .bind(output_path)
+    .fetch_optional(&state.pool)
+    .await
+    .map_err(|e| format!("database error: {e}"))?;
+    let (metadata, in_event) = stored.ok_or("the program's recording is no longer listed")?;
+    let report: ProgramReport = serde_json::from_value(metadata["report"].clone())
+        .map_err(|e| format!("the program's report is unreadable: {e}"))?;
+    Ok((metadata, in_event, report))
+}
+
+/// Runs one `subtitle_program` job: transcripts dropped on a finished program, placed on it.
+pub(super) async fn caption(state: &AppState, job: &Job) -> Result<(), String> {
+    let payload: SubtitlesPayload = serde_json::from_value(job.payload.clone())
+        .map_err(|e| format!("unreadable job payload: {e}"))?;
+    let running = Running::start(state, job.id, payload.program_job_id).await;
+    let reporter = Reporter {
+        state,
+        job_id: payload.program_job_id,
+        output_path: payload.output_path.clone(),
+    };
+    let output = PathBuf::from(&payload.output_path);
+    let work = output
+        .parent()
+        .unwrap_or(FsPath::new("."))
+        .join(format!(".metocast-subtitles-{}", job.id));
+    let result = caption_program(state, &payload, &reporter, &work, running.cancel.clone()).await;
+    running.finish(state).await;
+    metocast_core::best_effort::remove_dir_all_if_present(&work);
+    reporter.ended(&result).await;
+    result.map(|_| ())
+}
+
+async fn caption_program(
+    state: &AppState,
+    payload: &SubtitlesPayload,
+    reporter: &Reporter<'_>,
+    work: &FsPath,
+    cancel: watch::Receiver<bool>,
+) -> Result<ProgramReport, String> {
+    reporter.step(ProgramStep::Captions, None).await;
+    let config = load_config(&state.pool).await;
+    let tools = Tools::find(&config, &state.media.tools_dir);
+    let ffmpeg = tools.ffmpeg.clone().ok_or("ffmpeg is not installed")?;
+    let (_, in_event, mut report) = stored_program(state, &payload.output_path).await?;
+    std::fs::create_dir_all(work).map_err(|e| format!("cannot create {}: {e}", work.display()))?;
+    let output = PathBuf::from(&payload.output_path);
+    let audio_output = PathBuf::from(&payload.audio_output_path);
+    let heard = hear_program(
+        state,
+        reporter,
+        &tools,
+        &payload.subtitles,
+        &audio_output,
+        work,
+        cancel.clone(),
+    )
+    .await?;
+    let placed = place_subtitles(
+        &ffmpeg,
+        &payload.subtitles,
+        &output,
+        &audio_output,
+        -report.sync.offset_seconds,
+        heard.as_deref(),
+        cancel,
+    )
+    .await;
+    if placed.is_empty() {
+        return Err("the transcript couldn't be placed on this program".to_string());
+    }
+    // A transcript in a language the program already has replaces that one.
+    report
+        .subtitles
+        .retain(|old| !placed.iter().any(|new| new.language == old.language));
+    report.subtitles.extend(placed.iter().cloned());
+
+    let table = if in_event {
+        "recordings"
+    } else {
+        "untracked_recordings"
+    };
+    let report_json = serde_json::to_value(&report).map_err(|e| e.to_string())?;
+    let recording_id: Option<Uuid> = sqlx::query_scalar(&format!(
+        "UPDATE {table} SET metadata = jsonb_set(metadata, '{{report}}', $2) \
+         WHERE file_path = $1 RETURNING id"
+    ))
+    .bind(&payload.output_path)
+    .bind(&report_json)
+    .fetch_optional(&state.pool)
+    .await
+    .map_err(|e| format!("database error: {e}"))?;
+    // ponytail: unassigned programs keep only the .srt files, as a program job leaves them.
+    if let Some(recording_id) = recording_id.filter(|_| in_event) {
+        for subtitle in &placed {
+            crate::transcription::captions_job::store_track(
+                &state.pool,
+                recording_id,
+                &subtitle.language,
+                &subtitle.srt_path,
+            )
+            .await;
+        }
+        // An upload that already finished gets the new tracks now.
+        crate::transcription::captions_job::after_upload(&state.pool, recording_id).await;
+    }
+    tracing::info!(program = %payload.program_job_id, transcripts = placed.len(), "media: transcripts added to a finished program");
+    Ok(report)
+}
+
 // ── Nudging ───────────────────────────────────────────────────────────────────
 
 /// Runs one `nudge_program` job: the program's audio moved by whole frames.
@@ -1879,18 +2080,7 @@ async fn shift_program(
     let tools = super::Tools::find(&config, &state.media.tools_dir);
     let ffmpeg = tools.ffmpeg.ok_or("ffmpeg is not installed")?;
     let ffprobe = tools.ffprobe.ok_or("ffprobe is not installed")?;
-    let stored: Option<(Value, bool)> = sqlx::query_as(
-        "SELECT metadata, true FROM recordings WHERE file_path = $1 \
-         UNION ALL SELECT metadata, false FROM untracked_recordings WHERE file_path = $1 \
-         LIMIT 1",
-    )
-    .bind(&payload.output_path)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(|e| format!("database error: {e}"))?;
-    let (metadata, in_event) = stored.ok_or("the program's recording is no longer listed")?;
-    let mut report: ProgramReport = serde_json::from_value(metadata["report"].clone())
-        .map_err(|e| format!("the program's report is unreadable: {e}"))?;
+    let (metadata, in_event, mut report) = stored_program(state, &payload.output_path).await?;
     let frame = metadata["timeline"]["fps"]
         .as_str()
         .and_then(|fps| fps.split_once('/'))

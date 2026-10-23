@@ -2984,6 +2984,16 @@
         }
       }
     },
+    "Drop a transcript (.vtt or .srt) here to place it on this program." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Húzz ide egy átiratot (.vtt vagy .srt), hogy erre a műsorra illeszd."
+          }
+        }
+      }
+    },
     "Drop files to start" : {
       "localizations" : {
         "hu" : {
@@ -5660,6 +5670,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Az átirat illesztése a beszédhez"
+          }
+        }
+      }
+    },
+    "Placing the transcript on the speech · %@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az átirat illesztése a beszédhez · %@"
           }
         }
       }

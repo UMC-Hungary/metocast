@@ -1785,6 +1785,20 @@ impl AppleClient {
         Ok(())
     }
 
+    /// Places transcripts dropped on a finished program, as its job would have. Its progress
+    /// arrives under the program's job id.
+    pub async fn add_program_subtitles(
+        &self,
+        job_id: String,
+        subtitles: Vec<SubtitleSource>,
+    ) -> Result<(), AppleError> {
+        let id = parse_id(&job_id)?;
+        let client = self.client.clone();
+        self.run(async move { client.add_program_subtitles(id, subtitles).await })
+            .await?;
+        Ok(())
+    }
+
     /// Stops a queued or running render, audio or program job.
     pub async fn cancel_render(&self, job_id: String) -> Result<(), AppleError> {
         let id = parse_id(&job_id)?;

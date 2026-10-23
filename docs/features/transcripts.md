@@ -16,7 +16,9 @@ Only the English text is kept. The Hungarian source is never transcribed, so it 
   marks the session that is live now and the ones that have been cleaned up.
 - Open one to read it.
   - **Download** saves it as `.txt` (one line per sentence), `.srt` or `.vtt`. Subtitle times count
-    from the start of the session.
+    from the start of the session. Files are named `transcript-<date>.en.vtt`: drop one on the
+    Media page and it is taken as English, then placed sentence by sentence on the program's
+    speech ([Media processing](media.md#transcripts)).
   - **Clean Up with AI** (see below).
   - **Delete** removes the session, with its original and cleaned-up text. This cannot be undone.
 - Once a clean-up has succeeded, the **Original / Cleaned Up** switch picks which text is shown

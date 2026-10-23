@@ -41,7 +41,7 @@ use crate::server::AppState;
 
 pub use audio::{probe_audio, start_audio};
 pub use camera_clips::spawn_camera_clip_log;
-pub use program::{nudge_program, probe_program, start_program};
+pub use program::{add_program_subtitles, nudge_program, probe_program, start_program};
 pub use worker::spawn_worker;
 
 pub const MEDIA_QUEUE: &str = "media";

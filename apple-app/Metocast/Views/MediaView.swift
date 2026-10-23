@@ -105,10 +105,8 @@ final class MediaDraft {
             case .video: videoPath = url.path
             case .audio: audioPaths.append(url.path)
             case .transcript:
-                // `sermon.en.srt` says its language; Hungarian otherwise, as the sermons are.
-                let suffix = url.deletingPathExtension().pathExtension.lowercased()
                 transcripts.removeAll { $0.path == url.path }
-                transcripts.append(Transcript(path: url.path, language: ["hu", "en"].contains(suffix) ? suffix : "hu"))
+                transcripts.append(Transcript(path: url.path, language: MediaFileKind.transcriptLanguage(url)))
             case .sidecar:
                 sidecarPath = url.path
                 newSidecar = true

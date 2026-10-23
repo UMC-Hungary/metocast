@@ -814,6 +814,14 @@ pub struct NudgeRequest {
     pub frames: i32,
 }
 
+/// `POST /api/media/programs/{jobId}/subtitles` body: transcripts for a finished program, placed
+/// on it as a program job would. Replied to with [`RenderQueued`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubtitlesRequest {
+    pub subtitles: Vec<SubtitleSource>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

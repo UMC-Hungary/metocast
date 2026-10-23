@@ -1168,6 +1168,13 @@ fn handwritten() -> Value {
                         "progress": { "$ref": "#/components/schemas/ProgramProgress" }
                     }
                 },
+                "SubtitlesRequest": {
+                    "type": "object",
+                    "required": ["subtitles"],
+                    "properties": {
+                        "subtitles": { "type": "array", "minItems": 1, "items": { "$ref": "#/components/schemas/SubtitleSource" }, "description": "One transcript per language" }
+                    }
+                },
                 "NudgeRequest": {
                     "type": "object",
                     "required": ["frames"],
@@ -2464,6 +2471,36 @@ fn handwritten() -> Value {
                     }
                 }
             },
+            "/api/media/programs/{id}/subtitles": {
+                "parameters": [
+                    { "name": "id", "in": "path", "required": true, "description": "Job id from `POST /api/media/programs`", "schema": { "type": "string", "format": "uuid" } }
+                ],
+                "post": {
+                    "tags": ["Media"],
+                    "summary": "Place transcripts on a finished program",
+                    "description": "Queues a `subtitle_program` job: each transcript is placed on the finished program exactly as a program job places it. An English one is rebuilt into sentences and placed on the speech with Whisper (the model downloads on first use); others are matched with the voice. It is written beside the program as `<name>.<language>.srt`, replaces that language in the program's report, and, for a program filed under an event, replaces that caption track and sends it to an upload that already finished. Progress arrives as `media.program.progress` under the program's job id (step `download`, then `captions` with a fraction).",
+                    "operationId": "addProgramSubtitles",
+                    "requestBody": {
+                        "required": true,
+                        "content": {
+                            "application/json": {
+                                "schema": { "$ref": "#/components/schemas/SubtitlesRequest" },
+                                "example": { "subtitles": [{ "path": "/Volumes/A002/2026-10-18 10-35-32.en.vtt", "language": "en" }] }
+                            }
+                        }
+                    },
+                    "responses": {
+                        "202": {
+                            "description": "Queued",
+                            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RenderQueued" } } }
+                        },
+                        "400": { "description": "No transcripts, one that isn't a readable .srt or .vtt, or two in one language" },
+                        "401": { "description": "Unauthorized" },
+                        "404": { "description": "No finished program with that id, or its files are gone" },
+                        "409": { "description": "This program is already being adjusted" }
+                    }
+                }
+            },
             "/api/media/renders/{id}/cancel": {
                 "parameters": [
                     { "name": "id", "in": "path", "required": true, "description": "Job id from `POST /api/media/renders`, `POST /api/media/audio` or `POST /api/media/programs`", "schema": { "type": "string", "format": "uuid" } }
@@ -2901,6 +2938,7 @@ mod tests {
             "/api/media/programs/probe",
             "/api/media/programs",
             "/api/media/programs/{id}/nudge",
+            "/api/media/programs/{id}/subtitles",
         ] {
             assert!(spec["paths"][path].is_object(), "{path} is missing");
         }
@@ -2921,6 +2959,7 @@ mod tests {
             "SyncReport",
             "WsMediaProgramProgressMessage",
             "NudgeRequest",
+            "SubtitlesRequest",
         ] {
             assert!(
                 spec["components"]["schemas"][schema].is_object(),

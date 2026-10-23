@@ -365,8 +365,9 @@ server's `/docs` (OpenAPI), and ready-made requests are in [`bruno/media`](bruno
 | `POST /api/media/programs/probe`         | Describes a video and its audio, the video's sound level, the sync method and the clocks                                                 |
 | `POST /api/media/programs`               | Queues a program (video + synced audio). Replies `202` with `{ jobId, outputPath }`                                                      |
 | `POST /api/media/programs/{id}/nudge`    | Moves a finished program's audio by `{ frames }` (positive: later)                                                                       |
+| `POST /api/media/programs/{id}/subtitles` | Places `{ subtitles: [{ path, language }] }` on a finished program, as its job would have                                              |
 | `POST /api/media/renders/{id}/cancel`    | Stops a queued or running job of any kind; its partial files are removed                                                                 |
-| `GET /api/queues/media/jobs`             | Lists the jobs (`jobType` `render_video`, `process_audio`, `produce_program` or `nudge_program`)                                         |
+| `GET /api/queues/media/jobs`             | Lists the jobs (`jobType` `render_video`, `process_audio`, `produce_program`, `nudge_program` or `subtitle_program`)                                         |
 | `GET`/`PUT /api/connectors/media/config` | Reads or saves the [defaults](#media-processing-settings)                                                                                |
 
 Errors: `400` for a relative path, an unsupported file or invalid settings; `404` for a missing

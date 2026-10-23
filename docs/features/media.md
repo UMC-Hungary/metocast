@@ -63,8 +63,13 @@ in it. After the picture and sound are done, the **Placing the transcript on the
 - has Whisper (bundled in the app) translate the program's own audio with a time for every word;
 - starts each sentence when its first word is spoken.
 
-The Finished card then says, for example, "English transcript: 239 sentences placed on the speech,
-225 matched by word". The first such job downloads Whisper's model (3.1 GB); the Files card says
+While it runs, the job shows the percentage Whisper has heard. The Finished card then says, for
+example, "English transcript: 239 sentences placed on the speech, 225 matched by word".
+
+**After the event, on a program already made:** drop the transcript on the program's row in
+**Finished**. Only this step runs, on the finished program, not the whole job again. A
+transcript in a language the program already has replaces that one. For a program filed under
+an event, the caption track is replaced, and sent to the YouTube video if it is already up. The first such job downloads Whisper's model (3.1 GB); the Files card says
 so when an English transcript is dropped. The step takes about a fifth of the program's length on
 an M1.
 
@@ -97,6 +102,7 @@ see [the SDK on a build machine](../../braw-decode/README.md#the-sdk-on-a-build-
 | Describe a program (video plus audio)     | `POST /api/media/programs/probe`                                                         | `media_programs_probe`           |
 | Start a program render                    | `POST /api/media/programs`                                                               | `media_programs_start`           |
 | Shift a program's audio against its video | `POST /api/media/programs/{id}/nudge`                                                    | `media_programs_nudge`           |
+| Place transcripts on a finished program   | `POST /api/media/programs/{id}/subtitles`                                                | `media_programs_subtitles`       |
 | Read or save the processing defaults      | `GET`/`PUT /api/connectors/media/config`                                                 | `connectors_config_get`/`_set`   |
 | Watch job progress                        | WebSocket push `media.render.progress`, `media.audio.progress`, `media.program.progress` | `events_poll`                    |
 | See and retry the jobs                    | `GET /api/queues/media/jobs`, `POST /api/jobs/{id}/retry`                                | `queues_jobs_list`, `jobs_retry` |

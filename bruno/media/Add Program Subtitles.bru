@@ -1,0 +1,38 @@
+meta {
+  name: Add Program Subtitles
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/media/programs/{{programJobId}}/subtitles
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "subtitles": [
+      { "path": "/Volumes/A002/2026-10-18 10-35-32.en.vtt", "language": "en" }
+    ]
+  }
+}
+
+docs {
+  Places transcripts on a finished program, as its job would have: an English one
+  is rebuilt into sentences and placed on the speech with Whisper (the model
+  downloads on first use), others are matched with the voice. Each is written
+  beside the program as `<name>.<language>.srt` and replaces that language's
+  caption track. Set `programJobId` to the `jobId` Start Program returned.
+  Progress arrives as `media.program.progress` under the program's job id.
+}
+
+tests {
+  test("status is 202", function() {
+    expect(res.status).to.equal(202);
+  });
+}

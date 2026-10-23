@@ -150,7 +150,9 @@ enum MediaJob {
             case .sync: String(localized: "Finding where the video starts in the audio")
             case .clean: String(localized: "Cleaning the voice with jive-vocals")
             case .merge: job.report == nil ? String(localized: "Putting the sound under the picture") : String(localized: "Moving the sound")
-            case .captions: String(localized: "Placing the transcript on the speech")
+            case .captions: job.fraction.map {
+                String(localized: "Placing the transcript on the speech · \($0.formatted(.percent.precision(.fractionLength(0))))")
+            } ?? String(localized: "Placing the transcript on the speech")
             case nil: String(localized: "Waiting to start")
             }
         }
@@ -160,7 +162,9 @@ enum MediaJob {
 struct MediaJobRow: View {
     let job: MediaJob
     let session: MetocastSession
-    @State private var nudgeFailure: String?
+    /// Why a nudge or added transcripts were refused.
+    @State private var adjustFailure: String?
+    @State private var transcriptTargeted = false
     /// The filed recording, once the job has made one under an event.
     @State private var recording: RecordingRecord?
     @State private var uploadFailure: String?
@@ -213,13 +217,19 @@ struct MediaJobRow: View {
                     ProgramResult(report: report)
                 }
             }
-            if let nudgeFailure {
-                Label(nudgeFailure, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.red)
+            if let adjustFailure {
+                Label(adjustFailure, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.red)
             }
             if let uploadFailure {
                 Label(uploadFailure, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.red)
             }
         }
+        // A finished program takes transcripts dropped on its row: they're placed on it as the job
+        // would have, without producing it again.
+        .dropDestination(for: URL.self) { urls, _ in
+            addTranscripts(urls)
+        } isTargeted: { transcriptTargeted = $0 }
+        .background(transcriptTargeted ? Color.accentColor.opacity(0.12) : .clear, in: .rect(cornerRadius: 6))
         // Says which file a "Cancel" or "Play" among several jobs is for.
         .accessibilityElement(children: .contain)
         .accessibilityLabel(URL(fileURLWithPath: job.outputPath).lastPathComponent)
@@ -322,19 +332,41 @@ struct MediaJobRow: View {
                     Button("Audio 1 Frame Later") { nudge(1) }
                 }
                 .controlSize(.small)
+                Text("Drop a transcript (.vtt or .srt) here to place it on this program.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         case .render:
             Label("Done", systemImage: "checkmark.circle").font(.caption).foregroundStyle(.green)
         }
     }
 
+    /// Sends the transcripts among `urls` to a finished program; `false` when there are none or
+    /// this row isn't a finished program.
+    private func addTranscripts(_ urls: [URL]) -> Bool {
+        guard case .program = job, job.state == .succeeded else { return false }
+        let subtitles = urls
+            .filter { MediaFileKind($0) == .transcript }
+            .map { SubtitleSource(path: $0.path, language: MediaFileKind.transcriptLanguage($0)) }
+        guard !subtitles.isEmpty else { return false }
+        Task {
+            do {
+                try await session.addProgramSubtitles(jobId: job.id, subtitles: subtitles)
+                adjustFailure = nil
+            } catch {
+                adjustFailure = error.metocastMessage
+            }
+        }
+        return true
+    }
+
     private func nudge(_ frames: Int32) {
         Task {
             do {
                 try await session.nudgeProgram(jobId: job.id, frames: frames)
-                nudgeFailure = nil
+                adjustFailure = nil
             } catch {
-                nudgeFailure = error.metocastMessage
+                adjustFailure = error.metocastMessage
             }
         }
     }
@@ -497,6 +529,13 @@ enum MediaFileKind {
         case "cube": .lut
         default: .audio
         }
+    }
+
+    /// `sermon.en.srt` (and Transcripts' downloads) say their language; Hungarian otherwise, as
+    /// the sermons are.
+    static func transcriptLanguage(_ url: URL) -> String {
+        let suffix = url.deletingPathExtension().pathExtension.lowercased()
+        return ["hu", "en"].contains(suffix) ? suffix : "hu"
     }
 }
 

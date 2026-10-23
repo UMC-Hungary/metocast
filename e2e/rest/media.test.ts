@@ -57,7 +57,10 @@ describe.skipIf(!isLive)('Media REST API', () => {
   });
 
   it('POST /api/media/preview on a missing file → 404', async () => {
-    const res = await apiClient.post('/api/media/preview', { path: '/nowhere/clip.braw', frame: 0 });
+    const res = await apiClient.post('/api/media/preview', {
+      path: '/nowhere/clip.braw',
+      frame: 0,
+    });
     expect(res.status).toBe(404);
   });
 
@@ -110,6 +113,22 @@ describe.skipIf(!isLive)('Media REST API', () => {
       { frames: 1 },
     );
     expect(res.status).toBe(404);
+  });
+
+  it('POST /api/media/programs/{id}/subtitles refuses an empty list', async () => {
+    const res = await apiClient.post(
+      '/api/media/programs/00000000-0000-0000-0000-000000000000/subtitles',
+      { subtitles: [] },
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /api/media/programs/{id}/subtitles refuses a file that is not a transcript', async () => {
+    const res = await apiClient.post(
+      '/api/media/programs/00000000-0000-0000-0000-000000000000/subtitles',
+      { subtitles: [{ path: '/tmp/sermon.mp4', language: 'en' }] },
+    );
+    expect(res.status).toBe(400);
   });
 
   it('POST /api/media/renders/{id}/cancel on an unknown id → 404', async () => {

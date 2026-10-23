@@ -10,6 +10,7 @@ use std::process::Stdio;
 
 use metocast_transcription::captions::Cue;
 use serde::Deserialize;
+use tokio::io::AsyncBufReadExt as _;
 use tokio::process::Command;
 use tokio::sync::watch;
 
@@ -61,14 +62,15 @@ pub async fn hear(
     vad_model: &Path,
     audio: &Path,
     output: &Path,
+    progress: &impl audio::StepProgress,
     mut cancel: watch::Receiver<bool>,
 ) -> Result<Vec<Heard>, String> {
     let threads = std::thread::available_parallelism().map_or(4, std::num::NonZero::get);
     // `--vad` and `-mc 0` matter: without them a silent start (common: the picture runs before
     // the recording) sends Whisper into repeating one invented sentence for the whole file.
     // `-ml 1 -sow` gives every word its own segment, whose times are on the original timeline
-    // even with `--vad` (token offsets are not).
-    let child = Command::new(whisper)
+    // even with `--vad` (token offsets are not). `-pp` prints `progress = N%` on stderr.
+    let mut child = Command::new(whisper)
         .arg("-m")
         .arg(model)
         .arg("-f")
@@ -80,6 +82,7 @@ pub async fn hear(
             "1",
             "-sow",
             "-np",
+            "-pp",
             "-t",
             &threads.to_string(),
             "-oj",
@@ -92,16 +95,30 @@ pub async fn hear(
         .kill_on_drop(true)
         .spawn()
         .map_err(|e| format!("could not start whisper-cli: {e}"))?;
-    let finished = tokio::select! {
-        finished = child.wait_with_output() => finished.map_err(|e| format!("whisper-cli: {e}"))?,
-        () = audio::cancelled(&mut cancel) => return Err(audio::CANCELLED.to_string()),
-    };
-    if !finished.status.success() {
-        let errors = String::from_utf8_lossy(&finished.stderr);
-        return Err(format!(
-            "whisper-cli failed: {}",
-            errors.trim().lines().last().unwrap_or_default()
-        ));
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or("whisper-cli gave no errors stream")?;
+    let mut lines = tokio::io::BufReader::new(stderr).lines();
+    let mut last_line = String::new();
+    loop {
+        let line = tokio::select! {
+            line = lines.next_line() => line.map_err(|e| format!("reading whisper-cli: {e}"))?,
+            () = audio::cancelled(&mut cancel) => return Err(audio::CANCELLED.to_string()),
+        };
+        let Some(line) = line else { break };
+        match progress_of(&line) {
+            Some(fraction) => progress.fraction(fraction).await,
+            None if !line.trim().is_empty() => last_line = line,
+            None => {}
+        }
+    }
+    let status = child
+        .wait()
+        .await
+        .map_err(|e| format!("whisper-cli: {e}"))?;
+    if !status.success() {
+        return Err(format!("whisper-cli failed: {}", last_line.trim()));
     }
     let json = output.with_extension("json");
     let text = std::fs::read_to_string(&json)
@@ -124,6 +141,16 @@ struct WhisperSegment {
 #[derive(Deserialize)]
 struct WhisperOffsets {
     from: u64,
+}
+
+/// The fraction in a `whisper_print_progress_callback: progress =  45%` line.
+fn progress_of(line: &str) -> Option<f64> {
+    let percent = line.split_once("progress =")?.1.trim().strip_suffix('%')?;
+    percent
+        .trim()
+        .parse::<f64>()
+        .ok()
+        .map(|p| (p / 100.0).clamp(0.0, 1.0))
 }
 
 /// `whisper-cli -oj` output with one word per segment.
@@ -687,6 +714,17 @@ mod tests {
             "cut after a comma: {}",
             first.text
         );
+    }
+
+    #[test]
+    fn whisper_progress_lines_become_fractions() {
+        let line = "whisper_print_progress_callback: progress =  45%";
+        assert_eq!(progress_of(line), Some(0.45));
+        assert_eq!(
+            progress_of("whisper_print_progress_callback: progress = 100%"),
+            Some(1.0)
+        );
+        assert_eq!(progress_of("whisper_init_from_file: loading model"), None);
     }
 
     #[test]

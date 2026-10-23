@@ -14,7 +14,7 @@ use metocast_core::{
     media::{
         AudioProbe, AudioProbeRequest, AudioRequest, MediaProbe, NudgeRequest, PreviewFrame,
         PreviewRequest, ProbeRequest, ProgramProbe, ProgramProbeRequest, ProgramRequest,
-        RenderQueued, RenderRequest,
+        RenderQueued, RenderRequest, SubtitleSource, SubtitlesRequest,
     },
     operations::{
         ApplicationLog, BibleSuggestion, BroadlinkCommand, CronJob, CronJobDraft, QueueJob,
@@ -617,6 +617,19 @@ impl MetocastClient {
             .config
             .endpoint(&format!("api/media/programs/{job_id}/nudge"))?;
         self.send_json(self.http.post(url).json(&NudgeRequest { frames }))
+            .await
+    }
+
+    /// Places transcripts on a finished program, as its job would have.
+    pub async fn add_program_subtitles(
+        &self,
+        job_id: Uuid,
+        subtitles: Vec<SubtitleSource>,
+    ) -> Result<RenderQueued, ClientError> {
+        let url = self
+            .config
+            .endpoint(&format!("api/media/programs/{job_id}/subtitles"))?;
+        self.send_json(self.http.post(url).json(&SubtitlesRequest { subtitles }))
             .await
     }
 

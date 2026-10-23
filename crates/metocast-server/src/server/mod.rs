@@ -965,6 +965,10 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
             post(crate::media::nudge_program),
         )
         .route(
+            "/media/programs/{id}/subtitles",
+            post(crate::media::add_program_subtitles),
+        )
+        .route(
             "/automations",
             get(crate::automations::api::list).post(crate::automations::api::create),
         )

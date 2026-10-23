@@ -58,6 +58,7 @@ const AUTHENTICATED = [
   { method: 'POST', path: '/api/media/programs/probe' },
   { method: 'POST', path: '/api/media/programs' },
   { method: 'POST', path: '/api/media/programs/00000000-0000-0000-0000-000000000000/nudge' },
+  { method: 'POST', path: '/api/media/programs/00000000-0000-0000-0000-000000000000/subtitles' },
   { method: 'GET', path: '/api/connectors/openai/config' },
   { method: 'PUT', path: '/api/connectors/openai/config' },
   { method: 'GET', path: '/api/connectors/openai/config/secrets' },
