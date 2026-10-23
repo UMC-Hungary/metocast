@@ -156,7 +156,7 @@ Connect to `ws://<host>/ws?token=<token>`. Send `{"type": "<command>", …fields
 | `event.order.changed` | An event's Order of Service was replaced; carries the new list | `eventId` uuid, `items` array |
 | `keynote.status` | Keynote status, sent on connect and on change (macOS) | `status` object |
 | `media.audio.progress` | Progress of an audio master render | `progress` object |
-| `media.program.progress` | Progress of a program render | `progress` object |
+| `media.program.progress` | Progress of a program job: its render, a nudge, or transcripts added to it (step `captions`) | `progress` object |
 | `media.render.progress` | Progress of a video render | `progress` object |
 | `notification` | A message for the operator, with a level | `level` string, `message` string |
 | `obs.state` | OBS streaming and recording state changed | `isStreaming` boolean, `isRecording` boolean |
