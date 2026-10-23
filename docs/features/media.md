@@ -33,6 +33,28 @@ Media Processing**; changes on the page apply to that job unless saved as the de
   and the job, keep running. The iPhone has no Media page; a job started elsewhere carries on in the
   Mac's server regardless of the phone.
 
+### A clip whose end is damaged
+
+A Blackmagic RAW recording that didn't end cleanly (the card pulled or the power cut mid-write)
+can count frames at its end that were never fully written. Reading one fails with
+`reading frame N failed (0x8000FFFF)`. The probe reads the clip's last two seconds frame by frame,
+so the Files card warns before the job starts. The render decodes up to the first unreadable
+frame and holds the last good one over the rest, instead of failing at the very end: the picture
+keeps its length, so the program's sound and transcripts come out exactly as for an undamaged clip.
+The finished job says how many frames were held (`damagedFrames` in the program's `report`).
+Unreadable frames earlier in the clip still fail the job; a frozen picture there would hide a
+real problem.
+
+### Transcripts
+
+A transcript dropped with the video is moved to where its lines match the program's voice. A live
+English translation rarely matches clearly: its lines trail the speech by a few seconds that vary.
+When the match isn't clear and the transcript runs past the end of the program, it must be timed
+to the recording, so it moves with the recording, to where the sync put it. The Finished card then
+says it moved with the recording and should be checked. A transcript that fits within the program
+is left as it was. Each language is saved beside the program as `<name>.<language>.srt`
+(`subtitles` in the program's `report`).
+
 Blackmagic RAW also needs the free Blackmagic RAW install on that Mac, which holds the framework
 the app develops clips with. A job that stops with `this Mac is missing: braw-decode` means the
 opposite: the app itself was built without Blackmagic RAW support, which no install can repair —

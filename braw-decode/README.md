@@ -68,7 +68,9 @@ braw-decode frames [--sidecar FILE] [--gamma NAME] [--gamut NAME] [--iso N] [--k
 braw-decode still [the frames settings | --as-recorded] [--max-width W] --start FRAME CLIP.braw
 ```
 
-`info` prints JSON: the developed size, the active area, frame rate and count, start timecode,
+`info` prints JSON: the developed size, the active area, frame rate and count, `readableFrames`
+(fewer than the count when a recording that ended uncleanly left unreadable frames at its end:
+renders hold the last good frame from there, see below), start timecode,
 camera, gamma, gamut, highlight recovery, gamut compression, the LUT mode and the embedded and
 sidecar LUTs, the first frame's as-shot ISO/white balance/tint/exposure, the `options` the clip
 allows (`gammas`, `gamuts`, `isos`, and `ranges` for kelvin, tint and exposure), and the pixel
@@ -103,4 +105,10 @@ braw-decode frames --crop 0,315,6048,3402 --count 48 clip.braw |
 - On an M1 Pro the Metal decode alone runs at about 31 fps; with ffmpeg's RGB→10-bit YUV
   conversion and the hardware HEVC encoder, the pipe runs at about 11–12 fps (a 29-minute sermon
   in about an hour). The next speed-up is doing that conversion on the GPU here and writing P010.
+- A recording that ends uncleanly can count frames it never fully wrote, scattered among good
+  ones (`Untitled CAM 1 07.braw`: 28448–28450 and 28454 of 28455). The SDK fails to read them
+  with `0x8000FFFF`. `info` reads every frame of the last two seconds and reports the first that
+  fails as `readableFrames`; Metocast decodes up to it with `--count` and holds the last good frame
+  over the rest (ffmpeg's `tpad`), so the picture keeps its length. That costs about 50 frame
+  reads (300 MB) per probe; damage earlier in the clip still fails the render.
 - The codec must be released before the Metal device it runs on, or the SDK crashes on exit.

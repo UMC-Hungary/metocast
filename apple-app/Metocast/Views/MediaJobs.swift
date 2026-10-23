@@ -348,6 +348,11 @@ private struct ProgramResult: View {
         VStack(alignment: .leading, spacing: 3) {
             Label(placement, systemImage: sync.confident ? "checkmark.circle" : "questionmark.circle")
                 .foregroundStyle(sync.confident ? .green : .orange)
+            if report.damagedFrames > 0 {
+                Label(String(localized: "The recording didn't end cleanly: the last good frame stands in for \(report.damagedFrames) damaged frames at its end"),
+                      systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.orange)
+            }
             if !sync.confident {
                 Text("Metocast isn't sure about this sync. Play the file and check the lips; move the sound below if needed.")
                     .foregroundStyle(.orange)
@@ -409,7 +414,10 @@ private struct ProgramResult: View {
     private func subtitleText(_ subtitle: SubtitleReport) -> String {
         let name = Locale.current.localizedString(forLanguageCode: subtitle.language) ?? subtitle.language
         guard subtitle.confident else {
-            return String(localized: "\(name) transcript (\(subtitle.cues) lines) left as it was: it didn't clearly match the voice")
+            guard abs(subtitle.shiftSeconds) >= 0.05 else {
+                return String(localized: "\(name) transcript (\(subtitle.cues) lines) left as it was: it didn't clearly match the voice")
+            }
+            return String(localized: "\(name) transcript (\(subtitle.cues) lines) moved \(timestamp(subtitle.shiftSeconds)) with the recording; it didn't clearly match the voice, so check it")
         }
         if abs(subtitle.shiftSeconds) < 0.05 {
             return String(localized: "\(name) transcript (\(subtitle.cues) lines) already in place, saved beside the video")

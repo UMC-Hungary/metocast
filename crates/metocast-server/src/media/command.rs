@@ -15,6 +15,10 @@ pub struct Source<'a> {
     pub height: u32,
     pub fps_num: u32,
     pub fps_den: u32,
+    pub frame_count: u64,
+    /// Unreadable frames at the end: the decoder stops before them and ffmpeg holds the last
+    /// good frame in their place, so the picture keeps its length (and the sound its sync).
+    pub damaged_frames: u64,
     pub start_timecode: Option<&'a str>,
     pub audio_channels: Option<u32>,
     /// What `braw-decode frames` writes: `rgb48le` or `rgba64le`.
@@ -105,6 +109,8 @@ fn decoder_args(
     args.extend([
         "--crop".to_string(),
         format!("{},{},{},{}", crop.x, crop.y, crop.width, crop.height),
+        "--count".to_string(),
+        (source.frame_count - source.damaged_frames).to_string(),
         path_arg(source.path),
     ]);
     args
@@ -195,6 +201,12 @@ fn ffmpeg_args(
 
     let audio_input = match source.kind {
         MediaKind::Braw => {
+            if source.damaged_frames > 0 {
+                filters.push(format!(
+                    "tpad=stop_mode=clone:stop={}",
+                    source.damaged_frames
+                ));
+            }
             // Frames arrive developed, graded and cropped; the source supplies only audio.
             args.extend([
                 "-f".to_string(),
@@ -310,6 +322,8 @@ mod tests {
             height: 4032,
             fps_num: 24,
             fps_den: 1,
+            frame_count: 28_455,
+            damaged_frames: 7,
             start_timecode: Some("10:26:20:15"),
             audio_channels: Some(4),
             pixel_format: "rgb48le",
@@ -355,12 +369,19 @@ mod tests {
         assert_eq!(value_after(&decoder, "--lut-mode"), Some("embedded"));
         assert_eq!(value_after(&decoder, "--crop"), Some("0,315,6048,3402"));
         assert_eq!(value_after(&decoder, "--iso"), None, "as shot");
+        assert_eq!(value_after(&decoder, "--count"), Some("28448"));
         assert_eq!(
             decoder.last().unwrap(),
             "/Volumes/A002/Untitled CAM 1 05.braw"
         );
 
         let ffmpeg = &commands.ffmpeg;
+        assert!(
+            value_after(ffmpeg, "-vf")
+                .unwrap()
+                .starts_with("tpad=stop_mode=clone:stop=7,"),
+            "the last good frame stands in for the damaged ones"
+        );
         assert_eq!(value_after(ffmpeg, "-video_size"), Some("6048x3402"));
         assert_eq!(value_after(ffmpeg, "-pix_fmt"), Some("rgb48le"));
         assert_eq!(value_after(ffmpeg, "-framerate"), Some("24/1"));
@@ -427,6 +448,8 @@ mod tests {
             height: 1080,
             fps_num: 30,
             fps_den: 1,
+            frame_count: 900,
+            damaged_frames: 0,
             start_timecode: None,
             audio_channels: None,
             pixel_format: "",

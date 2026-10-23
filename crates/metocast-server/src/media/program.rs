@@ -284,6 +284,12 @@ async fn examine(
         }));
 
     let mut warnings = Vec::new();
+    if video.damaged_frames > 0 {
+        warnings.push(format!(
+            "The recording didn't end cleanly: {} frames near the end of the clip can't be read, so the last good frame is held over them. The sound and transcripts are unaffected.",
+            video.damaged_frames
+        ));
+    }
     let mut blocker = None;
     if alone && !video_sound.usable {
         blocker = Some(
@@ -1271,6 +1277,8 @@ async fn produce(
         video_seconds,
         audio_seconds,
     );
+    // The recording's time 0 falls this far into the picture (drift, at most a few ppm, aside).
+    let recording_shift = -sync.offset_seconds;
     let report = ProgramReport {
         sync,
         audio: AudioReport {
@@ -1284,8 +1292,17 @@ async fn produce(
         coverage,
         silent_start_seconds: silent_start,
         silent_end_seconds: silent_end,
+        damaged_frames: facts.video.damaged_frames,
         audio_output_path: payload.audio_output_path.clone(),
-        subtitles: place_subtitles(&ffmpeg, payload, &output, &audio_output, cancel).await,
+        subtitles: place_subtitles(
+            &ffmpeg,
+            payload,
+            &output,
+            &audio_output,
+            recording_shift,
+            cancel,
+        )
+        .await,
     };
     register(state, payload, &facts, &report, &output).await;
     Ok(report)
@@ -1298,6 +1315,7 @@ async fn place_subtitles(
     payload: &ProgramPayload,
     output: &FsPath,
     audio_output: &FsPath,
+    recording_shift: f64,
     cancel: watch::Receiver<bool>,
 ) -> Vec<SubtitleReport> {
     if payload.subtitles.is_empty() {
@@ -1315,7 +1333,8 @@ async fn place_subtitles(
         .iter()
         .filter_map(|source| {
             let placed = subtitles::read(source).and_then(|cues| {
-                let (cues, shift_seconds, confident) = subtitles::place(&cues, &voice);
+                let (cues, shift_seconds, confident) =
+                    subtitles::place(&cues, &voice, recording_shift);
                 let srt = subtitles::write_srt(output, &source.language, &cues)?;
                 Ok(SubtitleReport {
                     language: source.language.clone(),
@@ -1352,6 +1371,8 @@ async fn render_picture(
         height: probe.height,
         fps_num: probe.fps_num,
         fps_den: probe.fps_den,
+        frame_count: probe.frame_count,
+        damaged_frames: facts.video.damaged_frames,
         start_timecode: probe.start_timecode.as_deref(),
         // The program's audio comes later; the render carries none.
         audio_channels: None,

@@ -691,9 +691,10 @@ pub struct SubtitleSource {
 pub struct SubtitleReport {
     pub language: String,
     pub cues: u32,
-    /// Seconds the transcript was moved to meet the voice.
+    /// Seconds the transcript was moved: to meet the voice, or with the recording.
     pub shift_seconds: f64,
-    /// The voice backed the shift clearly; otherwise it was left unmoved.
+    /// The voice backed the shift clearly. Otherwise a transcript running past the program moved
+    /// with the recording (by the sync), and any other was left unmoved.
     pub confident: bool,
     pub srt_path: String,
 }
@@ -770,6 +771,10 @@ pub struct ProgramReport {
     /// Silence put under the picture because the audio starts later or ends sooner.
     pub silent_start_seconds: f64,
     pub silent_end_seconds: f64,
+    /// Frames at the end of the clip that couldn't be read (a recording that didn't end cleanly),
+    /// shown as the last good frame held; the picture keeps its length.
+    #[serde(default)]
+    pub damaged_frames: u64,
     /// The program audio on its own: the picture's length, aligned to its first frame.
     pub audio_output_path: String,
     #[serde(default)]
