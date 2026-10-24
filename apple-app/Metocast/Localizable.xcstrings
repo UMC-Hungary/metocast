@@ -1522,6 +1522,16 @@
         }
       }
     },
+    "Bible…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ige…"
+          }
+        }
+      }
+    },
     "Bitrate" : {
       "localizations" : {
         "hu" : {
@@ -6150,6 +6160,16 @@
         }
       }
     },
+    "Reference" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Igehely"
+          }
+        }
+      }
+    },
     "Reference not found" : {
       "localizations" : {
         "hu" : {
@@ -9038,6 +9058,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A YouTube-címek legfeljebb 100 karakteresek lehetnek; ez %lld karakteres."
+          }
+        }
+      }
+    },
+    "Zsolt 23" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zsolt 23"
           }
         }
       }

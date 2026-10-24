@@ -6,8 +6,10 @@ them. Each step is one of five kinds:
 - **Song**: a deck from the slide library. The hymn number goes in the title and the verses in the
   notes, e.g. _Ó, hála az Úrnak (47)_ with _2. vers – közben kollekta_. A song can also have no
   deck, such as a closing verse sung without slides.
-- **Bible reading**: the event's own _Lekció_ or _Textus_. The verses are already stored on the
-  event, so showing them needs no network.
+- **Bible reading**: the event's own _Lekció_ or _Textus_, or a passage of its own (**Add →
+  Bible…**, then type the reference and pick the translation). The verses are stored, on the event
+  or with the step when the list is saved, so showing them needs no network. A reference that
+  finds no verses is refused when you save.
 - **Announcements**: _Hirdetések_. You type the announcements into the step, one per
   line, and the server turns them into slides: the title, then the bullet points, five to a slide.
   Like a song, they open in the web presenter, or, in Keynote mode, as `hirdetesek.pptx` in the
@@ -76,8 +78,8 @@ button: every change is saved at once.
     slide;
   - the deck button on a song picks or changes its deck from the library;
   - the last row adds a step: type its name and press Return for a block, or use **Add** for a
-    **Song…** from the library, **Announcements**, a **Slide**, a **Lekció** or **Textus**
-    reading, or a **Block**.
+    **Song…** from the library, **Announcements**, a **Slide**, a **Bible…** reading or
+    a **Block**.
 - **Live** shows the current event's Order of Service:
   - click a step to show it;
   - use **Previous Step** / **Next Step**.
@@ -97,7 +99,7 @@ button: every change is saved at once.
 - **Events**: the event's page has the same list under the event form, edited in place: drag a
   step by its handle (or use the arrows), swipe left to delete, double-click or the pencil to
   rename, the deck button on a song, and _Add a step_ at the end (with _Add song_, _Add
-  announcements_, _Add slide_, _Lekció_ and _Textus_). While renaming, _Shows_ switches a part
+  announcements_, _Add slide_ and _Add Bible reading_). While renaming, _Shows_ switches a part
   without a deck between nothing, a slide and the announcements. Every change is saved at once.
   The readings are edited in the event form above it.
 - **Home** runs the current event's Order of Service.

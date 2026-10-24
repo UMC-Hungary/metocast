@@ -87,6 +87,8 @@
           .pop()
           ?.replace(/\.pptx?$/i, '') ?? ''
       );
+    if (item.kind === 'bible' && !item.bibleType)
+      return item.reference ?? $_('order.readingNotSet');
     if (item.kind === 'bible')
       return (
         readings.find((reading) => reading.type === item.bibleType)?.reference ??
@@ -146,11 +148,12 @@
    * Adds a step named by the text field. A block needs a name; announcements and a slide get one
    * if it's empty and open for editing, since what they show is typed in them.
    */
-  function add(kind: 'block' | 'announcements' | 'text') {
+  function add(kind: 'block' | 'announcements' | 'text' | 'bible') {
     const fallback = {
       block: '',
       announcements: $_('order.kind.announcements'),
       text: $_('order.welcome'),
+      bible: $_('order.kind.bible'),
     };
     const title = newTitle.trim() || fallback[kind];
     if (!title) return;
@@ -168,13 +171,6 @@
     } catch {
       return name;
     }
-  }
-
-  /** A step for one of the event's readings; it shows the reading's verses once it is set. */
-  function addReading(bibleType: 'leckio' | 'textus') {
-    const title = bibleType === 'textus' ? $_('order.textus') : $_('order.leckio');
-    steps.push({ key: crypto.randomUUID(), item: { kind: 'bible', title, bibleType, notes: '' } });
-    void save();
   }
 
   function pickDeck(key: string | null) {
@@ -330,6 +326,14 @@
                       onchange={(kind) => (step.item.kind = kind)}
                     />
                   {/if}
+                  {#if step.item.kind === 'bible' && !step.item.bibleType}
+                    <input
+                      class="notes"
+                      bind:value={step.item.reference}
+                      placeholder="Zsolt 23"
+                      aria-label={$_('order.stepReference', { values: { n: index + 1 } })}
+                    />
+                  {/if}
                   {#if notesAreSlides(step.item)}
                     <textarea
                       class="notes bullets"
@@ -421,8 +425,7 @@
       <Button compact onclick={() => pickDeck(null)}>{$_('order.addSong')}</Button>
       <Button compact onclick={() => add('announcements')}>{$_('order.addAnnouncements')}</Button>
       <Button compact onclick={() => add('text')}>{$_('order.addSlide')}</Button>
-      <Button compact onclick={() => addReading('leckio')}>{$_('order.leckio')}</Button>
-      <Button compact onclick={() => addReading('textus')}>{$_('order.textus')}</Button>
+      <Button compact onclick={() => add('bible')}>{$_('order.addBible')}</Button>
     </form>
     <p class="hint">{$_('order.editHint')}</p>
     {#if error}<p class="error" role="alert">{error}</p>{/if}

@@ -1013,7 +1013,9 @@
     "addAnnouncements": "Add announcements",
     "addSlide": "Add slide",
     "shows": "Shows",
-    "showsNothing": "Nothing"
+    "showsNothing": "Nothing",
+    "addBible": "Add Bible reading",
+    "stepReference": "Bible reference of step {n}"
   },
   "mcp": {
     "title": "AI Agents (MCP)",

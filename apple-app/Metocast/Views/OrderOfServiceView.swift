@@ -25,7 +25,7 @@ extension OrderItemRecord {
     var detail: String? {
         switch kind {
         case .song: deckPath.map { URL(filePath: $0).deletingPathExtension().lastPathComponent }
-        case .bible: bibleType == "textus" ? "Textus" : "Lekció"
+        case .bible: bibleType == nil ? reference : bibleType == "textus" ? "Textus" : "Lekció"
         case .block: nil
         case .announcements: bullets.isEmpty ? String(localized: "No announcements yet") : String(localized: "\(bullets.count) announcements")
         case .text: String(localized: "Slide")
@@ -112,8 +112,7 @@ struct EventOrderSection: View {
                     Button("Song…", systemImage: "music.note") { deckTarget = DeckTarget(stepId: nil) }
                     Button("Announcements", systemImage: "megaphone") { add(.announcements) }
                     Button("Slide", systemImage: "text.below.photo") { add(.text) }
-                    Button("Lekció", systemImage: "book") { addReading("leckio") }
-                    Button("Textus", systemImage: "book") { addReading("textus") }
+                    Button("Bible…", systemImage: "book") { add(.bible) }
                     Button("Block", systemImage: "text.alignleft") { add(.block) }
                 } label: {
                     Label("Add", systemImage: "plus")
@@ -168,9 +167,9 @@ struct EventOrderSection: View {
                     item: item,
                     number: (steps.firstIndex { $0.id == id } ?? 0) + 1,
                     isCurrent: session.orderPosition?.eventId == event.id && session.orderPosition?.itemId == item.id,
-                    reading: item.kind == .bible
-                        ? event.bibleReferences.first { $0.referenceType == item.bibleType }?.reference ?? "Not set on the event yet"
-                        : nil
+                    reading: item.kind != .bible ? nil
+                        : item.bibleType == nil ? item.reference
+                        : event.bibleReferences.first { $0.referenceType == item.bibleType }?.reference ?? String(localized: "Not set on the event yet")
                 )
                 .onTapGesture(count: 2) { rename(id) }
             }
@@ -244,28 +243,22 @@ struct EventOrderSection: View {
         save()
     }
 
-    /// Adds a step named by the text field. A block needs a name; announcements and a slide get
-    /// one if it's empty and open for editing, since what they show is typed in them.
+    /// Adds a step named by the text field. A block needs a name; announcements, a slide and a
+    /// Bible reading get one if it's empty and open for editing, since what they show is typed in them.
     private func add(_ kind: OrderItemKind) {
         var title = newTitle.trimmingCharacters(in: .whitespaces)
         if title.isEmpty {
             switch kind {
             case .announcements: title = String(localized: "Announcements")
             case .text: title = String(localized: "Welcome")
+            case .bible: title = String(localized: "Bible")
             default: return
             }
         }
-        let step = OrderStep(OrderItemRecord(id: nil, kind: kind, title: title, deckPath: nil, bibleType: nil, notes: ""))
+        let step = OrderStep(OrderItemRecord(id: nil, kind: kind, title: title, deckPath: nil, bibleType: nil, reference: nil, translation: nil, notes: ""))
         steps.append(step)
         newTitle = ""
         if kind == .block { save() } else { rename(step.id) }
-    }
-
-    /// A step for one of the event's readings; it shows the reading's verses once it is set.
-    private func addReading(_ type: String) {
-        let title = type == "textus" ? "Textus" : "Lekció"
-        steps.append(OrderStep(OrderItemRecord(id: nil, kind: .bible, title: title, deckPath: nil, bibleType: type, notes: "")))
-        save()
     }
 
     /// A song placeholder takes the deck and its name; with no step, the deck is a new song.
@@ -276,7 +269,7 @@ struct EventOrderSection: View {
             steps[index].item.deckPath = file.path
             steps[index].item.title = name
         } else {
-            steps.append(OrderStep(OrderItemRecord(id: nil, kind: .song, title: name, deckPath: file.path, bibleType: nil, notes: "")))
+            steps.append(OrderStep(OrderItemRecord(id: nil, kind: .song, title: name, deckPath: file.path, bibleType: nil, reference: nil, translation: nil, notes: "")))
         }
         save()
     }
@@ -340,6 +333,15 @@ private struct StepFields: View {
                     Text("Announcements").tag(OrderItemKind.announcements)
                 }
                 .pickerStyle(.segmented)
+            }
+            // A reading of its own; the event's Lekció and Textus are set on the event instead.
+            if item.kind == .bible, item.bibleType == nil {
+                TextField("Reference", text: Binding(get: { item.reference ?? "" }, set: { item.reference = $0 }), prompt: Text("Zsolt 23"))
+                    .autocorrectionDisabled()
+                BibleTranslationPicker(
+                    label: String(localized: "Bible"),
+                    selection: Binding(get: { item.translation ?? MetocastSession.defaultBibleTranslation }, set: { item.translation = $0 })
+                )
             }
             if item.notesAreSlides {
                 TextEditor(text: $item.notes)

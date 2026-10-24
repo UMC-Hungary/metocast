@@ -135,6 +135,10 @@ export const OrderItemSchema = z.object({
   title: z.string().default(''),
   deckPath: z.string().nullish(),
   bibleType: z.enum(['textus', 'leckio']).nullish(),
+  /** A Bible step's own passage when `bibleType` is absent; the server stores its verses. */
+  reference: z.string().nullish(),
+  /** The translation of `reference`; RUF_v2 when absent. */
+  translation: z.string().nullish(),
   notes: z.string().default(''),
 });
 

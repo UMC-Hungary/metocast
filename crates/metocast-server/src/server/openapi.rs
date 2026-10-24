@@ -1519,7 +1519,9 @@ fn handwritten() -> Value {
                     "kind": { "type": "string", "enum": ["song", "bible", "block", "announcements", "text"], "description": "`announcements` shows its notes as bullet slides; `text` is one slide of its title and its notes as paragraphs" },
                     "title": { "type": "string", "maxLength": 200, "description": "Required for a block, the announcements and a text slide, and for a song with no deck" },
                     "deckPath": { "type": "string", "description": "Song: a deck on the server's disk. Optional: a song with none leaves the screen as it is" },
-                    "bibleType": { "type": "string", "enum": ["textus", "leckio"], "description": "Bible: which of the event's readings" },
+                    "bibleType": { "type": "string", "enum": ["textus", "leckio"], "description": "Bible: which of the event's readings. Leave it out for a reading of the step's own" },
+                    "reference": { "type": "string", "maxLength": 200, "description": "Bible without `bibleType`: the passage, e.g. Zsolt 23. Its verses are looked up when the list is saved (a reference that finds none is refused) and stored, so showing it needs no network" },
+                    "translation": { "type": "string", "description": "The translation of `reference`, e.g. RUF_v2 (the default) or KG" },
                     "notes": { "type": "string", "maxLength": 2000, "description": "For the people leading. Announcements: the bullet points, one per line. Text: optional paragraphs, one per line" }
                 }
             } } } } } } },
@@ -1541,7 +1543,9 @@ fn handwritten() -> Value {
                     "kind": { "type": "string", "enum": ["song", "bible", "block", "announcements", "text"], "description": "`announcements` shows its notes as bullet slides; `text` is one slide of its title and its notes as paragraphs" },
                     "title": { "type": "string", "maxLength": 200, "description": "Required for a block" },
                     "deckPath": { "type": "string", "description": "Song: a deck on the server's disk" },
-                    "bibleType": { "type": "string", "enum": ["textus", "leckio"], "description": "Bible: which of the event's readings" },
+                    "bibleType": { "type": "string", "enum": ["textus", "leckio"], "description": "Bible: which of the event's readings. Leave it out for a reading of the step's own" },
+                    "reference": { "type": "string", "maxLength": 200, "description": "Bible without `bibleType`: the passage, e.g. Zsolt 23. Its verses are looked up when the list is saved (a reference that finds none is refused) and stored, so showing it needs no network" },
+                    "translation": { "type": "string", "description": "The translation of `reference`, e.g. RUF_v2 (the default) or KG" },
                     "notes": { "type": "string", "maxLength": 2000, "description": "For the people leading. Announcements: the bullet points, one per line. Text: optional paragraphs, one per line" }
                 }
             } } } } } } },
@@ -1554,7 +1558,9 @@ fn handwritten() -> Value {
                     "kind": { "type": "string", "enum": ["song", "bible", "block", "announcements", "text"], "description": "`announcements` shows its notes as bullet slides; `text` is one slide of its title and its notes as paragraphs" },
                     "title": { "type": "string", "maxLength": 200, "description": "Required for a block" },
                     "deckPath": { "type": "string", "description": "Song: a deck on the server's disk" },
-                    "bibleType": { "type": "string", "enum": ["textus", "leckio"], "description": "Bible: which of the event's readings" },
+                    "bibleType": { "type": "string", "enum": ["textus", "leckio"], "description": "Bible: which of the event's readings. Leave it out for a reading of the step's own" },
+                    "reference": { "type": "string", "maxLength": 200, "description": "Bible without `bibleType`: the passage, e.g. Zsolt 23. Its verses are looked up when the list is saved (a reference that finds none is refused) and stored, so showing it needs no network" },
+                    "translation": { "type": "string", "description": "The translation of `reference`, e.g. RUF_v2 (the default) or KG" },
                     "notes": { "type": "string", "maxLength": 2000, "description": "For the people leading. Announcements: the bullet points, one per line. Text: optional paragraphs, one per line" }
                 }
             } } } } } } },

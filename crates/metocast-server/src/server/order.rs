@@ -29,7 +29,7 @@ pub async fn fetch(
     event_id: Uuid,
 ) -> sqlx::Result<Vec<OrderItem>> {
     let rows = sqlx::query(
-        "SELECT id, kind, title, deck_path, bible_type, notes FROM event_order_items \
+        "SELECT id, kind, title, deck_path, bible_type, reference, translation, notes FROM event_order_items \
          WHERE event_id = $1 ORDER BY position",
     )
     .bind(event_id)
@@ -44,6 +44,8 @@ pub async fn fetch(
                 title: row.try_get("title")?,
                 deck_path: row.try_get("deck_path")?,
                 bible_type: row.try_get("bible_type")?,
+                reference: row.try_get("reference")?,
+                translation: row.try_get("translation")?,
                 notes: row.try_get("notes")?,
             })
         })
@@ -75,9 +77,12 @@ fn invalid(items: &[OrderItem]) -> Option<String> {
                 return Some(format!("Step {step} needs a title or a deck"));
             }
             OrderItemKind::Bible
-                if !matches!(item.bible_type.as_deref(), Some("textus" | "leckio")) =>
+                if !matches!(item.bible_type.as_deref(), Some("textus" | "leckio"))
+                    && own_reading(item).is_none() =>
             {
-                return Some(format!("Step {step} must be the Textus or the Lekció"));
+                return Some(format!(
+                    "Step {step} needs a Bible reference, or must be the Textus or the Lekció"
+                ));
             }
             OrderItemKind::Block | OrderItemKind::Announcements | OrderItemKind::Text
                 if item.title.trim().is_empty() =>
@@ -88,6 +93,95 @@ fn invalid(items: &[OrderItem]) -> Option<String> {
         }
     }
     None
+}
+
+/// A Bible step's own reading (reference, translation), when it isn't the event's Textus or
+/// Lekció. Without a translation it reads RUF (v2), like a new event's readings.
+fn own_reading(item: &OrderItem) -> Option<(&str, &str)> {
+    if item.kind != OrderItemKind::Bible || item.bible_type.is_some() {
+        return None;
+    }
+    let reference = item
+        .reference
+        .as_deref()
+        .map(str::trim)
+        .filter(|r| !r.is_empty())?;
+    let translation = item
+        .translation
+        .as_deref()
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .unwrap_or("RUF_v2");
+    Some((reference, translation))
+}
+
+/// The verses stored for each step that reads a passage of its own, by step id, with the
+/// reference and translation they were looked up for.
+async fn stored_verses(
+    pool: impl sqlx::PgExecutor<'_>,
+    event_id: Uuid,
+) -> sqlx::Result<std::collections::HashMap<Uuid, (String, String, serde_json::Value)>> {
+    let rows = sqlx::query(
+        "SELECT id, reference, translation, verses FROM event_order_items \
+         WHERE event_id = $1 AND verses IS NOT NULL",
+    )
+    .bind(event_id)
+    .fetch_all(pool)
+    .await?;
+    rows.iter()
+        .map(|row| {
+            Ok((
+                row.try_get("id")?,
+                (
+                    row.try_get::<Option<String>, _>("reference")?
+                        .unwrap_or_default(),
+                    row.try_get::<Option<String>, _>("translation")?
+                        .unwrap_or_default(),
+                    row.try_get("verses")?,
+                ),
+            ))
+        })
+        .collect()
+}
+
+/// Looks up the verses of every step whose own reading is new or changed, so a saved list can
+/// be shown without the network. Unchanged steps keep what they have.
+async fn look_up_readings(
+    state: &AppState,
+    event_id: Uuid,
+    items: &[OrderItem],
+) -> Result<Vec<(usize, serde_json::Value)>, String> {
+    let stored = stored_verses(&state.pool, event_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    let szentiras: crate::connectors::SzentirasConfig =
+        settings::get_json(&state.pool, "szentiras_config").await;
+    let api_key = Some(szentiras.api_key.as_str()).filter(|key| !key.is_empty());
+    let mut found = Vec::new();
+    for (position, item) in items.iter().enumerate() {
+        let Some((reference, translation)) = own_reading(item) else {
+            continue;
+        };
+        let kept = item
+            .id
+            .and_then(|id| stored.get(&id))
+            .is_some_and(|(r, t, _)| r == reference && t == translation);
+        if kept {
+            continue;
+        }
+        let passage = crate::bible::fetch_passage(reference, translation, api_key)
+            .await
+            .map_err(|e| format!("Step {}: {e}", position + 1))?;
+        if passage.verses.is_empty() {
+            return Err(format!(
+                "Step {}: no verses found for {reference}",
+                position + 1
+            ));
+        }
+        let verses = serde_json::to_value(&passage.verses).map_err(|e| e.to_string())?;
+        found.push((position, verses));
+    }
+    Ok(found)
 }
 
 async fn event_exists(pool: &PgPool, id: Uuid) -> sqlx::Result<bool> {
@@ -132,9 +226,25 @@ pub async fn put_order(
         }
         Ok(true) => {}
     }
+    let looked_up = match look_up_readings(&state, id, &body.items).await {
+        Ok(found) => found,
+        Err(error) => {
+            return (StatusCode::BAD_REQUEST, Json(json!({ "error": error }))).into_response();
+        }
+    };
     let replaced = async {
         let mut tx = state.pool.begin().await?;
         write(&mut tx, id, &body.items).await?;
+        for (position, verses) in &looked_up {
+            sqlx::query(
+                "UPDATE event_order_items SET verses = $1 WHERE event_id = $2 AND position = $3",
+            )
+            .bind(verses)
+            .bind(id)
+            .bind(*position as i32)
+            .execute(&mut *tx)
+            .await?;
+        }
         tx.commit().await
     };
     if let Err(e) = replaced.await {
@@ -184,6 +294,8 @@ fn template() -> Vec<OrderItem> {
         title: title.to_string(),
         deck_path: None,
         bible_type: bible_type.map(str::to_string),
+        reference: None,
+        translation: None,
         notes: String::new(),
     };
     use OrderItemKind::{Announcements, Bible, Block, Song, Text};
@@ -244,6 +356,8 @@ fn with_readings(mut items: Vec<OrderItem>, types: &[String]) -> Option<Vec<Orde
                 title: title.to_string(),
                 deck_path: None,
                 bible_type: Some(bible_type.to_string()),
+                reference: None,
+                translation: None,
                 notes: String::new(),
             },
         );
@@ -272,19 +386,31 @@ pub async fn add_readings(
     }
 }
 
+/// Replaces the event's steps. A step that keeps its id and its own reading keeps the verses
+/// stored for it; `put_order` stores the ones it looked up.
 async fn write(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     event_id: Uuid,
     items: &[OrderItem],
 ) -> sqlx::Result<()> {
+    let stored = stored_verses(&mut **tx, event_id).await?;
     sqlx::query("DELETE FROM event_order_items WHERE event_id = $1")
         .bind(event_id)
         .execute(&mut **tx)
         .await?;
     for (position, item) in items.iter().enumerate() {
+        let own = own_reading(item);
+        let kept = item
+            .id
+            .and_then(|id| stored.get(&id))
+            .filter(|(r, t, _)| {
+                own.is_some_and(|(reference, translation)| r == reference && t == translation)
+            })
+            .map(|(_, _, verses)| verses.clone());
         sqlx::query(
-            "INSERT INTO event_order_items (id, event_id, position, kind, title, deck_path, bible_type, notes) \
-             VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8)",
+            "INSERT INTO event_order_items \
+             (id, event_id, position, kind, title, deck_path, bible_type, notes, reference, translation, verses) \
+             VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
         )
         .bind(item.id)
         .bind(event_id)
@@ -294,6 +420,9 @@ async fn write(
         .bind(item.deck_path.as_deref().filter(|_| item.kind == OrderItemKind::Song))
         .bind(item.bible_type.as_deref().filter(|_| item.kind == OrderItemKind::Bible))
         .bind(&item.notes)
+        .bind(own.map(|(r, _)| r))
+        .bind(own.map(|(_, t)| t))
+        .bind(kept)
         .execute(&mut **tx)
         .await?;
     }
@@ -340,14 +469,17 @@ pub async fn go(
                 websocket::open_presentation(state, path, None, client_tx).await;
             }
         }
-        OrderItemKind::Bible => {
-            show_reading(
-                state,
-                event_id,
-                item.bible_type.as_deref().unwrap_or_default(),
-            )
-            .await?
-        }
+        OrderItemKind::Bible => match own_reading(item) {
+            Some((reference, _)) => show_own_reading(state, event_id, item, reference).await?,
+            None => {
+                show_reading(
+                    state,
+                    event_id,
+                    item.bible_type.as_deref().unwrap_or_default(),
+                )
+                .await?
+            }
+        },
         OrderItemKind::Block => {}
         OrderItemKind::Text => {
             let deck = PresenterState::from_text(&item.title, &item.notes);
@@ -426,6 +558,33 @@ async fn show_reading(state: &AppState, event_id: Uuid, bible_type: &str) -> Res
     show_deck(state, deck, file_name).await
 }
 
+/// Puts a step's own reading on screen, from the verses stored when it was saved.
+async fn show_own_reading(
+    state: &AppState,
+    event_id: Uuid,
+    item: &OrderItem,
+    reference: &str,
+) -> Result<(), String> {
+    let event = fetch_event(event_id, &state.pool)
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or("Event not found")?;
+    let verses = stored_verses(&state.pool, event_id)
+        .await
+        .map_err(|e| e.to_string())?
+        .remove(&item.id.unwrap_or_default())
+        .map(|(_, _, verses)| verses)
+        .ok_or("This reading has no verses yet. Save it again to look them up.")?;
+    let verses: Vec<BibleVerseContent> = serde_json::from_value(verses).unwrap_or_default();
+    let heading = if item.title.trim().is_empty() {
+        reference
+    } else {
+        item.title.trim()
+    };
+    let deck = PresenterState::from_reading(&event.title, heading, reference, verses);
+    show_deck(state, deck, "ige.pptx").await
+}
+
 /// Puts a deck the server built on screen: into the web presenter, or written as `file_name` for
 /// Keynote to open, into the Bible slide folder or, with none set, a temporary folder.
 async fn show_deck(state: &AppState, deck: PresenterState, file_name: &str) -> Result<(), String> {
@@ -485,6 +644,8 @@ mod tests {
             title: "Ének".to_string(),
             deck_path: None,
             bible_type: None,
+            reference: None,
+            translation: None,
             notes: String::new(),
         }
     }
@@ -515,6 +676,21 @@ mod tests {
             .enumerate()
             .filter_map(|(i, item)| item.bible_type.as_deref().map(|t| (i, t)))
             .collect()
+    }
+
+    #[test]
+    fn a_bible_step_reads_the_event_or_a_reference_of_its_own() {
+        let mut own = item(OrderItemKind::Bible);
+        assert!(invalid(std::slice::from_ref(&own)).is_some());
+        own.reference = Some(" Zsolt 23 ".to_string());
+        assert!(invalid(std::slice::from_ref(&own)).is_none());
+        // RUF (v2) unless it says otherwise.
+        assert_eq!(own_reading(&own), Some(("Zsolt 23", "RUF_v2")));
+        own.translation = Some("KG".to_string());
+        assert_eq!(own_reading(&own), Some(("Zsolt 23", "KG")));
+        // The event's Textus wins over a reference left on the step.
+        own.bible_type = Some("textus".to_string());
+        assert_eq!(own_reading(&own), None);
     }
 
     #[test]

@@ -1013,7 +1013,9 @@
     "addAnnouncements": "Hirdetések hozzáadása",
     "addSlide": "Dia hozzáadása",
     "shows": "Kivetítés",
-    "showsNothing": "Semmi"
+    "showsNothing": "Semmi",
+    "addBible": "Ige hozzáadása",
+    "stepReference": "A(z) {n}. lépés igehelye"
   },
   "mcp": {
     "title": "AI ügynökök (MCP)",

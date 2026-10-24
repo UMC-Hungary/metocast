@@ -500,6 +500,8 @@ pub struct OrderItemRecord {
     pub title: String,
     pub deck_path: Option<String>,
     pub bible_type: Option<String>,
+    pub reference: Option<String>,
+    pub translation: Option<String>,
     pub notes: String,
 }
 
@@ -511,6 +513,8 @@ impl From<OrderItem> for OrderItemRecord {
             title: item.title,
             deck_path: item.deck_path,
             bible_type: item.bible_type,
+            reference: item.reference,
+            translation: item.translation,
             notes: item.notes,
         }
     }
@@ -2089,6 +2093,8 @@ impl AppleClient {
                     title: item.title,
                     deck_path: item.deck_path,
                     bible_type: item.bible_type,
+                    reference: item.reference,
+                    translation: item.translation,
                     notes: item.notes,
                 })
             })

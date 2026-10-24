@@ -142,6 +142,13 @@ describe.skipIf(!isLive)('Order of Service REST API', () => {
     await apiClient.delete(`/api/events/${created.body.id}`);
   });
 
+  it("refuses a Bible step with neither one of the event's readings nor a reference", async () => {
+    const res = await apiClient.put(`/api/events/${eventId}/order`, {
+      items: [{ kind: 'bible', title: 'Ige' }],
+    });
+    expect(res.status).toBe(400);
+  });
+
   it('answers 404 for an unknown event', async () => {
     const res = await apiClient.get('/api/events/00000000-0000-0000-0000-000000000000/order');
     expect(res.status).toBe(404);

@@ -526,6 +526,22 @@ impl PresenterState {
         reference: &str,
         verses: Vec<BibleVerseContent>,
     ) -> Self {
+        Self::from_reading(
+            event_title,
+            reference_type.display_name(),
+            reference,
+            verses,
+        )
+    }
+
+    /// A reading's verses as slides, `heading` naming it on each slide's counter (Textus,
+    /// Lekció, or a Bible step's own title).
+    pub fn from_reading(
+        event_title: &str,
+        heading: &str,
+        reference: &str,
+        verses: Vec<BibleVerseContent>,
+    ) -> Self {
         let pages = paginate_bible_verses(verses, MAX_BIBLE_WORDS_PER_SLIDE);
         let total = pages.len() as u32;
         let slides = pages
@@ -534,13 +550,8 @@ impl PresenterState {
             .map(|(idx, page)| {
                 let slide_number = idx as u32 + 1;
                 let verse_range = format_bible_page_range(page);
-                let counter = format_bible_counter(
-                    reference_type.display_name(),
-                    reference,
-                    &verse_range,
-                    slide_number,
-                    total,
-                );
+                let counter =
+                    format_bible_counter(heading, reference, &verse_range, slide_number, total);
                 let mut paragraphs = vec![ParagraphContent {
                     lines: vec![format_bible_page_text(page)],
                     align: "left".to_string(),
@@ -560,12 +571,7 @@ impl PresenterState {
 
         Self {
             loaded: total > 0,
-            file_path: Some(format!(
-                "{} - {} {}",
-                event_title,
-                reference_type.display_name(),
-                reference
-            )),
+            file_path: Some(format!("{} - {} {}", event_title, heading, reference)),
             current_slide: if total > 0 { 1 } else { 0 },
             total_slides: total,
             render_mode: PresenterRenderMode::Text,
