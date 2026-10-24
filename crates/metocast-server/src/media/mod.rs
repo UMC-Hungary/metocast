@@ -10,7 +10,7 @@ mod probe;
 mod program;
 mod subtitles;
 mod sync;
-mod tools;
+pub(crate) mod tools;
 mod whisper;
 mod worker;
 
@@ -78,6 +78,11 @@ impl MediaRuntime {
             tools_dir: data_dir.join("tools"),
             last_preview_probe: Mutex::new(None),
         }
+    }
+
+    /// Where downloaded programs, models and the welcome screen's photos and fonts are kept.
+    pub fn tools_dir(&self) -> &FsPath {
+        &self.tools_dir
     }
 }
 

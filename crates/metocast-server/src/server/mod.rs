@@ -283,6 +283,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
     if let Err(e) = crate::transcription::library::fail_interrupted(&state.pool).await {
         tracing::error!("transcripts: cannot close interrupted clean-ups: {e}");
     }
+    welcome::prefetch(state.media.tools_dir().to_path_buf());
     crate::transcription::captions_job::spawn_worker(state.clone());
     state.transcription.spawn_watchers();
 

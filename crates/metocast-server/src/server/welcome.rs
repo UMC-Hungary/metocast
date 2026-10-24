@@ -20,6 +20,8 @@ pub use metocast_core::slides::WelcomeSettings;
 use crate::database::settings;
 use std::sync::OnceLock;
 
+use crate::media::tools::{self, Download};
+
 use crate::server::AppState;
 use crate::server::presenter::presenter_svg;
 use crate::server::presenter::{
@@ -43,19 +45,108 @@ const LOWER_THIRD: f64 = 0.66;
 /// so it reads on a photo. Replaceable in the settings.
 static DEFAULT_LOGO: &[u8] = include_bytes!("../../assets/welcome/logo.svg");
 
-static DEFAULT_PHOTOS: [&[u8]; PHOTO_COUNT] = [
-    include_bytes!("../../assets/welcome/01.jpg"),
-    include_bytes!("../../assets/welcome/02.jpg"),
-    include_bytes!("../../assets/welcome/03.jpg"),
-    include_bytes!("../../assets/welcome/04.jpg"),
-    include_bytes!("../../assets/welcome/05.jpg"),
-    include_bytes!("../../assets/welcome/06.jpg"),
-    include_bytes!("../../assets/welcome/07.jpg"),
-    include_bytes!("../../assets/welcome/08.jpg"),
-    include_bytes!("../../assets/welcome/09.jpg"),
-    include_bytes!("../../assets/welcome/10.jpg"),
-    include_bytes!("../../assets/welcome/11.jpg"),
-    include_bytes!("../../assets/welcome/12.jpg"),
+/// A default photo or font, fetched from the repository the first time it is needed instead of
+/// being built into the server (they are 8.5 MB): pinned to the commit that added them and
+/// checked against their SHA-256, like the media tools.
+macro_rules! repo_asset {
+    ($folder:literal, $file:literal, $sha256:literal) => {
+        Download {
+            name: $file,
+            version: "f92173c",
+            url: concat!(
+                "https://raw.githubusercontent.com/UMC-Hungary/metocast/f92173cff31119cfb0b9b53e6d6db4f400bdefab/crates/metocast-server/assets/",
+                $folder,
+                "/",
+                $file
+            ),
+            sha256: $sha256,
+            executable: false,
+        }
+    };
+}
+
+/// The month photos, January first: Unsplash photos taken in Hungary (`assets/welcome/CREDITS.md`).
+const DEFAULT_PHOTOS: [Download; PHOTO_COUNT] = [
+    repo_asset!(
+        "welcome",
+        "01.jpg",
+        "5b33d410bee72e5cc33b68c2114b075df2f0e812e3c0b6c4a758c471c337ae15"
+    ),
+    repo_asset!(
+        "welcome",
+        "02.jpg",
+        "96c2f6067ca04e01c74bb373893b4eb08ac38929c7907857363a5ab98d04013b"
+    ),
+    repo_asset!(
+        "welcome",
+        "03.jpg",
+        "d41eb3cf0f3f9141dd1c24f0bd04d8de39d3d5caf5e9984dbea44cc28c2ab4f2"
+    ),
+    repo_asset!(
+        "welcome",
+        "04.jpg",
+        "ec6ab564593e98f4cc47dcd0321a600a86e220dfb50f67b180052506330a3ea2"
+    ),
+    repo_asset!(
+        "welcome",
+        "05.jpg",
+        "6ac0ba05a75a3714ba31629f8066371f66e0ca71a18f2f7310bb9b66eab52716"
+    ),
+    repo_asset!(
+        "welcome",
+        "06.jpg",
+        "63023bb58ae62ca4b95f483c7d300d667e88dd0e64de9feade6cf22a4d7cc3f4"
+    ),
+    repo_asset!(
+        "welcome",
+        "07.jpg",
+        "99ad8f7092cfb4c941aba7cd1a864b6f87358dee2011724168a959fdb9d3ddc8"
+    ),
+    repo_asset!(
+        "welcome",
+        "08.jpg",
+        "f02c85c2f5941aaacc6c9f4fe25d918c27e60e6e44c6f39b3ed35d5c601220c8"
+    ),
+    repo_asset!(
+        "welcome",
+        "09.jpg",
+        "609361a25dd2475014da2b30821bda20a418e26ce278acdfb875fa84ae3fb3a6"
+    ),
+    repo_asset!(
+        "welcome",
+        "10.jpg",
+        "f30c7373869aadb50e673b850364c2f89bfc4b7c6cf23346760271b13b036350"
+    ),
+    repo_asset!(
+        "welcome",
+        "11.jpg",
+        "55c99d7d0afb23dfc9f1288155e09b80e96b98952c20e9832c670ba880014c44"
+    ),
+    repo_asset!(
+        "welcome",
+        "12.jpg",
+        "8d33ac220b0c723bb8f1d79a18af04d397c800fb3108ed10c5361f224fb9eaf2"
+    ),
+];
+
+/// Montserrat (SIL Open Font License), so the slide looks the same wherever the server runs; the
+/// text becomes outlines, so no screen needs it either.
+const FONTS: [Download; 3] = [
+    repo_asset!(
+        "fonts",
+        "Montserrat-Medium.ttf",
+        "dae47428bb041f9716604e0e07b5b0c8585b3bdd8183362f75c69fe7bb3cfaf4"
+    ),
+    repo_asset!(
+        "fonts",
+        "Montserrat-SemiBold.ttf",
+        "b4e1563393d73fdff491a869441245aef31add2ec03d9c97a6dae4de07c52fd0"
+    ),
+    repo_asset!(
+        "fonts",
+        "Montserrat-Bold.ttf",
+        "bc6e854971cea46b463be6f9eef4d9cd52f51cfc1fc0dd90c9d3e6483dc0ec61"
+    ),
 ];
 
 /// The greeting a new event's welcome step is named after.
@@ -81,12 +172,45 @@ fn photo_name(number: usize) -> String {
     format!("{number:02}")
 }
 
-/// Photo `number` (1–12): the replacement if one was uploaded, else the default.
-async fn photo(pool: &PgPool, number: usize) -> sqlx::Result<Vec<u8>> {
-    Ok(match asset(pool, &photo_name(number)).await? {
-        Some((_, bytes)) => bytes,
-        None => DEFAULT_PHOTOS[number - 1].to_vec(),
-    })
+/// The downloaded copy of a default photo or font, fetching it first when this host doesn't have
+/// it yet.
+async fn repo_file(download: &Download, tools_dir: &std::path::Path) -> Result<Vec<u8>, String> {
+    let path = tools::ensure(download, tools_dir).await?;
+    tokio::fs::read(&path)
+        .await
+        .map_err(|e| format!("cannot read {}: {e}", path.display()))
+}
+
+/// Photo `number` (1–12): the replacement if one was uploaded, else the default. `None` when the
+/// default hasn't been downloaded and can't be now (no internet).
+async fn photo(
+    pool: &PgPool,
+    tools_dir: &std::path::Path,
+    number: usize,
+) -> sqlx::Result<Option<Vec<u8>>> {
+    if let Some((_, bytes)) = asset(pool, &photo_name(number)).await? {
+        return Ok(Some(bytes));
+    }
+    match repo_file(&DEFAULT_PHOTOS[number - 1], tools_dir).await {
+        Ok(bytes) => Ok(Some(bytes)),
+        Err(error) => {
+            tracing::warn!(%error, "welcome screen: photo {number:02} is not available");
+            Ok(None)
+        }
+    }
+}
+
+/// Fetches the default photos and fonts in the background when the server starts, so the first
+/// welcome slide doesn't wait for them.
+pub fn prefetch(tools_dir: std::path::PathBuf) {
+    tokio::spawn(async move {
+        for download in DEFAULT_PHOTOS.iter().chain(&FONTS) {
+            if let Err(error) = tools::ensure(download, &tools_dir).await {
+                tracing::warn!(%error, "welcome screen: will try again when a slide needs it");
+                return;
+            }
+        }
+    });
 }
 
 async fn load_settings(pool: &PgPool) -> sqlx::Result<WelcomeSettings> {
@@ -236,18 +360,37 @@ fn logo_aspect(mime: &str, bytes: &[u8]) -> f64 {
     size.filter(|(_, h)| *h > 0.0).map_or(1.0, |(w, h)| w / h)
 }
 
-/// Montserrat (SIL Open Font License), built in so the slide looks the same wherever the server
-/// runs; the text becomes outlines, so no screen needs it either.
+/// Montserrat once all three weights are downloaded.
+static MONTSERRAT: OnceLock<usvg::Options<'static>> = OnceLock::new();
+
+/// Loads Montserrat, downloading it first if needed. Until it can be, the slide is set in this
+/// computer's own sans-serif.
+async fn load_fonts(tools_dir: &std::path::Path) {
+    if MONTSERRAT.get().is_some() {
+        return;
+    }
+    let mut options = usvg::Options::default();
+    for font in &FONTS {
+        match repo_file(font, tools_dir).await {
+            Ok(bytes) => options.fontdb_mut().load_font_data(bytes),
+            Err(error) => {
+                tracing::warn!(%error, "welcome screen: using the system font for now");
+                return;
+            }
+        }
+    }
+    options.font_family = "Montserrat".to_string();
+    MONTSERRAT.get_or_init(|| options);
+}
+
 fn text_options() -> &'static usvg::Options<'static> {
-    static OPTIONS: OnceLock<usvg::Options<'static>> = OnceLock::new();
-    OPTIONS.get_or_init(|| {
-        let mut options = usvg::Options::default();
-        let fonts = options.fontdb_mut();
-        fonts.load_font_data(include_bytes!("../../assets/fonts/Montserrat-Medium.ttf").to_vec());
-        fonts.load_font_data(include_bytes!("../../assets/fonts/Montserrat-SemiBold.ttf").to_vec());
-        fonts.load_font_data(include_bytes!("../../assets/fonts/Montserrat-Bold.ttf").to_vec());
-        options.font_family = "Montserrat".to_string();
-        options
+    MONTSERRAT.get().unwrap_or_else(|| {
+        static SYSTEM: OnceLock<usvg::Options<'static>> = OnceLock::new();
+        SYSTEM.get_or_init(|| {
+            let mut options = usvg::Options::default();
+            options.fontdb_mut().load_system_fonts();
+            options
+        })
     })
 }
 
@@ -287,7 +430,7 @@ fn text(svg: &mut String, value: &str, (x, y): (f64, f64), style: Style) -> f64 
     let size = size.min(max_width / (text_width(value, 1.0) + 0.0001));
     let value = escape(value);
     svg.push_str(&format!(
-        "<text x=\"{x:.1}\" y=\"{y:.1}\" font-family=\"Montserrat\" font-size=\"{size:.1}\" font-weight=\"{weight}\" letter-spacing=\"{ls:.2}\" text-anchor=\"{anchor}\" fill=\"#fff\">{value}</text>\n",
+        "<text x=\"{x:.1}\" y=\"{y:.1}\" font-family=\"Montserrat, sans-serif\" font-size=\"{size:.1}\" font-weight=\"{weight}\" letter-spacing=\"{ls:.2}\" text-anchor=\"{anchor}\" fill=\"#fff\">{value}</text>\n",
         ls = tracking * size,
     ));
     size
@@ -297,7 +440,7 @@ fn text(svg: &mut String, value: &str, (x, y): (f64, f64), style: Style) -> f64 
 /// into a soft, toned blur at the bottom where the greeting, blessing and date sit; the logo top
 /// left. No shadows: the photo itself is prepared so white text reads on it.
 fn slide_svg(
-    photo: &[u8],
+    photo: Option<&[u8]>,
     logo: Option<(&str, &[u8])>,
     church: &str,
     title: &str,
@@ -305,12 +448,16 @@ fn slide_svg(
     date: &str,
 ) -> Result<String, String> {
     // The church name goes top right beside a logo, so that corner is toned too.
-    let photo = prepare_photo(photo, logo.is_some() && !church.is_empty())?;
+    let background = match photo {
+        Some(photo) => format!(
+            "<image x=\"0\" y=\"0\" width=\"{WIDTH}\" height=\"{HEIGHT}\" preserveAspectRatio=\"xMidYMid slice\" xlink:href=\"{}\"/>",
+            prepare_photo(photo, logo.is_some() && !church.is_empty())?
+        ),
+        // Not downloaded yet: a plain dark slide, on which white text always reads.
+        None => format!("<rect width=\"{WIDTH}\" height=\"{HEIGHT}\" fill=\"#1d2430\"/>"),
+    };
     let layer = foreground(logo, church, title, lines, date);
-    let svg = format!(
-        "{}<image x=\"0\" y=\"0\" width=\"{WIDTH}\" height=\"{HEIGHT}\" preserveAspectRatio=\"xMidYMid slice\" xlink:href=\"{photo}\"/>\n{layer}</svg>\n",
-        svg_open()
-    );
+    let svg = format!("{}{background}\n{layer}</svg>\n", svg_open());
     // Outlines instead of text, so no screen needs the font.
     let flat = presenter_svg::flatten_text_to_paths(&svg, text_options());
     Ok(with_slow_zoom(&flat))
@@ -475,6 +622,7 @@ fn service_date(date: chrono::NaiveDate, language: &str) -> String {
 /// step's `notes` (or the blessing) and the church name with the date. Also returns the lines.
 async fn render(
     pool: &PgPool,
+    tools_dir: &std::path::Path,
     title: &str,
     notes: &str,
     date: chrono::NaiveDate,
@@ -496,15 +644,16 @@ async fn render(
     .into_iter()
     .filter(|l| !l.is_empty())
     .collect();
-    let photo = photo(pool, date.month() as usize)
+    let photo = photo(pool, tools_dir, date.month() as usize)
         .await
         .map_err(|e| e.to_string())?;
+    load_fonts(tools_dir).await;
     let logo = asset(pool, "logo")
         .await
         .map_err(|e| e.to_string())?
         .unwrap_or_else(|| ("image/svg+xml".to_string(), DEFAULT_LOGO.to_vec()));
     let svg = slide_svg(
-        &photo,
+        photo.as_deref(),
         Some((logo.0.as_str(), logo.1.as_slice())),
         stored.church_name.trim(),
         title.trim(),
@@ -518,12 +667,14 @@ async fn render(
 /// and text-only views.
 async fn deck(
     pool: &PgPool,
+    tools_dir: &std::path::Path,
     title: &str,
     notes: &str,
     event_date: chrono::DateTime<chrono::Utc>,
 ) -> Result<PresenterState, String> {
     let (svg, lines, footer) = render(
         pool,
+        tools_dir,
         title,
         notes,
         event_date.with_timezone(&Local).date_naive(),
@@ -573,7 +724,14 @@ pub async fn show(
     notes: &str,
     event_date: chrono::DateTime<chrono::Utc>,
 ) -> Result<(), String> {
-    let deck = deck(&state.pool, title, notes, event_date).await?;
+    let deck = deck(
+        &state.pool,
+        state.media.tools_dir(),
+        title,
+        notes,
+        event_date,
+    )
+    .await?;
     *state.presenter_state.write().await = deck;
     websocket::broadcast_presenter_state(&state.ws_clients, &*state.presenter_state.read().await)
         .await;
@@ -632,8 +790,16 @@ pub async fn get_photo(
     let Some(number) = photo_number(number) else {
         return StatusCode::NOT_FOUND.into_response();
     };
-    match photo(&state.pool, number).await {
-        Ok(bytes) => ([(header::CONTENT_TYPE, "image/jpeg")], bytes).into_response(),
+    match photo(&state.pool, state.media.tools_dir(), number).await {
+        Ok(Some(bytes)) => ([(header::CONTENT_TYPE, "image/jpeg")], bytes).into_response(),
+        Ok(None) => {
+            let error = "The photo hasn't been downloaded yet; check the internet connection";
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({ "error": error })),
+            )
+                .into_response()
+        }
         Err(e) => internal(e),
     }
 }
@@ -694,7 +860,15 @@ pub async fn get_preview(
     else {
         return StatusCode::NOT_FOUND.into_response();
     };
-    match render(&state.pool, &stored.title, "", first_sunday).await {
+    match render(
+        &state.pool,
+        state.media.tools_dir(),
+        &stored.title,
+        "",
+        first_sunday,
+    )
+    .await
+    {
         Ok((svg, _, _)) => ([(header::CONTENT_TYPE, "image/svg+xml")], svg).into_response(),
         Err(e) => internal(e),
     }
@@ -756,6 +930,32 @@ async fn remove(pool: &PgPool, name: &str) -> axum::response::Response {
 mod tests {
     use super::*;
 
+    /// A default photo or font from this checkout, as the server would download it.
+    fn repo_bytes(download: &Download) -> Vec<u8> {
+        let folder = if download.name.ends_with(".jpg") {
+            "welcome"
+        } else {
+            "fonts"
+        };
+        std::fs::read(format!(
+            "{}/assets/{folder}/{}",
+            env!("CARGO_MANIFEST_DIR"),
+            download.name
+        ))
+        .expect("asset is in the repository")
+    }
+
+    /// The pinned checksums are the files in the repository, and every URL points at one.
+    #[test]
+    fn the_downloads_match_the_files_in_the_repository() {
+        use sha2::Digest;
+        for download in DEFAULT_PHOTOS.iter().chain(&FONTS) {
+            let digest = hex::encode(sha2::Sha256::digest(repo_bytes(download)));
+            assert_eq!(digest, download.sha256, "{}", download.name);
+            assert!(download.url.ends_with(&format!("/{}", download.name)));
+        }
+    }
+
     /// Relative luminance of an sRGB pixel, as WCAG defines it.
     fn luminance(pixel: &image::Rgb<u8>) -> f64 {
         let [r, g, b] = pixel.0.map(to_linear);
@@ -766,8 +966,8 @@ mod tests {
     /// all the text sits) is bright enough to bring white text under the target contrast.
     #[test]
     fn white_text_is_readable_on_every_default_photo() {
-        for (index, bytes) in DEFAULT_PHOTOS.iter().enumerate() {
-            let mut photo = image::load_from_memory(bytes)
+        for (index, download) in DEFAULT_PHOTOS.iter().enumerate() {
+            let mut photo = image::load_from_memory(&repo_bytes(download))
                 .expect("default photo decodes")
                 .resize_to_fill(WIDTH, HEIGHT, image::imageops::FilterType::Triangle)
                 .to_rgb8();
@@ -815,8 +1015,15 @@ mod tests {
 
     #[test]
     fn the_slide_is_an_svg_with_the_photo_zooming_and_the_text_as_outlines() {
+        let mut options = usvg::Options::default();
+        for font in &FONTS {
+            options.fontdb_mut().load_font_data(repo_bytes(font));
+        }
+        options.font_family = "Montserrat".to_string();
+        MONTSERRAT.get_or_init(|| options);
+        let photo = repo_bytes(&DEFAULT_PHOTOS[9]);
         let svg = slide_svg(
-            DEFAULT_PHOTOS[9],
+            Some(&photo),
             Some(("image/svg+xml", DEFAULT_LOGO)),
             "",
             "Isten hozott.",
@@ -827,7 +1034,22 @@ mod tests {
         assert!(svg.starts_with("<svg"));
         assert!(svg.contains("data:image/jpeg;base64,"));
         assert!(svg.contains("class=\"metocast-zoom\""));
-        // The built-in font is found, so no text is left for a screen to lay out.
+        // The font is found, so no text is left for a screen to lay out.
         assert!(!svg.contains("<text"));
+    }
+
+    #[test]
+    fn without_its_photo_the_slide_is_plain_and_dark() {
+        let svg = slide_svg(
+            None,
+            None,
+            "",
+            "Isten hozott.",
+            &[],
+            "2026. október 25. vasárnap",
+        )
+        .expect("slide renders");
+        assert!(svg.contains("fill=\"#1d2430\""));
+        assert!(!svg.contains("data:image/jpeg"));
     }
 }

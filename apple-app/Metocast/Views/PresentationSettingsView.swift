@@ -79,7 +79,10 @@ private struct WelcomeScreenSection: View {
     @State private var settings: WelcomeSettingsRecord?
     /// Thumbnails by photo number; reloaded after a replace or reset.
     @State private var thumbnails: [UInt32: Data] = [:]
+    /// What the file picker is replacing. It outlives the picker, whose binding is reset before
+    /// its completion runs.
     @State private var importTarget: ImportTarget?
+    @State private var importing = false
     @State private var busy: UInt32?
     @State private var failure: String?
     /// The month whose slide is being previewed.
@@ -120,7 +123,7 @@ private struct WelcomeScreenSection: View {
                     HStack {
                         // The church's cross-and-flame logo is built in; an upload replaces it.
                         Text(settings.hasLogo ? "Custom" : "Default").foregroundStyle(.secondary)
-                        Button("Replace…") { importTarget = ImportTarget(number: 0) }
+                        Button("Replace…") { pick(ImportTarget(number: 0)) }
                         if settings.hasLogo {
                             Button("Reset to Default") { Task { await change { try await session.removeWelcomeLogo() } } }
                         }
@@ -138,17 +141,16 @@ private struct WelcomeScreenSection: View {
             Text("A Slide step in the Order of Service shows this with the web presenter: the photo of the event's month with the logo, and its title, the blessing and the date in the lower third. Click a month to preview it. The text always stays readable: the photo softens and tones down only where text sits.")
         }
         .fileImporter(
-            isPresented: Binding(get: { importTarget != nil }, set: { if !$0 { importTarget = nil } }),
+            isPresented: $importing,
             allowedContentTypes: importTarget?.number == 0 ? [.png, .svg] : [.image]
         ) { result in
             guard let target = importTarget else { return }
-            importTarget = nil
             Task { await upload(result, to: target.number) }
         }
         .task { await load() }
         // Saved once typing pauses; a newer edit cancels the wait.
         .sheet(item: $previewing, onDismiss: {
-            importTarget = pendingImport
+            if let pendingImport { pick(pendingImport) }
             pendingImport = nil
         }) { target in
             WelcomePreview(
@@ -171,6 +173,11 @@ private struct WelcomeScreenSection: View {
                 failure = error.metocastMessage
             }
         }
+    }
+
+    private func pick(_ target: ImportTarget) {
+        importTarget = target
+        importing = true
     }
 
     private func field(_ path: WritableKeyPath<WelcomeSettingsRecord, String>) -> Binding<String> {
@@ -219,11 +226,16 @@ private struct WelcomeScreenSection: View {
     private func load() async {
         do {
             settings = try await session.welcomeSettings()
-            for number in UInt32(1)...12 {
-                thumbnails[number] = try await session.welcomePhoto(number)
-            }
         } catch {
             failure = error.metocastMessage
+        }
+        // One missing photo (not downloaded yet) leaves the other months' thumbnails.
+        for number in UInt32(1)...12 {
+            do {
+                thumbnails[number] = try await session.welcomePhoto(number)
+            } catch {
+                failure = error.metocastMessage
+            }
         }
     }
 

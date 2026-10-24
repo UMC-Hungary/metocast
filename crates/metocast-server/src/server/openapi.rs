@@ -1834,12 +1834,13 @@ fn handwritten() -> Value {
                 "get": {
                     "tags": ["Presenter"],
                     "summary": "A month's welcome photo",
-                    "description": "The replacement if one was uploaded, else the built-in default (CC0, see `crates/metocast-server/assets/welcome/CREDITS.md`).",
+                    "description": "The replacement if one was uploaded, else the default, which the server downloads from the Metocast repository on first use (Unsplash, see `crates/metocast-server/assets/welcome/CREDITS.md`).",
                     "operationId": "getWelcomePhoto",
                     "responses": {
                         "200": { "description": "The photo", "content": { "image/jpeg": { "schema": { "type": "string", "format": "binary" } } } },
                         "401": { "description": "Unauthorized" },
-                        "404": { "description": "Not 1–12" }
+                        "404": { "description": "Not 1–12" },
+                        "503": { "description": "The default photo isn't downloaded yet and can't be now (no internet)" }
                     }
                 },
                 "put": {
