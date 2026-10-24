@@ -170,6 +170,13 @@
     }
   }
 
+  /** A step for one of the event's readings; it shows the reading's verses once it is set. */
+  function addReading(bibleType: 'leckio' | 'textus') {
+    const title = bibleType === 'textus' ? $_('order.textus') : $_('order.leckio');
+    steps.push({ key: crypto.randomUUID(), item: { kind: 'bible', title, bibleType, notes: '' } });
+    void save();
+  }
+
   function pickDeck(key: string | null) {
     pickingFor = key;
     picking = true;
@@ -414,6 +421,8 @@
       <Button compact onclick={() => pickDeck(null)}>{$_('order.addSong')}</Button>
       <Button compact onclick={() => add('announcements')}>{$_('order.addAnnouncements')}</Button>
       <Button compact onclick={() => add('text')}>{$_('order.addSlide')}</Button>
+      <Button compact onclick={() => addReading('leckio')}>{$_('order.leckio')}</Button>
+      <Button compact onclick={() => addReading('textus')}>{$_('order.textus')}</Button>
     </form>
     <p class="hint">{$_('order.editHint')}</p>
     {#if error}<p class="error" role="alert">{error}</p>{/if}

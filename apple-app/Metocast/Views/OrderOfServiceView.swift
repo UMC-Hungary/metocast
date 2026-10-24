@@ -112,6 +112,8 @@ struct EventOrderSection: View {
                     Button("Song…", systemImage: "music.note") { deckTarget = DeckTarget(stepId: nil) }
                     Button("Announcements", systemImage: "megaphone") { add(.announcements) }
                     Button("Slide", systemImage: "text.below.photo") { add(.text) }
+                    Button("Lekció", systemImage: "book") { addReading("leckio") }
+                    Button("Textus", systemImage: "book") { addReading("textus") }
                     Button("Block", systemImage: "text.alignleft") { add(.block) }
                 } label: {
                     Label("Add", systemImage: "plus")
@@ -257,6 +259,13 @@ struct EventOrderSection: View {
         steps.append(step)
         newTitle = ""
         if kind == .block { save() } else { rename(step.id) }
+    }
+
+    /// A step for one of the event's readings; it shows the reading's verses once it is set.
+    private func addReading(_ type: String) {
+        let title = type == "textus" ? "Textus" : "Lekció"
+        steps.append(OrderStep(OrderItemRecord(id: nil, kind: .bible, title: title, deckPath: nil, bibleType: type, notes: "")))
+        save()
     }
 
     /// A song placeholder takes the deck and its name; with no step, the deck is a new song.

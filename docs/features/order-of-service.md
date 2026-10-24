@@ -76,7 +76,8 @@ button: every change is saved at once.
     slide;
   - the deck button on a song picks or changes its deck from the library;
   - the last row adds a step: type its name and press Return for a block, or use **Add** for a
-    **Song…** from the library, **Announcements**, a **Slide** or a **Block**.
+    **Song…** from the library, **Announcements**, a **Slide**, a **Lekció** or **Textus**
+    reading, or a **Block**.
 - **Live** shows the current event's Order of Service:
   - click a step to show it;
   - use **Previous Step** / **Next Step**.
@@ -96,9 +97,9 @@ button: every change is saved at once.
 - **Events**: the event's page has the same list under the event form, edited in place: drag a
   step by its handle (or use the arrows), swipe left to delete, double-click or the pencil to
   rename, the deck button on a song, and _Add a step_ at the end (with _Add song_, _Add
-  announcements_ and _Add slide_). While renaming, _Shows_ switches a part without a deck between
-  nothing, a slide and the announcements. Every change is saved at once. The readings are edited in the
-  event form above it.
+  announcements_, _Add slide_, _Lekció_ and _Textus_). While renaming, _Shows_ switches a part
+  without a deck between nothing, a slide and the announcements. Every change is saved at once.
+  The readings are edited in the event form above it.
 - **Home** runs the current event's Order of Service.
 - **Presentations** has the full library under the quick search.
 
