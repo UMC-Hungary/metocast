@@ -67,6 +67,17 @@ fn handwritten() -> Value {
                 }
             },
             "schemas": {
+                "WelcomeSettings": {
+                    "type": "object",
+                    "properties": {
+                        "title": { "type": "string", "maxLength": 120, "description": "The greeting a new event's welcome step is named after", "example": "Isten hozott!" },
+                        "subtitle": { "type": "string", "maxLength": 200, "description": "Shown under the title when the step has no notes of its own", "example": "Az ÚR áldása legyen életeden!" },
+                        "churchName": { "type": "string", "maxLength": 120, "description": "Shown above the event's date at the bottom", "example": "Nyíregyházi Metodista Gyülekezet" },
+                        "intervalSeconds": { "type": "integer", "minimum": 5, "maximum": 3600, "description": "How long each photo stays before the next", "example": 20 },
+                        "hasLogo": { "type": "boolean", "readOnly": true },
+                        "replacedPhotos": { "type": "array", "items": { "type": "integer", "minimum": 1, "maximum": 12 }, "readOnly": true, "description": "Photos replaced by an upload" }
+                    }
+                },
                 "SlideContent": {
                     "type": "object",
                     "description": "Text content extracted from a single slide.",
@@ -1782,6 +1793,97 @@ fn handwritten() -> Value {
                         "401": { "description": "Unauthorized" },
                         "500": { "description": "Database error" }
                     }
+                }
+            },
+            "/api/presenter/welcome": {
+                "get": {
+                    "tags": ["Presenter"],
+                    "summary": "Read the welcome screen settings",
+                    "description": "The welcome screen is the slide a **text** Order of Service step shows in the web presenter: a photo, the logo top right, the step's title (the greeting), its notes or else `subtitle`, and the church name with the event's date. The 12 photos rotate every `intervalSeconds` while it is on screen. White text over a dark overlay sized from each photo's brightness keeps at least 4.5:1 contrast (WCAG AAA for large text).",
+                    "operationId": "getWelcomeSettings",
+                    "responses": {
+                        "200": { "description": "The settings", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WelcomeSettings" } } } },
+                        "401": { "description": "Unauthorized" }
+                    }
+                },
+                "put": {
+                    "tags": ["Presenter"],
+                    "summary": "Set the welcome screen settings",
+                    "description": "`hasLogo` and `replacedPhotos` are ignored; they come from the uploads.",
+                    "operationId": "setWelcomeSettings",
+                    "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WelcomeSettings" } } } },
+                    "responses": {
+                        "200": { "description": "The stored settings", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WelcomeSettings" } } } },
+                        "400": { "description": "Text too long, or the interval outside 5–3600 seconds" },
+                        "401": { "description": "Unauthorized" }
+                    }
+                }
+            },
+            "/api/presenter/welcome/photos/{number}": {
+                "parameters": [{ "name": "number", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1, "maximum": 12 } }],
+                "get": {
+                    "tags": ["Presenter"],
+                    "summary": "A welcome photo",
+                    "description": "The replacement if one was uploaded, else the built-in default (CC0, see `crates/metocast-server/assets/welcome/CREDITS.md`).",
+                    "operationId": "getWelcomePhoto",
+                    "responses": {
+                        "200": { "description": "The photo", "content": { "image/jpeg": { "schema": { "type": "string", "format": "binary" } } } },
+                        "401": { "description": "Unauthorized" },
+                        "404": { "description": "Not 1–12" }
+                    }
+                },
+                "put": {
+                    "tags": ["Presenter"],
+                    "summary": "Replace a welcome photo",
+                    "description": "The body is the image file (JPEG, PNG, WebP…, up to 40 MB). It is cropped to 16:9 and stored at 1920×1080.",
+                    "operationId": "setWelcomePhoto",
+                    "requestBody": { "required": true, "content": { "application/octet-stream": { "schema": { "type": "string", "format": "binary" } } } },
+                    "responses": {
+                        "204": { "description": "Stored" },
+                        "400": { "description": "Not an image" },
+                        "401": { "description": "Unauthorized" },
+                        "404": { "description": "Not 1–12" }
+                    }
+                },
+                "delete": {
+                    "tags": ["Presenter"],
+                    "summary": "Reset a welcome photo to its default",
+                    "operationId": "resetWelcomePhoto",
+                    "responses": {
+                        "204": { "description": "Reset" },
+                        "401": { "description": "Unauthorized" },
+                        "404": { "description": "Not 1–12" }
+                    }
+                }
+            },
+            "/api/presenter/welcome/logo": {
+                "get": {
+                    "tags": ["Presenter"],
+                    "summary": "The welcome screen's logo",
+                    "operationId": "getWelcomeLogo",
+                    "responses": {
+                        "200": { "description": "The logo", "content": { "image/png": { "schema": { "type": "string", "format": "binary" } }, "image/svg+xml": { "schema": { "type": "string" } } } },
+                        "401": { "description": "Unauthorized" },
+                        "404": { "description": "No logo set" }
+                    }
+                },
+                "put": {
+                    "tags": ["Presenter"],
+                    "summary": "Set the welcome screen's logo",
+                    "description": "The body is a PNG (transparency kept) or an SVG file, up to 5 MB. It shows top right on the welcome screen.",
+                    "operationId": "setWelcomeLogo",
+                    "requestBody": { "required": true, "content": { "application/octet-stream": { "schema": { "type": "string", "format": "binary" } } } },
+                    "responses": {
+                        "204": { "description": "Stored" },
+                        "400": { "description": "Not a PNG or SVG" },
+                        "401": { "description": "Unauthorized" }
+                    }
+                },
+                "delete": {
+                    "tags": ["Presenter"],
+                    "summary": "Remove the welcome screen's logo",
+                    "operationId": "removeWelcomeLogo",
+                    "responses": { "204": { "description": "Removed" }, "401": { "description": "Unauthorized" } }
                 }
             },
             "/api/presenter/parse": {

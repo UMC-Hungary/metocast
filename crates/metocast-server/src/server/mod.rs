@@ -11,6 +11,7 @@ pub mod presenter;
 pub mod redact;
 pub mod routes;
 pub mod websocket;
+pub mod welcome;
 pub mod ws_events;
 
 use crate::HostHandle;
@@ -1007,6 +1008,25 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
         .merge(ppt_routes)
         .merge(keynote_routes)
         .route("/presenter/parse", post(presenter::parse_presentation))
+        .route(
+            "/presenter/welcome",
+            get(welcome::get_settings).put(welcome::put_settings),
+        )
+        // Phone photos run to tens of megabytes; the server shrinks them to 1920×1080.
+        .route(
+            "/presenter/welcome/photos/{number}",
+            get(welcome::get_photo)
+                .put(welcome::put_photo)
+                .delete(welcome::delete_photo)
+                .layer(axum::extract::DefaultBodyLimit::max(40 * 1024 * 1024)),
+        )
+        .route(
+            "/presenter/welcome/logo",
+            get(welcome::get_logo)
+                .put(welcome::put_logo)
+                .delete(welcome::delete_logo)
+                .layer(axum::extract::DefaultBodyLimit::max(5 * 1024 * 1024)),
+        )
         // OAuth routes are UI-initiated (generate a login URL, log out), so they
         // sit inside the auth layer. Merging them here also puts them under `/api`
         // with everything else in this router: a client asks for

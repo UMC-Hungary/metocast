@@ -170,6 +170,10 @@ const REST: &[(&str, &str, &str, &str)] = &[
     ("GET", "/ppt/files", "ppt.search", "Search the slide folders for decks"),
     ("POST", "/ppt/song", "ppt_song_create", "Build a song slide deck from lyrics"),
     ("POST", "/presenter/parse", "presenter_parse", "Read a .pptx into slides without loading it"),
+    ("GET", "/presenter/welcome", "presenter_welcome_get", "Read the welcome screen's greeting, blessing line, church name and photo interval, and which photos are replaced"),
+    ("PUT", "/presenter/welcome", "presenter_welcome_set", "Set the welcome screen's greeting, blessing line, church name and photo interval"),
+    ("DELETE", "/presenter/welcome/photos/{number}", "presenter_welcome_photo_reset", "Put a welcome photo (1-12) back to its default"),
+    ("DELETE", "/presenter/welcome/logo", "presenter_welcome_logo_remove", "Remove the welcome screen's logo"),
     ("GET", "/keynote/status", "keynote.status", "Keynote status"),
     ("POST", "/keynote/open", "keynote.open", "Open a deck in Keynote"),
     ("POST", "/keynote/next", "keynote.next", "Keynote: next slide"),
@@ -195,6 +199,10 @@ const EXCLUDED: &[(&str, &str, &str)] = &[
     ("GET", "/callback", "OAuth redirect target, on its own port"),
     ("GET", "/connectors/{name}/config/secrets", "reveals stored credentials; loopback and admin token only"),
     ("GET", "/connectors/youtube/stream-key", "returns the live stream key, which would sit in the agent's transcript; use connectors_youtube_schedule or the push_youtube tools, which send it on without showing it"),
+    ("GET", "/presenter/welcome/photos/{number}", "a JPEG, which an agent can't use; the photo is set in the app"),
+    ("PUT", "/presenter/welcome/photos/{number}", "takes image bytes from the operator's computer, not JSON"),
+    ("GET", "/presenter/welcome/logo", "a PNG or SVG, which an agent can't use"),
+    ("PUT", "/presenter/welcome/logo", "takes image bytes from the operator's computer, not JSON"),
     ("GET", "/connectors/facebook/stream-key", "returns the live stream key, which would sit in the agent's transcript; use connectors_facebook_schedule, which sends it on without showing it"),
 ];
 

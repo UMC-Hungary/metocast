@@ -19,7 +19,7 @@ use crate::database::settings;
 use crate::models::event::fetch_event;
 use crate::server::AppState;
 use crate::server::presenter::{self, BibleReferenceType, BibleVerseContent, PresenterState};
-use crate::server::{routes, websocket};
+use crate::server::{routes, websocket, welcome};
 
 const MAX_ITEMS: usize = 200;
 const MAX_TEXT: usize = 2_000;
@@ -319,7 +319,10 @@ pub async fn seed_template(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     event_id: Uuid,
 ) -> sqlx::Result<()> {
-    write(tx, event_id, &template()).await
+    let mut items = template();
+    // The welcome step is named after the greeting set for the welcome screen.
+    items[0].title = welcome::greeting(tx).await?;
+    write(tx, event_id, &items).await
 }
 
 /// `items` with a step for each reading in `types` that has none, or `None` if all have one.
@@ -481,6 +484,26 @@ pub async fn go(
             }
         },
         OrderItemKind::Block => {}
+        // The web presenter gets the welcome design; Keynote a plain text slide.
+        OrderItemKind::Text
+            if state
+                .use_web_presenter
+                .load(std::sync::atomic::Ordering::Relaxed) =>
+        {
+            let event = fetch_event(event_id, &state.pool)
+                .await
+                .map_err(|e| e.to_string())?
+                .ok_or("Event not found")?;
+            welcome::show(
+                state,
+                event_id,
+                item_id,
+                &item.title,
+                &item.notes,
+                event.date_time,
+            )
+            .await?
+        }
         OrderItemKind::Text => {
             let deck = PresenterState::from_text(&item.title, &item.notes);
             show_deck(state, deck, "szoveg.pptx").await?

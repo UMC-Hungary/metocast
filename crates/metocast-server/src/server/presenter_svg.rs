@@ -922,14 +922,14 @@ fn image_href_for_target(
         .map(|file_name| format!("../media/{}", escape_attr(&file_name.to_string_lossy())))
 }
 
-fn build_flatten_options() -> usvg::Options<'static> {
+pub(crate) fn build_flatten_options() -> usvg::Options<'static> {
     let mut options = usvg::Options::default();
     options.fontdb_mut().load_system_fonts();
     options.font_family = "Helvetica".to_string();
     options
 }
 
-fn flatten_text_to_paths(svg: &str, options: &usvg::Options) -> String {
+pub(crate) fn flatten_text_to_paths(svg: &str, options: &usvg::Options) -> String {
     match usvg::Tree::from_data(svg.as_bytes(), options) {
         Ok(tree) => tree.to_string(&usvg::WriteOptions::default()),
         Err(err) => {

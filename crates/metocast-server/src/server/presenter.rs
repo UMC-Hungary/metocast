@@ -7,7 +7,7 @@ use std::path::Path;
 use crate::server::AppState;
 
 #[path = "presenter_svg.rs"]
-mod presenter_svg;
+pub(crate) mod presenter_svg;
 
 const MAX_BIBLE_WORDS_PER_SLIDE: usize = 55;
 const BIBLE_MAIN_FONT_SIZE_PT: f32 = 38.0;
