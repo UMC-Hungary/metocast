@@ -86,7 +86,7 @@ jobs:
       - name: Get Homebrew library versions for cache key
         if: runner.os == 'macOS'
         id: brew-versions
-        run: echo "ver=$(brew list --versions harfbuzz cairo pango glib | tr ' \n' '_')" >> $GITHUB_OUTPUT
+        run: echo "ver=$(brew list --versions harfbuzz cairo pango glib | tr ' \n' '_')" >> "$GITHUB_OUTPUT"
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.98.1
@@ -99,12 +99,23 @@ jobs:
           workspaces: '. -> target'
           shared-key: ${{ matrix.artifact }}-${{ steps.brew-versions.outputs.ver || 'linux' }}
 
+      # The on-screen badge shows CARGO_PKG_VERSION, so it must be the tag's version. perl, not
+      # scripts/stamp-version.mjs: the bullseye container has no Node.
+      - name: Update version from tag
+        if: startsWith(github.ref, 'refs/tags/presenter-receiver-v')
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/presenter-receiver-v}"
+          perl -pi -e "s/^version = \".*\"/version = \"$VERSION\"/" presenter-receiver/Cargo.toml
+          grep -q "^version = \"$VERSION\"$" presenter-receiver/Cargo.toml
+
       - name: Build release binary
         working-directory: presenter-receiver
         shell: bash
         run: |
           if [ "$RUNNER_OS" = "macOS" ]; then
-            export PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig:$(brew --prefix cairo)/lib/pkgconfig:$(brew --prefix pango)/lib/pkgconfig"
+            PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig:$(brew --prefix cairo)/lib/pkgconfig:$(brew --prefix pango)/lib/pkgconfig"
+            export PKG_CONFIG_PATH
           fi
           if [ -n "$TARGET" ]; then
             cargo build --release --target "$TARGET"
