@@ -1011,7 +1011,9 @@
     "paragraphsPlaceholder": "Bekezdések (nem kötelező), soronként egy",
     "stepParagraphs": "A(z) {n}. lépés bekezdései, soronként egy",
     "addAnnouncements": "Hirdetések hozzáadása",
-    "addSlide": "Dia hozzáadása"
+    "addSlide": "Dia hozzáadása",
+    "shows": "Kivetítés",
+    "showsNothing": "Semmi"
   },
   "mcp": {
     "title": "AI ügynökök (MCP)",

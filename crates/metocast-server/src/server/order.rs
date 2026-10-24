@@ -196,7 +196,8 @@ fn template() -> Vec<OrderItem> {
         step(Bible, "Textus", Some("textus")),
         step(Block, "Preaching", None),
         step(Song, "Song 4", None),
-        step(Announcements, "Hirdetések, áldás", None),
+        step(Announcements, "Hirdetések", None),
+        step(Block, "Áldás", None),
         step(Song, "Song 4 last part", None),
     ]
 }

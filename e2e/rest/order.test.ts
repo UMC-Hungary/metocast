@@ -43,7 +43,8 @@ describe.skipIf(!isLive)('Order of Service REST API', () => {
       'Textus',
       'Preaching',
       'Song 4',
-      'Hirdetések, áldás',
+      'Hirdetések',
+      'Áldás',
       'Song 4 last part',
     ]);
     expect(

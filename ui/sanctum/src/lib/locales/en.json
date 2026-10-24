@@ -1011,7 +1011,9 @@
     "paragraphsPlaceholder": "Optional paragraphs, one per line",
     "stepParagraphs": "Paragraphs of step {n}, one per line",
     "addAnnouncements": "Add announcements",
-    "addSlide": "Add slide"
+    "addSlide": "Add slide",
+    "shows": "Shows",
+    "showsNothing": "Nothing"
   },
   "mcp": {
     "title": "AI Agents (MCP)",

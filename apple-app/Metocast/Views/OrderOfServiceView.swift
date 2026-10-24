@@ -159,7 +159,8 @@ struct EventOrderSection: View {
         let item = step.wrappedValue.item
         return HStack(spacing: 8) {
             if renaming == id {
-                StepFields(item: step.item) { finishRename() }
+                // Only this row's rename: its fields also finish as they disappear, after another row took over.
+                StepFields(item: step.item) { if renaming == id { finishRename() } }
             } else {
                 OrderStepRow(
                     item: item,
@@ -260,7 +261,8 @@ struct EventOrderSection: View {
 
     /// A song placeholder takes the deck and its name; with no step, the deck is a new song.
     private func pick(_ file: PptFile, for stepId: String?) {
-        let name = file.name.replacing(/\.pptx?$/, with: "")
+        // A browser download can leave a name percent-encoded ("P%C3%A9csi…").
+        let name = (file.name.removingPercentEncoding ?? file.name).replacing(/\.pptx?$/, with: "")
         if let index = steps.firstIndex(where: { $0.id == stepId }) {
             steps[index].item.deckPath = file.path
             steps[index].item.title = name
@@ -305,9 +307,9 @@ private struct DeckTarget: Identifiable {
     var id: String { stepId ?? "" }
 }
 
-/// A step's title and notes typed in place. Return, or leaving both fields, finishes. The
-/// announcements (one bullet per line) and a slide (one paragraph per line) get room for their
-/// text and a Done button.
+/// A step's title and notes typed in place, and for a part without a deck what it shows: nothing,
+/// a slide (one paragraph per line) or the announcements (one bullet per line). Return in the
+/// title, Done, or leaving the page finishes; focus moving to the picker doesn't.
 private struct StepFields: View {
     @Binding var item: OrderItemRecord
     let done: () -> Void
@@ -316,10 +318,20 @@ private struct StepFields: View {
     private enum Field { case title, notes }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             TextField("Title", text: $item.title)
                 .fontWeight(.medium)
                 .focused($focus, equals: .title)
+                .onSubmit(done)
+            // A block made before slides existed (the old welcome) can become one here.
+            if [.block, .text, .announcements].contains(item.kind) {
+                Picker("Shows", selection: $item.kind) {
+                    Text("Nothing").tag(OrderItemKind.block)
+                    Text("Slide").tag(OrderItemKind.text)
+                    Text("Announcements").tag(OrderItemKind.announcements)
+                }
+                .pickerStyle(.segmented)
+            }
             if item.notesAreSlides {
                 TextEditor(text: $item.notes)
                     .frame(minHeight: 100)
@@ -334,24 +346,21 @@ private struct StepFields: View {
                                 }
                             }
                             .foregroundStyle(.tertiary)
-                                .padding(.leading, 5)
-                                .allowsHitTesting(false)
+                            .padding(.leading, 5)
+                            .allowsHitTesting(false)
                         }
                     }
-                Button("Done", action: done)
-                    .buttonStyle(.glassProminent)
             } else {
                 TextField("Notes for the leaders", text: $item.notes, axis: .vertical)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .focused($focus, equals: .notes)
             }
+            Button("Done", action: done)
+                .buttonStyle(.glassProminent)
         }
-        .onSubmit(done)
         .onAppear { focus = .title }
-        .onChange(of: focus) { _, field in
-            if field == nil { done() }
-        }
+        .onDisappear(perform: done)
     }
 }
 

@@ -5118,6 +5118,16 @@
         }
       }
     },
+    "Nothing" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Semmi"
+          }
+        }
+      }
+    },
     "Nothing Queued" : {
       "localizations" : {
         "hu" : {
@@ -7038,6 +7048,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Megjelenítés a Finderben"
+          }
+        }
+      }
+    },
+    "Shows" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kivetítés"
           }
         }
       }

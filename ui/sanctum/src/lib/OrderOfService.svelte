@@ -7,6 +7,7 @@
     Button,
     IconButton,
     Icon,
+    Segmented,
     EmptyState,
     Sheet,
   } from '@metocast/design-system';
@@ -106,6 +107,16 @@
       .map((line) => line.trim())
       .filter(Boolean);
 
+  /** The kinds a part without a deck can switch between: nothing, a slide, the announcements. */
+  type Shown = 'block' | 'text' | 'announcements';
+  const isShown = (kind: OrderItem['kind']): kind is Shown =>
+    kind === 'block' || kind === 'text' || kind === 'announcements';
+  const shownOptions = $derived([
+    { value: 'block' as const, label: $_('order.showsNothing') },
+    { value: 'text' as const, label: $_('order.kind.text') },
+    { value: 'announcements' as const, label: $_('order.kind.announcements') },
+  ]);
+
   /** Whether the notes are what the step shows (bullets or paragraphs), not notes for the leaders. */
   const notesAreSlides = (item: OrderItem) => item.kind === 'announcements' || item.kind === 'text';
 
@@ -150,6 +161,15 @@
     else startEditing(key);
   }
 
+  /** A browser download can leave a file name percent-encoded ("P%C3%A9csi…"). */
+  function decodedName(name: string): string {
+    try {
+      return decodeURIComponent(name);
+    } catch {
+      return name;
+    }
+  }
+
   function pickDeck(key: string | null) {
     pickingFor = key;
     picking = true;
@@ -157,7 +177,7 @@
 
   /** A song placeholder takes the deck and its name; with no step, the deck is a new song. */
   function addSong(file: PptFile) {
-    const title = file.name.replace(/\.pptx?$/i, '');
+    const title = decodedName(file.name).replace(/\.pptx?$/i, '');
     const step = steps.find((candidate) => candidate.key === pickingFor);
     if (step) {
       step.item.deckPath = file.path;
@@ -294,6 +314,15 @@
                     placeholder={$_('order.titlePlaceholder')}
                     aria-label={$_('order.stepTitle', { values: { n: index + 1 } })}
                   />
+                  {#if isShown(step.item.kind)}
+                    <Segmented
+                      compact
+                      label={$_('order.shows')}
+                      options={shownOptions}
+                      value={step.item.kind}
+                      onchange={(kind) => (step.item.kind = kind)}
+                    />
+                  {/if}
                   {#if notesAreSlides(step.item)}
                     <textarea
                       class="notes bullets"
