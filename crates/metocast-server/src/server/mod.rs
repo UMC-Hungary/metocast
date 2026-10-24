@@ -1021,6 +1021,10 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
                 .layer(axum::extract::DefaultBodyLimit::max(40 * 1024 * 1024)),
         )
         .route(
+            "/presenter/welcome/preview/{number}",
+            get(welcome::get_preview),
+        )
+        .route(
             "/presenter/welcome/logo",
             get(welcome::get_logo)
                 .put(welcome::put_logo)

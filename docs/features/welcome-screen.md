@@ -2,7 +2,7 @@
 
 The slide on screen before and at the start of the service: a full-bleed photo, the church's
 logo top right, a large greeting, a blessing line, and the church name with the service's date.
-Twelve photos take turns while it is showing.
+Each month has its own photo.
 
 It is what a **Slide** step of the [Order of Service](order-of-service.md) shows with the web
 presenter. New events start with one, named after the greeting. The step's title is the
@@ -22,10 +22,11 @@ step shows the same text as a plain slide.
 
 ## The photos
 
-The defaults are 12 public-domain (CC0) photos from Wikimedia Commons, most first published on
-Unsplash; [`CREDITS.md`](../../crates/metocast-server/assets/welcome/CREDITS.md) lists each
-source. While the welcome step is on screen, the photo changes every 20 seconds (adjustable).
-Each service starts on a different one.
+There are 12 photos, one for each month: the service's month picks the photo (photo 1 is January's).
+The defaults follow the seasons: snow in January and February, blossom in spring, summer fields, and
+autumn trees in October and November. They are public-domain (CC0) photos from Wikimedia Commons,
+most first published on Unsplash;
+[`CREDITS.md`](../../crates/metocast-server/assets/welcome/CREDITS.md) lists each one's source.
 
 ## Use it
 
@@ -33,9 +34,12 @@ Each service starts on a different one.
 Screen**:
 
 - **Greeting**, **Blessing** and **Church Name** save themselves as you type;
-- **Next photo after … s** sets the interval;
-- click a photo for **Replace…** (any photo from this computer, cropped to 16:9) or **Reset to
-  Default**. A pencil mark shows which are replaced;
+- **Language** (Magyar / English) sets how the date is written (_2026. október 25. vasárnap_ or
+  _Sunday, October 25, 2026_). Switching it also swaps in that language's default greeting and
+  blessing, unless you wrote your own;
+- the photos are listed by month. Click one to **preview** that month's slide as the screens will
+  show it. From the preview, **Replace…** takes any photo from this computer (cropped to 16:9) and
+  **Reset to Default** brings back the built-in one. A pencil mark shows which are replaced;
 - **Logo**: **Choose…** a PNG (transparency kept) or SVG, or **Remove** it. The cross and flame
   is the United Methodist Church's registered emblem, so Metocast doesn't ship it: use your
   church's official file.
@@ -49,12 +53,12 @@ sends it as a finished SVG with the text already drawn, so no screen needs the f
 | Does                          | REST                                             | MCP tool                        |
 | ----------------------------- | ------------------------------------------------ | ------------------------------- |
 | Read the settings             | `GET /api/presenter/welcome`                     | `presenter_welcome_get`         |
-| Change the text or interval   | `PUT /api/presenter/welcome`                     | `presenter_welcome_set`         |
-| Get a photo (1–12)            | `GET /api/presenter/welcome/photos/{n}`          |                                 |
+| Change the text or language   | `PUT /api/presenter/welcome`                     | `presenter_welcome_set`         |
+| Get a month's photo (1–12)    | `GET /api/presenter/welcome/photos/{n}`          |                                 |
+| Preview a month's slide (SVG) | `GET /api/presenter/welcome/preview/{n}`         |                                 |
 | Replace a photo (image bytes) | `PUT /api/presenter/welcome/photos/{n}`          |                                 |
 | Reset a photo                 | `DELETE /api/presenter/welcome/photos/{n}`       | `presenter_welcome_photo_reset` |
 | Get, set or remove the logo   | `GET`/`PUT`/`DELETE /api/presenter/welcome/logo` | `presenter_welcome_logo_remove` |
 
-The slide itself arrives as the usual `presenter.state` push (`renderMode: "svg"`), every time
-the photo changes. Replaced photos and the logo are kept in the database, so they travel with
+The slide itself arrives as the usual `presenter.state` push (`renderMode: "svg"`). Replaced photos and the logo are kept in the database, so they travel with
 backups.

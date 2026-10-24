@@ -494,15 +494,7 @@ pub async fn go(
                 .await
                 .map_err(|e| e.to_string())?
                 .ok_or("Event not found")?;
-            welcome::show(
-                state,
-                event_id,
-                item_id,
-                &item.title,
-                &item.notes,
-                event.date_time,
-            )
-            .await?
+            welcome::show(state, &item.title, &item.notes, event.date_time).await?
         }
         OrderItemKind::Text => {
             let deck = PresenterState::from_text(&item.title, &item.notes);

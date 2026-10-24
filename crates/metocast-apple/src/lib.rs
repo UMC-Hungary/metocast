@@ -498,7 +498,7 @@ pub struct WelcomeSettingsRecord {
     pub title: String,
     pub subtitle: String,
     pub church_name: String,
-    pub interval_seconds: u32,
+    pub language: String,
     pub has_logo: bool,
     pub replaced_photos: Vec<u32>,
 }
@@ -509,7 +509,7 @@ impl From<WelcomeSettings> for WelcomeSettingsRecord {
             title: s.title,
             subtitle: s.subtitle,
             church_name: s.church_name,
-            interval_seconds: s.interval_seconds,
+            language: s.language,
             has_logo: s.has_logo,
             replaced_photos: s.replaced_photos,
         }
@@ -2107,7 +2107,7 @@ impl AppleClient {
             title: settings.title,
             subtitle: settings.subtitle,
             church_name: settings.church_name,
-            interval_seconds: settings.interval_seconds,
+            language: settings.language,
             has_logo: settings.has_logo,
             replaced_photos: settings.replaced_photos,
         };
@@ -2116,6 +2116,13 @@ impl AppleClient {
             .run(async move { client.set_welcome_settings(&settings).await })
             .await?;
         Ok(stored.into())
+    }
+
+    /// The welcome slide for month `number` (1–12) as SVG, to preview it.
+    pub async fn welcome_preview(&self, number: u32) -> Result<String, AppleError> {
+        let client = self.client.clone();
+        self.run(async move { client.welcome_preview(number).await })
+            .await
     }
 
     /// Welcome photo `number` (1–12) as JPEG bytes, for a thumbnail.

@@ -14,7 +14,7 @@ interface WelcomeSettings {
   title: string;
   subtitle: string;
   churchName: string;
-  intervalSeconds: number;
+  language: string;
   hasLogo: boolean;
   replacedPhotos: number[];
 }
@@ -24,22 +24,22 @@ describe.skipIf(!isLive)('Welcome screen REST API', () => {
     await fetch(`${BASE}/api/presenter/welcome/photos/3`, { method: 'DELETE', headers: auth });
   });
 
-  it('stores the text and interval, and refuses an interval out of range', async () => {
+  it('stores the text and language, and refuses an unknown language', async () => {
     const saved = await apiClient.put<WelcomeSettings>('/api/presenter/welcome', {
       title: 'Isten hozott!',
       subtitle: 'Az ÚR áldása legyen életeden!',
       churchName: 'E2E gyülekezet',
-      intervalSeconds: 30,
+      language: 'hu',
     });
     expect(saved.status).toBe(200);
     expect(saved.body.churchName).toBe('E2E gyülekezet');
-    const tooFast = await apiClient.put('/api/presenter/welcome', {
-      title: 'x',
+    const german = await apiClient.put('/api/presenter/welcome', {
+      title: 'Willkommen',
       subtitle: '',
       churchName: '',
-      intervalSeconds: 1,
+      language: 'de',
     });
-    expect(tooFast.status).toBe(400);
+    expect(german.status).toBe(400);
   });
 
   it('serves the built-in photos and takes a replacement back to the default', async () => {
@@ -64,6 +64,13 @@ describe.skipIf(!isLive)('Welcome screen REST API', () => {
     expect(reset.status).toBe(204);
     const after = await apiClient.get<WelcomeSettings>('/api/presenter/welcome');
     expect(after.body.replacedPhotos).not.toContain(3);
+  });
+
+  it('previews a month as an SVG slide', async () => {
+    const res = await fetch(`${BASE}/api/presenter/welcome/preview/10`, { headers: auth });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('image/svg+xml');
+    expect(await res.text()).toContain('<svg');
   });
 
   it('refuses a photo outside 1-12 and a logo that is not PNG or SVG', async () => {

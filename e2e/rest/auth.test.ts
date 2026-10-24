@@ -48,6 +48,7 @@ const AUTHENTICATED = [
   { method: 'GET', path: '/api/presenter/welcome/photos/1' },
   { method: 'PUT', path: '/api/presenter/welcome/photos/1' },
   { method: 'DELETE', path: '/api/presenter/welcome/photos/1' },
+  { method: 'GET', path: '/api/presenter/welcome/preview/1' },
   { method: 'GET', path: '/api/presenter/welcome/logo' },
   { method: 'PUT', path: '/api/presenter/welcome/logo' },
   { method: 'DELETE', path: '/api/presenter/welcome/logo' },

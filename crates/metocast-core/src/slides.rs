@@ -142,8 +142,8 @@ pub struct WelcomeSettings {
     pub subtitle: String,
     /// Shown above the event's date at the bottom.
     pub church_name: String,
-    /// How long each photo stays, 5–3600 seconds.
-    pub interval_seconds: u32,
+    /// `hu` or `en`: the language the date is written in.
+    pub language: String,
     #[serde(skip_deserializing)]
     pub has_logo: bool,
     /// Which photos (1–12) were replaced, so a client can offer to reset them.
@@ -157,7 +157,7 @@ impl Default for WelcomeSettings {
             title: "Isten hozott!".to_string(),
             subtitle: "Az ÚR áldása legyen életeden!".to_string(),
             church_name: String::new(),
-            interval_seconds: 20,
+            language: "hu".to_string(),
             has_logo: false,
             replaced_photos: Vec::new(),
         }

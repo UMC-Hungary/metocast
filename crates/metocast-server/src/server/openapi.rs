@@ -73,9 +73,9 @@ fn handwritten() -> Value {
                         "title": { "type": "string", "maxLength": 120, "description": "The greeting a new event's welcome step is named after", "example": "Isten hozott!" },
                         "subtitle": { "type": "string", "maxLength": 200, "description": "Shown under the title when the step has no notes of its own", "example": "Az ÚR áldása legyen életeden!" },
                         "churchName": { "type": "string", "maxLength": 120, "description": "Shown above the event's date at the bottom", "example": "Nyíregyházi Metodista Gyülekezet" },
-                        "intervalSeconds": { "type": "integer", "minimum": 5, "maximum": 3600, "description": "How long each photo stays before the next", "example": 20 },
+                        "language": { "type": "string", "enum": ["hu", "en"], "description": "The language the date is written in: 2026. október 25. vasárnap, or Sunday, October 25, 2026", "example": "hu" },
                         "hasLogo": { "type": "boolean", "readOnly": true },
-                        "replacedPhotos": { "type": "array", "items": { "type": "integer", "minimum": 1, "maximum": 12 }, "readOnly": true, "description": "Photos replaced by an upload" }
+                        "replacedPhotos": { "type": "array", "items": { "type": "integer", "minimum": 1, "maximum": 12 }, "readOnly": true, "description": "Months whose photo was replaced by an upload" }
                     }
                 },
                 "SlideContent": {
@@ -1799,7 +1799,7 @@ fn handwritten() -> Value {
                 "get": {
                     "tags": ["Presenter"],
                     "summary": "Read the welcome screen settings",
-                    "description": "The welcome screen is the slide a **text** Order of Service step shows in the web presenter: a photo, the logo top right, the step's title (the greeting), its notes or else `subtitle`, and the church name with the event's date. The 12 photos rotate every `intervalSeconds` while it is on screen. White text over a dark overlay sized from each photo's brightness keeps at least 4.5:1 contrast (WCAG AAA for large text).",
+                    "description": "The welcome screen is the slide a **text** Order of Service step shows in the web presenter: a photo, the logo top right, the step's title (the greeting), its notes or else `subtitle`, and the church name with the event's date. Each month has its photo: the event's month picks it (photo 1 is January). White text over a dark overlay sized from each photo's brightness keeps at least 4.5:1 contrast (WCAG AAA for large text).",
                     "operationId": "getWelcomeSettings",
                     "responses": {
                         "200": { "description": "The settings", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WelcomeSettings" } } } },
@@ -1814,7 +1814,7 @@ fn handwritten() -> Value {
                     "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WelcomeSettings" } } } },
                     "responses": {
                         "200": { "description": "The stored settings", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WelcomeSettings" } } } },
-                        "400": { "description": "Text too long, or the interval outside 5–3600 seconds" },
+                        "400": { "description": "Text too long, or a language other than hu or en" },
                         "401": { "description": "Unauthorized" }
                     }
                 }
@@ -1823,7 +1823,7 @@ fn handwritten() -> Value {
                 "parameters": [{ "name": "number", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1, "maximum": 12 } }],
                 "get": {
                     "tags": ["Presenter"],
-                    "summary": "A welcome photo",
+                    "summary": "A month's welcome photo",
                     "description": "The replacement if one was uploaded, else the built-in default (CC0, see `crates/metocast-server/assets/welcome/CREDITS.md`).",
                     "operationId": "getWelcomePhoto",
                     "responses": {
@@ -1851,6 +1851,20 @@ fn handwritten() -> Value {
                     "operationId": "resetWelcomePhoto",
                     "responses": {
                         "204": { "description": "Reset" },
+                        "401": { "description": "Unauthorized" },
+                        "404": { "description": "Not 1–12" }
+                    }
+                }
+            },
+            "/api/presenter/welcome/preview/{number}": {
+                "parameters": [{ "name": "number", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1, "maximum": 12 } }],
+                "get": {
+                    "tags": ["Presenter"],
+                    "summary": "Preview a month's welcome slide",
+                    "description": "The welcome slide with month `number`'s photo, the logo and the saved text, dated the first Sunday of that month, as the screens would show it.",
+                    "operationId": "previewWelcomeSlide",
+                    "responses": {
+                        "200": { "description": "The slide", "content": { "image/svg+xml": { "schema": { "type": "string" } } } },
                         "401": { "description": "Unauthorized" },
                         "404": { "description": "Not 1–12" }
                     }

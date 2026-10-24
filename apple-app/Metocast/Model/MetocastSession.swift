@@ -517,6 +517,11 @@ final class MetocastSession {
         try await client.setWelcomeSettings(settings: settings)
     }
 
+    /// The welcome slide for month `number` (1–12) as SVG.
+    func welcomePreview(_ number: UInt32) async throws -> String {
+        try await client.welcomePreview(number: number)
+    }
+
     /// Welcome photo `number` (1–12) as JPEG data.
     func welcomePhoto(_ number: UInt32) async throws -> Data {
         try await client.welcomePhoto(number: number)

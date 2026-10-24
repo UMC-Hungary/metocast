@@ -147,14 +147,15 @@ export async function keynoteCloseAll(): Promise<void> {
   await apiFetch('/api/keynote/close_all', { method: 'POST' });
 }
 
-/** The welcome screen a text Order of Service step shows: greeting, blessing, church, photo interval. */
+/** The welcome screen a text Order of Service step shows: greeting, blessing, church, language. */
 export const WelcomeSettingsSchema = z.object({
   title: z.string(),
   subtitle: z.string(),
   churchName: z.string(),
-  intervalSeconds: z.number().int().min(5).max(3600),
+  /** The language the date is written in. */
+  language: z.enum(['hu', 'en']),
   hasLogo: z.boolean(),
-  /** Photos (1–12) replaced by an upload. */
+  /** Months (1–12) whose photo was replaced by an upload. */
   replacedPhotos: z.array(z.number().int().min(1).max(12)),
 });
 
@@ -166,7 +167,7 @@ export function getWelcomeSettings(): Promise<WelcomeSettings> {
 
 /** `hasLogo` and `replacedPhotos` come from the uploads and are not sent. */
 export function setWelcomeSettings(
-  settings: Pick<WelcomeSettings, 'title' | 'subtitle' | 'churchName' | 'intervalSeconds'>,
+  settings: Pick<WelcomeSettings, 'title' | 'subtitle' | 'churchName' | 'language'>,
 ): Promise<WelcomeSettings> {
   return typedApiFetch('/api/presenter/welcome', WelcomeSettingsSchema, {
     method: 'PUT',

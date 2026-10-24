@@ -559,6 +559,16 @@
         }
       }
     },
+    "%@, photo replaced" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, lecserélt kép"
+          }
+        }
+      }
+    },
     "%@: %@" : {
       "comment" : "Button action, then the output it acts on",
       "localizations" : {
@@ -852,12 +862,12 @@
         }
       }
     },
-    "A Slide step in the Order of Service shows this with the web presenter: a photo, the logo, its title and the blessing, and the church name with the date. The photos change while it is on screen. The text stays readable: a darker overlay is added behind it on bright photos." : {
+    "A Slide step in the Order of Service shows this with the web presenter: the photo of the event's month, the logo, its title and the blessing, and the church name with the date. Click a month to preview it. The text stays readable: a darker overlay is added behind it on bright photos." : {
       "localizations" : {
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Az istentiszteleti rend Dia lépése ezt mutatja a webes kivetítővel: egy fotót, a logót, a címét és az áldást, valamint a gyülekezet nevét a dátummal. A képek váltakoznak, amíg látszik. A szöveg mindig olvasható marad: világos képeken sötétebb réteg kerül mögé."
+            "value" : "Az istentiszteleti rend Dia lépése ezt mutatja a webes kivetítővel: az esemény hónapjának fotóját, a logót, a címét és az áldást, valamint a gyülekezet nevét a dátummal. Kattints egy hónapra az előnézethez. A szöveg mindig olvasható marad: világos képeken sötétebb réteg kerül mögé."
           }
         }
       }
@@ -4728,16 +4738,6 @@
         }
       }
     },
-    "Next photo after %lld s" : {
-      "localizations" : {
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Következő kép %lld mp után"
-          }
-        }
-      }
-    },
     "Next slide, %u" : {
       "localizations" : {
         "hu" : {
@@ -5786,26 +5786,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Szüneteltetve"
-          }
-        }
-      }
-    },
-    "Photo %lld" : {
-      "localizations" : {
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld. kép"
-          }
-        }
-      }
-    },
-    "Photo %lld, replaced" : {
-      "localizations" : {
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld. kép, lecserélve"
           }
         }
       }
@@ -7258,6 +7238,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Megjeleníti a kivetítőn."
+          }
+        }
+      }
+    },
+    "Shows that month's welcome slide" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Megmutatja a hónap köszöntő diáját"
           }
         }
       }

@@ -841,7 +841,7 @@ impl MetocastClient {
         Ok(order.items)
     }
 
-    /// The welcome screen's text, photo interval and which photos are replaced.
+    /// The welcome screen's text, language and which photos are replaced.
     pub async fn welcome_settings(&self) -> Result<WelcomeSettings, ClientError> {
         self.get_json("api/presenter/welcome").await
     }
@@ -852,6 +852,17 @@ impl MetocastClient {
     ) -> Result<WelcomeSettings, ClientError> {
         let url = self.config.endpoint("api/presenter/welcome")?;
         self.send_json(self.http.put(url).json(settings)).await
+    }
+
+    /// The welcome slide for month `number` (1–12) as SVG, with the saved text.
+    pub async fn welcome_preview(&self, number: u32) -> Result<String, ClientError> {
+        let url = self
+            .config
+            .endpoint(&format!("api/presenter/welcome/preview/{number}"))?;
+        let response = self
+            .response(self.http.get(url).bearer_auth(self.config.token.expose()))
+            .await?;
+        Ok(response.text().await?)
     }
 
     /// Welcome photo `number` (1–12) as JPEG bytes: the replacement, or the default.

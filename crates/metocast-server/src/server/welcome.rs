@@ -1,9 +1,6 @@
 //! The welcome screen: a photo, the logo and the greeting as one SVG slide, which every screen
-//! already draws (web presenter, the apps, the receiver). Twelve photos rotate while it is on
-//! screen. The text is white, and a dark overlay keeps it readable on any photo: its strength is
+//! already draws (web presenter, the apps, the receiver). Each month has its own photo. The text is white, and a dark overlay keeps it readable on any photo: its strength is
 //! worked out from the photo's own brightness behind the text.
-
-use std::sync::atomic::{AtomicU64, Ordering};
 
 use axum::{
     Json,
@@ -16,7 +13,6 @@ use base64::Engine;
 use chrono::{Datelike, Local};
 use serde_json::json;
 use sqlx::PgPool;
-use uuid::Uuid;
 
 pub use metocast_core::slides::WelcomeSettings;
 
@@ -53,9 +49,6 @@ static DEFAULT_PHOTOS: [&[u8]; PHOTO_COUNT] = [
     include_bytes!("../../assets/welcome/11.jpg"),
     include_bytes!("../../assets/welcome/12.jpg"),
 ];
-
-/// Bumped on every show, so only the newest rotation keeps going.
-static ROTATION: AtomicU64 = AtomicU64::new(0);
 
 /// The greeting a new event's welcome step is named after.
 pub async fn greeting(tx: &mut sqlx::Transaction<'_, sqlx::Postgres>) -> sqlx::Result<String> {
@@ -225,9 +218,10 @@ fn slide_svg(
     ))
 }
 
-/// "2026. október 25. vasárnap", as Hungarian churches write the date.
-fn hungarian_date(date: chrono::NaiveDate) -> String {
-    const MONTHS: [&str; 12] = [
+/// The service date in the welcome screen's language: "2026. október 25. vasárnap" as Hungarian
+/// churches write it, or "Sunday, October 25, 2026".
+fn service_date(date: chrono::NaiveDate, language: &str) -> String {
+    const HU_MONTHS: [&str; 12] = [
         "január",
         "február",
         "március",
@@ -241,7 +235,7 @@ fn hungarian_date(date: chrono::NaiveDate) -> String {
         "november",
         "december",
     ];
-    const DAYS: [&str; 7] = [
+    const HU_DAYS: [&str; 7] = [
         "hétfő",
         "kedd",
         "szerda",
@@ -250,24 +244,26 @@ fn hungarian_date(date: chrono::NaiveDate) -> String {
         "szombat",
         "vasárnap",
     ];
+    if language == "en" {
+        return date.format("%A, %B %-d, %Y").to_string();
+    }
     format!(
         "{}. {} {}. {}",
         date.year(),
-        MONTHS[date.month0() as usize],
+        HU_MONTHS[date.month0() as usize],
         date.day(),
-        DAYS[date.weekday().num_days_from_monday() as usize]
+        HU_DAYS[date.weekday().num_days_from_monday() as usize]
     )
 }
 
-/// The welcome slide for a step, on photo `index` (0–11), with its text also as plain
-/// paragraphs for the Editorial design and text-only views.
-async fn deck(
+/// The welcome slide's SVG for a service on `date`: that month's photo, the logo, `title`, the
+/// step's `notes` (or the blessing) and the church name with the date. Also returns the lines.
+async fn render(
     pool: &PgPool,
-    index: usize,
     title: &str,
     notes: &str,
-    event_date: chrono::DateTime<chrono::Utc>,
-) -> Result<PresenterState, String> {
+    date: chrono::NaiveDate,
+) -> Result<(String, Vec<String>, Vec<String>), String> {
     let stored = load_settings(pool).await.map_err(|e| e.to_string())?;
     let mut lines: Vec<String> = notes
         .lines()
@@ -280,12 +276,14 @@ async fn deck(
     }
     let footer: Vec<String> = [
         stored.church_name.trim().to_string(),
-        hungarian_date(event_date.with_timezone(&Local).date_naive()),
+        service_date(date, &stored.language),
     ]
     .into_iter()
     .filter(|l| !l.is_empty())
     .collect();
-    let photo = photo(pool, index + 1).await.map_err(|e| e.to_string())?;
+    let photo = photo(pool, date.month() as usize)
+        .await
+        .map_err(|e| e.to_string())?;
     let logo = asset(pool, "logo").await.map_err(|e| e.to_string())?;
     let svg = slide_svg(
         &photo,
@@ -295,6 +293,24 @@ async fn deck(
         &lines,
         &footer,
     )?;
+    Ok((svg, lines, footer))
+}
+
+/// The welcome slide for a step, with its text also as plain paragraphs for the Editorial design
+/// and text-only views.
+async fn deck(
+    pool: &PgPool,
+    title: &str,
+    notes: &str,
+    event_date: chrono::DateTime<chrono::Utc>,
+) -> Result<PresenterState, String> {
+    let (svg, lines, footer) = render(
+        pool,
+        title,
+        notes,
+        event_date.with_timezone(&Local).date_naive(),
+    )
+    .await?;
     let mut text = vec![ParagraphContent {
         lines: vec![title.trim().to_string()],
         align: "center".to_string(),
@@ -332,62 +348,18 @@ async fn deck(
     })
 }
 
-async fn put_on_screen(state: &AppState, deck: PresenterState) {
-    *state.presenter_state.write().await = deck;
-    websocket::broadcast_presenter_state(&state.ws_clients, &*state.presenter_state.read().await)
-        .await;
-    websocket::broadcast_presentation_status(&state.ws_clients, state).await;
-}
-
-/// Shows a welcome step in the web presenter and keeps its photo rotating until another step
-/// or deck takes the screen. Each service starts on a different photo (by its week).
+/// Shows a welcome step in the web presenter, on the photo of the event's month.
 pub async fn show(
     state: &AppState,
-    event_id: Uuid,
-    item_id: Uuid,
     title: &str,
     notes: &str,
     event_date: chrono::DateTime<chrono::Utc>,
 ) -> Result<(), String> {
-    let first = event_date.iso_week().week() as usize % PHOTO_COUNT;
-    put_on_screen(
-        state,
-        deck(&state.pool, first, title, notes, event_date).await?,
-    )
-    .await;
-
-    let rotation = ROTATION.fetch_add(1, Ordering::SeqCst) + 1;
-    let interval = load_settings(&state.pool)
-        .await
-        .map_err(|e| e.to_string())?
-        .interval_seconds
-        .clamp(5, 3600);
-    let state = state.clone();
-    let (title, notes) = (title.to_string(), notes.to_string());
-    tokio::spawn(async move {
-        let mut index = first;
-        loop {
-            tokio::time::sleep(std::time::Duration::from_secs(u64::from(interval))).await;
-            let still_here = ROTATION.load(Ordering::SeqCst) == rotation
-                && state
-                    .order_position
-                    .read()
-                    .await
-                    .is_some_and(|p| p.event_id == event_id && p.item_id == item_id)
-                && state.presenter_state.read().await.file_path.as_deref() == Some(title.trim());
-            if !still_here {
-                return;
-            }
-            index = (index + 1) % PHOTO_COUNT;
-            match deck(&state.pool, index, &title, &notes, event_date).await {
-                Ok(deck) => put_on_screen(&state, deck).await,
-                Err(error) => {
-                    tracing::warn!(%error, "welcome screen: couldn't show the next photo");
-                    return;
-                }
-            }
-        }
-    });
+    let deck = deck(&state.pool, title, notes, event_date).await?;
+    *state.presenter_state.write().await = deck;
+    websocket::broadcast_presenter_state(&state.ws_clients, &*state.presenter_state.read().await)
+        .await;
+    websocket::broadcast_presentation_status(&state.ws_clients, state).await;
     Ok(())
 }
 
@@ -419,8 +391,8 @@ pub async fn put_settings(
     {
         return bad_request("The welcome text is too long".to_string());
     }
-    if !(5..=3600).contains(&body.interval_seconds) {
-        return bad_request("The interval must be between 5 and 3600 seconds".to_string());
+    if !matches!(body.language.as_str(), "hu" | "en") {
+        return bad_request("The language must be hu or en".to_string());
     }
     if let Err(e) = settings::set_json(&state.pool, SETTINGS_KEY, &body).await {
         return internal(e);
@@ -477,6 +449,36 @@ pub async fn delete_photo(
     match photo_number(number) {
         Some(n) => remove(&state.pool, &photo_name(n)).await,
         None => StatusCode::NOT_FOUND.into_response(),
+    }
+}
+
+/// The welcome slide with photo `number` (month 1–12) and the saved text, dated the first
+/// Sunday of that month, so the settings can show what each month will look like.
+pub async fn get_preview(
+    State(state): State<AppState>,
+    Path(number): Path<usize>,
+) -> impl IntoResponse {
+    let Some(number) = photo_number(number) else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let stored = match load_settings(&state.pool).await {
+        Ok(stored) => stored,
+        Err(e) => return internal(e),
+    };
+    let today = Local::now().date_naive();
+    let year = if number as u32 >= today.month() {
+        today.year()
+    } else {
+        today.year() + 1
+    };
+    let Some(first_sunday) =
+        chrono::NaiveDate::from_weekday_of_month_opt(year, number as u32, chrono::Weekday::Sun, 1)
+    else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    match render(&state.pool, &stored.title, "", first_sunday).await {
+        Ok((svg, _, _)) => ([(header::CONTENT_TYPE, "image/svg+xml")], svg).into_response(),
+        Err(e) => internal(e),
     }
 }
 
@@ -564,7 +566,8 @@ mod tests {
     #[test]
     fn the_date_reads_as_hungarian_churches_write_it() {
         let date = chrono::NaiveDate::from_ymd_opt(2026, 10, 25).expect("valid date");
-        assert_eq!(hungarian_date(date), "2026. október 25. vasárnap");
+        assert_eq!(service_date(date, "hu"), "2026. október 25. vasárnap");
+        assert_eq!(service_date(date, "en"), "Sunday, October 25, 2026");
     }
 
     #[test]
