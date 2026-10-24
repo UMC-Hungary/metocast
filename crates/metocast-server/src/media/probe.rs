@@ -39,6 +39,10 @@ pub struct BrawInfo {
     pub width: u32,
     pub height: u32,
     pub frame_count: u64,
+    /// Frames before the first unreadable one in the clip's last seconds, which a recording that
+    /// ended uncleanly leaves; absent from builds that don't check.
+    #[serde(default)]
+    pub readable_frames: Option<u64>,
     pub active_area: CropRect,
     pub start_timecode: String,
     pub camera: String,
@@ -440,7 +444,7 @@ mod tests {
     #[test]
     fn braw_decode_info_is_read() {
         // Shape printed by `braw-decode info` for the same clip.
-        let stdout = br#"{"width":6048,"height":4032,"frameRate":24,"frameCount":774,
+        let stdout = br#"{"width":6048,"height":4032,"frameRate":24,"frameCount":774,"readableFrames":770,
             "activeArea":{"x":0,"y":0,"width":6048,"height":4032},"startTimecode":"03:23:25:21",
             "camera":"Blackmagic Cinema Camera 6K","gamma":"Blackmagic Design Film",
             "gamut":"Blackmagic Design","colorScienceGen":"5","lutMode":"Disabled",
@@ -452,8 +456,13 @@ mod tests {
             "pixelFormat":"rgb48le","pipeline":"metal"}"#;
         let info = parse_braw_info(stdout).unwrap();
         assert_eq!(
-            (info.width, info.height, info.frame_count),
-            (6048, 4032, 774)
+            (
+                info.width,
+                info.height,
+                info.frame_count,
+                info.readable_frames
+            ),
+            (6048, 4032, 774, Some(770))
         );
         assert_eq!(info.active_area.width, 6048);
         assert_eq!(info.pixel_format, "rgb48le");

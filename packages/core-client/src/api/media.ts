@@ -125,6 +125,17 @@ export function startProgram(
   });
 }
 
+/** Places transcripts on a finished program, as its job would have; one per language. */
+export function addProgramSubtitles(
+  jobId: string,
+  subtitles: SubtitleSource[],
+): Promise<RenderQueued> {
+  return apiFetch(`/api/media/programs/${jobId}/subtitles`, RenderQueuedSchema, {
+    method: 'POST',
+    body: { subtitles },
+  });
+}
+
 /** Moves a finished program's audio by whole frames; positive plays it later. */
 export function nudgeProgram(jobId: string, frames: number): Promise<RenderQueued> {
   return apiFetch(`/api/media/programs/${jobId}/nudge`, RenderQueuedSchema, {

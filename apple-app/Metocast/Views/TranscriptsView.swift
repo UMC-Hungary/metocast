@@ -172,7 +172,8 @@ private struct TranscriptDetailView: View {
             let date = String(transcript.startedAt.prefix(16)).replacingOccurrences(of: ":", with: "")
             export = TranscriptFile(
                 text: text,
-                name: "transcript-\(date)\(clean ? "-clean" : "")",
+                // English, as the library is: the Media page reads `.en` from the name.
+                name: "transcript-\(date)\(clean ? "-clean" : "").en",
                 type: UTType(filenameExtension: format) ?? .plainText
             )
         } catch {

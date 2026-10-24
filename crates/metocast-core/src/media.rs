@@ -691,11 +691,19 @@ pub struct SubtitleSource {
 pub struct SubtitleReport {
     pub language: String,
     pub cues: u32,
-    /// Seconds the transcript was moved to meet the voice.
+    /// Seconds the transcript was moved: to meet the voice, or with the recording.
     pub shift_seconds: f64,
-    /// The voice backed the shift clearly; otherwise it was left unmoved.
+    /// The voice backed the shift clearly. Otherwise a transcript running past the program moved
+    /// with the recording (by the sync), and any other was left unmoved.
     pub confident: bool,
     pub srt_path: String,
+    /// Rebuilt into whole sentences, each placed where Whisper heard it spoken; `shiftSeconds`
+    /// is then the offset found for the whole file, and `cues` the sentence captions written.
+    #[serde(default)]
+    pub on_speech: bool,
+    /// With `onSpeech`: captions with a word matched to the speech; the rest sit between them.
+    #[serde(default)]
+    pub matched: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -713,6 +721,8 @@ pub enum ProgramStep {
     Clean,
     /// Placing the audio under the picture and writing the file.
     Merge,
+    /// Whisper listening to the program, to place a dropped English transcript on the speech.
+    Captions,
 }
 
 /// One stretch of the picture the sync was measured on.
@@ -770,6 +780,10 @@ pub struct ProgramReport {
     /// Silence put under the picture because the audio starts later or ends sooner.
     pub silent_start_seconds: f64,
     pub silent_end_seconds: f64,
+    /// Frames at the end of the clip that couldn't be read (a recording that didn't end cleanly),
+    /// shown as the last good frame held; the picture keeps its length.
+    #[serde(default)]
+    pub damaged_frames: u64,
     /// The program audio on its own: the picture's length, aligned to its first frame.
     pub audio_output_path: String,
     #[serde(default)]
@@ -798,6 +812,14 @@ pub struct ProgramProgress {
 pub struct NudgeRequest {
     /// Frames to move the audio; positive plays it later.
     pub frames: i32,
+}
+
+/// `POST /api/media/programs/{jobId}/subtitles` body: transcripts for a finished program, placed
+/// on it as a program job would. Replied to with [`RenderQueued`].
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubtitlesRequest {
+    pub subtitles: Vec<SubtitleSource>,
 }
 
 #[cfg(test)]
