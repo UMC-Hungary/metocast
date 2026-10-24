@@ -35,7 +35,7 @@ describe.skipIf(!isLive)('Order of Service REST API', () => {
     const template = await apiClient.get<{ items: OrderItem[] }>(`/api/events/${eventId}/order`);
     expect(template.status).toBe(200);
     expect(template.body.items.map((item) => item.title)).toEqual([
-      'Welcome message',
+      'Isten hozott!',
       'Song 1',
       'Song 2',
       'Lekció',
@@ -130,7 +130,7 @@ describe.skipIf(!isLive)('Order of Service REST API', () => {
     const order = await apiClient.get<{ items: OrderItem[] }>(
       `/api/events/${created.body.id}/order`,
     );
-    expect(order.body.items[0]).toMatchObject({ kind: 'text', title: 'Welcome message' });
+    expect(order.body.items[0]).toMatchObject({ kind: 'text', title: 'Isten hozott!' });
     const saved = await apiClient.put<{ items: OrderItem[] }>(
       `/api/events/${created.body.id}/order`,
       {

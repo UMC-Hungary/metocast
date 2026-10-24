@@ -1642,7 +1642,7 @@ fn handwritten() -> Value {
                 "post": {
                     "tags": ["Events"],
                     "summary": "Create event",
-                    "description": "Creates the event with the default Order of Service: Welcome message (a text slide), Song 1, Song 2, Lekció, Song 3, Textus, Preaching, Song 4, Hirdetések (the announcements), Áldás, Song 4 last part. The songs have no deck until one is picked; read and change the steps with `/api/events/{id}/order`.",
+                    "description": "Creates the event with the default Order of Service: the welcome slide (a text step named after the welcome screen's greeting), Song 1, Song 2, Lekció, Song 3, Textus, Preaching, Song 4, Hirdetések (the announcements), Áldás, Song 4 last part. The songs have no deck until one is picked; read and change the steps with `/api/events/{id}/order`.",
                     "operationId": "createEvent",
                     "requestBody": {
                         "required": true,

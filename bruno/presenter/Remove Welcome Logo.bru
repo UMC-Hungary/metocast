@@ -1,0 +1,21 @@
+meta {
+  name: Remove Welcome Logo
+  type: http
+  seq: 8
+}
+
+delete {
+  url: {{baseUrl}}/api/presenter/welcome/logo
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+tests {
+  test("status is 204", function() {
+    expect(res.status).to.equal(204);
+  });
+}

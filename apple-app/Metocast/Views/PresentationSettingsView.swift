@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import Metocast
 #if os(macOS)
 import AppKit
@@ -6,15 +7,14 @@ import AppKit
 import UIKit
 #endif
 
-/// Settings that matter only while presenting, opened from the Presentation page rather than kept
-/// in Settings: how decks are shown, the Raspberry Pi receiver, and on a Mac the slide fonts.
+/// Settings that matter only while presenting, a page inside Presentation rather than kept in
+/// Settings: how decks are shown, the welcome screen, the Raspberry Pi receiver, and on a Mac the
+/// slide fonts.
 struct PresentationSettingsView: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
     let session: MetocastSession
 
     var body: some View {
-        NavigationStack {
             Form {
                 Section {
                     Toggle("Web Presenter", isOn: Binding(
@@ -35,6 +35,7 @@ struct PresentationSettingsView: View {
                         ? "Decks open in Metocast's own presenter on the server's screen."
                         : "Decks open in Keynote on the server's Mac.")
                 }
+                WelcomeScreenSection(session: session)
                 Section("Connected Devices") {
                     if session.clients.isEmpty {
                         Text("No other devices").foregroundStyle(.secondary)
@@ -59,15 +60,6 @@ struct PresentationSettingsView: View {
             }
             .formStyle(.grouped)
             .navigationTitle("Presentation Settings")
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
-        #if os(macOS)
-        .frame(minWidth: 520, minHeight: 480)
-        #endif
     }
 
     /// An address the Pi can reach: the Mac hosting the server knows its network one, while a
@@ -79,6 +71,180 @@ struct PresentationSettingsView: View {
         return session.baseURL
     }
 }
+
+/// The welcome screen a Slide step shows: its text, how often the photo changes, the 12 photos
+/// (each replaceable from this computer) and the logo. Text saves itself once typing pauses.
+private struct WelcomeScreenSection: View {
+    let session: MetocastSession
+    @State private var settings: WelcomeSettingsRecord?
+    /// Thumbnails by photo number; reloaded after a replace or reset.
+    @State private var thumbnails: [UInt32: Data] = [:]
+    @State private var importTarget: ImportTarget?
+    @State private var busy: UInt32?
+    @State private var failure: String?
+
+    /// What the file picker is choosing for: a photo (1–12) or the logo (0).
+    private struct ImportTarget: Identifiable {
+        let number: UInt32
+        var id: UInt32 { number }
+    }
+
+    var body: some View {
+        Section {
+            if let settings {
+                TextField("Greeting", text: field(\.title), prompt: Text("Isten hozott!"))
+                TextField("Blessing", text: field(\.subtitle), prompt: Text("Az ÚR áldása legyen életeden!"))
+                TextField("Church Name", text: field(\.churchName), prompt: Text("Nyíregyházi Metodista Gyülekezet"))
+                Stepper(
+                    "Next photo after \(Int(settings.intervalSeconds)) s",
+                    value: Binding(get: { Int(settings.intervalSeconds) }, set: { self.settings?.intervalSeconds = UInt32($0) }),
+                    in: 5...600,
+                    step: 5
+                )
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+                    ForEach(UInt32(1)...12, id: \.self) { number in
+                        photo(number, replaced: settings.replacedPhotos.contains(number))
+                    }
+                }
+                .padding(.vertical, 4)
+                LabeledContent("Logo") {
+                    HStack {
+                        Text(settings.hasLogo ? "Set" : "None").foregroundStyle(.secondary)
+                        Button(settings.hasLogo ? "Replace…" : "Choose…") { importTarget = ImportTarget(number: 0) }
+                        if settings.hasLogo {
+                            Button("Remove", role: .destructive) { Task { await change { try await session.removeWelcomeLogo() } } }
+                        }
+                    }
+                }
+            } else {
+                ProgressView()
+            }
+            if let failure {
+                Label(failure, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
+            }
+        } header: {
+            Text("Welcome Screen")
+        } footer: {
+            Text("A Slide step in the Order of Service shows this with the web presenter: a photo, the logo, its title and the blessing, and the church name with the date. The photos change while it is on screen. The text stays readable: a darker overlay is added behind it on bright photos.")
+        }
+        .fileImporter(
+            isPresented: Binding(get: { importTarget != nil }, set: { if !$0 { importTarget = nil } }),
+            allowedContentTypes: importTarget?.number == 0 ? [.png, .svg] : [.image]
+        ) { result in
+            guard let target = importTarget else { return }
+            importTarget = nil
+            Task { await upload(result, to: target.number) }
+        }
+        .task { await load() }
+        // Saved once typing pauses; a newer edit cancels the wait.
+        .task(id: settings.map { "\($0.title)|\($0.subtitle)|\($0.churchName)|\($0.intervalSeconds)" }) {
+            guard let settings else { return }
+            do {
+                try await Task.sleep(for: .milliseconds(800))
+                _ = try await session.saveWelcomeSettings(settings)
+                failure = nil
+            } catch is CancellationError {
+                return
+            } catch {
+                failure = error.metocastMessage
+            }
+        }
+    }
+
+    private func field(_ path: WritableKeyPath<WelcomeSettingsRecord, String>) -> Binding<String> {
+        Binding(get: { settings?[keyPath: path] ?? "" }, set: { settings?[keyPath: path] = $0 })
+    }
+
+    private func photo(_ number: UInt32, replaced: Bool) -> some View {
+        Menu {
+            Button("Replace…", systemImage: "photo") { importTarget = ImportTarget(number: number) }
+            if replaced {
+                Button("Reset to Default", systemImage: "arrow.uturn.backward") {
+                    Task { await change(photo: number) { try await session.resetWelcomePhoto(number) } }
+                }
+            }
+        } label: {
+            ZStack {
+                Rectangle().fill(.quaternary)
+                if let data = thumbnails[number], let image = PlatformImage(data: data) {
+                    Image(platformImage: image).resizable().scaledToFill()
+                }
+                if busy == number { ProgressView() }
+            }
+            .aspectRatio(16 / 9, contentMode: .fit)
+            .clipShape(.rect(cornerRadius: 6))
+            .overlay(alignment: .bottomTrailing) {
+                if replaced {
+                    Image(systemName: "pencil.circle.fill").padding(4).foregroundStyle(.white).shadow(radius: 2)
+                }
+            }
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .accessibilityLabel(replaced ? Text("Photo \(Int(number)), replaced") : Text("Photo \(Int(number))"))
+    }
+
+    private func load() async {
+        do {
+            settings = try await session.welcomeSettings()
+            for number in UInt32(1)...12 {
+                thumbnails[number] = try await session.welcomePhoto(number)
+            }
+        } catch {
+            failure = error.metocastMessage
+        }
+    }
+
+    /// Runs one upload, reset or removal, then re-reads what changed.
+    private func change(photo number: UInt32? = nil, _ action: () async throws -> Void) async {
+        busy = number
+        defer { busy = nil }
+        do {
+            try await action()
+            let saved = settings
+            settings = try await session.welcomeSettings()
+            // Keep text typed since the last save.
+            if let saved {
+                settings?.title = saved.title
+                settings?.subtitle = saved.subtitle
+                settings?.churchName = saved.churchName
+                settings?.intervalSeconds = saved.intervalSeconds
+            }
+            if let number { thumbnails[number] = try await session.welcomePhoto(number) }
+            failure = nil
+        } catch {
+            failure = error.metocastMessage
+        }
+    }
+
+    private func upload(_ result: Result<URL, Error>, to number: UInt32) async {
+        do {
+            let url = try result.get()
+            let access = url.startAccessingSecurityScopedResource()
+            defer { if access { url.stopAccessingSecurityScopedResource() } }
+            let data = try Data(contentsOf: url)
+            if number == 0 {
+                await change { try await session.setWelcomeLogo(data) }
+            } else {
+                await change(photo: number) { try await session.replaceWelcomePhoto(number, with: data) }
+            }
+        } catch {
+            failure = error.metocastMessage
+        }
+    }
+}
+
+#if os(macOS)
+private typealias PlatformImage = NSImage
+private extension Image {
+    init(platformImage: NSImage) { self.init(nsImage: platformImage) }
+}
+#else
+private typealias PlatformImage = UIImage
+private extension Image {
+    init(platformImage: UIImage) { self.init(uiImage: platformImage) }
+}
+#endif
 
 /// The Raspberry Pi installer, with the same auto-start choice as the web UI's.
 private struct PresenterInstallSection: View {

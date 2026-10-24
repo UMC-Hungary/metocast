@@ -15,8 +15,10 @@ them. Each step is one of five kinds:
   Like a song, they open in the web presenter, or, in Keynote mode, as `hirdetesek.pptx` in the
   Bible slides folder (a temporary folder when none is set). An announcements step with no
   bullets yet shows its title alone.
-- **Slide**: one slide of its own, such as the _Welcome message_: its title, and under it optional
-  paragraphs, one per line, typed into the step. In Keynote mode it opens as `szoveg.pptx`.
+- **Slide**: one slide of its own, such as the welcome: its title, and under it optional
+  paragraphs, one per line, typed into the step. With the web presenter it shows as the
+  [welcome screen](welcome-screen.md) (photo, logo, readable text); in Keynote mode it opens as a
+  plain `szoveg.pptx`.
 - **Block**: a part with no slides, such as _Köszöntés, imádság_ or _Igehirdetés_ (the speaker goes
   in the notes).
 
@@ -33,7 +35,7 @@ Every connected device sees the same list and the same current step.
 
 Every new event starts with these steps, whichever app or tool created it:
 
-1. Welcome message (a slide)
+1. Isten hozott! (a slide, named after the [welcome screen](welcome-screen.md)'s greeting)
 2. Song 1
 3. Song 2
 4. Lekció
@@ -47,7 +49,7 @@ Every new event starts with these steps, whichever app or tool created it:
 
 The songs are placeholders with no deck: pick one from the slide library and the step takes the
 deck and its name. Lekció and Textus are the event's readings, and each shows its reference once it
-is set on the event. _Welcome message_ is a slide: double-tap it to change its title and add
+is set on the event. The first step is the welcome slide: double-tap it to change its title and add
 paragraphs. _Hirdetések_ is an announcements step: double-tap it and type this week's
 announcements, one per line. The server adds the steps when it creates the event, so Live, Companion's
 _Next Step_ and every other client can step through a new event before anyone edits it.

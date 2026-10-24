@@ -22,7 +22,9 @@ use metocast_core::{
     },
     protocol::{MAX_WS_MESSAGE_BYTES, ServerEvent},
     recordings::{FlagUpload, FlagUploadItem, Recording},
-    slides::{CreateSongSlides, EventSlides, PptEnvelope, PptFile, PptFolder, SongSlides},
+    slides::{
+        CreateSongSlides, EventSlides, PptEnvelope, PptFile, PptFolder, SongSlides, WelcomeSettings,
+    },
     transcription::{CleanupProgress, StoredTranscript, TranscriptDetail},
 };
 use reqwest::{StatusCode, Url};
@@ -837,6 +839,65 @@ impl MetocastClient {
             .send_json(self.http.put(url).json(&EventOrder { items }))
             .await?;
         Ok(order.items)
+    }
+
+    /// The welcome screen's text, photo interval and which photos are replaced.
+    pub async fn welcome_settings(&self) -> Result<WelcomeSettings, ClientError> {
+        self.get_json("api/presenter/welcome").await
+    }
+
+    pub async fn set_welcome_settings(
+        &self,
+        settings: &WelcomeSettings,
+    ) -> Result<WelcomeSettings, ClientError> {
+        let url = self.config.endpoint("api/presenter/welcome")?;
+        self.send_json(self.http.put(url).json(settings)).await
+    }
+
+    /// Welcome photo `number` (1–12) as JPEG bytes: the replacement, or the default.
+    pub async fn welcome_photo(&self, number: u32) -> Result<Vec<u8>, ClientError> {
+        let url = self
+            .config
+            .endpoint(&format!("api/presenter/welcome/photos/{number}"))?;
+        let response = self
+            .response(self.http.get(url).bearer_auth(self.config.token.expose()))
+            .await?;
+        Ok(response.bytes().await?.to_vec())
+    }
+
+    /// Replaces welcome photo `number` with an image file's bytes; the server crops it to 16:9.
+    pub async fn set_welcome_photo(&self, number: u32, bytes: Vec<u8>) -> Result<(), ClientError> {
+        self.put_bytes(&format!("api/presenter/welcome/photos/{number}"), bytes)
+            .await
+    }
+
+    pub async fn reset_welcome_photo(&self, number: u32) -> Result<(), ClientError> {
+        self.delete(&format!("api/presenter/welcome/photos/{number}"))
+            .await
+    }
+
+    /// Sets the welcome screen's logo from a PNG or SVG file's bytes.
+    pub async fn set_welcome_logo(&self, bytes: Vec<u8>) -> Result<(), ClientError> {
+        self.put_bytes("api/presenter/welcome/logo", bytes).await
+    }
+
+    pub async fn remove_welcome_logo(&self) -> Result<(), ClientError> {
+        self.delete("api/presenter/welcome/logo").await
+    }
+
+    async fn put_bytes(&self, path: &str, bytes: Vec<u8>) -> Result<(), ClientError> {
+        let url = self.config.endpoint(path)?;
+        self.response(
+            self.http
+                .put(url)
+                .bearer_auth(self.config.token.expose())
+                .header(reqwest::header::CONTENT_TYPE, "application/octet-stream")
+                // Phone photos are large; give the upload time.
+                .timeout(Duration::from_secs(120))
+                .body(bytes),
+        )
+        .await?;
+        Ok(())
     }
 
     /// Turns pasted lyrics into a deck in the configured song folder.

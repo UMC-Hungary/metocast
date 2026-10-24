@@ -509,6 +509,35 @@ final class MetocastSession {
         try await client.removePptFolder(id: id)
     }
 
+    func welcomeSettings() async throws -> WelcomeSettingsRecord {
+        try await client.welcomeSettings()
+    }
+
+    func saveWelcomeSettings(_ settings: WelcomeSettingsRecord) async throws -> WelcomeSettingsRecord {
+        try await client.setWelcomeSettings(settings: settings)
+    }
+
+    /// Welcome photo `number` (1–12) as JPEG data.
+    func welcomePhoto(_ number: UInt32) async throws -> Data {
+        try await client.welcomePhoto(number: number)
+    }
+
+    func replaceWelcomePhoto(_ number: UInt32, with data: Data) async throws {
+        try await client.setWelcomePhoto(number: number, bytes: data)
+    }
+
+    func resetWelcomePhoto(_ number: UInt32) async throws {
+        try await client.resetWelcomePhoto(number: number)
+    }
+
+    func setWelcomeLogo(_ data: Data) async throws {
+        try await client.setWelcomeLogo(bytes: data)
+    }
+
+    func removeWelcomeLogo() async throws {
+        try await client.removeWelcomeLogo()
+    }
+
     /// An event's Order of Service, in order.
     func order(eventId: String) async throws -> [OrderItemRecord] {
         try await client.eventOrder(id: eventId)

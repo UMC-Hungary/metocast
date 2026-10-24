@@ -45,7 +45,7 @@ Control Broadlink IR/RF devices and presentations through the Metocast desktop a
 
 ### Order of Service
 
-- **Order of Service: Next Step** — shows the next step of the running Order of Service. With none running, starts the presenter's selected event at step 1. Every new event starts with the default steps (Welcome message, songs, Lekció, Textus, Preaching, Hirdetések, Áldás), so this works before anyone edits the list.
+- **Order of Service: Next Step** — shows the next step of the running Order of Service. With none running, starts the presenter's selected event at step 1. Every new event starts with the default steps (the welcome slide, songs, Lekció, Textus, Preaching, Hirdetések, Áldás), so this works before anyone edits the list.
 - **Order of Service: Previous Step**
 
 Song and Bible slides use the Classic or Editorial design selected in the Metocast Presentations settings. Classic shows an imported deck's source artwork; Editorial renders its extracted text in the selected design, and a live design change does not require reopening the deck.

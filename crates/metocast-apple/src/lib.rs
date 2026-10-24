@@ -40,7 +40,7 @@ use metocast_core::{
         ServerEvent, SlideContent, SvgSlideContent,
     },
     recordings::Recording,
-    slides::{CreateSongSlides, DeckMatch, HighlightPart, PptFile, SongSlides},
+    slides::{CreateSongSlides, DeckMatch, HighlightPart, PptFile, SongSlides, WelcomeSettings},
     transcription::{CreditStatus, StoredTranscript, TranscriptionState, TranscriptionStatus},
 };
 use serde::Serialize;
@@ -490,6 +490,30 @@ pub enum OrderItemKind {
     Block,
     Announcements,
     Text,
+}
+
+/// The welcome screen's settings; `has_logo` and `replaced_photos` are read-only.
+#[derive(Clone, uniffi::Record)]
+pub struct WelcomeSettingsRecord {
+    pub title: String,
+    pub subtitle: String,
+    pub church_name: String,
+    pub interval_seconds: u32,
+    pub has_logo: bool,
+    pub replaced_photos: Vec<u32>,
+}
+
+impl From<WelcomeSettings> for WelcomeSettingsRecord {
+    fn from(s: WelcomeSettings) -> Self {
+        Self {
+            title: s.title,
+            subtitle: s.subtitle,
+            church_name: s.church_name,
+            interval_seconds: s.interval_seconds,
+            has_logo: s.has_logo,
+            replaced_photos: s.replaced_photos,
+        }
+    }
 }
 
 /// One step of an event's Order of Service. `id` is absent for a step added in this edit.
@@ -2065,6 +2089,64 @@ impl AppleClient {
                 path: folder.path,
             })
             .collect())
+    }
+
+    pub async fn welcome_settings(&self) -> Result<WelcomeSettingsRecord, AppleError> {
+        let client = self.client.clone();
+        let settings = self
+            .run(async move { client.welcome_settings().await })
+            .await?;
+        Ok(settings.into())
+    }
+
+    pub async fn set_welcome_settings(
+        &self,
+        settings: WelcomeSettingsRecord,
+    ) -> Result<WelcomeSettingsRecord, AppleError> {
+        let settings = WelcomeSettings {
+            title: settings.title,
+            subtitle: settings.subtitle,
+            church_name: settings.church_name,
+            interval_seconds: settings.interval_seconds,
+            has_logo: settings.has_logo,
+            replaced_photos: settings.replaced_photos,
+        };
+        let client = self.client.clone();
+        let stored = self
+            .run(async move { client.set_welcome_settings(&settings).await })
+            .await?;
+        Ok(stored.into())
+    }
+
+    /// Welcome photo `number` (1–12) as JPEG bytes, for a thumbnail.
+    pub async fn welcome_photo(&self, number: u32) -> Result<Vec<u8>, AppleError> {
+        let client = self.client.clone();
+        self.run(async move { client.welcome_photo(number).await })
+            .await
+    }
+
+    pub async fn set_welcome_photo(&self, number: u32, bytes: Vec<u8>) -> Result<(), AppleError> {
+        let client = self.client.clone();
+        self.run(async move { client.set_welcome_photo(number, bytes).await })
+            .await
+    }
+
+    pub async fn reset_welcome_photo(&self, number: u32) -> Result<(), AppleError> {
+        let client = self.client.clone();
+        self.run(async move { client.reset_welcome_photo(number).await })
+            .await
+    }
+
+    pub async fn set_welcome_logo(&self, bytes: Vec<u8>) -> Result<(), AppleError> {
+        let client = self.client.clone();
+        self.run(async move { client.set_welcome_logo(bytes).await })
+            .await
+    }
+
+    pub async fn remove_welcome_logo(&self) -> Result<(), AppleError> {
+        let client = self.client.clone();
+        self.run(async move { client.remove_welcome_logo().await })
+            .await
     }
 
     /// An event's Order of Service, in order.

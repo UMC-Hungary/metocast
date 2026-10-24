@@ -14,10 +14,11 @@ use axum::{
 };
 use base64::Engine;
 use chrono::{Datelike, Local};
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::PgPool;
 use uuid::Uuid;
+
+pub use metocast_core::slides::WelcomeSettings;
 
 use crate::database::settings;
 use crate::server::AppState;
@@ -55,34 +56,6 @@ static DEFAULT_PHOTOS: [&[u8]; PHOTO_COUNT] = [
 
 /// Bumped on every show, so only the newest rotation keeps going.
 static ROTATION: AtomicU64 = AtomicU64::new(0);
-
-/// `GET`/`PUT /api/presenter/welcome`. `hasLogo` and `replacedPhotos` are read-only.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-pub struct WelcomeSettings {
-    pub title: String,
-    pub subtitle: String,
-    pub church_name: String,
-    pub interval_seconds: u32,
-    #[serde(skip_deserializing)]
-    pub has_logo: bool,
-    /// Which photos (1–12) were replaced, so a client can offer to reset them.
-    #[serde(skip_deserializing)]
-    pub replaced_photos: Vec<u32>,
-}
-
-impl Default for WelcomeSettings {
-    fn default() -> Self {
-        Self {
-            title: "Isten hozott!".to_string(),
-            subtitle: "Az ÚR áldása legyen életeden!".to_string(),
-            church_name: String::new(),
-            interval_seconds: 20,
-            has_logo: false,
-            replaced_photos: Vec::new(),
-        }
-    }
-}
 
 /// The greeting a new event's welcome step is named after.
 pub async fn greeting(tx: &mut sqlx::Transaction<'_, sqlx::Postgres>) -> sqlx::Result<String> {

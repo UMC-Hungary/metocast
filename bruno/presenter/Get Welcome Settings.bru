@@ -1,0 +1,28 @@
+meta {
+  name: Get Welcome Settings
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/presenter/welcome
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  The welcome screen a text Order of Service step shows in the web presenter: a photo, the logo,
+  the greeting (the step's title), its notes or else `subtitle`, and `churchName` with the event's
+  date. The 12 photos rotate every `intervalSeconds`. `hasLogo` and `replacedPhotos` say what was
+  uploaded.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+}

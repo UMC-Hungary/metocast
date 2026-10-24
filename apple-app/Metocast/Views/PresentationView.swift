@@ -41,8 +41,8 @@ struct PresentationView: View {
                         SongSlidesView(session: session).windowActions()
                     }
                     .songFolderPrompt(isPresented: $isAskingForSongFolder, session: session) { _ in isWritingSong = true }
-                    .sheet(isPresented: $isShowingSettings) {
-                        PresentationSettingsView(session: session)
+                    .navigationDestination(isPresented: $isShowingSettings) {
+                        PresentationSettingsView(session: session).windowActions()
                     }
             } else {
                 ContentUnavailableView("No Presentation", systemImage: "play.rectangle")

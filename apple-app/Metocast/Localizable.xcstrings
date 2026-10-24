@@ -852,6 +852,16 @@
         }
       }
     },
+    "A Slide step in the Order of Service shows this with the web presenter: a photo, the logo, its title and the blessing, and the church name with the date. The photos change while it is on screen. The text stays readable: a darker overlay is added behind it on bright photos." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az istentiszteleti rend Dia lépése ezt mutatja a webes kivetítővel: egy fotót, a logót, a címét és az áldást, valamint a gyülekezet nevét a dátummal. A képek váltakoznak, amíg látszik. A szöveg mindig olvasható marad: világos képeken sötétebb réteg kerül mögé."
+          }
+        }
+      }
+    },
     "A folder on the server's Mac. The deck is saved there." : {
       "localizations" : {
         "hu" : {
@@ -1492,6 +1502,16 @@
         }
       }
     },
+    "Az ÚR áldása legyen életeden!" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az ÚR áldása legyen életeden!"
+          }
+        }
+      }
+    },
     "Bible" : {
       "localizations" : {
         "hu" : {
@@ -1624,6 +1644,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Üres"
+          }
+        }
+      }
+    },
+    "Blessing" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Áldás"
           }
         }
       }
@@ -1938,6 +1968,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kiválasztás…"
+          }
+        }
+      }
+    },
+    "Church Name" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gyülekezet neve"
           }
         }
       }
@@ -3738,6 +3778,16 @@
         }
       }
     },
+    "Greeting" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Köszöntés"
+          }
+        }
+      }
+    },
     "HIGHLIGHTS" : {
       "localizations" : {
         "hu" : {
@@ -3926,6 +3976,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Telepítve"
+          }
+        }
+      }
+    },
+    "Isten hozott!" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Isten hozott!"
           }
         }
       }
@@ -4194,6 +4254,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kapcsolat betöltése…"
+          }
+        }
+      }
+    },
+    "Logo" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Logó"
           }
         }
       }
@@ -4654,6 +4724,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Következő lépés"
+          }
+        }
+      }
+    },
+    "Next photo after %lld s" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Következő kép %lld mp után"
           }
         }
       }
@@ -5230,6 +5310,16 @@
         }
       }
     },
+    "Nyíregyházi Metodista Gyülekezet" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nyíregyházi Metodista Gyülekezet"
+          }
+        }
+      }
+    },
     "OBS" : {
       "localizations" : {
         "hu" : {
@@ -5696,6 +5786,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Szüneteltetve"
+          }
+        }
+      }
+    },
+    "Photo %lld" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld. kép"
+          }
+        }
+      }
+    },
+    "Photo %lld, replaced" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld. kép, lecserélve"
           }
         }
       }
@@ -6250,6 +6360,16 @@
         }
       }
     },
+    "Remove" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eltávolítás"
+          }
+        }
+      }
+    },
     "Remove %@" : {
       "localizations" : {
         "hu" : {
@@ -6336,6 +6456,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A renderelés kész: %@"
+          }
+        }
+      }
+    },
+    "Replace…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Csere…"
+          }
+        }
+      }
+    },
+    "Reset to Default" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Visszaállítás alapra"
           }
         }
       }
@@ -6968,6 +7108,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Istentisztelet kezdete"
+          }
+        }
+      }
+    },
+    "Set" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beállítva"
           }
         }
       }
@@ -8926,6 +9076,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Köszöntés"
+          }
+        }
+      }
+    },
+    "Welcome Screen" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Köszöntő képernyő"
           }
         }
       }
