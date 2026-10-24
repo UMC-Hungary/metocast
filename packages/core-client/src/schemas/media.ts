@@ -82,6 +82,13 @@ export const SubtitleReportSchema = z.object({
    */
   confident: z.boolean(),
   srtPath: z.string(),
+  /**
+   * Rebuilt into whole sentences, each placed where Whisper heard it spoken; `shiftSeconds` is then
+   * the whole-file offset, and `cues` the sentence captions written.
+   */
+  onSpeech: z.boolean().default(false),
+  /** With `onSpeech`: captions with a word matched to the speech; the rest sit between them. */
+  matched: z.number().int().nonnegative().default(0),
 });
 
 export const MediaProbeSchema = z.object({
@@ -253,7 +260,7 @@ export const ProgramProgressSchema = z.object({
   /** The program job, also while it's being nudged. */
   jobId: z.string().uuid(),
   state: z.enum(['running', 'succeeded', 'failed', 'cancelled']),
-  step: z.enum(['download', 'picture', 'prepare', 'sync', 'clean', 'merge']).nullable(),
+  step: z.enum(['download', 'picture', 'prepare', 'sync', 'clean', 'merge', 'captions']).nullable(),
   fraction: z.number().nullable(),
   outputPath: z.string(),
   error: z.string().nullable(),

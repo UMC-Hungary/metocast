@@ -105,10 +105,8 @@ final class MediaDraft {
             case .video: videoPath = url.path
             case .audio: audioPaths.append(url.path)
             case .transcript:
-                // `sermon.en.srt` says its language; Hungarian otherwise, as the sermons are.
-                let suffix = url.deletingPathExtension().pathExtension.lowercased()
                 transcripts.removeAll { $0.path == url.path }
-                transcripts.append(Transcript(path: url.path, language: ["hu", "en"].contains(suffix) ? suffix : "hu"))
+                transcripts.append(Transcript(path: url.path, language: MediaFileKind.transcriptLanguage(url)))
             case .sidecar:
                 sidecarPath = url.path
                 newSidecar = true
@@ -597,6 +595,9 @@ private struct StartCard: View {
         if draft.program?.downloads.contains("jive-vocals") == true || draft.audio?.downloads.contains("jive-vocals") == true {
             Text("The first job downloads jive-vocals (about 53 MB).").font(.caption).foregroundStyle(.secondary)
         }
+        if draft.program?.downloads.contains("whisper") == true, draft.transcripts.contains(where: { $0.language == "en" }) {
+            Text("The first job with an English transcript downloads Whisper's model (about 3.1 GB).").font(.caption).foregroundStyle(.secondary)
+        }
         if draft.program?.video.kind == .braw {
             let saved = draft.settings != nil && draft.settings == draft.savedLook
             Button(saved ? "Saved as Default" : "Save Look as Default", systemImage: saved ? "checkmark" : "square.and.arrow.down") {
@@ -743,7 +744,7 @@ private struct SubtitlesCard: View {
                     .fixedSize()
                 }
             }
-            Text("Timed to the video or to the recording: Metocast matches the lines with the voice, saves an .srt beside the video, and sends it with the YouTube and Facebook uploads.")
+            Text("An English transcript, such as the live translation downloaded from Transcripts, is rebuilt into whole sentences, each placed where it is spoken. Other languages are matched with the voice. The .srt is saved beside the video and sent with the YouTube and Facebook uploads.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

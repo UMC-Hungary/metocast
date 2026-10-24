@@ -1,19 +1,20 @@
-//! Programs Metocast fetches on first use instead of asking anyone to install them, the way the
-//! embedded PostgreSQL arrives: a pinned release, checked against its SHA-256 before it is
-//! made executable, kept under the server's data directory.
+//! Programs and models Metocast fetches on first use instead of asking anyone to install them,
+//! the way the embedded PostgreSQL arrives: a pinned release, checked against its SHA-256 before
+//! it is used (and, for a program, made executable), kept under the server's data directory.
 use std::path::{Path, PathBuf};
 
 use futures_util::StreamExt;
 use sha2::{Digest, Sha256};
 use tokio::io::AsyncWriteExt;
 
-/// One pinned release of a single-file program.
+/// One pinned release of a single-file program or model.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Download {
     pub name: &'static str,
     pub version: &'static str,
     pub url: &'static str,
     pub sha256: &'static str,
+    pub executable: bool,
 }
 
 impl Download {
@@ -33,6 +34,28 @@ pub const JIVE_VOCALS: Download = Download {
     version: "0.7.0",
     url: "https://github.com/linuxmatters/jive-vocals/releases/download/0.7.0/jive-vocals-darwin-arm64",
     sha256: "f611ac7e23ca18891492de7f89f633933b5114f2514ff1f5f34bff3390e1a941",
+    executable: true,
+};
+
+/// Whisper's `large-v3` (MIT), the clock a dropped transcript is placed by: it translates the
+/// program's Hungarian to English with a time for every word. `large-v3-turbo` doesn't translate.
+/// Pinned to a commit of the model repository; see `whisper/README.md`.
+pub const WHISPER_MODEL: Download = Download {
+    name: "ggml-large-v3.bin",
+    version: "5359861",
+    url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3.bin",
+    sha256: "64d182b440b98d5203c4f9bd541544d84c605196c4f7b845dfa11fb23594d1e2",
+    executable: false,
+};
+
+/// Silero's voice-activity model (MIT) for whisper.cpp's `--vad`: Whisper skips the silence
+/// instead of inventing text for it.
+pub const WHISPER_VAD: Download = Download {
+    name: "ggml-silero-v5.1.2.bin",
+    version: "9ffd54a",
+    url: "https://huggingface.co/ggml-org/whisper-vad/resolve/9ffd54a1e1ee413ddf265af9913beaf518d1639b/ggml-silero-v5.1.2.bin",
+    sha256: "29940d98d42b91fbd05ce489f3ecf7c72f0a42f027e4875919a28fb4c04ea2cf",
+    executable: false,
 };
 
 /// The verified program, downloading it first when this host doesn't have it yet.
@@ -57,7 +80,9 @@ pub async fn ensure(download: &Download, tools_dir: &Path) -> Result<PathBuf, St
         crate::cleanup::remove_file_if_present(&partial).await;
         return Err(error);
     }
-    make_executable(&partial)?;
+    if download.executable {
+        make_executable(&partial)?;
+    }
     tokio::fs::rename(&partial, &path)
         .await
         .map_err(|e| format!("cannot move {} into place: {e}", download.name))?;

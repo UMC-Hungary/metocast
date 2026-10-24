@@ -833,6 +833,8 @@ pub struct SubtitleReport {
     pub shift_seconds: f64,
     pub confident: bool,
     pub srt_path: String,
+    pub on_speech: bool,
+    pub matched: u32,
 }
 
 /// A video file on the server's disk, and the render the stored settings would make of it.
@@ -969,6 +971,7 @@ pub enum ProgramStep {
     Sync,
     Clean,
     Merge,
+    Captions,
 }
 
 #[uniffi::remote(Record)]
@@ -1778,6 +1781,20 @@ impl AppleClient {
         let id = parse_id(&job_id)?;
         let client = self.client.clone();
         self.run(async move { client.nudge_program(id, frames).await })
+            .await?;
+        Ok(())
+    }
+
+    /// Places transcripts dropped on a finished program, as its job would have. Its progress
+    /// arrives under the program's job id.
+    pub async fn add_program_subtitles(
+        &self,
+        job_id: String,
+        subtitles: Vec<SubtitleSource>,
+    ) -> Result<(), AppleError> {
+        let id = parse_id(&job_id)?;
+        let client = self.client.clone();
+        self.run(async move { client.add_program_subtitles(id, subtitles).await })
             .await?;
         Ok(())
     }

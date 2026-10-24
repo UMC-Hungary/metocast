@@ -54,6 +54,7 @@ pub fn spawn_worker(state: AppState) {
                     super::audio::AUDIO_JOB => super::audio::process(&state, &job).await,
                     super::program::PROGRAM_JOB => super::program::process(&state, &job).await,
                     super::program::NUDGE_JOB => super::program::nudge(&state, &job).await,
+                    super::program::SUBTITLES_JOB => super::program::caption(&state, &job).await,
                     _ => render(&state, &job).await,
                 };
                 let recorded = match outcome {
