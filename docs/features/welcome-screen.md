@@ -19,8 +19,8 @@ A modern, clean slide in the style of current streaming and editorial heroes:
 - in the lower third, the greeting (_Isten hozott._) large and left-aligned, the blessing under
   it, and the date on the right of the same line.
 
-The type is Montserrat (SIL Open Font License), built into the server, which draws the text as
-outlines. So the slide looks the same on every screen and none of them needs the font. There
+The type is Montserrat (SIL Open Font License), which the server downloads and uses to draw the
+text as outlines. So the slide looks the same on every screen and none of them needs the font. There
 are no shadows on the text. The photo zooms in slowly (8% over 20 seconds, then back) in the web
 presenter and the apps. The Raspberry Pi receiver shows it still.
 
@@ -35,7 +35,7 @@ presenter and the apps. The Raspberry Pi receiver shows it still.
   Long gradients join this to the untouched rest of the photo, with no visible edge.
 - Every pixel behind the text ends up dark enough for **4.5:1** contrast with white: WCAG's
   highest level (AAA) for large text. This is calculated for each photo, including any you
-  upload, and a test checks all twelve built-in photos pixel by pixel.
+  upload, and a test checks all twelve default photos pixel by pixel.
 
 ## The photos
 
@@ -58,6 +58,13 @@ The defaults were all taken in Hungary:
 They come from Unsplash under the Unsplash License;
 [`CREDITS.md`](../../crates/metocast-server/assets/welcome/CREDITS.md) names each photographer.
 
+The photos and the Montserrat fonts are not part of the app. The server downloads them from the
+Metocast repository on GitHub when it starts (about 8.5 MB, once), checks each against its
+SHA-256, and keeps them in its `tools` folder. Until they arrive (a server that has never been
+online), the slide has a plain dark background and the computer's own sans-serif font, and the
+settings say the photo isn't downloaded yet. Replaced photos and the logo are not downloaded:
+they are kept in the database.
+
 ## Use it
 
 **Apple app**: **Presentation → Presentation Settings** (a page inside Presentation) **→ Welcome
@@ -69,7 +76,7 @@ Screen**:
   blessing, unless you wrote your own;
 - the photos are listed by month. Click one to **preview** that month's slide as the screens will
   show it. From the preview, **Replace…** takes any photo from this computer (cropped to 16:9) and
-  **Reset to Default** brings back the built-in one. A pencil mark shows which are replaced;
+  **Reset to Default** brings back the default one. A pencil mark shows which are replaced;
 - **Logo**: the church's logo is built in (_Default_). **Replace…** takes a PNG (transparency kept)
   or SVG; **Reset to Default** brings the built-in one back.
 
