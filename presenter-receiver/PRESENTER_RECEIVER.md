@@ -68,7 +68,7 @@ The install command is also available pre-filled with your server's address on t
 ### What the installer does
 
 1. Detects OS and CPU architecture.
-2. On Linux with `apt`: checks for and installs missing shared libraries (`libcairo2`, `libcairo-gobject2`, `libpango-1.0-0`, `libpangocairo-1.0-0`, `libpangoft2-1.0-0`, `libglib2.0-0`).
+2. On Linux with `apt`: checks for and installs missing shared libraries (`libcairo2`, `libcairo-gobject2`, `libpango-1.0-0`, `libpangocairo-1.0-0`, `libpangoft2-1.0-0`, `libglib2.0-0`). On Debian trixie and later, including current Raspberry Pi OS, it installs the renamed `t64` package where one exists (`libglib2.0-0t64`).
 3. Downloads the matching binary from the latest GitHub release.
 4. Installs the binary to `/usr/local/bin/presenter-receiver` (falls back to the current directory if sudo is unavailable).
 5. If `--service` is passed:

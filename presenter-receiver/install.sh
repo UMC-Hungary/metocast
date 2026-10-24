@@ -76,15 +76,19 @@ BASE_URL="https://github.com/${REPO}/releases/download/${RELEASE_TAG}"
 
 # ── Install Linux system dependencies ────────────────────────────────────────
 if [ "$OS" = "Linux" ] && [ -n "$(command -v apt-get)" ]; then
-    MISSING=""
+    MISSING=()
     for lib in libcairo2 libcairo-gobject2 libpango-1.0-0 libpangocairo-1.0-0 libpangoft2-1.0-0 libglib2.0-0; do
+        # Debian trixie renamed libraries for 64-bit time_t (libglib2.0-0 → libglib2.0-0t64)
+        if [ "$(apt-cache pkgnames "${lib}t64" | grep -x "${lib}t64")" = "${lib}t64" ]; then
+            lib="${lib}t64"
+        fi
         if [ "$(dpkg-query -W -f='${db:Status-Status}' "$lib")" != installed ]; then
-            MISSING="$MISSING $lib"
+            MISSING+=("$lib")
         fi
     done
-    if [ -n "$MISSING" ]; then
-        echo "==> Installing required system libraries:$MISSING"
-        sudo apt-get install -y $MISSING
+    if [ "${#MISSING[@]}" -gt 0 ]; then
+        echo "==> Installing required system libraries: ${MISSING[*]}"
+        sudo apt-get install -y "${MISSING[@]}"
     fi
 fi
 
