@@ -93,6 +93,18 @@ ffmpeg_licences="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/ffmpeg"
 mkdir -p "$ffmpeg_licences"
 cp "$ffmpeg_build/LICENSE.md" "$ffmpeg_build/COPYING.LGPLv2.1" "$ffmpeg_licences/"
 
+# whisper-cli places a dropped transcript on the program's speech (crates/metocast-server/src/
+# media/whisper.rs): built from whisper.cpp's release source (MIT; see whisper/README.md) with
+# Metal, cached under target/whisper. Its model is downloaded by the server on first use.
+whisper_build="${TARGET_TEMP_DIR:-$repo_root/target}/whisper"
+clean_env MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-14.0}" \
+  "$repo_root/whisper/build.sh" "$whisper_build"
+cp "$whisper_build/whisper-cli" "$helpers/whisper-cli"
+sign "$helpers/whisper-cli"
+whisper_licence="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/whisper"
+mkdir -p "$whisper_licence"
+cp "$whisper_build/LICENSE" "$whisper_licence/"
+
 # The server's web pages (/transcript, /presenter): the helper serves them from
 # METOCAST_STATIC_DIR, which ServerHost points at Resources/web. `pnpm build` makes them; it runs
 # outside Xcode because Node isn't on this phase's PATH. Never silent: without them every page 404s.

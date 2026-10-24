@@ -54,6 +54,7 @@ pub fn spawn_worker(state: AppState) {
                     super::audio::AUDIO_JOB => super::audio::process(&state, &job).await,
                     super::program::PROGRAM_JOB => super::program::process(&state, &job).await,
                     super::program::NUDGE_JOB => super::program::nudge(&state, &job).await,
+                    super::program::SUBTITLES_JOB => super::program::caption(&state, &job).await,
                     _ => render(&state, &job).await,
                 };
                 let recorded = match outcome {
@@ -120,6 +121,8 @@ async fn render(state: &AppState, job: &Job) -> Result<(), String> {
             height: probed.probe.height,
             fps_num: probed.probe.fps_num,
             fps_den: probed.probe.fps_den,
+            frame_count: probed.probe.frame_count,
+            damaged_frames: probed.damaged_frames,
             start_timecode: probed.probe.start_timecode.as_deref(),
             audio_channels: probed.probe.audio.as_ref().map(|audio| audio.channels),
             pixel_format: &probed.pixel_format,
@@ -488,6 +491,8 @@ mod tests {
             height: info.height,
             fps_num: facts.fps_num,
             fps_den: facts.fps_den,
+            frame_count: 48,
+            damaged_frames: 0,
             start_timecode: facts.start_timecode.as_deref(),
             audio_channels: facts.audio.as_ref().map(|audio| audio.channels),
             pixel_format: &info.pixel_format,
@@ -498,9 +503,6 @@ mod tests {
         let mut commands =
             command::render_commands(&source, &settings, crop, tools.braw_sdk.as_deref(), &output);
         // Two seconds: 48 frames from the decoder, and the audio cut to match.
-        let decoder = commands.decoder.as_mut().unwrap();
-        let clip_at = decoder.len() - 1;
-        decoder.splice(clip_at..clip_at, ["--count".to_string(), "48".to_string()]);
         let output_at = commands.ffmpeg.len() - 1;
         commands
             .ffmpeg
@@ -528,8 +530,12 @@ mod tests {
 
         // A full-length render, stopped after a second.
         let cancelled_output = folder.join("cancelled.mov");
+        let whole = command::Source {
+            frame_count: info.frame_count,
+            ..source
+        };
         let full = command::render_commands(
-            &source,
+            &whole,
             &settings,
             crop,
             tools.braw_sdk.as_deref(),

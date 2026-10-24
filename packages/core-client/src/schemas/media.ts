@@ -74,11 +74,21 @@ export const SubtitleSourceSchema = z.object({
 export const SubtitleReportSchema = z.object({
   language: z.string(),
   cues: z.number().int(),
-  /** How far the transcript was moved to meet the voice. */
+  /** How far the transcript was moved: to meet the voice, or with the recording. */
   shiftSeconds: z.number(),
-  /** `false`: the voice didn't back a shift clearly, so it was left unmoved. */
+  /**
+   * `false`: the voice didn't back a shift clearly. A transcript running past the program then
+   * moved with the recording (by the sync); any other was left unmoved.
+   */
   confident: z.boolean(),
   srtPath: z.string(),
+  /**
+   * Rebuilt into whole sentences, each placed where Whisper heard it spoken; `shiftSeconds` is then
+   * the whole-file offset, and `cues` the sentence captions written.
+   */
+  onSpeech: z.boolean().default(false),
+  /** With `onSpeech`: captions with a word matched to the speech; the rest sit between them. */
+  matched: z.number().int().nonnegative().default(0),
 });
 
 export const MediaProbeSchema = z.object({
@@ -240,6 +250,8 @@ export const ProgramReportSchema = z.object({
   coverage: z.number(),
   silentStartSeconds: z.number(),
   silentEndSeconds: z.number(),
+  /** Unreadable frames at the clip's end, replaced by the last good frame held. */
+  damagedFrames: z.number().int().nonnegative(),
   audioOutputPath: z.string(),
   subtitles: z.array(SubtitleReportSchema),
 });
@@ -248,7 +260,7 @@ export const ProgramProgressSchema = z.object({
   /** The program job, also while it's being nudged. */
   jobId: z.string().uuid(),
   state: z.enum(['running', 'succeeded', 'failed', 'cancelled']),
-  step: z.enum(['download', 'picture', 'prepare', 'sync', 'clean', 'merge']).nullable(),
+  step: z.enum(['download', 'picture', 'prepare', 'sync', 'clean', 'merge', 'captions']).nullable(),
   fraction: z.number().nullable(),
   outputPath: z.string(),
   error: z.string().nullable(),

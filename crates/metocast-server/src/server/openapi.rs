@@ -915,9 +915,11 @@ fn handwritten() -> Value {
                     "properties": {
                         "language": { "type": "string" },
                         "cues": { "type": "integer" },
-                        "shiftSeconds": { "type": "number", "description": "How far the transcript was moved to meet the voice" },
-                        "confident": { "type": "boolean", "description": "The voice backed the shift clearly; otherwise the transcript was left unmoved" },
-                        "srtPath": { "type": "string" }
+                        "shiftSeconds": { "type": "number", "description": "How far the transcript was moved: to meet the voice, or with the recording when the voice did not say" },
+                        "confident": { "type": "boolean", "description": "The voice backed the shift clearly. Otherwise a transcript running past the program moved with the recording (by the sync), and any other was left unmoved" },
+                        "srtPath": { "type": "string" },
+                        "onSpeech": { "type": "boolean", "description": "Rebuilt into whole sentences, each placed where Whisper heard it spoken (English transcripts on a Mac with the bundled whisper-cli). shiftSeconds is then the offset found for the whole file, and cues the sentence captions written" },
+                        "matched": { "type": "integer", "minimum": 0, "description": "With onSpeech: captions with a word matched to the speech; the rest sit between them" }
                     }
                 },
                 "MediaProbe": {
@@ -1151,6 +1153,7 @@ fn handwritten() -> Value {
                         "coverage": { "type": "number", "minimum": 0, "maximum": 1, "description": "The share of the picture the audio covers" },
                         "silentStartSeconds": { "type": "number" },
                         "silentEndSeconds": { "type": "number" },
+                        "damagedFrames": { "type": "integer", "minimum": 0, "description": "Frames at the end of the clip that couldn't be read (a recording that didn't end cleanly), replaced by the last good frame held so the picture keeps its length" },
                         "audioOutputPath": { "type": "string", "description": "The program's own WAV: the picture's length, aligned to its first frame" },
                         "subtitles": { "type": "array", "items": { "$ref": "#/components/schemas/SubtitleReport" } }
                     }
@@ -1161,7 +1164,7 @@ fn handwritten() -> Value {
                     "properties": {
                         "jobId": { "type": "string", "format": "uuid", "description": "The program job, also while it's being nudged" },
                         "state": { "type": "string", "enum": ["running", "succeeded", "failed", "cancelled"] },
-                        "step": { "type": ["string", "null"], "enum": ["download", "picture", "prepare", "sync", "clean", "merge", null] },
+                        "step": { "type": ["string", "null"], "enum": ["download", "picture", "prepare", "sync", "clean", "merge", "captions", null] },
                         "fraction": { "type": ["number", "null"] },
                         "outputPath": { "type": "string" },
                         "error": { "type": ["string", "null"] },
@@ -1174,6 +1177,13 @@ fn handwritten() -> Value {
                     "properties": {
                         "type": { "type": "string", "const": "media.program.progress" },
                         "progress": { "$ref": "#/components/schemas/ProgramProgress" }
+                    }
+                },
+                "SubtitlesRequest": {
+                    "type": "object",
+                    "required": ["subtitles"],
+                    "properties": {
+                        "subtitles": { "type": "array", "minItems": 1, "items": { "$ref": "#/components/schemas/SubtitleSource" }, "description": "One transcript per language" }
                     }
                 },
                 "NudgeRequest": {
@@ -2582,6 +2592,36 @@ fn handwritten() -> Value {
                     }
                 }
             },
+            "/api/media/programs/{id}/subtitles": {
+                "parameters": [
+                    { "name": "id", "in": "path", "required": true, "description": "Job id from `POST /api/media/programs`", "schema": { "type": "string", "format": "uuid" } }
+                ],
+                "post": {
+                    "tags": ["Media"],
+                    "summary": "Place transcripts on a finished program",
+                    "description": "Queues a `subtitle_program` job: each transcript is placed on the finished program exactly as a program job places it. An English one is rebuilt into sentences and placed on the speech with Whisper (the model downloads on first use); others are matched with the voice. It is written beside the program as `<name>.<language>.srt`, replaces that language in the program's report, and, for a program filed under an event, replaces that caption track and sends it to an upload that already finished. Progress arrives as `media.program.progress` under the program's job id (step `download`, then `captions` with a fraction).",
+                    "operationId": "addProgramSubtitles",
+                    "requestBody": {
+                        "required": true,
+                        "content": {
+                            "application/json": {
+                                "schema": { "$ref": "#/components/schemas/SubtitlesRequest" },
+                                "example": { "subtitles": [{ "path": "/Volumes/A002/2026-10-18 10-35-32.en.vtt", "language": "en" }] }
+                            }
+                        }
+                    },
+                    "responses": {
+                        "202": {
+                            "description": "Queued",
+                            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RenderQueued" } } }
+                        },
+                        "400": { "description": "No transcripts, one that isn't a readable .srt or .vtt, or two in one language" },
+                        "401": { "description": "Unauthorized" },
+                        "404": { "description": "No finished program with that id, or its files are gone" },
+                        "409": { "description": "This program is already being adjusted" }
+                    }
+                }
+            },
             "/api/media/renders/{id}/cancel": {
                 "parameters": [
                     { "name": "id", "in": "path", "required": true, "description": "Job id from `POST /api/media/renders`, `POST /api/media/audio` or `POST /api/media/programs`", "schema": { "type": "string", "format": "uuid" } }
@@ -2887,7 +2927,7 @@ fn handwritten() -> Value {
                 "get": {
                     "tags": ["WebSocket"],
                     "summary": "WebSocket live stream",
-                    "description": "**This endpoint performs a WebSocket upgrade — it cannot be tested with the HTTP \"Send\" button.**\n\nUse a dedicated WebSocket client instead:\n- [Hoppscotch](https://hoppscotch.io) → New request → WebSocket\n- [websocat](https://github.com/vi/websocat): `websocat 'ws://<host>/ws?token=<token>'`\n- Bruno: add a request with type `socket`\n\n---\n\n**Connection URL:** `ws://<host>/ws?token=<token>`\n\nAuthentication uses the same bearer token passed as a **query parameter** (the `Authorization` header is not available during the WebSocket handshake).\n\n### Initial messages (pushed immediately on connect)\n\n```json\n{ \"type\": \"connected\", \"serverId\": \"<uuid>\" }\n{ \"type\": \"connector.status\", \"connector\": \"obs\",  \"status\": { \"type\": \"connected\" } }\n{ \"type\": \"connector.status\", \"connector\": \"vmix\", \"status\": { \"type\": \"disconnected\" } }\n```\n\n### Broadcast messages (sent when data changes)\n\n| `type` | Trigger | Schema |\n|---|---|---|\n| `connector.status` | OBS or VMix connection state changes | `WsConnectorStatusMessage` |\n| `event.changed` | Event created, updated, or deleted | `WsEventChangedMessage` |\n| `recording.changed` | Recording created or updated | `WsRecordingChangedMessage` |\n| `media.render.progress` | A render's progress, about once a second, and once when it ends | `WsMediaRenderProgressMessage` |\n| `media.audio.progress` | An audio job's step and progress, and its report when it ends | `WsMediaAudioProgressMessage` |\n| `media.program.progress` | A program job's step and progress, and its report when it ends or is nudged | `WsMediaProgramProgressMessage` |\n| `transcription.snapshot` | On connect: the state, the last ~20 segments, the open line and the credit line | `{ type, state: TranscriptionState, segments: TranscriptSegment[], partial, credit: CreditStatus \\| null }` |\n| `transcription.state` | The live transcript's status changes | `{ type, state: TranscriptionState }` |\n| `transcription.partial` | The open English line grows (at most every ~150 ms; empty clears it) | `{ type, text }` |\n| `transcription.segment` | A line is committed | `{ type, segment: TranscriptSegment }` |\n| `transcription.credit` | Every 10 minutes and after a session, when an admin key is set | `{ type, credit: CreditStatus }` |\n| `captions.job.state` | A final-video captions job runs, succeeds or fails | `{ type, jobId, recordingId, state, progress, error }` |\n| `transcript.cleanup.state` | A stored transcript's AI clean-up runs a chunk, succeeds or fails | `CleanupProgress` plus `type` |\n| `automations.changed` | The rules or the master switch changed; also sent on connect to clients with the token | `WsAutomationsChangedMessage` |\n| `automation.run` | A rule ran | `WsAutomationRunMessage` |\n| `rodecaster.record.state` | The RØDECaster's own SD/USB recorder started, paused or stopped, or a card or drive came or went; also sent on connect | `WsRodecasterRecordStateMessage` |\n| `connector.state` (`middlecontrol`) | Middle Control's feedback changed. `runningPreset` (1–12, or null at rest) is the preset moving the selected camera, `presetMoveActive` is derived from it, and `lastPreset { preset, cameraId, at }` is the last move Metocast watched run to its end | `{ type, connector, state: { selectedCamera, recording, recordingCameraIds, connectedCameraIds, connectedApcrIds, presetMoveActive, runningPreset, lastPreset } }` |\n| `presenter.state` | Presentation loaded or unloaded | `{ type, state: PresenterState }` with `renderMode: \"text\" | \"svg\"` |\n| `presenter.slide_changed` | Slide navigation | `{ type, currentSlide, totalSlides }` |\n\n### Presenter WS commands\n\n| Command | Fields | Description |\n|---|---|---|\n| `presenter.load` | `file_path`, optional `render_mode` | Load a .pptx into the presenter; defaults to text mode |\n| `presenter.load_bible_reference` | optional `event_id`, `reference_type` | Load an event Textus/Lekció Bible reference into the text presenter. If `event_id` is omitted, the backend-selected presenter event is used. |\n| `presenter.unload` | — | Clear the active presentation |\n| `presenter.next` | — | Advance one slide |\n| `presenter.prev` | — | Go back one slide |\n| `presenter.first` | — | Jump to slide 1 |\n| `presenter.last` | — | Jump to last slide |\n| `presenter.goto` | `slide` | Jump to a specific slide number |\n| `presenter.status` | — | Reply to requesting client with `presenter.state` |\n\n### Live transcript WS commands (token required)\n\n| Command | Fields | Description |\n|---|---|---|\n| `transcription.start` | optional `eventId` | Start translating the configured RØDECaster source for an event, or for none when `eventId` is omitted. Answered by `transcription.state`, or `error` with `transcription_not_configured` / `transcription_unavailable` (no RØDECaster) |\n| `transcription.stop` | — | Stop it; answered by `ok` |\n\n### Automation and RØDECaster recorder WS commands (token required)\n\n| Command | Fields | Description |\n|---|---|---|\n| `automations.list` | — | Answered by `automations.changed` |\n| `automations.run` | `id` | Run the rule now (ignores its cooldown, event check and the master switch); answered by `ok` or `error` (`not_found`), the run arrives as `automation.run` |\n| `automations.set_armed` | `armed` | The master switch; answered by `ok`, and `automations.changed` is broadcast |\n| `rodecaster.record.start` | — | Start (or resume) the desk's own SD/USB recorder; answered by `ok` or `error` (`rodecaster_not_connected`, `rodecaster_no_media`); the result arrives as `rodecaster.record.state` |\n| `rodecaster.record.stop` | — | Stop it |\n\n### Event WS commands for presenter controls\n\n| Command | Fields | Description |\n|---|---|---|\n| `events.presenter_list` | — | Return backend-ordered presenter event choices plus `selectedEventId` for the current/next event |\n\n`presentation.open` uses SVG mode by default in web-presenter mode. Send `render_mode: \"text\"` to force the text renderer.",
+                    "description": "**This endpoint performs a WebSocket upgrade — it cannot be tested with the HTTP \"Send\" button.**\n\nUse a dedicated WebSocket client instead:\n- [Hoppscotch](https://hoppscotch.io) → New request → WebSocket\n- [websocat](https://github.com/vi/websocat): `websocat 'ws://<host>/ws?token=<token>'`\n- Bruno: add a request with type `socket`\n\n---\n\n**Connection URL:** `ws://<host>/ws?token=<token>`\n\nAuthentication uses the same bearer token passed as a **query parameter** (the `Authorization` header is not available during the WebSocket handshake).\n\n### Initial messages (pushed immediately on connect)\n\n```json\n{ \"type\": \"connected\", \"serverId\": \"<uuid>\" }\n{ \"type\": \"connector.status\", \"connector\": \"obs\",  \"status\": { \"type\": \"connected\" } }\n{ \"type\": \"connector.status\", \"connector\": \"vmix\", \"status\": { \"type\": \"disconnected\" } }\n```\n\n### Broadcast messages (sent when data changes)\n\n| `type` | Trigger | Schema |\n|---|---|---|\n| `connector.status` | OBS or VMix connection state changes | `WsConnectorStatusMessage` |\n| `event.changed` | Event created, updated, or deleted | `WsEventChangedMessage` |\n| `recording.changed` | Recording created or updated | `WsRecordingChangedMessage` |\n| `media.render.progress` | A render's progress, about once a second, and once when it ends | `WsMediaRenderProgressMessage` |\n| `media.audio.progress` | An audio job's step and progress, and its report when it ends | `WsMediaAudioProgressMessage` |\n| `media.program.progress` | A program job's step and progress, and its report when it ends, is nudged or gets transcripts | `WsMediaProgramProgressMessage` |\n| `transcription.snapshot` | On connect: the state, the last ~20 segments, the open line and the credit line | `{ type, state: TranscriptionState, segments: TranscriptSegment[], partial, credit: CreditStatus \\| null }` |\n| `transcription.state` | The live transcript's status changes | `{ type, state: TranscriptionState }` |\n| `transcription.partial` | The open English line grows (at most every ~150 ms; empty clears it) | `{ type, text }` |\n| `transcription.segment` | A line is committed | `{ type, segment: TranscriptSegment }` |\n| `transcription.credit` | Every 10 minutes and after a session, when an admin key is set | `{ type, credit: CreditStatus }` |\n| `captions.job.state` | A final-video captions job runs, succeeds or fails | `{ type, jobId, recordingId, state, progress, error }` |\n| `transcript.cleanup.state` | A stored transcript's AI clean-up runs a chunk, succeeds or fails | `CleanupProgress` plus `type` |\n| `automations.changed` | The rules or the master switch changed; also sent on connect to clients with the token | `WsAutomationsChangedMessage` |\n| `automation.run` | A rule ran | `WsAutomationRunMessage` |\n| `rodecaster.record.state` | The RØDECaster's own SD/USB recorder started, paused or stopped, or a card or drive came or went; also sent on connect | `WsRodecasterRecordStateMessage` |\n| `connector.state` (`middlecontrol`) | Middle Control's feedback changed. `runningPreset` (1–12, or null at rest) is the preset moving the selected camera, `presetMoveActive` is derived from it, and `lastPreset { preset, cameraId, at }` is the last move Metocast watched run to its end | `{ type, connector, state: { selectedCamera, recording, recordingCameraIds, connectedCameraIds, connectedApcrIds, presetMoveActive, runningPreset, lastPreset } }` |\n| `presenter.state` | Presentation loaded or unloaded | `{ type, state: PresenterState }` with `renderMode: \"text\" | \"svg\"` |\n| `presenter.slide_changed` | Slide navigation | `{ type, currentSlide, totalSlides }` |\n\n### Presenter WS commands\n\n| Command | Fields | Description |\n|---|---|---|\n| `presenter.load` | `file_path`, optional `render_mode` | Load a .pptx into the presenter; defaults to text mode |\n| `presenter.load_bible_reference` | optional `event_id`, `reference_type` | Load an event Textus/Lekció Bible reference into the text presenter. If `event_id` is omitted, the backend-selected presenter event is used. |\n| `presenter.unload` | — | Clear the active presentation |\n| `presenter.next` | — | Advance one slide |\n| `presenter.prev` | — | Go back one slide |\n| `presenter.first` | — | Jump to slide 1 |\n| `presenter.last` | — | Jump to last slide |\n| `presenter.goto` | `slide` | Jump to a specific slide number |\n| `presenter.status` | — | Reply to requesting client with `presenter.state` |\n\n### Live transcript WS commands (token required)\n\n| Command | Fields | Description |\n|---|---|---|\n| `transcription.start` | optional `eventId` | Start translating the configured RØDECaster source for an event, or for none when `eventId` is omitted. Answered by `transcription.state`, or `error` with `transcription_not_configured` / `transcription_unavailable` (no RØDECaster) |\n| `transcription.stop` | — | Stop it; answered by `ok` |\n\n### Automation and RØDECaster recorder WS commands (token required)\n\n| Command | Fields | Description |\n|---|---|---|\n| `automations.list` | — | Answered by `automations.changed` |\n| `automations.run` | `id` | Run the rule now (ignores its cooldown, event check and the master switch); answered by `ok` or `error` (`not_found`), the run arrives as `automation.run` |\n| `automations.set_armed` | `armed` | The master switch; answered by `ok`, and `automations.changed` is broadcast |\n| `rodecaster.record.start` | — | Start (or resume) the desk's own SD/USB recorder; answered by `ok` or `error` (`rodecaster_not_connected`, `rodecaster_no_media`); the result arrives as `rodecaster.record.state` |\n| `rodecaster.record.stop` | — | Stop it |\n\n### Event WS commands for presenter controls\n\n| Command | Fields | Description |\n|---|---|---|\n| `events.presenter_list` | — | Return backend-ordered presenter event choices plus `selectedEventId` for the current/next event |\n\n`presentation.open` uses SVG mode by default in web-presenter mode. Send `render_mode: \"text\"` to force the text renderer.",
                     "operationId": "connectWebSocket",
                     "security": [],
                     "parameters": [
@@ -3019,6 +3059,7 @@ mod tests {
             "/api/media/programs/probe",
             "/api/media/programs",
             "/api/media/programs/{id}/nudge",
+            "/api/media/programs/{id}/subtitles",
         ] {
             assert!(spec["paths"][path].is_object(), "{path} is missing");
         }
@@ -3039,6 +3080,7 @@ mod tests {
             "SyncReport",
             "WsMediaProgramProgressMessage",
             "NudgeRequest",
+            "SubtitlesRequest",
         ] {
             assert!(
                 spec["components"]["schemas"][schema].is_object(),

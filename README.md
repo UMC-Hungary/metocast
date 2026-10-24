@@ -271,10 +271,29 @@ copied without re-encoding, with AAC 320k audio and the camera's start timecode)
 A transcript dropped with the video (`.srt` or `.vtt`, one per language, such as `sermon.hu.srt`)
 goes out with the program:
 
-- **Lined up with the voice.** It may be timed to the video or to the audio recording (for
+- **English: placed sentence by sentence on the speech.** Drop the live translation, downloaded
+  from **Transcripts**, with the video (and the recording, if there is one). It can count from the
+  start of the session or of the recording: Metocast finds where the program sits in it by itself.
+  The live text arrives 2–6 s late and in fragments, with stray quote marks. So after the merge,
+  the job:
+  - rebuilds it into whole sentences, cut at a comma where one is too long for two lines;
+  - runs the bundled `whisper-cli` (whisper.cpp, `large-v3`) on the program's audio. Whisper
+    translates the speech to English with a time for every word. Its wording is never shown;
+    it is only the clock;
+  - matches the transcript's words with Whisper's, in order, and starts each caption when its
+    first word is spoken.
+
+  On the 2026-10-18 sermon this placed 239 sentence captions, 225 of them by a matched word. It
+  takes about a fifth of the program's length on an M1, and the first such job downloads
+  Whisper's model (3.1 GB). If Whisper can't run (no model, no `whisper-cli`) or the transcript
+  doesn't match the speech, the job falls back to the voice match below.
+- **Other languages: lined up with the voice.** It may be timed to the video or to the audio recording (for
   example made from the Wireless PRO file). Metocast matches where its lines are against where
   the program's voice speaks, finds the shift, and moves every line by it. If the match isn't
-  clear, the transcript is left as it was and the job says so.
+  clear (common for a live translation, whose lines trail the speech by varying seconds), a
+  transcript that runs past the end of the program can only be timed to the recording, so it
+  moves with the recording, where the sync put it; any other is left as it was. Either way the
+  job says the match wasn't clear, so check it.
 - **Saved beside the program** as `<name>.<language>.srt`.
 - **Sent with the uploads** when the program is filed under an event: YouTube gets it as a
   caption track in its language, and Facebook gets it after the video upload. English captions
@@ -325,9 +344,11 @@ LUT.
 | Blackmagic RAW SDK | The free Blackmagic RAW install; never bundled                                                                                | Blackmagic     |
 | jive-vocals 0.7.0  | Downloaded from its GitHub release on first use and checked against a pinned SHA-256, like the embedded PostgreSQL            | GPL-3.0        |
 | lip-reader         | Built with the app from Swift source; uses macOS's own Vision framework ([details](lip-reader/README.md))                     | MIT (Metocast) |
+| whisper-cli        | Built from whisper.cpp's 1.9.5 source when the app is built, and shipped inside the app ([details](whisper/README.md))         | MIT            |
+| Whisper models     | `large-v3` (3.1 GB) and Silero VAD, downloaded on first use and checked against pinned SHA-256s                               | MIT            |
 
-Outside the app, `METOCAST_FFMPEG`, `METOCAST_BRAW_DECODE` and `METOCAST_LIP_READER` point a
-development server at other copies.
+Outside the app, `METOCAST_FFMPEG`, `METOCAST_BRAW_DECODE`, `METOCAST_LIP_READER` and
+`METOCAST_WHISPER` point a development server at other copies.
 
 ### Media API
 
@@ -344,8 +365,9 @@ server's `/docs` (OpenAPI), and ready-made requests are in [`bruno/media`](bruno
 | `POST /api/media/programs/probe`         | Describes a video and its audio, the video's sound level, the sync method and the clocks                                                 |
 | `POST /api/media/programs`               | Queues a program (video + synced audio). Replies `202` with `{ jobId, outputPath }`                                                      |
 | `POST /api/media/programs/{id}/nudge`    | Moves a finished program's audio by `{ frames }` (positive: later)                                                                       |
+| `POST /api/media/programs/{id}/subtitles` | Places `{ subtitles: [{ path, language }] }` on a finished program, as its job would have                                              |
 | `POST /api/media/renders/{id}/cancel`    | Stops a queued or running job of any kind; its partial files are removed                                                                 |
-| `GET /api/queues/media/jobs`             | Lists the jobs (`jobType` `render_video`, `process_audio`, `produce_program` or `nudge_program`)                                         |
+| `GET /api/queues/media/jobs`             | Lists the jobs (`jobType` `render_video`, `process_audio`, `produce_program`, `nudge_program` or `subtitle_program`)                                         |
 | `GET`/`PUT /api/connectors/media/config` | Reads or saves the [defaults](#media-processing-settings)                                                                                |
 
 Errors: `400` for a relative path, an unsupported file or invalid settings; `404` for a missing
@@ -452,6 +474,7 @@ A program, when it ends (and again after each nudge), with the sync it found:
       "coverage": 1.0,
       "silentStartSeconds": 0.0,
       "silentEndSeconds": 0.0,
+      "damagedFrames": 0,
       "audioOutputPath": "/Volumes/A002/Metocast Renders/Untitled CAM 1 05.wav"
     }
   }
@@ -461,8 +484,11 @@ A program, when it ends (and again after each nudge), with the sync it found:
 `state` is `running`, `succeeded`, `failed` or `cancelled`. An audio job's `step` is `download`,
 `prepare`, `clean`, `align` or `finish`. Its `fraction` is `null` during `clean`, because
 jive-vocals reports no progress. A program's `step` is `download`, `picture`, `prepare`, `sync`,
-`clean` or `merge`. A sync `method` of `clock`, or `confident: false`, means the operator should
-check the result; `manual` means the request gave `startSeconds`.
+`clean`, `merge` or `captions` (Whisper placing an English transcript, after the merge; `fraction`
+is `null`). A sync `method` of `clock`, or `confident: false`, means the operator should
+check the result; `manual` means the request gave `startSeconds`. `damagedFrames` counts frames at the clip's
+end that a recording that didn't end cleanly left unreadable, shown as the last good frame held (see
+[the media page](docs/features/media.md#a-clip-whose-end-is-damaged)).
 
 Each finished file becomes a recording (`media_kind` `video` or `audio`). Its `metadata` holds the
 settings used (`render` or `audio`), an audio master's `report`, and a `timeline` object for the
@@ -771,3 +797,12 @@ pnpm tauri build      # Production build
 pnpm build:server     # Headless server binary (target/debug/metocast-server)
 pnpm check            # TypeScript + Svelte type checking
 ```
+
+### Plans
+
+Plans for new work are [GitHub issues](https://github.com/UMC-Hungary/metocast/issues), not files
+in the repository: the problem, the approach, the steps and what "done" means, discussed there
+and linked from the pull request that carries the plan out. For example,
+[#33](https://github.com/UMC-Hungary/metocast/issues/33) places dropped live transcripts on a
+program with local Whisper. The `plans/` folder is ignored by git; the older notes some
+sections link to live only on the machines that wrote them.

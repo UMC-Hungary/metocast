@@ -107,7 +107,7 @@ pub const EVENTS: &[Event] = &[
     ),
     (
         "media.program.progress",
-        "Progress of a program render",
+        "Progress of a program job: its render, a nudge, or transcripts added to it (step `captions`)",
         &[("progress", "object")],
     ),
     (

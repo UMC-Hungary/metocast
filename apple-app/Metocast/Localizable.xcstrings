@@ -349,6 +349,44 @@
         }
       }
     },
+    "%@ transcript (%u lines) moved %@ with the recording; it didn't clearly match the voice, so check it" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ transcript (%#@lines@) moved %3$@ with the recording; it didn't clearly match the voice, so check it"
+          },
+          "substitutions" : {
+            "lines" : {
+              "argNum" : 2,
+              "formatSpecifier" : "u",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg line"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg lines"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ átirat (%2$u sor) a felvétellel együtt %3$@ eltolva; nem illeszkedett egyértelműen a hanghoz, ellenőrizd"
+          }
+        }
+      }
+    },
     "%@ transcript (%u lines) moved %@, saved beside the video" : {
       "localizations" : {
         "en" : {
@@ -383,6 +421,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ átirat (%2$u sor) %3$@ eltolva, a videó mellé mentve"
+          }
+        }
+      }
+    },
+    "%@ transcript: %u sentences placed on the speech, %u matched by word, saved beside the video" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ transcript: %2$u sentences placed on the speech, %3$u matched by word, saved beside the video"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ átirat: %2$u mondat a beszédhez illesztve, ebből %3$u szó szerint egyeztetve, a videó mellé mentve"
           }
         }
       }
@@ -1238,6 +1292,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Más eszközök engedélyezése a hálózaton"
+          }
+        }
+      }
+    },
+    "An English transcript, such as the live translation downloaded from Transcripts, is rebuilt into whole sentences, each placed where it is spoken. Other languages are matched with the voice. The .srt is saved beside the video and sent with the YouTube and Facebook uploads." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az angol átiratot (például az Átiratok oldalról letöltött élő fordítást) a Metocast egész mondatokká alakítja, és mindegyiket oda illeszti, ahol elhangzik. Más nyelvű átiratot a beszédhanghoz igazít. Az .srt a videó mellé kerül, és a YouTube- és Facebook-feltöltésekkel együtt megy."
           }
         }
       }
@@ -3040,12 +3104,32 @@
         }
       }
     },
+    "Downloading tools (first time only)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eszközök letöltése (csak első alkalommal)"
+          }
+        }
+      }
+    },
     "Drag to reorder, swipe left (on the Mac, the trash button) to delete, double-click to rename. Announcements take one bullet per line and a slide one paragraph per line; both show on screen. The readings join the list when they are set on the event. Step through it on the Live or Presentation page." : {
       "localizations" : {
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Húzd a sorrendhez, húzd balra a törléshez (Macen a kuka gombbal), kattints duplán az átnevezéshez. A hirdetéseket soronként egy pontban, a dia bekezdéseit soronként egyben írd be; mindkettő kivetítésre kerül. Az igék maguktól bekerülnek a listába, amikor az eseményen megadod őket. A lépéseken az Élő vagy a Prezentáció oldalon haladhatsz végig."
+          }
+        }
+      }
+    },
+    "Drop a transcript (.vtt or .srt) here to place it on this program." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Húzz ide egy átiratot (.vtt vagy .srt), hogy erre a műsorra illeszd."
           }
         }
       }
@@ -5860,6 +5944,26 @@
         }
       }
     },
+    "Placing the transcript on the speech" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az átirat illesztése a beszédhez"
+          }
+        }
+      }
+    },
+    "Placing the transcript on the speech · %@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az átirat illesztése a beszédhez · %@"
+          }
+        }
+      }
+    },
     "Play" : {
       "localizations" : {
         "hu" : {
@@ -8146,6 +8250,16 @@
         }
       }
     },
+    "The first job with an English transcript downloads Whisper's model (about 3.1 GB)." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az első angol átiratos munka letölti a Whisper modelljét (kb. 3,1 GB)."
+          }
+        }
+      }
+    },
     "The jive-vocals path in Media Processing doesn't point to a program" : {
       "localizations" : {
         "hu" : {
@@ -8192,6 +8306,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A réteg az aktuális esemény címét mutatja, amelyet a szerver tölt ki."
+          }
+        }
+      }
+    },
+    "The recording didn't end cleanly: the last good frame stands in for %llu damaged frames at its end" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The recording didn't end cleanly: the last good frame stands in for %llu damaged frame at its end"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "The recording didn't end cleanly: the last good frame stands in for %llu damaged frames at its end"
+                }
+              }
+            }
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A felvétel nem zárult le rendesen: a végén %llu sérült képkocka helyén az utolsó ép kocka áll"
           }
         }
       }
@@ -8522,16 +8664,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ez mindenkinél leállítja: %@."
-          }
-        }
-      }
-    },
-    "Timed to the video or to the recording: Metocast matches the lines with the voice, saves an .srt beside the video, and sends it with the YouTube and Facebook uploads." : {
-      "localizations" : {
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A videóhoz vagy a felvételhez időzítve: a Metocast a beszédhanghoz igazítja a sorokat, a videó mellé ment egy .srt fájlt, és elküldi a YouTube- és Facebook-feltöltésekkel."
           }
         }
       }

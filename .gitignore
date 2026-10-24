@@ -86,3 +86,6 @@ gemini.md
 
 # ffmpeg/build.sh output
 /ffmpeg/build/
+
+# whisper/build.sh output
+/whisper/build/

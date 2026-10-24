@@ -89,7 +89,8 @@
       const date = open.transcript.startedAt.slice(0, 16).replace(/[T:]/g, '-');
       Object.assign(document.createElement('a'), {
         href: url,
-        download: `transcript-${date}${clean ? '-clean' : ''}.${format}`,
+        // English, as the library is: Metocast's Media page reads `.en` from the name.
+        download: `transcript-${date}${clean ? '-clean' : ''}.en.${format}`,
       }).click();
       URL.revokeObjectURL(url);
     } catch (e) {

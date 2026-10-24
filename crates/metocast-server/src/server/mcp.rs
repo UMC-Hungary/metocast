@@ -156,6 +156,7 @@ const REST: &[(&str, &str, &str, &str)] = &[
     ("POST", "/media/programs/probe", "media_programs_probe", "Describe a program (video plus audio) before rendering"),
     ("POST", "/media/programs", "media_programs_start", "Start a program render"),
     ("POST", "/media/programs/{id}/nudge", "media_programs_nudge", "Shift a program's audio against its video"),
+    ("POST", "/media/programs/{id}/subtitles", "media_programs_subtitles", "Place transcripts on a finished program (replaces that language's track and sends it to YouTube)"),
     ("GET", "/automations", "automations.list", "List automation rules and the armed switch"),
     ("POST", "/automations", "automations_create", "Create an automation rule"),
     ("GET", "/automations/runs", "automations_runs", "Recent automation runs"),
@@ -285,9 +286,17 @@ impl Tool {
         let destructive = !read_only
             && (method == "DELETE"
                 || has(&[
-                    "delete", "remove", "logout", "purge", "clear", "close", "unload",
+                    "delete",
+                    "remove",
+                    "logout",
+                    "purge",
+                    "clear",
+                    "close",
+                    "unload",
                     // sends the transcript to OpenAI and replaces the clean version
                     "cleanup",
+                    // replaces a finished program's caption track and sends it to YouTube
+                    "subtitles",
                 ])
                 || label.contains(".stream.")
                 || label.contains(".record.stop")
@@ -1601,6 +1610,7 @@ mod tests {
             "obs_record_stop",
             "transcripts_delete",
             "transcripts_cleanup",
+            "media_programs_subtitles",
             "events_stream_start",
             "events_stream_stop",
         ] {

@@ -11,6 +11,7 @@ mod program;
 mod subtitles;
 mod sync;
 mod tools;
+mod whisper;
 mod worker;
 
 use metocast_core::best_effort::LogGone;
@@ -40,7 +41,7 @@ use crate::server::AppState;
 
 pub use audio::{probe_audio, start_audio};
 pub use camera_clips::spawn_camera_clip_log;
-pub use program::{nudge_program, probe_program, start_program};
+pub use program::{add_program_subtitles, nudge_program, probe_program, start_program};
 pub use worker::spawn_worker;
 
 pub const MEDIA_QUEUE: &str = "media";
@@ -91,6 +92,8 @@ struct Tools {
     jive_vocals: Option<PathBuf>,
     /// Reads lip movement for audio/video sync; shipped next to the server in the Mac app.
     lip_reader: Option<PathBuf>,
+    /// Places a dropped transcript on the speech; shipped next to the server in the Mac app.
+    whisper: Option<PathBuf>,
 }
 
 impl Tools {
@@ -142,6 +145,11 @@ impl Tools {
             .map(PathBuf::from)
             .or_else(|| beside_server("lip-reader"))
             .and_then(existing);
+        // METOCAST_WHISPER points a dev build at `whisper/build/whisper-cli`.
+        let whisper = std::env::var_os("METOCAST_WHISPER")
+            .map(PathBuf::from)
+            .or_else(|| beside_server("whisper-cli"))
+            .and_then(existing);
         Self {
             ffmpeg,
             ffprobe,
@@ -149,6 +157,7 @@ impl Tools {
             braw_sdk,
             jive_vocals,
             lip_reader,
+            whisper,
         }
     }
 
@@ -176,6 +185,8 @@ struct Probed {
     tools: Tools,
     /// What `braw-decode frames` writes.
     pixel_format: String,
+    /// Frames at the clip's end that can't be read; renders hold the last good frame over them.
+    damaged_frames: u64,
 }
 
 #[derive(Debug)]
@@ -344,7 +355,7 @@ async fn probe_source(
         width: facts.width,
         height: facts.height,
     };
-    let (width, height, active_area, frame_count, pixel_format, raw_options) =
+    let (width, height, active_area, frame_count, pixel_format, raw_options, damaged_frames) =
         match (facts.kind, &tools.braw_decode) {
             (MediaKind::Braw, Some(braw_decode)) if tools.braw_sdk.is_some() => {
                 let info =
@@ -355,6 +366,7 @@ async fn probe_source(
                     info.apply_to(&mut defaults);
                     defaults.sidecar_path = Some(sidecar.to_string_lossy().into_owned());
                 }
+                let readable = info.readable_frames.unwrap_or(info.frame_count);
                 (
                     info.width,
                     info.height,
@@ -362,6 +374,7 @@ async fn probe_source(
                     info.frame_count,
                     info.pixel_format.clone(),
                     Some(info.raw_options()),
+                    info.frame_count.saturating_sub(readable),
                 )
             }
             _ => (
@@ -371,6 +384,7 @@ async fn probe_source(
                 facts.frame_count,
                 "rgb48le".to_string(),
                 None,
+                0,
             ),
         };
     if let Some(options) = &raw_options {
@@ -415,6 +429,7 @@ async fn probe_source(
         probe,
         tools,
         pixel_format,
+        damaged_frames,
     })
 }
 
@@ -707,6 +722,8 @@ async fn preview(state: &AppState, body: PreviewRequest) -> Result<Json<PreviewF
         height: probe.height,
         fps_num: probe.fps_num,
         fps_den: probe.fps_den,
+        frame_count: probe.frame_count,
+        damaged_frames: probed.damaged_frames,
         start_timecode: None,
         audio_channels: None,
         pixel_format: &probed.pixel_format,
@@ -714,7 +731,12 @@ async fn preview(state: &AppState, body: PreviewRequest) -> Result<Json<PreviewF
     let (_, args) = command::preview_args(
         &command_source,
         body.settings.as_ref(),
-        body.frame.min(probe.frame_count.saturating_sub(1)),
+        body.frame.min(
+            probe
+                .frame_count
+                .saturating_sub(probed.damaged_frames)
+                .saturating_sub(1),
+        ),
         body.max_width.unwrap_or(1600).clamp(160, 3840),
         probed.tools.braw_sdk.as_deref(),
     );

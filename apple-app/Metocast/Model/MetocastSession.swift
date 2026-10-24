@@ -339,6 +339,12 @@ final class MetocastSession {
         try await client.nudgeProgram(jobId: jobId, frames: frames)
     }
 
+    /// Places transcripts dropped on a finished program, as its job would have; its progress
+    /// arrives under the program's job id.
+    func addProgramSubtitles(jobId: String, subtitles: [SubtitleSource]) async throws {
+        try await client.addProgramSubtitles(jobId: jobId, subtitles: subtitles)
+    }
+
     /// Book and chapter autocomplete for a Bible reference.
     func bibleSuggestions(_ term: String) async throws -> [BibleSuggestionRecord] {
         try await client.bibleSuggestions(term: term)
