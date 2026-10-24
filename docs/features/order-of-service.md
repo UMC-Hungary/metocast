@@ -35,7 +35,7 @@ Every connected device sees the same list and the same current step.
 
 Every new event starts with these steps, whichever app or tool created it:
 
-1. Isten hozott! (a slide, named after the [welcome screen](welcome-screen.md)'s greeting)
+1. Isten hozott. (a slide, named after the [welcome screen](welcome-screen.md)'s greeting)
 2. Song 1
 3. Song 2
 4. Lekció

@@ -90,8 +90,8 @@ private struct WelcomeScreenSection: View {
     /// The default greeting and blessing in each language, swapped in on a language change
     /// unless the operator wrote their own.
     private static let defaults = [
-        "hu": ("Isten hozott!", "Az ÚR áldása legyen életeden!"),
-        "en": ("Welcome!", "The Lord bless you and keep you!"),
+        "hu": ("Isten hozott.", "Az ÚR áldása legyen életeden!"),
+        "en": ("Welcome.", "The Lord bless you and keep you!"),
     ]
 
     /// What the file picker is choosing for: a photo (1–12) or the logo (0).
@@ -103,7 +103,7 @@ private struct WelcomeScreenSection: View {
     var body: some View {
         Section {
             if let settings {
-                TextField("Greeting", text: field(\.title), prompt: Text("Isten hozott!"))
+                TextField("Greeting", text: field(\.title), prompt: Text("Isten hozott."))
                 TextField("Blessing", text: field(\.subtitle), prompt: Text("Az ÚR áldása legyen életeden!"))
                 TextField("Church Name", text: field(\.churchName), prompt: Text("Nyíregyházi Metodista Gyülekezet"))
                 Picker("Language", selection: Binding(get: { settings.language }, set: { switchLanguage(to: $0) })) {

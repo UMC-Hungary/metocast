@@ -1,5 +1,6 @@
 //! The welcome screen: a photo, the logo and the greeting as one SVG slide, which every screen
-//! already draws (web presenter, the apps, the receiver). Each month has its own photo. The text is white, and a dark overlay keeps it readable on any photo: its strength is
+//! already draws (web presenter, the apps, the receiver), in Montserrat. Each month has its own
+//! photo. The text is white, and a dark overlay keeps it readable on any photo: its strength is
 //! worked out from the photo's own brightness behind the text.
 
 use axum::{
@@ -17,6 +18,8 @@ use sqlx::PgPool;
 pub use metocast_core::slides::WelcomeSettings;
 
 use crate::database::settings;
+use std::sync::OnceLock;
+
 use crate::server::AppState;
 use crate::server::presenter::presenter_svg;
 use crate::server::presenter::{
@@ -105,13 +108,31 @@ fn luminance(pixel: &image::Rgb<u8>) -> f64 {
     0.2126 * channel(pixel[0]) + 0.7152 * channel(pixel[1]) + 0.0722 * channel(pixel[2])
 }
 
-/// How dark the overlay behind the text must be (0–1) for white text to reach
-/// `TARGET_CONTRAST` against the photo there. A black overlay of opacity `a` turns luminance `L`
-/// into `(1 − a)·L`, and white on `L` has contrast `1.05 / (L + 0.05)`.
-fn overlay_opacity(photo: &image::RgbImage) -> f64 {
+/// A part of the slide where text sits, as fractions of its width and height: (x0, y0, x1, y1).
+/// Each zone's darkening is measured on its own, so the photo stays vivid where nothing is
+/// written, and each gradient below is at full strength across its whole zone.
+type Zone = (f64, f64, f64, f64);
+/// The church name and the logo.
+const TOP: Zone = (0.0, 0.0, 1.0, 0.14);
+/// The greeting and the blessing.
+const CENTRE: Zone = (0.12, 0.36, 0.88, 0.68);
+/// The date and the year.
+const BOTTOM: Zone = (0.0, 0.8, 1.0, 1.0);
+
+/// How dark the overlay over `zone` must be (0–1) for white text to reach `TARGET_CONTRAST`
+/// against the photo there. A black overlay of opacity `a` turns luminance `L` into `(1 − a)·L`,
+/// and white on `L` has contrast `1.05 / (L + 0.05)`.
+fn overlay_opacity(photo: &image::RgbImage, zone: Zone) -> f64 {
     let (w, h) = photo.dimensions();
-    let mut lums: Vec<f64> = (h * 30 / 100..h * 95 / 100)
-        .flat_map(|y| (w / 10..w * 9 / 10).map(move |x| (x, y)))
+    let (fw, fh) = (f64::from(w), f64::from(h));
+    let (x0, y0, x1, y1) = (
+        (zone.0 * fw) as u32,
+        (zone.1 * fh) as u32,
+        ((zone.2 * fw) as u32).min(w),
+        ((zone.3 * fh) as u32).min(h),
+    );
+    let mut lums: Vec<f64> = (y0..y1)
+        .flat_map(|y| (x0..x1).map(move |x| (x, y)))
         .map(|(x, y)| luminance(photo.get_pixel(x, y)))
         .collect();
     if lums.is_empty() {
@@ -120,17 +141,18 @@ fn overlay_opacity(photo: &image::RgbImage) -> f64 {
     lums.sort_unstable_by(f64::total_cmp);
     let bright = lums[((lums.len() - 1) as f64 * BRIGHT_PERCENTILE) as usize];
     let allowed = 1.05 / TARGET_CONTRAST - 0.05;
-    // A little overlay even on a dark photo keeps the text calm; never black it out completely.
-    (1.0 - allowed / bright.max(allowed)).clamp(0.15, 0.9)
+    // A touch of shade even on a dark photo keeps the text calm; never black it out completely.
+    (1.0 - allowed / bright.max(allowed)).clamp(0.12, 0.9)
 }
 
-/// The photo cover-cropped to the slide, as a JPEG data URI, with the overlay it needs.
-fn prepare_photo(bytes: &[u8]) -> Result<(String, f64), String> {
+/// The photo cover-cropped to the slide, as a JPEG data URI, with the overlay each zone needs:
+/// (top, centre, bottom).
+fn prepare_photo(bytes: &[u8]) -> Result<(String, [f64; 3]), String> {
     let photo = image::load_from_memory(bytes)
         .map_err(|e| format!("Couldn't read the photo: {e}"))?
         .resize_to_fill(WIDTH, HEIGHT, image::imageops::FilterType::CatmullRom)
         .to_rgb8();
-    let opacity = overlay_opacity(&photo);
+    let shade = [TOP, CENTRE, BOTTOM].map(|zone| overlay_opacity(&photo, zone));
     let mut jpeg = Vec::new();
     image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg, 82)
         .encode_image(&photo)
@@ -139,7 +161,22 @@ fn prepare_photo(bytes: &[u8]) -> Result<(String, f64), String> {
         "data:image/jpeg;base64,{}",
         base64::engine::general_purpose::STANDARD.encode(jpeg)
     );
-    Ok((uri, opacity))
+    Ok((uri, shade))
+}
+
+/// Montserrat (SIL Open Font License), built in so the slide looks the same wherever the server
+/// runs; the text becomes outlines, so no screen needs it either.
+fn text_options() -> &'static usvg::Options<'static> {
+    static OPTIONS: OnceLock<usvg::Options<'static>> = OnceLock::new();
+    OPTIONS.get_or_init(|| {
+        let mut options = usvg::Options::default();
+        let fonts = options.fontdb_mut();
+        fonts.load_font_data(include_bytes!("../../assets/fonts/Montserrat-Medium.ttf").to_vec());
+        fonts.load_font_data(include_bytes!("../../assets/fonts/Montserrat-SemiBold.ttf").to_vec());
+        fonts.load_font_data(include_bytes!("../../assets/fonts/Montserrat-Bold.ttf").to_vec());
+        options.font_family = "Montserrat".to_string();
+        options
+    })
 }
 
 fn escape(text: &str) -> String {
@@ -149,73 +186,268 @@ fn escape(text: &str) -> String {
         .replace('"', "&quot;")
 }
 
-/// One centred line in white with a soft dark copy under it, shrunk to fit the slide's width.
-fn line(svg: &mut String, text: &str, y: f64, size: f64, weight: u32) {
-    // Helvetica-like glyphs average about 0.55 em; keep a margin either side.
-    let max = f64::from(WIDTH) * 0.84;
-    let size = size.min(max / (text.chars().count().max(1) as f64 * 0.55));
-    let text = escape(text);
-    for (dy, fill) in [
-        (size * 0.05, "fill=\"#000\" fill-opacity=\"0.55\""),
+/// Montserrat's glyphs average about 0.62 em.
+fn text_width(text: &str, size: f64) -> f64 {
+    text.chars().count() as f64 * size * 0.62
+}
+
+/// How a line of text is set.
+struct Style {
+    size: f64,
+    weight: u32,
+    /// `start`, `middle` or `end`.
+    anchor: &'static str,
+    /// Letter spacing in em.
+    tracking: f64,
+    /// The line shrinks to fit this width.
+    max_width: f64,
+}
+
+/// One line of white text at `(x, y)` with a faint shadow for crisp edges; returns the font size
+/// it was set at.
+fn text(svg: &mut String, value: &str, (x, y): (f64, f64), style: Style) -> f64 {
+    let Style {
+        size,
+        weight,
+        anchor,
+        tracking,
+        max_width,
+    } = style;
+    let size = size.min(max_width / (text_width(value, 1.0) + 0.0001));
+    let value = escape(value);
+    let shadow = (size * 0.03).max(1.0);
+    for (dx, fill) in [
+        (shadow, "fill=\"#000\" fill-opacity=\"0.35\""),
         (0.0, "fill=\"#fff\""),
     ] {
         svg.push_str(&format!(
-            "<text x=\"{x}\" y=\"{y}\" font-family=\"Helvetica\" font-size=\"{size:.1}\" font-weight=\"{weight}\" text-anchor=\"middle\" {fill}>{text}</text>\n",
-            x = f64::from(WIDTH) / 2.0 + dy,
-            y = y + dy,
+            "<text x=\"{x:.1}\" y=\"{y:.1}\" font-family=\"Montserrat\" font-size=\"{size:.1}\" font-weight=\"{weight}\" letter-spacing=\"{ls:.2}\" text-anchor=\"{anchor}\" {fill}>{value}</text>\n",
+            x = x + dx,
+            y = y + dx,
+            ls = tracking * size,
         ));
+    }
+    size
+}
+
+/// The date as the slide shows it: the day as a big number, the month and weekday beside it,
+/// and the year on the right.
+struct DateParts {
+    day: String,
+    month: String,
+    weekday: String,
+    year: String,
+}
+
+fn date_parts(date: chrono::NaiveDate, language: &str) -> DateParts {
+    const HU_MONTHS: [&str; 12] = [
+        "január",
+        "február",
+        "március",
+        "április",
+        "május",
+        "június",
+        "július",
+        "augusztus",
+        "szeptember",
+        "október",
+        "november",
+        "december",
+    ];
+    const HU_DAYS: [&str; 7] = [
+        "hétfő",
+        "kedd",
+        "szerda",
+        "csütörtök",
+        "péntek",
+        "szombat",
+        "vasárnap",
+    ];
+    let (month, weekday) = if language == "en" {
+        (date.format("%B").to_string(), date.format("%A").to_string())
+    } else {
+        (
+            HU_MONTHS[date.month0() as usize].to_string(),
+            HU_DAYS[date.weekday().num_days_from_monday() as usize].to_string(),
+        )
+    };
+    DateParts {
+        day: date.day().to_string(),
+        month,
+        weekday,
+        year: date.year().to_string(),
     }
 }
 
-/// The welcome slide as SVG: photo, overlay, logo top right, title, lines and footer.
+/// The welcome slide as SVG, in the Editorial layout: the photo with its shade, the church name
+/// top left, the logo top right, the greeting and blessing in the middle, the date bottom left
+/// and the year bottom right. The photo zooms in slowly where the screen animates SVG.
 fn slide_svg(
     photo: &[u8],
     logo: Option<(&str, &[u8])>,
+    church: &str,
     title: &str,
     lines: &[String],
-    footer: &[String],
+    date: &DateParts,
 ) -> Result<String, String> {
-    let (photo, opacity) = prepare_photo(photo)?;
+    let (photo, [top, centre, bottom]) = prepare_photo(photo)?;
+    // An even shade sized for the greeting, then only the extra the top or bottom still needs:
+    // a shade `even` and a gradient `extra` together darken by 1 − (1 − even)(1 − extra).
+    let even = centre;
+    let extra = |zone: f64| (1.0 - (1.0 - zone) / (1.0 - even)).max(0.0);
+    let (top, bottom) = (extra(top), extra(bottom));
     let (w, h) = (f64::from(WIDTH), f64::from(HEIGHT));
+    let margin = 48.0;
     let mut svg = format!(
         "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" viewBox=\"0 0 {WIDTH} {HEIGHT}\" width=\"{WIDTH}\" height=\"{HEIGHT}\">\n\
-         <defs><linearGradient id=\"scrim\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\">\
-         <stop offset=\"0\" stop-color=\"#000\" stop-opacity=\"{top:.3}\"/>\
-         <stop offset=\"0.3\" stop-color=\"#000\" stop-opacity=\"{opacity:.3}\"/>\
-         <stop offset=\"1\" stop-color=\"#000\" stop-opacity=\"{opacity:.3}\"/></linearGradient></defs>\n\
+         <defs>\
+         <linearGradient id=\"top\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"#000\" stop-opacity=\"{top:.3}\"/><stop offset=\"{t1}\" stop-color=\"#000\" stop-opacity=\"{top:.3}\"/><stop offset=\"0.22\" stop-color=\"#000\" stop-opacity=\"{top_mid:.3}\"/><stop offset=\"0.31\" stop-color=\"#000\" stop-opacity=\"{top_low:.3}\"/><stop offset=\"0.42\" stop-color=\"#000\" stop-opacity=\"0\"/></linearGradient>\
+         <linearGradient id=\"bottom\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0.48\" stop-color=\"#000\" stop-opacity=\"0\"/><stop offset=\"0.6\" stop-color=\"#000\" stop-opacity=\"{bottom_low:.3}\"/><stop offset=\"0.7\" stop-color=\"#000\" stop-opacity=\"{bottom_mid:.3}\"/><stop offset=\"{b0}\" stop-color=\"#000\" stop-opacity=\"{bottom:.3}\"/><stop offset=\"1\" stop-color=\"#000\" stop-opacity=\"{bottom:.3}\"/></linearGradient>\
+         </defs>\n\
          <image x=\"0\" y=\"0\" width=\"{WIDTH}\" height=\"{HEIGHT}\" preserveAspectRatio=\"xMidYMid slice\" xlink:href=\"{photo}\"/>\n\
-         <rect x=\"0\" y=\"0\" width=\"{WIDTH}\" height=\"{HEIGHT}\" fill=\"url(#scrim)\"/>\n",
-        top = opacity * 0.35,
+         <rect width=\"{WIDTH}\" height=\"{HEIGHT}\" fill=\"#000\" fill-opacity=\"{even:.3}\"/>\n\
+         <rect width=\"{WIDTH}\" height=\"{HEIGHT}\" fill=\"url(#top)\"/>\n\
+         <rect width=\"{WIDTH}\" height=\"{HEIGHT}\" fill=\"url(#bottom)\"/>\n",
+        t1 = TOP.3,
+        b0 = BOTTOM.1,
+        // Eased fades, so the shade never ends in a visible band.
+        top_mid = top * 0.5,
+        top_low = top * 0.18,
+        bottom_low = bottom * 0.18,
+        bottom_mid = bottom * 0.5,
     );
+    let logo_size = 84.0;
     if let Some((mime, bytes)) = logo {
         let uri = format!(
             "data:{mime};base64,{}",
             base64::engine::general_purpose::STANDARD.encode(bytes)
         );
         svg.push_str(&format!(
-            "<image x=\"{x}\" y=\"{y}\" width=\"{s}\" height=\"{s}\" preserveAspectRatio=\"xMaxYMin meet\" xlink:href=\"{uri}\"/>\n",
-            s = h * 0.2,
-            x = w - h * 0.2 - h * 0.05,
-            y = h * 0.05,
+            "<image x=\"{x}\" y=\"{y}\" width=\"{logo_size}\" height=\"{logo_size}\" preserveAspectRatio=\"xMaxYMin meet\" xlink:href=\"{uri}\"/>\n",
+            x = w - margin - logo_size,
+            y = margin - 14.0,
         ));
     }
-    line(&mut svg, title, h * 0.47, h * 0.11, 700);
-    let mut y = h * 0.6;
-    for text in lines {
-        line(&mut svg, text, y, h * 0.055, 700);
-        y += h * 0.075;
+    // Nothing is smaller than 4.2% of the height (30 px here): readable from the back.
+    let small = h * 0.042;
+    if !church.is_empty() {
+        text(
+            &mut svg,
+            church,
+            (margin, margin + small * 0.8),
+            Style {
+                size: small,
+                weight: 600,
+                anchor: "start",
+                tracking: 0.0,
+                max_width: w - 3.0 * margin - logo_size,
+            },
+        );
     }
-    let mut y = h * (0.88 - 0.065 * footer.len().saturating_sub(1) as f64);
-    for text in footer {
-        line(&mut svg, text, y, h * 0.05, 600);
-        y += h * 0.065;
+    let title_baseline = h * 0.52;
+    let title_size = text(
+        &mut svg,
+        title,
+        (w / 2.0, title_baseline),
+        Style {
+            size: h * 0.15,
+            weight: 700,
+            anchor: "middle",
+            tracking: -0.025,
+            max_width: w * 0.86,
+        },
+    );
+    let mut y = title_baseline + title_size * 0.2 + h * 0.07;
+    for value in lines {
+        text(
+            &mut svg,
+            value,
+            (w / 2.0, y),
+            Style {
+                size: h * 0.047,
+                weight: 500,
+                anchor: "middle",
+                tracking: 0.0,
+                max_width: w * 0.8,
+            },
+        );
+        y += h * 0.064;
     }
+    let baseline = h - margin;
+    let day_size = text(
+        &mut svg,
+        &date.day,
+        (margin, baseline),
+        Style {
+            size: h * 0.1,
+            weight: 700,
+            anchor: "start",
+            tracking: -0.03,
+            max_width: w * 0.2,
+        },
+    );
+    let beside = margin + text_width(&date.day, day_size) * 0.95 + 16.0;
+    text(
+        &mut svg,
+        &date.month,
+        (beside, baseline - small * 1.2),
+        Style {
+            size: small,
+            weight: 600,
+            anchor: "start",
+            tracking: 0.0,
+            max_width: w * 0.4,
+        },
+    );
+    text(
+        &mut svg,
+        &date.weekday,
+        (beside, baseline),
+        Style {
+            size: small,
+            weight: 600,
+            anchor: "start",
+            tracking: 0.0,
+            max_width: w * 0.4,
+        },
+    );
+    text(
+        &mut svg,
+        &date.year,
+        (w - margin, baseline),
+        Style {
+            size: small,
+            weight: 600,
+            anchor: "end",
+            tracking: 0.0,
+            max_width: w * 0.2,
+        },
+    );
     svg.push_str("</svg>\n");
     // Outlines instead of text, so no screen needs the font.
-    Ok(presenter_svg::flatten_text_to_paths(
-        &svg,
-        &presenter_svg::build_flatten_options(),
-    ))
+    let flat = presenter_svg::flatten_text_to_paths(&svg, text_options());
+    Ok(with_slow_zoom(&flat))
+}
+
+/// Wraps the photo (the first `<image>`) in a group that zooms in by 8% over 20 seconds and back,
+/// for the screens that play CSS animation in SVG (the web presenter and the apps). Others, such
+/// as the Raspberry Pi receiver, ignore it and show the photo still.
+fn with_slow_zoom(svg: &str) -> String {
+    let Some(start) = svg.find("<image") else {
+        return svg.to_string();
+    };
+    let Some(len) = svg[start..].find("/>") else {
+        return svg.to_string();
+    };
+    let end = start + len + 2;
+    let style = "<style>@keyframes metocast-zoom{from{transform:scale(1)}to{transform:scale(1.08)}}\
+                 .metocast-zoom{transform-origin:50% 50%;transform-box:view-box;animation:metocast-zoom 20s ease-in-out infinite alternate}</style>";
+    format!(
+        "{}{style}<g class=\"metocast-zoom\">{}</g>{}",
+        &svg[..start],
+        &svg[start..end],
+        &svg[end..]
+    )
 }
 
 /// The service date in the welcome screen's language: "2026. október 25. vasárnap" as Hungarian
@@ -281,6 +513,7 @@ async fn render(
     .into_iter()
     .filter(|l| !l.is_empty())
     .collect();
+    let parts = date_parts(date, &stored.language);
     let photo = photo(pool, date.month() as usize)
         .await
         .map_err(|e| e.to_string())?;
@@ -289,9 +522,10 @@ async fn render(
         &photo,
         logo.as_ref()
             .map(|(mime, bytes)| (mime.as_str(), bytes.as_slice())),
+        stored.church_name.trim(),
         title.trim(),
         &lines,
-        &footer,
+        &parts,
     )?;
     Ok((svg, lines, footer))
 }
@@ -537,8 +771,8 @@ async fn remove(pool: &PgPool, name: &str) -> axum::response::Response {
 mod tests {
     use super::*;
 
-    /// Every default photo, with the overlay it gets, keeps white text at the target contrast
-    /// against all but the brightest specks behind it.
+    /// Every default photo, with the shade each zone gets, keeps white text at the target
+    /// contrast against all but the brightest specks behind it, in all three zones.
     #[test]
     fn white_text_is_readable_on_every_default_photo() {
         for (index, bytes) in DEFAULT_PHOTOS.iter().enumerate() {
@@ -546,49 +780,63 @@ mod tests {
                 .expect("default photo decodes")
                 .resize_to_fill(WIDTH, HEIGHT, image::imageops::FilterType::Triangle)
                 .to_rgb8();
-            let opacity = overlay_opacity(&photo);
-            let (w, h) = photo.dimensions();
-            let mut lums: Vec<f64> = (h * 30 / 100..h * 95 / 100)
-                .flat_map(|y| (w / 10..w * 9 / 10).map(move |x| (x, y)))
-                .map(|(x, y)| (1.0 - opacity) * luminance(photo.get_pixel(x, y)))
-                .collect();
-            lums.sort_unstable_by(f64::total_cmp);
-            let bright = lums[((lums.len() - 1) as f64 * BRIGHT_PERCENTILE) as usize];
-            let contrast = 1.05 / (bright + 0.05);
-            assert!(
-                contrast >= TARGET_CONTRAST - 0.01,
-                "photo {:02}: contrast {contrast:.2} with overlay {opacity:.2}",
-                index + 1
-            );
+            for (name, zone) in [("top", TOP), ("centre", CENTRE), ("bottom", BOTTOM)] {
+                let opacity = overlay_opacity(&photo, zone);
+                let (w, h) = (f64::from(WIDTH), f64::from(HEIGHT));
+                let mut lums: Vec<f64> = ((zone.1 * h) as u32..(zone.3 * h) as u32)
+                    .flat_map(|y| ((zone.0 * w) as u32..(zone.2 * w) as u32).map(move |x| (x, y)))
+                    .map(|(x, y)| (1.0 - opacity) * luminance(photo.get_pixel(x, y)))
+                    .collect();
+                lums.sort_unstable_by(f64::total_cmp);
+                let bright = lums[((lums.len() - 1) as f64 * BRIGHT_PERCENTILE) as usize];
+                let contrast = 1.05 / (bright + 0.05);
+                assert!(
+                    contrast >= TARGET_CONTRAST - 0.01,
+                    "photo {:02}, {name}: contrast {contrast:.2} with shade {opacity:.2}",
+                    index + 1
+                );
+            }
         }
     }
 
     #[test]
-    fn the_date_reads_as_hungarian_churches_write_it() {
+    fn the_date_reads_as_each_language_writes_it() {
         let date = chrono::NaiveDate::from_ymd_opt(2026, 10, 25).expect("valid date");
         assert_eq!(service_date(date, "hu"), "2026. október 25. vasárnap");
         assert_eq!(service_date(date, "en"), "Sunday, October 25, 2026");
+        let hu = date_parts(date, "hu");
+        assert_eq!(
+            [hu.day, hu.month, hu.weekday, hu.year],
+            ["25", "október", "vasárnap", "2026"]
+        );
+        let en = date_parts(date, "en");
+        assert_eq!([en.month, en.weekday], ["October", "Sunday"]);
     }
 
     #[test]
-    fn a_dark_photo_gets_little_overlay_and_a_white_one_a_lot() {
+    fn a_dark_photo_gets_little_shade_and_a_white_one_a_lot() {
         let dark = image::RgbImage::from_pixel(64, 36, image::Rgb([20, 20, 20]));
         let white = image::RgbImage::from_pixel(64, 36, image::Rgb([255, 255, 255]));
-        assert!(overlay_opacity(&dark) <= 0.2);
-        assert!(overlay_opacity(&white) >= 0.8);
+        assert!(overlay_opacity(&dark, CENTRE) <= 0.2);
+        assert!(overlay_opacity(&white, CENTRE) >= 0.8);
     }
 
     #[test]
-    fn the_slide_is_an_svg_with_the_photo() {
+    fn the_slide_is_an_svg_with_the_photo_zooming_and_the_text_as_outlines() {
+        let date = chrono::NaiveDate::from_ymd_opt(2026, 10, 25).expect("valid date");
         let svg = slide_svg(
-            DEFAULT_PHOTOS[0],
+            DEFAULT_PHOTOS[9],
             None,
-            "Isten hozott!",
+            "Nyíregyházi Metodista Gyülekezet",
+            "Isten hozott.",
             &["Az ÚR áldása legyen életeden!".to_string()],
-            &["2026. október 25. vasárnap".to_string()],
+            &date_parts(date, "hu"),
         )
         .expect("slide renders");
         assert!(svg.starts_with("<svg"));
         assert!(svg.contains("data:image/jpeg;base64,"));
+        assert!(svg.contains("class=\"metocast-zoom\""));
+        // The built-in font is found, so no text is left for a screen to lay out.
+        assert!(!svg.contains("<text"));
     }
 }

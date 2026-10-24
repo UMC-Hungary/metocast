@@ -70,7 +70,7 @@ fn handwritten() -> Value {
                 "WelcomeSettings": {
                     "type": "object",
                     "properties": {
-                        "title": { "type": "string", "maxLength": 120, "description": "The greeting a new event's welcome step is named after", "example": "Isten hozott!" },
+                        "title": { "type": "string", "maxLength": 120, "description": "The greeting a new event's welcome step is named after", "example": "Isten hozott." },
                         "subtitle": { "type": "string", "maxLength": 200, "description": "Shown under the title when the step has no notes of its own", "example": "Az ÚR áldása legyen életeden!" },
                         "churchName": { "type": "string", "maxLength": 120, "description": "Shown above the event's date at the bottom", "example": "Nyíregyházi Metodista Gyülekezet" },
                         "language": { "type": "string", "enum": ["hu", "en"], "description": "The language the date is written in: 2026. október 25. vasárnap, or Sunday, October 25, 2026", "example": "hu" },

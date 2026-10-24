@@ -9,24 +9,54 @@ presenter. New events start with one, named after the greeting. The step's title
 greeting, and its paragraphs (one per line) replace the blessing line. In Keynote mode a Slide
 step shows the same text as a plain slide.
 
+## The design
+
+One big, calm greeting on a full photo, with small anchors in the corners:
+
+- the greeting in sentence case (_Isten hozott._) in the middle, with the blessing under it;
+- the church name top left, the logo top right;
+- the date bottom left, as a large day number beside the month and weekday;
+- the year bottom right.
+
+The type is Montserrat (SIL Open Font License), built into the server: it draws the text as
+outlines, so the slide looks the same on every screen and none of them needs the font. The photo
+zooms in slowly (8% over 20 seconds, then back) in the web presenter and the apps. The Raspberry
+Pi receiver shows it still.
+
 ## Readable for everyone
 
-- The text is white, bold and large: the greeting is 11% of the slide's height, the other lines 5%.
-- Behind it, a dark overlay is sized for each photo. The server measures how bright the photo is
-  behind the text, ignoring only the brightest 5% of specks. It then darkens just enough that the
-  white text has at least **4.5:1** contrast there: WCAG's highest level (AAA) for large text.
-- A dark photo gets a light touch and a bright one (snow, sky, blossom) a stronger one, and a
-  thin shadow keeps letter edges crisp.
+- The text is white and large. The greeting is 15% of the slide's height, and nothing is
+  smaller than 4.2% (about 30 pixels at 720p), so it reads from the back of the room.
+- The server measures how bright the photo is behind each group of text: the greeting and
+  blessing, the top corners, and the bottom corners. It ignores only the brightest 5% of specks.
+- It shades the whole photo evenly just enough for the greeting. Then it adds a soft gradient at
+  the top or bottom only where the corner text needs more.
+- Every line then has at least **4.5:1** contrast: WCAG's highest level (AAA) for large text. A
+  dark photo stays almost untouched; a bright one (snow, sky, sunflowers) is shaded more, with no
+  visible bands or shapes.
 - A replaced photo goes through the same calculation, so no photo can make the text unreadable.
-  A test checks the twelve built-in photos.
+  A test checks all twelve built-in photos, zone by zone.
 
 ## The photos
 
 There are 12 photos, one for each month: the service's month picks the photo (photo 1 is January's).
-The defaults follow the seasons: snow in January and February, blossom in spring, summer fields, and
-autumn trees in October and November. They are public-domain (CC0) photos from Wikimedia Commons,
-most first published on Unsplash;
-[`CREDITS.md`](../../crates/metocast-server/assets/welcome/CREDITS.md) lists each one's source.
+The defaults were all taken in Hungary:
+
+1. Mátraszentimre in snow
+2. the snowy Mátra
+3. rural Hungary at Easter
+4. blossom in Zalaegerszeg
+5. a poppy field near Milejszeg
+6. lavender at Tihany
+7. sunflowers in the Hungarian countryside
+8. a sunset at Gyenesdiás
+9. vineyards at Hegymagas
+10. autumn in Szeged
+11. Budapest in morning fog
+12. Budapest in snow
+
+They come from Unsplash under the Unsplash License;
+[`CREDITS.md`](../../crates/metocast-server/assets/welcome/CREDITS.md) names each photographer.
 
 ## Use it
 

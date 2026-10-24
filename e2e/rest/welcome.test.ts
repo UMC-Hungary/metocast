@@ -26,7 +26,7 @@ describe.skipIf(!isLive)('Welcome screen REST API', () => {
 
   it('stores the text and language, and refuses an unknown language', async () => {
     const saved = await apiClient.put<WelcomeSettings>('/api/presenter/welcome', {
-      title: 'Isten hozott!',
+      title: 'Isten hozott.',
       subtitle: 'Az ÚR áldása legyen életeden!',
       churchName: 'E2E gyülekezet',
       language: 'hu',

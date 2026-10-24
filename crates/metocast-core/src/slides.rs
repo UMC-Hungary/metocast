@@ -154,7 +154,7 @@ pub struct WelcomeSettings {
 impl Default for WelcomeSettings {
     fn default() -> Self {
         Self {
-            title: "Isten hozott!".to_string(),
+            title: "Isten hozott.".to_string(),
             subtitle: "Az ÚR áldása legyen életeden!".to_string(),
             church_name: String::new(),
             language: "hu".to_string(),
