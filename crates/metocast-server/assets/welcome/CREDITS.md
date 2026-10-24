@@ -20,3 +20,10 @@ Replace any of them under Presentation → Presentation Settings → Welcome Scr
 | `10.jpg` | October | Szeged | Csaba Verebélyi | [unsplash.com/photos/P4byANrS8_Y](https://unsplash.com/photos/P4byANrS8_Y) |
 | `11.jpg` | November | Budapest | Gabriel Miklós | [unsplash.com/photos/uJR1dFzjReU](https://unsplash.com/photos/uJR1dFzjReU) |
 | `12.jpg` | December | Budapest | Aliya Sam | [unsplash.com/photos/iGKegNRp_Is](https://unsplash.com/photos/iGKegNRp_Is) |
+
+## Logo
+
+`logo.svg` is the Nyíregyházi Metodista Gyülekezet logo with the cross and flame, the registered
+emblem of The United Methodist Church, used here by a United Methodist congregation. The cross and
+lettering are recoloured white for use over photos. Another church should replace it with its own
+logo in the welcome settings.

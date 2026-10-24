@@ -862,12 +862,12 @@
         }
       }
     },
-    "A Slide step in the Order of Service shows this with the web presenter: the photo of the event's month, the logo, its title and the blessing, and the church name with the date. Click a month to preview it. The text stays readable: a darker overlay is added behind it on bright photos." : {
+    "A Slide step in the Order of Service shows this with the web presenter: the photo of the event's month with the logo, and its title, the blessing and the date in the lower third. Click a month to preview it. The text always stays readable: the photo softens and tones down only where text sits." : {
       "localizations" : {
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Az istentiszteleti rend Dia lépése ezt mutatja a webes kivetítővel: az esemény hónapjának fotóját, a logót, a címét és az áldást, valamint a gyülekezet nevét a dátummal. Kattints egy hónapra az előnézethez. A szöveg mindig olvasható marad: világos képeken sötétebb réteg kerül mögé."
+            "value" : "Az istentiszteleti rend Dia lépése ezt mutatja a webes kivetítővel: az esemény hónapjának fotóját a logóval, alul pedig a címét, az áldást és a dátumot. Kattints egy hónapra az előnézethez. A szöveg mindig olvasható: a kép csak ott lágyul és sötétül, ahol szöveg van."
           }
         }
       }
@@ -2718,6 +2718,16 @@
         }
       }
     },
+    "Custom" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Egyéni"
+          }
+        }
+      }
+    },
     "Cut" : {
       "localizations" : {
         "hu" : {
@@ -2804,6 +2814,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A diasorok a Metocast saját vetítőjében nyílnak meg a szerver kijelzőjén."
+          }
+        }
+      }
+    },
+    "Default" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alapértelmezett"
           }
         }
       }

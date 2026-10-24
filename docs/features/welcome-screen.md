@@ -1,7 +1,7 @@
 # Welcome screen
 
 The slide on screen before and at the start of the service: a full-bleed photo, the church's
-logo top right, a large greeting, a blessing line, and the church name with the service's date.
+logo top left, a large greeting and a blessing line in the lower third, and the service's date.
 Each month has its own photo.
 
 It is what a **Slide** step of the [Order of Service](order-of-service.md) shows with the web
@@ -11,31 +11,31 @@ step shows the same text as a plain slide.
 
 ## The design
 
-One big, calm greeting on a full photo, with small anchors in the corners:
+A modern, clean slide in the style of current streaming and editorial heroes:
 
-- the greeting in sentence case (_Isten hozott._) in the middle, with the blessing under it;
-- the church name top left, the logo top right;
-- the date bottom left, as a large day number beside the month and weekday;
-- the year bottom right.
+- the church's logo top left (by default the cross and flame with _Nyíregyházi Metodista
+  Gyülekezet_, in white with the red flame);
+- the photo sharp and bright across the top two-thirds;
+- in the lower third, the greeting (_Isten hozott._) large and left-aligned, the blessing under
+  it, and the date on the right of the same line.
 
-The type is Montserrat (SIL Open Font License), built into the server: it draws the text as
-outlines, so the slide looks the same on every screen and none of them needs the font. The photo
-zooms in slowly (8% over 20 seconds, then back) in the web presenter and the apps. The Raspberry
-Pi receiver shows it still.
+The type is Montserrat (SIL Open Font License), built into the server, which draws the text as
+outlines. So the slide looks the same on every screen and none of them needs the font. There
+are no shadows on the text. The photo zooms in slowly (8% over 20 seconds, then back) in the web
+presenter and the apps. The Raspberry Pi receiver shows it still.
 
 ## Readable for everyone
 
-- The text is white and large. The greeting is 15% of the slide's height, and nothing is
+- The text is white and large. The greeting is 14% of the slide's height, and nothing is
   smaller than 4.2% (about 30 pixels at 720p), so it reads from the back of the room.
-- The server measures how bright the photo is behind each group of text: the greeting and
-  blessing, the top corners, and the bottom corners. It ignores only the brightest 5% of specks.
-- It shades the whole photo evenly just enough for the greeting. Then it adds a soft gradient at
-  the top or bottom only where the corner text needs more.
-- Every line then has at least **4.5:1** contrast: WCAG's highest level (AAA) for large text. A
-  dark photo stays almost untouched; a bright one (snow, sky, sunflowers) is shaded more, with no
-  visible bands or shapes.
-- A replaced photo goes through the same calculation, so no photo can make the text unreadable.
-  A test checks all twelve built-in photos, zone by zone.
+- The photo makes room for the text instead of the text fighting the photo: the lower third
+  melts into a soft, progressive blur, so no busy detail sits behind the letters.
+- Where text sits (the lower third, and the logo's corner), bright parts of the photo are toned
+  down: only the highlights, keeping each colour, so dark and middle tones stay as they are.
+  Long gradients join this to the untouched rest of the photo, with no visible edge.
+- Every pixel behind the text ends up dark enough for **4.5:1** contrast with white: WCAG's
+  highest level (AAA) for large text. This is calculated for each photo, including any you
+  upload, and a test checks all twelve built-in photos pixel by pixel.
 
 ## The photos
 
@@ -70,9 +70,8 @@ Screen**:
 - the photos are listed by month. Click one to **preview** that month's slide as the screens will
   show it. From the preview, **Replace…** takes any photo from this computer (cropped to 16:9) and
   **Reset to Default** brings back the built-in one. A pencil mark shows which are replaced;
-- **Logo**: **Choose…** a PNG (transparency kept) or SVG, or **Remove** it. The cross and flame
-  is the United Methodist Church's registered emblem, so Metocast doesn't ship it: use your
-  church's official file.
+- **Logo**: the church's logo is built in (_Default_). **Replace…** takes a PNG (transparency kept)
+  or SVG; **Reset to Default** brings the built-in one back.
 
 The slide shows on every screen that shows slides: the web presenter (`/ui/sanctum/presenter`),
 the Mac and iPhone app's Presentation page, and the Raspberry Pi presenter receiver. The server

@@ -118,10 +118,11 @@ private struct WelcomeScreenSection: View {
                 .padding(.vertical, 4)
                 LabeledContent("Logo") {
                     HStack {
-                        Text(settings.hasLogo ? "Set" : "None").foregroundStyle(.secondary)
-                        Button(settings.hasLogo ? "Replace…" : "Choose…") { importTarget = ImportTarget(number: 0) }
+                        // The church's cross-and-flame logo is built in; an upload replaces it.
+                        Text(settings.hasLogo ? "Custom" : "Default").foregroundStyle(.secondary)
+                        Button("Replace…") { importTarget = ImportTarget(number: 0) }
                         if settings.hasLogo {
-                            Button("Remove", role: .destructive) { Task { await change { try await session.removeWelcomeLogo() } } }
+                            Button("Reset to Default") { Task { await change { try await session.removeWelcomeLogo() } } }
                         }
                     }
                 }
@@ -134,7 +135,7 @@ private struct WelcomeScreenSection: View {
         } header: {
             Text("Welcome Screen")
         } footer: {
-            Text("A Slide step in the Order of Service shows this with the web presenter: the photo of the event's month, the logo, its title and the blessing, and the church name with the date. Click a month to preview it. The text stays readable: a darker overlay is added behind it on bright photos.")
+            Text("A Slide step in the Order of Service shows this with the web presenter: the photo of the event's month with the logo, and its title, the blessing and the date in the lower third. Click a month to preview it. The text always stays readable: the photo softens and tones down only where text sits.")
         }
         .fileImporter(
             isPresented: Binding(get: { importTarget != nil }, set: { if !$0 { importTarget = nil } }),

@@ -1873,12 +1873,11 @@ fn handwritten() -> Value {
             "/api/presenter/welcome/logo": {
                 "get": {
                     "tags": ["Presenter"],
-                    "summary": "The welcome screen's logo",
+                    "summary": "The welcome screen's logo (the built-in one until one is uploaded)",
                     "operationId": "getWelcomeLogo",
                     "responses": {
                         "200": { "description": "The logo", "content": { "image/png": { "schema": { "type": "string", "format": "binary" } }, "image/svg+xml": { "schema": { "type": "string" } } } },
-                        "401": { "description": "Unauthorized" },
-                        "404": { "description": "No logo set" }
+                        "401": { "description": "Unauthorized" }
                     }
                 },
                 "put": {

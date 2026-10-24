@@ -34,9 +34,14 @@ const HEIGHT: u32 = 720;
 /// WCAG AAA for large text. Every line here is large (the smallest is 5% of the slide height),
 /// and this is what the overlay guarantees against nearly all of the photo behind the text.
 const TARGET_CONTRAST: f64 = 4.5;
-/// The photo's brightness behind the text is taken at this percentile, so a few bright specks
-/// don't darken the whole photo but a bright sky does.
-const BRIGHT_PERCENTILE: f64 = 0.95;
+/// Where the top band, with the logo and church name, ends (fraction of the height).
+const TOP_BAND: f64 = 0.2;
+/// Where the lower third, with the greeting, blessing and date, begins.
+const LOWER_THIRD: f64 = 0.66;
+
+/// The church's logo (the cross and flame with its name), with the cross and lettering in white
+/// so it reads on a photo. Replaceable in the settings.
+static DEFAULT_LOGO: &[u8] = include_bytes!("../../assets/welcome/logo.svg");
 
 static DEFAULT_PHOTOS: [&[u8]; PHOTO_COUNT] = [
     include_bytes!("../../assets/welcome/01.jpg"),
@@ -95,73 +100,140 @@ async fn load_settings(pool: &PgPool) -> sqlx::Result<WelcomeSettings> {
     Ok(stored)
 }
 
-/// Relative luminance of an sRGB pixel, as WCAG defines it.
-fn luminance(pixel: &image::Rgb<u8>) -> f64 {
-    let channel = |c: u8| {
-        let c = f64::from(c) / 255.0;
-        if c <= 0.04045 {
-            c / 12.92
-        } else {
-            ((c + 0.055) / 1.055).powf(2.4)
-        }
-    };
-    0.2126 * channel(pixel[0]) + 0.7152 * channel(pixel[1]) + 0.0722 * channel(pixel[2])
+/// The brightest a pixel behind white text may be for `TARGET_CONTRAST`: white on luminance `L`
+/// has contrast `1.05 / (L + 0.05)`. Aimed a little higher, so rounding to 8-bit colour can't
+/// take a pixel past it.
+fn max_luminance() -> f64 {
+    1.05 / (TARGET_CONTRAST + 0.1) - 0.05
 }
 
-/// A part of the slide where text sits, as fractions of its width and height: (x0, y0, x1, y1).
-/// Each zone's darkening is measured on its own, so the photo stays vivid where nothing is
-/// written, and each gradient below is at full strength across its whole zone.
-type Zone = (f64, f64, f64, f64);
-/// The church name and the logo.
-const TOP: Zone = (0.0, 0.0, 1.0, 0.14);
-/// The greeting and the blessing.
-const CENTRE: Zone = (0.12, 0.36, 0.88, 0.68);
-/// The date and the year.
-const BOTTOM: Zone = (0.0, 0.8, 1.0, 1.0);
-
-/// How dark the overlay over `zone` must be (0–1) for white text to reach `TARGET_CONTRAST`
-/// against the photo there. A black overlay of opacity `a` turns luminance `L` into `(1 − a)·L`,
-/// and white on `L` has contrast `1.05 / (L + 0.05)`.
-fn overlay_opacity(photo: &image::RgbImage, zone: Zone) -> f64 {
-    let (w, h) = photo.dimensions();
-    let (fw, fh) = (f64::from(w), f64::from(h));
-    let (x0, y0, x1, y1) = (
-        (zone.0 * fw) as u32,
-        (zone.1 * fh) as u32,
-        ((zone.2 * fw) as u32).min(w),
-        ((zone.3 * fh) as u32).min(h),
-    );
-    let mut lums: Vec<f64> = (y0..y1)
-        .flat_map(|y| (x0..x1).map(move |x| (x, y)))
-        .map(|(x, y)| luminance(photo.get_pixel(x, y)))
-        .collect();
-    if lums.is_empty() {
-        return 0.5;
+/// Brings a luminance under `cap` with a soft knee: dark and middle tones stay exactly as they
+/// are, and only highlights are compressed, never clipped flat.
+fn soft_cap(l: f64, cap: f64) -> f64 {
+    let knee = cap * 0.55;
+    if l <= knee {
+        l
+    } else {
+        knee + (cap - knee) * (1.0 - (-(l - knee) / (cap - knee)).exp())
     }
-    lums.sort_unstable_by(f64::total_cmp);
-    let bright = lums[((lums.len() - 1) as f64 * BRIGHT_PERCENTILE) as usize];
-    let allowed = 1.05 / TARGET_CONTRAST - 0.05;
-    // A touch of shade even on a dark photo keeps the text calm; never black it out completely.
-    (1.0 - allowed / bright.max(allowed)).clamp(0.12, 0.9)
 }
 
-/// The photo cover-cropped to the slide, as a JPEG data URI, with the overlay each zone needs:
-/// (top, centre, bottom).
-fn prepare_photo(bytes: &[u8]) -> Result<(String, [f64; 3]), String> {
-    let photo = image::load_from_memory(bytes)
+fn svg_open() -> String {
+    format!(
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" viewBox=\"0 0 {WIDTH} {HEIGHT}\" width=\"{WIDTH}\" height=\"{HEIGHT}\">\n"
+    )
+}
+
+fn to_linear(c: u8) -> f64 {
+    let c = f64::from(c) / 255.0;
+    if c <= 0.04045 {
+        c / 12.92
+    } else {
+        ((c + 0.055) / 1.055).powf(2.4)
+    }
+}
+
+fn to_srgb(c: f64) -> u8 {
+    let c = c.clamp(0.0, 1.0);
+    let s = if c <= 0.003_130_8 {
+        c * 12.92
+    } else {
+        1.055 * c.powf(1.0 / 2.4) - 0.055
+    };
+    (s * 255.0).round() as u8
+}
+
+fn smoothstep(edge0: f64, edge1: f64, value: f64) -> f64 {
+    let t = ((value - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
+/// How much toning the point (x, y) gets (0–1, each 0 at the top or left): all of it under the
+/// logo in the top-left corner (and the top-right corner when a church name is written there)
+/// and across the lower third, fading out over long gradients, so there is never a visible edge.
+fn toning(x: f64, y: f64, top_right: bool) -> f64 {
+    let top = 1.0 - smoothstep(TOP_BAND, TOP_BAND + 0.16, y);
+    let left = 1.0 - smoothstep(0.42, 0.62, x);
+    let right = if top_right {
+        smoothstep(0.38, 0.58, x)
+    } else {
+        0.0
+    };
+    (top * left.max(right)).max(smoothstep(LOWER_THIRD - 0.26, LOWER_THIRD, y))
+}
+
+/// How much of the blurred photo the row at height `y` shows, 0–1: none above the middle,
+/// ramping to all of it across the lower third (a progressive blur).
+fn blurring(y: f64) -> f64 {
+    smoothstep(0.45, 0.74, y)
+}
+
+/// Tones down highlights so white text reaches `TARGET_CONTRAST` against every pixel where text
+/// sits, keeping each pixel's colour and leaving dark and middle tones as they are.
+fn tone(pixel: &mut image::Rgb<u8>, weight: f64) {
+    let cap = max_luminance();
+    let linear = pixel.0.map(to_linear);
+    let l = 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+    if weight == 0.0 || l <= cap * 0.55 {
+        return;
+    }
+    let target = l + (soft_cap(l, cap) - l) * weight;
+    pixel.0 = linear.map(|c| to_srgb(c * target / l));
+}
+
+/// The photo cover-cropped to the slide: sharp and untouched across the middle, blurred
+/// progressively into the lower third, and toned under the top band and the lower third.
+fn treat_photo(photo: &mut image::RgbImage, top_right: bool) {
+    let blurred = image::imageops::fast_blur(photo, 18.0);
+    let (w, h) = (f64::from(photo.width()), f64::from(photo.height()));
+    for (x, y, pixel) in photo.enumerate_pixels_mut() {
+        let row = (f64::from(y) + 0.5) / h;
+        let column = (f64::from(x) + 0.5) / w;
+        let blur = blurring(row);
+        if blur > 0.0 {
+            let soft = blurred.get_pixel(x, y).0;
+            pixel.0 = std::array::from_fn(|c| {
+                (f64::from(pixel.0[c]) * (1.0 - blur) + f64::from(soft[c]) * blur).round() as u8
+            });
+        }
+        tone(pixel, toning(column, row, top_right));
+    }
+}
+
+/// The photo prepared for the slide, as a JPEG data URI.
+fn prepare_photo(bytes: &[u8], top_right: bool) -> Result<String, String> {
+    let mut photo = image::load_from_memory(bytes)
         .map_err(|e| format!("Couldn't read the photo: {e}"))?
         .resize_to_fill(WIDTH, HEIGHT, image::imageops::FilterType::CatmullRom)
         .to_rgb8();
-    let shade = [TOP, CENTRE, BOTTOM].map(|zone| overlay_opacity(&photo, zone));
+    treat_photo(&mut photo, top_right);
     let mut jpeg = Vec::new();
-    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg, 82)
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg, 84)
         .encode_image(&photo)
         .map_err(|e| format!("Couldn't encode the photo: {e}"))?;
-    let uri = format!(
+    Ok(format!(
         "data:image/jpeg;base64,{}",
         base64::engine::general_purpose::STANDARD.encode(jpeg)
-    );
-    Ok((uri, shade))
+    ))
+}
+
+/// A logo's width for a height of 1: from an SVG's size or a PNG's pixels.
+fn logo_aspect(mime: &str, bytes: &[u8]) -> f64 {
+    let size = if mime == "image/svg+xml" {
+        usvg::Tree::from_data(bytes, &usvg::Options::default())
+            .ok()
+            .map(|tree| {
+                (
+                    f64::from(tree.size().width()),
+                    f64::from(tree.size().height()),
+                )
+            })
+    } else {
+        image::load_from_memory(bytes)
+            .ok()
+            .map(|image| (f64::from(image.width()), f64::from(image.height())))
+    };
+    size.filter(|(_, h)| *h > 0.0).map_or(1.0, |(w, h)| w / h)
 }
 
 /// Montserrat (SIL Open Font License), built in so the slide looks the same wherever the server
@@ -203,8 +275,7 @@ struct Style {
     max_width: f64,
 }
 
-/// One line of white text at `(x, y)` with a faint shadow for crisp edges; returns the font size
-/// it was set at.
+/// One line of white text at `(x, y)`; returns the font size it was set at.
 fn text(svg: &mut String, value: &str, (x, y): (f64, f64), style: Style) -> f64 {
     let Style {
         size,
@@ -215,218 +286,130 @@ fn text(svg: &mut String, value: &str, (x, y): (f64, f64), style: Style) -> f64 
     } = style;
     let size = size.min(max_width / (text_width(value, 1.0) + 0.0001));
     let value = escape(value);
-    let shadow = (size * 0.03).max(1.0);
-    for (dx, fill) in [
-        (shadow, "fill=\"#000\" fill-opacity=\"0.35\""),
-        (0.0, "fill=\"#fff\""),
-    ] {
-        svg.push_str(&format!(
-            "<text x=\"{x:.1}\" y=\"{y:.1}\" font-family=\"Montserrat\" font-size=\"{size:.1}\" font-weight=\"{weight}\" letter-spacing=\"{ls:.2}\" text-anchor=\"{anchor}\" {fill}>{value}</text>\n",
-            x = x + dx,
-            y = y + dx,
-            ls = tracking * size,
-        ));
-    }
+    svg.push_str(&format!(
+        "<text x=\"{x:.1}\" y=\"{y:.1}\" font-family=\"Montserrat\" font-size=\"{size:.1}\" font-weight=\"{weight}\" letter-spacing=\"{ls:.2}\" text-anchor=\"{anchor}\" fill=\"#fff\">{value}</text>\n",
+        ls = tracking * size,
+    ));
     size
 }
 
-/// The date as the slide shows it: the day as a big number, the month and weekday beside it,
-/// and the year on the right.
-struct DateParts {
-    day: String,
-    month: String,
-    weekday: String,
-    year: String,
-}
-
-fn date_parts(date: chrono::NaiveDate, language: &str) -> DateParts {
-    const HU_MONTHS: [&str; 12] = [
-        "január",
-        "február",
-        "március",
-        "április",
-        "május",
-        "június",
-        "július",
-        "augusztus",
-        "szeptember",
-        "október",
-        "november",
-        "december",
-    ];
-    const HU_DAYS: [&str; 7] = [
-        "hétfő",
-        "kedd",
-        "szerda",
-        "csütörtök",
-        "péntek",
-        "szombat",
-        "vasárnap",
-    ];
-    let (month, weekday) = if language == "en" {
-        (date.format("%B").to_string(), date.format("%A").to_string())
-    } else {
-        (
-            HU_MONTHS[date.month0() as usize].to_string(),
-            HU_DAYS[date.weekday().num_days_from_monday() as usize].to_string(),
-        )
-    };
-    DateParts {
-        day: date.day().to_string(),
-        month,
-        weekday,
-        year: date.year().to_string(),
-    }
-}
-
-/// The welcome slide as SVG, in the Editorial layout: the photo with its shade, the church name
-/// top left, the logo top right, the greeting and blessing in the middle, the date bottom left
-/// and the year bottom right. The photo zooms in slowly where the screen animates SVG.
+/// The welcome slide as SVG, in the lower-third layout: the photo, sharp at the top and melting
+/// into a soft, toned blur at the bottom where the greeting, blessing and date sit; the logo top
+/// left. No shadows: the photo itself is prepared so white text reads on it.
 fn slide_svg(
     photo: &[u8],
     logo: Option<(&str, &[u8])>,
     church: &str,
     title: &str,
     lines: &[String],
-    date: &DateParts,
+    date: &str,
 ) -> Result<String, String> {
-    let (photo, [top, centre, bottom]) = prepare_photo(photo)?;
-    // An even shade sized for the greeting, then only the extra the top or bottom still needs:
-    // a shade `even` and a gradient `extra` together darken by 1 − (1 − even)(1 − extra).
-    let even = centre;
-    let extra = |zone: f64| (1.0 - (1.0 - zone) / (1.0 - even)).max(0.0);
-    let (top, bottom) = (extra(top), extra(bottom));
-    let (w, h) = (f64::from(WIDTH), f64::from(HEIGHT));
-    let margin = 48.0;
-    let mut svg = format!(
-        "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" viewBox=\"0 0 {WIDTH} {HEIGHT}\" width=\"{WIDTH}\" height=\"{HEIGHT}\">\n\
-         <defs>\
-         <linearGradient id=\"top\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"#000\" stop-opacity=\"{top:.3}\"/><stop offset=\"{t1}\" stop-color=\"#000\" stop-opacity=\"{top:.3}\"/><stop offset=\"0.22\" stop-color=\"#000\" stop-opacity=\"{top_mid:.3}\"/><stop offset=\"0.31\" stop-color=\"#000\" stop-opacity=\"{top_low:.3}\"/><stop offset=\"0.42\" stop-color=\"#000\" stop-opacity=\"0\"/></linearGradient>\
-         <linearGradient id=\"bottom\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0.48\" stop-color=\"#000\" stop-opacity=\"0\"/><stop offset=\"0.6\" stop-color=\"#000\" stop-opacity=\"{bottom_low:.3}\"/><stop offset=\"0.7\" stop-color=\"#000\" stop-opacity=\"{bottom_mid:.3}\"/><stop offset=\"{b0}\" stop-color=\"#000\" stop-opacity=\"{bottom:.3}\"/><stop offset=\"1\" stop-color=\"#000\" stop-opacity=\"{bottom:.3}\"/></linearGradient>\
-         </defs>\n\
-         <image x=\"0\" y=\"0\" width=\"{WIDTH}\" height=\"{HEIGHT}\" preserveAspectRatio=\"xMidYMid slice\" xlink:href=\"{photo}\"/>\n\
-         <rect width=\"{WIDTH}\" height=\"{HEIGHT}\" fill=\"#000\" fill-opacity=\"{even:.3}\"/>\n\
-         <rect width=\"{WIDTH}\" height=\"{HEIGHT}\" fill=\"url(#top)\"/>\n\
-         <rect width=\"{WIDTH}\" height=\"{HEIGHT}\" fill=\"url(#bottom)\"/>\n",
-        t1 = TOP.3,
-        b0 = BOTTOM.1,
-        // Eased fades, so the shade never ends in a visible band.
-        top_mid = top * 0.5,
-        top_low = top * 0.18,
-        bottom_low = bottom * 0.18,
-        bottom_mid = bottom * 0.5,
+    // The church name goes top right beside a logo, so that corner is toned too.
+    let photo = prepare_photo(photo, logo.is_some() && !church.is_empty())?;
+    let layer = foreground(logo, church, title, lines, date);
+    let svg = format!(
+        "{}<image x=\"0\" y=\"0\" width=\"{WIDTH}\" height=\"{HEIGHT}\" preserveAspectRatio=\"xMidYMid slice\" xlink:href=\"{photo}\"/>\n{layer}</svg>\n",
+        svg_open()
     );
-    let logo_size = 84.0;
+    // Outlines instead of text, so no screen needs the font.
+    let flat = presenter_svg::flatten_text_to_paths(&svg, text_options());
+    Ok(with_slow_zoom(&flat))
+}
+
+/// The text and the logo as SVG elements. Everything written sits where `prepare_photo` has
+/// toned the photo: the top band (logo, church name) and the lower third (the rest).
+fn foreground(
+    logo: Option<(&str, &[u8])>,
+    church: &str,
+    title: &str,
+    lines: &[String],
+    date: &str,
+) -> String {
+    let (w, h) = (f64::from(WIDTH), f64::from(HEIGHT));
+    let margin = 64.0;
+    let mut layer = String::new();
+    // The logo top left at its own proportions (the default carries the church's name).
+    let logo_height = h * 0.12;
+    let mut logo_width = 0.0;
     if let Some((mime, bytes)) = logo {
+        logo_width = (logo_height * logo_aspect(mime, bytes)).min(w * 0.45);
         let uri = format!(
             "data:{mime};base64,{}",
             base64::engine::general_purpose::STANDARD.encode(bytes)
         );
-        svg.push_str(&format!(
-            "<image x=\"{x}\" y=\"{y}\" width=\"{logo_size}\" height=\"{logo_size}\" preserveAspectRatio=\"xMaxYMin meet\" xlink:href=\"{uri}\"/>\n",
-            x = w - margin - logo_size,
-            y = margin - 14.0,
+        layer.push_str(&format!(
+            "<image x=\"{margin}\" y=\"{y}\" width=\"{logo_width:.1}\" height=\"{logo_height:.1}\" preserveAspectRatio=\"xMinYMin meet\" xlink:href=\"{uri}\"/>\n",
+            y = margin - 20.0,
         ));
     }
     // Nothing is smaller than 4.2% of the height (30 px here): readable from the back.
     let small = h * 0.042;
     if !church.is_empty() {
+        // Top right beside a logo, top left without one.
+        let (x, anchor) = if logo_width > 0.0 {
+            (w - margin, "end")
+        } else {
+            (margin, "start")
+        };
         text(
-            &mut svg,
+            &mut layer,
             church,
-            (margin, margin + small * 0.8),
+            (x, margin + small * 0.6),
             Style {
                 size: small,
                 weight: 600,
-                anchor: "start",
+                anchor,
                 tracking: 0.0,
-                max_width: w - 3.0 * margin - logo_size,
+                max_width: w - 3.0 * margin - logo_width,
             },
         );
     }
-    let title_baseline = h * 0.52;
-    let title_size = text(
-        &mut svg,
+    // The lower third: the greeting big and left-aligned, the blessing under it, the date on
+    // the right of the blessing's line.
+    let baseline = h - 56.0;
+    let blessing_lines = lines.len().max(1) as f64;
+    let title_baseline = baseline - small * 1.5 * blessing_lines - h * 0.035;
+    text(
+        &mut layer,
         title,
-        (w / 2.0, title_baseline),
+        (margin, title_baseline),
         Style {
-            size: h * 0.15,
+            size: h * 0.14,
             weight: 700,
-            anchor: "middle",
+            anchor: "start",
             tracking: -0.025,
-            max_width: w * 0.86,
+            max_width: w - 2.0 * margin,
         },
     );
-    let mut y = title_baseline + title_size * 0.2 + h * 0.07;
+    let mut y = baseline - small * 1.5 * (blessing_lines - 1.0);
     for value in lines {
         text(
-            &mut svg,
+            &mut layer,
             value,
-            (w / 2.0, y),
+            (margin, y),
             Style {
-                size: h * 0.047,
+                size: small * 1.1,
                 weight: 500,
-                anchor: "middle",
+                anchor: "start",
                 tracking: 0.0,
-                max_width: w * 0.8,
+                max_width: w * 0.56,
             },
         );
-        y += h * 0.064;
+        y += small * 1.5;
     }
-    let baseline = h - margin;
-    let day_size = text(
-        &mut svg,
-        &date.day,
-        (margin, baseline),
-        Style {
-            size: h * 0.1,
-            weight: 700,
-            anchor: "start",
-            tracking: -0.03,
-            max_width: w * 0.2,
-        },
-    );
-    let beside = margin + text_width(&date.day, day_size) * 0.95 + 16.0;
     text(
-        &mut svg,
-        &date.month,
-        (beside, baseline - small * 1.2),
-        Style {
-            size: small,
-            weight: 600,
-            anchor: "start",
-            tracking: 0.0,
-            max_width: w * 0.4,
-        },
-    );
-    text(
-        &mut svg,
-        &date.weekday,
-        (beside, baseline),
-        Style {
-            size: small,
-            weight: 600,
-            anchor: "start",
-            tracking: 0.0,
-            max_width: w * 0.4,
-        },
-    );
-    text(
-        &mut svg,
-        &date.year,
+        &mut layer,
+        date,
         (w - margin, baseline),
         Style {
             size: small,
             weight: 600,
             anchor: "end",
             tracking: 0.0,
-            max_width: w * 0.2,
+            max_width: w * 0.34,
         },
     );
-    svg.push_str("</svg>\n");
-    // Outlines instead of text, so no screen needs the font.
-    let flat = presenter_svg::flatten_text_to_paths(&svg, text_options());
-    Ok(with_slow_zoom(&flat))
+    layer
 }
 
 /// Wraps the photo (the first `<image>`) in a group that zooms in by 8% over 20 seconds and back,
@@ -513,19 +496,20 @@ async fn render(
     .into_iter()
     .filter(|l| !l.is_empty())
     .collect();
-    let parts = date_parts(date, &stored.language);
     let photo = photo(pool, date.month() as usize)
         .await
         .map_err(|e| e.to_string())?;
-    let logo = asset(pool, "logo").await.map_err(|e| e.to_string())?;
+    let logo = asset(pool, "logo")
+        .await
+        .map_err(|e| e.to_string())?
+        .unwrap_or_else(|| ("image/svg+xml".to_string(), DEFAULT_LOGO.to_vec()));
     let svg = slide_svg(
         &photo,
-        logo.as_ref()
-            .map(|(mime, bytes)| (mime.as_str(), bytes.as_slice())),
+        Some((logo.0.as_str(), logo.1.as_slice())),
         stored.church_name.trim(),
         title.trim(),
         &lines,
-        &parts,
+        &service_date(date, &stored.language),
     )?;
     Ok((svg, lines, footer))
 }
@@ -719,7 +703,8 @@ pub async fn get_preview(
 pub async fn get_logo(State(state): State<AppState>) -> impl IntoResponse {
     match asset(&state.pool, "logo").await {
         Ok(Some((mime, bytes))) => ([(header::CONTENT_TYPE, mime)], bytes).into_response(),
-        Ok(None) => StatusCode::NOT_FOUND.into_response(),
+        // The built-in logo until one is uploaded.
+        Ok(None) => ([(header::CONTENT_TYPE, "image/svg+xml")], DEFAULT_LOGO).into_response(),
         Err(e) => internal(e),
     }
 }
@@ -771,32 +756,54 @@ async fn remove(pool: &PgPool, name: &str) -> axum::response::Response {
 mod tests {
     use super::*;
 
-    /// Every default photo, with the shade each zone gets, keeps white text at the target
-    /// contrast against all but the brightest specks behind it, in all three zones.
+    /// Relative luminance of an sRGB pixel, as WCAG defines it.
+    fn luminance(pixel: &image::Rgb<u8>) -> f64 {
+        let [r, g, b] = pixel.0.map(to_linear);
+        0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+
+    /// On every default photo, once treated, no pixel in the top band or the lower third (where
+    /// all the text sits) is bright enough to bring white text under the target contrast.
     #[test]
     fn white_text_is_readable_on_every_default_photo() {
         for (index, bytes) in DEFAULT_PHOTOS.iter().enumerate() {
-            let photo = image::load_from_memory(bytes)
+            let mut photo = image::load_from_memory(bytes)
                 .expect("default photo decodes")
                 .resize_to_fill(WIDTH, HEIGHT, image::imageops::FilterType::Triangle)
                 .to_rgb8();
-            for (name, zone) in [("top", TOP), ("centre", CENTRE), ("bottom", BOTTOM)] {
-                let opacity = overlay_opacity(&photo, zone);
-                let (w, h) = (f64::from(WIDTH), f64::from(HEIGHT));
-                let mut lums: Vec<f64> = ((zone.1 * h) as u32..(zone.3 * h) as u32)
-                    .flat_map(|y| ((zone.0 * w) as u32..(zone.2 * w) as u32).map(move |x| (x, y)))
-                    .map(|(x, y)| (1.0 - opacity) * luminance(photo.get_pixel(x, y)))
-                    .collect();
-                lums.sort_unstable_by(f64::total_cmp);
-                let bright = lums[((lums.len() - 1) as f64 * BRIGHT_PERCENTILE) as usize];
-                let contrast = 1.05 / (bright + 0.05);
-                assert!(
-                    contrast >= TARGET_CONTRAST - 0.01,
-                    "photo {:02}, {name}: contrast {contrast:.2} with shade {opacity:.2}",
-                    index + 1
-                );
-            }
+            treat_photo(&mut photo, true);
+            let (w, h) = (f64::from(WIDTH), f64::from(HEIGHT));
+            // The logo's corner, the church name's corner and the lower third.
+            let brightest = photo
+                .enumerate_pixels()
+                .filter(|(x, y, _)| {
+                    let (column, row) = ((f64::from(*x) + 0.5) / w, (f64::from(*y) + 0.5) / h);
+                    (row <= TOP_BAND && !(0.42..=0.58).contains(&column)) || row >= LOWER_THIRD
+                })
+                .map(|(_, _, p)| luminance(p))
+                .fold(0.0, f64::max);
+            let contrast = 1.05 / (brightest + 0.05);
+            assert!(
+                contrast >= TARGET_CONTRAST - 0.01,
+                "photo {:02}: contrast {contrast:.2}",
+                index + 1
+            );
         }
+    }
+
+    #[test]
+    fn the_middle_of_the_photo_is_left_sharp_and_bright() {
+        let mut photo = image::RgbImage::from_fn(WIDTH, HEIGHT, |x, _| {
+            image::Rgb(if x % 2 == 0 {
+                [255, 255, 255]
+            } else {
+                [30, 30, 30]
+            })
+        });
+        treat_photo(&mut photo, true);
+        let middle = HEIGHT * 2 / 5;
+        assert_eq!(photo.get_pixel(10, middle).0, [255, 255, 255]);
+        assert_eq!(photo.get_pixel(11, middle).0, [30, 30, 30]);
     }
 
     #[test]
@@ -804,33 +811,17 @@ mod tests {
         let date = chrono::NaiveDate::from_ymd_opt(2026, 10, 25).expect("valid date");
         assert_eq!(service_date(date, "hu"), "2026. október 25. vasárnap");
         assert_eq!(service_date(date, "en"), "Sunday, October 25, 2026");
-        let hu = date_parts(date, "hu");
-        assert_eq!(
-            [hu.day, hu.month, hu.weekday, hu.year],
-            ["25", "október", "vasárnap", "2026"]
-        );
-        let en = date_parts(date, "en");
-        assert_eq!([en.month, en.weekday], ["October", "Sunday"]);
-    }
-
-    #[test]
-    fn a_dark_photo_gets_little_shade_and_a_white_one_a_lot() {
-        let dark = image::RgbImage::from_pixel(64, 36, image::Rgb([20, 20, 20]));
-        let white = image::RgbImage::from_pixel(64, 36, image::Rgb([255, 255, 255]));
-        assert!(overlay_opacity(&dark, CENTRE) <= 0.2);
-        assert!(overlay_opacity(&white, CENTRE) >= 0.8);
     }
 
     #[test]
     fn the_slide_is_an_svg_with_the_photo_zooming_and_the_text_as_outlines() {
-        let date = chrono::NaiveDate::from_ymd_opt(2026, 10, 25).expect("valid date");
         let svg = slide_svg(
             DEFAULT_PHOTOS[9],
-            None,
-            "Nyíregyházi Metodista Gyülekezet",
+            Some(("image/svg+xml", DEFAULT_LOGO)),
+            "",
             "Isten hozott.",
             &["Az ÚR áldása legyen életeden!".to_string()],
-            &date_parts(date, "hu"),
+            "2026. október 25. vasárnap",
         )
         .expect("slide renders");
         assert!(svg.starts_with("<svg"));
