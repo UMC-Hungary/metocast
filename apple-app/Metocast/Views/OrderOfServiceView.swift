@@ -161,7 +161,7 @@ struct EventOrderSection: View {
         return HStack(spacing: 8) {
             if renaming == id {
                 // Only this row's rename: its fields also finish as they disappear, after another row took over.
-                StepFields(item: step.item) { if renaming == id { finishRename() } }
+                StepFields(session: session, item: step.item) { if renaming == id { finishRename() } }
             } else {
                 OrderStepRow(
                     item: item,
@@ -313,9 +313,13 @@ private struct DeckTarget: Identifiable {
 /// a slide (one paragraph per line) or the announcements (one bullet per line). Return in the
 /// title, Done, or leaving the page finishes; focus moving to the picker doesn't.
 private struct StepFields: View {
+    let session: MetocastSession
     @Binding var item: OrderItemRecord
     let done: () -> Void
     @FocusState private var focus: Field?
+    /// What looking the reference up found: nil before the first try.
+    @State private var lookup: Result<Int, Error>?
+    @State private var isLookingUp = false
 
     private enum Field { case title, notes }
 
@@ -342,6 +346,23 @@ private struct StepFields: View {
                     label: String(localized: "Bible"),
                     selection: Binding(get: { item.translation ?? MetocastSession.defaultBibleTranslation }, set: { item.translation = $0 })
                 )
+                Group {
+                    if isLookingUp {
+                        Label("Looking up…", systemImage: "magnifyingglass")
+                    } else if case .success(let count) = lookup, count == 0 {
+                        Label("No verses found", systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(.orange)
+                    } else if case .success(let count) = lookup {
+                        Label("^[\(count) verse](inflect: true) found", systemImage: "checkmark.circle")
+                            .foregroundStyle(.green)
+                    } else if case .failure(let error) = lookup {
+                        Label(error.metocastMessage, systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(.red)
+                    }
+                }
+                .font(.footnote)
+                // Like the event editor: once typing pauses; a newer edit cancels this one.
+                .task(id: "\(item.reference ?? "")|\(item.translation ?? "")") { await lookUp() }
             }
             if item.notesAreSlides {
                 TextEditor(text: $item.notes)
@@ -372,6 +393,28 @@ private struct StepFields: View {
         }
         .onAppear { focus = .title }
         .onDisappear(perform: done)
+    }
+
+    /// Checks the reference the server will look up on save, so a typo shows before Done.
+    private func lookUp() async {
+        let reference = (item.reference ?? "").trimmingCharacters(in: .whitespaces)
+        guard !reference.isEmpty else {
+            lookup = nil
+            return
+        }
+        do {
+            try await Task.sleep(for: .milliseconds(500))
+        } catch {
+            return
+        }
+        isLookingUp = true
+        defer { isLookingUp = false }
+        do {
+            let verses = try await session.verses(for: reference, translation: item.translation ?? MetocastSession.defaultBibleTranslation)
+            lookup = .success(verses.count)
+        } catch {
+            if !Task.isCancelled { lookup = .failure(error) }
+        }
     }
 }
 

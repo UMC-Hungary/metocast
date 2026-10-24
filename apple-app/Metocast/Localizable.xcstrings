@@ -4198,6 +4198,16 @@
         }
       }
     },
+    "Looking up…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keresés…"
+          }
+        }
+      }
+    },
     "Lost connection to %@" : {
       "localizations" : {
         "hu" : {
@@ -4954,6 +4964,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nincsenek közelgő események"
+          }
+        }
+      }
+    },
+    "No verses found" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nincs találat"
           }
         }
       }
@@ -9078,6 +9098,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld vers"
+          }
+        }
+      }
+    },
+    "^[%lld verse](inflect: true) found" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld vers megtalálva"
           }
         }
       }
