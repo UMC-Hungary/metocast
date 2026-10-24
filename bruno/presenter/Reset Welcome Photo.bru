@@ -1,0 +1,25 @@
+meta {
+  name: Reset Welcome Photo
+  type: http
+  seq: 7
+}
+
+delete {
+  url: {{baseUrl}}/api/presenter/welcome/photos/1
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  Puts photo 1 back to its built-in default. Photos are numbered 1–12.
+}
+
+tests {
+  test("status is 204", function() {
+    expect(res.status).to.equal(204);
+  });
+}

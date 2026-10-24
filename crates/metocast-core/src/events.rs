@@ -211,12 +211,16 @@ mod tests {
 pub enum OrderItemKind {
     /// A song: its deck from the slide folders in `deck_path`, or none (then the title names it).
     Song,
-    /// One of the event's own readings, `textus` or `leckio`, in `bible_type`.
+    /// One of the event's own readings (`textus` or `leckio` in `bible_type`), or a reading of
+    /// its own in `reference` and `translation`.
     Bible,
     /// A part of the service with no slides, such as a prayer or the sermon.
     Block,
     /// The announcements: `notes` holds the bullet points, one per line, shown as slides.
     Announcements,
+    /// A slide of its own, such as the welcome: the title, and `notes` as optional paragraphs,
+    /// one per line.
+    Text,
 }
 
 impl OrderItemKind {
@@ -226,6 +230,7 @@ impl OrderItemKind {
             Self::Bible => "bible",
             Self::Block => "block",
             Self::Announcements => "announcements",
+            Self::Text => "text",
         }
     }
 
@@ -235,6 +240,7 @@ impl OrderItemKind {
             "bible" => Some(Self::Bible),
             "block" => Some(Self::Block),
             "announcements" => Some(Self::Announcements),
+            "text" => Some(Self::Text),
             _ => None,
         }
     }
@@ -254,6 +260,13 @@ pub struct OrderItem {
     pub deck_path: Option<String>,
     #[serde(default)]
     pub bible_type: Option<String>,
+    /// A Bible step's own reading, when it isn't the event's Textus or Lekció: the reference,
+    /// e.g. "Zsolt 23", which the server looks up and stores the verses of.
+    #[serde(default)]
+    pub reference: Option<String>,
+    /// The translation code of `reference`, e.g. `RUF_v2`.
+    #[serde(default)]
+    pub translation: Option<String>,
     /// For the people leading: the key, the verses to sing, who reads.
     #[serde(default)]
     pub notes: String,

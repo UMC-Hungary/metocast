@@ -613,6 +613,16 @@
         }
       }
     },
+    "%@, photo replaced" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, lecserélt kép"
+          }
+        }
+      }
+    },
     "%@: %@" : {
       "comment" : "Button action, then the output it acts on",
       "localizations" : {
@@ -662,6 +672,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld"
+          }
+        }
+      }
+    },
+    "%lld announcements" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld hirdetés"
           }
         }
       }
@@ -892,6 +912,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "4K"
+          }
+        }
+      }
+    },
+    "A Slide step in the Order of Service shows this with the web presenter: the photo of the event's month with the logo, and its title, the blessing and the date in the lower third. Click a month to preview it. The text always stays readable: the photo softens and tones down only where text sits." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az istentiszteleti rend Dia lépése ezt mutatja a webes kivetítővel: az esemény hónapjának fotóját a logóval, alul pedig a címét, az áldást és a dátumot. Kattints egy hónapra az előnézethez. A szöveg mindig olvasható: a kép csak ott lágyul és sötétül, ahol szöveg van."
           }
         }
       }
@@ -1142,6 +1172,16 @@
         }
       }
     },
+    "Add a step" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Új lépés"
+          }
+        }
+      }
+    },
     "Add an OpenAI API key in Settings → Connectors." : {
       "localizations" : {
         "hu" : {
@@ -1262,6 +1302,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Az angol átiratot (például az Átiratok oldalról letöltött élő fordítást) a Metocast egész mondatokká alakítja, és mindegyiket oda illeszti, ahol elhangzik. Más nyelvű átiratot a beszédhanghoz igazít. Az .srt a videó mellé kerül, és a YouTube- és Facebook-feltöltésekkel együtt megy."
+          }
+        }
+      }
+    },
+    "Announcements" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hirdetések"
           }
         }
       }
@@ -1526,6 +1576,16 @@
         }
       }
     },
+    "Az ÚR áldása legyen életeden!" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az ÚR áldása legyen életeden!"
+          }
+        }
+      }
+    },
     "Bible" : {
       "localizations" : {
         "hu" : {
@@ -1552,6 +1612,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bibliai diák mappája"
+          }
+        }
+      }
+    },
+    "Bible…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ige…"
           }
         }
       }
@@ -1648,6 +1718,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Üres"
+          }
+        }
+      }
+    },
+    "Blessing" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Áldás"
           }
         }
       }
@@ -1816,6 +1896,16 @@
         }
       }
     },
+    "Change Deck" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dia cseréje"
+          }
+        }
+      }
+    },
     "Change Folder…" : {
       "localizations" : {
         "hu" : {
@@ -1872,6 +1962,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kiválasztás"
+          }
+        }
+      }
+    },
+    "Choose Deck" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dia kiválasztása"
           }
         }
       }
@@ -1942,6 +2042,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kiválasztás…"
+          }
+        }
+      }
+    },
+    "Church Name" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gyülekezet neve"
           }
         }
       }
@@ -2672,6 +2782,16 @@
         }
       }
     },
+    "Custom" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Egyéni"
+          }
+        }
+      }
+    },
     "Cut" : {
       "localizations" : {
         "hu" : {
@@ -2758,6 +2878,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A diasorok a Metocast saját vetítőjében nyílnak meg a szerver kijelzőjén."
+          }
+        }
+      }
+    },
+    "Default" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alapértelmezett"
           }
         }
       }
@@ -2980,6 +3110,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Eszközök letöltése (csak első alkalommal)"
+          }
+        }
+      }
+    },
+    "Drag to reorder, swipe left (on the Mac, the trash button) to delete, double-click to rename. Announcements take one bullet per line and a slide one paragraph per line; both show on screen. The readings join the list when they are set on the event. Step through it on the Live or Presentation page." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Húzd a sorrendhez, húzd balra a törléshez (Macen a kuka gombbal), kattints duplán az átnevezéshez. A hirdetéseket soronként egy pontban, a dia bekezdéseit soronként egyben írd be; mindkettő kivetítésre kerül. Az igék maguktól bekerülnek a listába, amikor az eseményen megadod őket. A lépéseken az Élő vagy a Prezentáció oldalon haladhatsz végig."
           }
         }
       }
@@ -3752,6 +3892,16 @@
         }
       }
     },
+    "Greeting" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Köszöntés"
+          }
+        }
+      }
+    },
     "HIGHLIGHTS" : {
       "localizations" : {
         "hu" : {
@@ -3944,6 +4094,16 @@
         }
       }
     },
+    "Isten hozott!" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Isten hozott!"
+          }
+        }
+      }
+    },
     "It isn't live." : {
       "localizations" : {
         "hu" : {
@@ -4120,12 +4280,32 @@
         }
       }
     },
+    "Lekció" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lekció"
+          }
+        }
+      }
+    },
     "Less" : {
       "localizations" : {
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kevesebb"
+          }
+        }
+      }
+    },
+    "Library" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Könyvtár"
           }
         }
       }
@@ -4188,6 +4368,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kapcsolat betöltése…"
+          }
+        }
+      }
+    },
+    "Logo" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Logó"
+          }
+        }
+      }
+    },
+    "Looking up…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keresés…"
           }
         }
       }
@@ -4822,6 +5022,16 @@
         }
       }
     },
+    "No announcements yet" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Még nincs hirdetés"
+          }
+        }
+      }
+    },
     "No devices answered. Enter the address by hand." : {
       "localizations" : {
         "hu" : {
@@ -4938,6 +5148,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nincsenek közelgő események"
+          }
+        }
+      }
+    },
+    "No verses found" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nincs találat"
+          }
+        }
+      }
+    },
+    "No verses found for %@." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nincs vers ehhez: %@."
           }
         }
       }
@@ -5062,6 +5292,16 @@
         }
       }
     },
+    "Not set on the event yet" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az eseményen még nincs megadva"
+          }
+        }
+      }
+    },
     "Not set up" : {
       "localizations" : {
         "hu" : {
@@ -5088,6 +5328,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Jegyzetek a szolgálattevőknek"
+          }
+        }
+      }
+    },
+    "Nothing" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Semmi"
           }
         }
       }
@@ -5160,6 +5410,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Értesítés némításkor"
+          }
+        }
+      }
+    },
+    "Nyíregyházi Metodista Gyülekezet" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nyíregyházi Metodista Gyülekezet"
           }
         }
       }
@@ -5292,6 +5552,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kivetítve"
+          }
+        }
+      }
+    },
+    "One announcement per line" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Soronként egy hirdetés"
           }
         }
       }
@@ -5454,6 +5724,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Megnyitja őket a Betűkönyvben; ott válaszd a Telepítés gombot. A létrehozott diasorok ezeket a betűtípusokat használják."
+          }
+        }
+      }
+    },
+    "Optional paragraphs, one per line" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bekezdések (nem kötelező), soronként egy"
           }
         }
       }
@@ -6114,6 +6394,16 @@
         }
       }
     },
+    "Reference" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Igehely"
+          }
+        }
+      }
+    },
     "Reference not found" : {
       "localizations" : {
         "hu" : {
@@ -6174,6 +6464,16 @@
         }
       }
     },
+    "Remove" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eltávolítás"
+          }
+        }
+      }
+    },
     "Remove %@" : {
       "localizations" : {
         "hu" : {
@@ -6224,6 +6524,16 @@
         }
       }
     },
+    "Rename" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Átnevezés"
+          }
+        }
+      }
+    },
     "Render" : {
       "localizations" : {
         "hu" : {
@@ -6250,6 +6560,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A renderelés kész: %@"
+          }
+        }
+      }
+    },
+    "Replace…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Csere…"
+          }
+        }
+      }
+    },
+    "Reset to Default" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Visszaállítás alapra"
           }
         }
       }
@@ -6886,6 +7216,16 @@
         }
       }
     },
+    "Set" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beállítva"
+          }
+        }
+      }
+    },
     "Set Up Metocast" : {
       "localizations" : {
         "hu" : {
@@ -7006,12 +7346,32 @@
         }
       }
     },
+    "Shows" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kivetítés"
+          }
+        }
+      }
+    },
     "Shows it on the output screen." : {
       "localizations" : {
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Megjeleníti a kivetítőn."
+          }
+        }
+      }
+    },
+    "Shows that month's welcome slide" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Megmutatja a hónap köszöntő diáját"
           }
         }
       }
@@ -7122,6 +7482,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Méret"
+          }
+        }
+      }
+    },
+    "Slide" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dia"
           }
         }
       }
@@ -7696,6 +8066,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tesztelés"
+          }
+        }
+      }
+    },
+    "Textus" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Textus"
           }
         }
       }
@@ -8832,6 +9212,26 @@
         }
       }
     },
+    "Welcome" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Köszöntés"
+          }
+        }
+      }
+    },
+    "Welcome Screen" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Köszöntő képernyő"
+          }
+        }
+      }
+    },
     "What It Does" : {
       "localizations" : {
         "hu" : {
@@ -8984,12 +9384,32 @@
         }
       }
     },
+    "Zsolt 23" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zsolt 23"
+          }
+        }
+      }
+    },
     "^[%lld verse](inflect: true)" : {
       "localizations" : {
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld vers"
+          }
+        }
+      }
+    },
+    "^[%lld verse](inflect: true) found" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld vers megtalálva"
           }
         }
       }

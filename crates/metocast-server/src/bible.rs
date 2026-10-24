@@ -154,8 +154,18 @@ pub async fn fetch_passage(
     }
 }
 
+/// Which upstream a request goes to, so an error names the right one.
+#[derive(Clone, Copy)]
+enum Upstream {
+    /// Our own Bible API, for the `*_v2` translations.
+    V2,
+    /// szentiras.eu, which needs the connector's API key.
+    Szentiras,
+}
+
 async fn get_json<T: serde::de::DeserializeOwned>(
     url: &str,
+    upstream: Upstream,
     api_key: Option<&str>,
 ) -> Result<T, String> {
     let mut request = reqwest::Client::new().get(url);
@@ -169,7 +179,17 @@ async fn get_json<T: serde::de::DeserializeOwned>(
         .map_err(|e| format!("Request failed: {e}"))?;
 
     let status = response.status();
+    // Cloudflare's bot check answers 403 with this header; no API key is involved.
+    if response.headers().contains_key("cf-mitigated") {
+        return Err(format!(
+            "{} is behind a Cloudflare browser check, which turns away Metocast. Let API requests through in that site's Cloudflare settings.",
+            upstream_name(url)
+        ));
+    }
     if !status.is_success() {
+        if let Upstream::V2 = upstream {
+            return Err(format!("{} answered {status}.", upstream_name(url)));
+        }
         return Err(match status.as_u16() {
             401 => "szentiras.eu rejected the API key. Set a valid key in the Szentírás connector settings (free at https://szentiras.eu/profile/api-keys).".to_string(),
             403 => "The szentiras.eu API key is disabled.".to_string(),
@@ -184,6 +204,15 @@ async fn get_json<T: serde::de::DeserializeOwned>(
         .map_err(|e| format!("Parse error: {e}"))
 }
 
+/// "The Bible API at api.example.org", for messages.
+fn upstream_name(url: &str) -> String {
+    let host = reqwest::Url::parse(url)
+        .ok()
+        .and_then(|u| u.host_str().map(str::to_string))
+        .unwrap_or_else(|| url.to_string());
+    format!("The Bible API at {host}")
+}
+
 async fn fetch_v2(reference: &str, translation: &str) -> Result<BiblePassage, String> {
     let url = format!(
         "{}/suggest/{}/{}",
@@ -191,7 +220,7 @@ async fn fetch_v2(reference: &str, translation: &str) -> Result<BiblePassage, St
         urlencoding::encode(reference),
         translation
     );
-    let data: V2SuggestResponse = get_json(&url, None).await?;
+    let data: V2SuggestResponse = get_json(&url, Upstream::V2, None).await?;
 
     let label = if data.hungarian_label.is_empty() {
         reference.to_string()
@@ -227,7 +256,7 @@ async fn fetch_legacy(
         clean_ref,
         translation
     );
-    let data: LegacySearchResponse = get_json(&url, api_key).await?;
+    let data: LegacySearchResponse = get_json(&url, Upstream::Szentiras, api_key).await?;
 
     Ok(BiblePassage {
         label: data.keres.hivatkozas,
@@ -283,7 +312,7 @@ pub async fn fetch_suggestions(term: &str) -> Result<Vec<LegacySuggestion>, Stri
         urlencoding::encode(term)
     );
     // Autocomplete is public — no key needed.
-    let suggestions: Vec<LegacySuggestion> = get_json(&url, None).await?;
+    let suggestions: Vec<LegacySuggestion> = get_json(&url, Upstream::Szentiras, None).await?;
 
     Ok(suggestions
         .into_iter()

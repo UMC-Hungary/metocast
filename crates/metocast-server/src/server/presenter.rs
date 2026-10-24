@@ -7,7 +7,7 @@ use std::path::Path;
 use crate::server::AppState;
 
 #[path = "presenter_svg.rs"]
-mod presenter_svg;
+pub(crate) mod presenter_svg;
 
 const MAX_BIBLE_WORDS_PER_SLIDE: usize = 55;
 const BIBLE_MAIN_FONT_SIZE_PT: f32 = 38.0;
@@ -526,6 +526,22 @@ impl PresenterState {
         reference: &str,
         verses: Vec<BibleVerseContent>,
     ) -> Self {
+        Self::from_reading(
+            event_title,
+            reference_type.display_name(),
+            reference,
+            verses,
+        )
+    }
+
+    /// A reading's verses as slides, `heading` naming it on each slide's counter (Textus,
+    /// Lekció, or a Bible step's own title).
+    pub fn from_reading(
+        event_title: &str,
+        heading: &str,
+        reference: &str,
+        verses: Vec<BibleVerseContent>,
+    ) -> Self {
         let pages = paginate_bible_verses(verses, MAX_BIBLE_WORDS_PER_SLIDE);
         let total = pages.len() as u32;
         let slides = pages
@@ -534,13 +550,8 @@ impl PresenterState {
             .map(|(idx, page)| {
                 let slide_number = idx as u32 + 1;
                 let verse_range = format_bible_page_range(page);
-                let counter = format_bible_counter(
-                    reference_type.display_name(),
-                    reference,
-                    &verse_range,
-                    slide_number,
-                    total,
-                );
+                let counter =
+                    format_bible_counter(heading, reference, &verse_range, slide_number, total);
                 let mut paragraphs = vec![ParagraphContent {
                     lines: vec![format_bible_page_text(page)],
                     align: "left".to_string(),
@@ -560,12 +571,7 @@ impl PresenterState {
 
         Self {
             loaded: total > 0,
-            file_path: Some(format!(
-                "{} - {} {}",
-                event_title,
-                reference_type.display_name(),
-                reference
-            )),
+            file_path: Some(format!("{} - {} {}", event_title, heading, reference)),
             current_slide: if total > 0 { 1 } else { 0 },
             total_slides: total,
             render_mode: PresenterRenderMode::Text,
@@ -620,6 +626,44 @@ impl PresenterState {
             total_slides: slides.len() as u32,
             render_mode: PresenterRenderMode::Text,
             slides,
+            svg_slides: Vec::new(),
+            muted: false,
+            slide_width_emu: 12192000,
+            slide_height_emu: 6858000,
+        }
+    }
+
+    /// One slide of its own, such as the welcome: the title, and each non-empty line of `notes`
+    /// as a paragraph under it.
+    pub fn from_text(title: &str, notes: &str) -> Self {
+        let mut paragraphs = vec![ParagraphContent {
+            lines: vec![title.trim().to_string()],
+            align: "center".to_string(),
+            font_size_pt: SONG_TITLE_FONT_SIZE_PT,
+        }];
+        let lines: Vec<String> = notes
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .map(str::to_string)
+            .collect();
+        if !lines.is_empty() {
+            paragraphs.push(ParagraphContent {
+                lines,
+                align: "center".to_string(),
+                font_size_pt: BIBLE_MAIN_FONT_SIZE_PT,
+            });
+        }
+        Self {
+            loaded: true,
+            file_path: Some(title.trim().to_string()),
+            current_slide: 1,
+            total_slides: 1,
+            render_mode: PresenterRenderMode::Text,
+            slides: vec![SlideContent {
+                index: 1,
+                paragraphs,
+            }],
             svg_slides: Vec::new(),
             muted: false,
             slide_width_emu: 12192000,
@@ -1082,6 +1126,27 @@ mod tests {
                 _ => {}
             }
         }
+    }
+
+    #[test]
+    fn a_text_step_is_one_slide_with_its_paragraphs() {
+        let deck = PresenterState::from_text(
+            "Köszöntjük!",
+            "Isten hozott mindenkit\n\nKérjük, némítsa le telefonját",
+        );
+        assert_eq!(deck.total_slides, 1);
+        let paragraphs = &deck.slides[0].paragraphs;
+        assert_eq!(paragraphs[0].lines, ["Köszöntjük!"]);
+        assert_eq!(
+            paragraphs[1].lines,
+            ["Isten hozott mindenkit", "Kérjük, némítsa le telefonját"]
+        );
+        assert_eq!(
+            PresenterState::from_text("Köszöntjük!", "").slides[0]
+                .paragraphs
+                .len(),
+            1
+        );
     }
 
     #[test]

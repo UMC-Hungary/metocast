@@ -130,3 +130,36 @@ mod tests {
         );
     }
 }
+
+/// `GET`/`PUT /api/presenter/welcome`: the welcome screen a text Order of Service step shows.
+/// `has_logo` and `replaced_photos` come from the uploads and are ignored on `PUT`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct WelcomeSettings {
+    /// The greeting a new event's welcome step is named after.
+    pub title: String,
+    /// Shown under the title when the step has no notes of its own.
+    pub subtitle: String,
+    /// Shown above the event's date at the bottom.
+    pub church_name: String,
+    /// `hu` or `en`: the language the date is written in.
+    pub language: String,
+    #[serde(skip_deserializing)]
+    pub has_logo: bool,
+    /// Which photos (1–12) were replaced, so a client can offer to reset them.
+    #[serde(skip_deserializing)]
+    pub replaced_photos: Vec<u32>,
+}
+
+impl Default for WelcomeSettings {
+    fn default() -> Self {
+        Self {
+            title: "Isten hozott.".to_string(),
+            subtitle: "Az ÚR áldása legyen életeden!".to_string(),
+            church_name: String::new(),
+            language: "hu".to_string(),
+            has_logo: false,
+            replaced_photos: Vec::new(),
+        }
+    }
+}

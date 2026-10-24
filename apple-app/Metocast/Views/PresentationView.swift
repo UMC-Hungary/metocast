@@ -41,8 +41,8 @@ struct PresentationView: View {
                         SongSlidesView(session: session).windowActions()
                     }
                     .songFolderPrompt(isPresented: $isAskingForSongFolder, session: session) { _ in isWritingSong = true }
-                    .sheet(isPresented: $isShowingSettings) {
-                        PresentationSettingsView(session: session)
+                    .navigationDestination(isPresented: $isShowingSettings) {
+                        PresentationSettingsView(session: session).windowActions()
                     }
             } else {
                 ContentUnavailableView("No Presentation", systemImage: "play.rectangle")
@@ -78,11 +78,11 @@ struct PresentationView: View {
             ?? EventSchedule.current(in: session.events, now: .now)
     }
 
-    /// The deck library, and with the web presenter the event's Order of Service beside it, so the
-    /// service can be stepped through from here.
+    /// The deck library, and the event's Order of Service beside it, so the service can be stepped
+    /// through from here, with the web presenter or Keynote.
     @ViewBuilder
     private func sidebar(_ session: MetocastSession) -> some View {
-        let event = session.usesWebPresenter ? orderEvent(session) : nil
+        let event = orderEvent(session)
         VStack(spacing: 0) {
             if event != nil {
                 Picker("Show", selection: $isShowingOrder) {
@@ -303,16 +303,20 @@ struct SlideView: View {
 
 /// An imported slide's artwork. WebKit's SwiftUI `WebPage` renders these blank, so this uses
 /// `WKWebView` directly, which both platforms have had for years.
-private struct SVGView {
+struct SVGView {
     let svg: String
 
     /// The server's SVG is sized in pixels with no `viewBox`, so scaling it to the view would
     /// show only its top-left corner. This gives it one.
     static func scalable(_ slide: SvgSlideRecord) -> String {
-        guard !slide.svg.contains("viewBox"), let tag = slide.svg.range(of: "<svg") else { return slide.svg }
-        return slide.svg.replacingCharacters(
+        scalable(slide.svg, width: Int(slide.widthPx), height: Int(slide.heightPx))
+    }
+
+    static func scalable(_ svg: String, width: Int, height: Int) -> String {
+        guard !svg.contains("viewBox"), let tag = svg.range(of: "<svg") else { return svg }
+        return svg.replacingCharacters(
             in: tag,
-            with: "<svg viewBox=\"0 0 \(slide.widthPx) \(slide.heightPx)\" preserveAspectRatio=\"xMidYMid meet\""
+            with: "<svg viewBox=\"0 0 \(width) \(height)\" preserveAspectRatio=\"xMidYMid meet\""
         )
     }
 

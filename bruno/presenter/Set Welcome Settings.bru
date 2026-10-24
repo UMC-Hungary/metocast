@@ -1,0 +1,37 @@
+meta {
+  name: Set Welcome Settings
+  type: http
+  seq: 6
+}
+
+put {
+  url: {{baseUrl}}/api/presenter/welcome
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "title": "Isten hozott.",
+    "subtitle": "Az ÚR áldása legyen életeden!",
+    "churchName": "Nyíregyházi Metodista Gyülekezet",
+    "language": "hu"
+  }
+}
+
+docs {
+  `language` is `hu` or `en`: how the date is written. Photo N is month N's. Photos and the logo
+  are uploaded as files:
+  `PUT /api/presenter/welcome/photos/{1-12}` and `PUT /api/presenter/welcome/logo` (PNG or SVG)
+  take the image bytes as the body.
+}
+
+tests {
+  test("status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+}

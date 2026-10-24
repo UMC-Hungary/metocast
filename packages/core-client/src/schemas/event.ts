@@ -121,11 +121,12 @@ export type UpdateEventPayload = CreateEventPayload;
 
 // ── Order of Service ──────────────────────────────────────────────────────────
 
-export const OrderItemKindSchema = z.enum(['song', 'bible', 'block', 'announcements']);
+export const OrderItemKindSchema = z.enum(['song', 'bible', 'block', 'announcements', 'text']);
 
 /**
  * One step: a song deck, one of the event's readings, the announcements (their `notes` are the
- * bullet points, one per line, shown as slides), or a block with no slides.
+ * bullet points, one per line, shown as slides), a text slide (the title and its `notes` as
+ * optional paragraphs, such as the welcome), or a block with no slides.
  */
 export const OrderItemSchema = z.object({
   /** Absent for a step added in this edit; send it back to keep the step live across edits. */
@@ -134,6 +135,10 @@ export const OrderItemSchema = z.object({
   title: z.string().default(''),
   deckPath: z.string().nullish(),
   bibleType: z.enum(['textus', 'leckio']).nullish(),
+  /** A Bible step's own passage when `bibleType` is absent; the server stores its verses. */
+  reference: z.string().nullish(),
+  /** The translation of `reference`; RUF_v2 when absent. */
+  translation: z.string().nullish(),
   notes: z.string().default(''),
 });
 

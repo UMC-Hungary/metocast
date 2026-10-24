@@ -8,7 +8,7 @@ import { apiClient } from '../helpers/client.js';
 
 interface OrderItem {
   id: string;
-  kind: 'song' | 'bible' | 'block' | 'announcements';
+  kind: 'song' | 'bible' | 'block' | 'announcements' | 'text';
   title: string;
   deckPath: string | null;
   bibleType: string | null;
@@ -35,7 +35,7 @@ describe.skipIf(!isLive)('Order of Service REST API', () => {
     const template = await apiClient.get<{ items: OrderItem[] }>(`/api/events/${eventId}/order`);
     expect(template.status).toBe(200);
     expect(template.body.items.map((item) => item.title)).toEqual([
-      'Welcome message',
+      'Isten hozott.',
       'Song 1',
       'Song 2',
       'Lekció',
@@ -43,7 +43,8 @@ describe.skipIf(!isLive)('Order of Service REST API', () => {
       'Textus',
       'Preaching',
       'Song 4',
-      'Hirdetések, áldás',
+      'Hirdetések',
+      'Áldás',
       'Song 4 last part',
     ]);
     expect(
@@ -119,6 +120,33 @@ describe.skipIf(!isLive)('Order of Service REST API', () => {
       items: [{ kind: 'announcements', title: '' }],
     });
     expect(untitled.status).toBe(400);
+  });
+
+  it('starts with a welcome slide and stores a text slide with paragraphs', async () => {
+    const created = await apiClient.post<{ id: string }>('/api/events', {
+      title: 'E2E welcome slide',
+      date_time: new Date(Date.now() + 86400000).toISOString(),
+    });
+    const order = await apiClient.get<{ items: OrderItem[] }>(
+      `/api/events/${created.body.id}/order`,
+    );
+    expect(order.body.items[0]).toMatchObject({ kind: 'text', title: 'Isten hozott.' });
+    const saved = await apiClient.put<{ items: OrderItem[] }>(
+      `/api/events/${created.body.id}/order`,
+      {
+        items: [{ kind: 'text', title: 'Köszöntjük!', notes: 'Isten hozott mindenkit' }],
+      },
+    );
+    expect(saved.status).toBe(200);
+    expect(saved.body.items[0]?.notes).toBe('Isten hozott mindenkit');
+    await apiClient.delete(`/api/events/${created.body.id}`);
+  });
+
+  it("refuses a Bible step with neither one of the event's readings nor a reference", async () => {
+    const res = await apiClient.put(`/api/events/${eventId}/order`, {
+      items: [{ kind: 'bible', title: 'Ige' }],
+    });
+    expect(res.status).toBe(400);
   });
 
   it('answers 404 for an unknown event', async () => {

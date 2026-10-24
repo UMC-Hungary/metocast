@@ -54,8 +54,8 @@ describe.skipIf(!isLive)('Events WebSocket Commands', () => {
     const res = await apiClient.get<{ items: { title: string }[] }>(
       `/api/events/${createdEventId}/order`,
     );
-    expect(res.body.items[0]?.title).toBe('Welcome message');
-    expect(res.body.items).toHaveLength(10);
+    expect(res.body.items[0]?.title).toBe('Isten hozott.');
+    expect(res.body.items).toHaveLength(11);
   });
 
   it('events.get → events.get response', async () => {

@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import Metocast
 #if os(macOS)
 import AppKit
@@ -6,15 +7,14 @@ import AppKit
 import UIKit
 #endif
 
-/// Settings that matter only while presenting, opened from the Presentation page rather than kept
-/// in Settings: how decks are shown, the Raspberry Pi receiver, and on a Mac the slide fonts.
+/// Settings that matter only while presenting, a page inside Presentation rather than kept in
+/// Settings: how decks are shown, the welcome screen, the Raspberry Pi receiver, and on a Mac the
+/// slide fonts.
 struct PresentationSettingsView: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
     let session: MetocastSession
 
     var body: some View {
-        NavigationStack {
             Form {
                 Section {
                     Toggle("Web Presenter", isOn: Binding(
@@ -35,6 +35,7 @@ struct PresentationSettingsView: View {
                         ? "Decks open in Metocast's own presenter on the server's screen."
                         : "Decks open in Keynote on the server's Mac.")
                 }
+                WelcomeScreenSection(session: session)
                 Section("Connected Devices") {
                     if session.clients.isEmpty {
                         Text("No other devices").foregroundStyle(.secondary)
@@ -59,15 +60,6 @@ struct PresentationSettingsView: View {
             }
             .formStyle(.grouped)
             .navigationTitle("Presentation Settings")
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
-        #if os(macOS)
-        .frame(minWidth: 520, minHeight: 480)
-        #endif
     }
 
     /// An address the Pi can reach: the Mac hosting the server knows its network one, while a
@@ -79,6 +71,268 @@ struct PresentationSettingsView: View {
         return session.baseURL
     }
 }
+
+/// The welcome screen a Slide step shows: its text, how often the photo changes, the 12 photos
+/// (each replaceable from this computer) and the logo. Text saves itself once typing pauses.
+private struct WelcomeScreenSection: View {
+    let session: MetocastSession
+    @State private var settings: WelcomeSettingsRecord?
+    /// Thumbnails by photo number; reloaded after a replace or reset.
+    @State private var thumbnails: [UInt32: Data] = [:]
+    @State private var importTarget: ImportTarget?
+    @State private var busy: UInt32?
+    @State private var failure: String?
+    /// The month whose slide is being previewed.
+    @State private var previewing: ImportTarget?
+    /// A replace asked for in the preview, opened once the preview has closed.
+    @State private var pendingImport: ImportTarget?
+
+    /// The default greeting and blessing in each language, swapped in on a language change
+    /// unless the operator wrote their own.
+    private static let defaults = [
+        "hu": ("Isten hozott.", "Az ÚR áldása legyen életeden!"),
+        "en": ("Welcome.", "The Lord bless you and keep you!"),
+    ]
+
+    /// What the file picker is choosing for: a photo (1–12) or the logo (0).
+    private struct ImportTarget: Identifiable {
+        let number: UInt32
+        var id: UInt32 { number }
+    }
+
+    var body: some View {
+        Section {
+            if let settings {
+                TextField("Greeting", text: field(\.title), prompt: Text("Isten hozott."))
+                TextField("Blessing", text: field(\.subtitle), prompt: Text("Az ÚR áldása legyen életeden!"))
+                TextField("Church Name", text: field(\.churchName), prompt: Text("Nyíregyházi Metodista Gyülekezet"))
+                Picker("Language", selection: Binding(get: { settings.language }, set: { switchLanguage(to: $0) })) {
+                    Text(verbatim: "Magyar").tag("hu")
+                    Text(verbatim: "English").tag("en")
+                }
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 12) {
+                    ForEach(UInt32(1)...12, id: \.self) { number in
+                        photo(number, replaced: settings.replacedPhotos.contains(number))
+                    }
+                }
+                .padding(.vertical, 4)
+                LabeledContent("Logo") {
+                    HStack {
+                        // The church's cross-and-flame logo is built in; an upload replaces it.
+                        Text(settings.hasLogo ? "Custom" : "Default").foregroundStyle(.secondary)
+                        Button("Replace…") { importTarget = ImportTarget(number: 0) }
+                        if settings.hasLogo {
+                            Button("Reset to Default") { Task { await change { try await session.removeWelcomeLogo() } } }
+                        }
+                    }
+                }
+            } else {
+                ProgressView()
+            }
+            if let failure {
+                Label(failure, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
+            }
+        } header: {
+            Text("Welcome Screen")
+        } footer: {
+            Text("A Slide step in the Order of Service shows this with the web presenter: the photo of the event's month with the logo, and its title, the blessing and the date in the lower third. Click a month to preview it. The text always stays readable: the photo softens and tones down only where text sits.")
+        }
+        .fileImporter(
+            isPresented: Binding(get: { importTarget != nil }, set: { if !$0 { importTarget = nil } }),
+            allowedContentTypes: importTarget?.number == 0 ? [.png, .svg] : [.image]
+        ) { result in
+            guard let target = importTarget else { return }
+            importTarget = nil
+            Task { await upload(result, to: target.number) }
+        }
+        .task { await load() }
+        // Saved once typing pauses; a newer edit cancels the wait.
+        .sheet(item: $previewing, onDismiss: {
+            importTarget = pendingImport
+            pendingImport = nil
+        }) { target in
+            WelcomePreview(
+                session: session,
+                month: target.number,
+                isReplaced: settings?.replacedPhotos.contains(target.number) == true,
+                replace: { pendingImport = target; previewing = nil },
+                reset: { Task { await change(photo: target.number) { try await session.resetWelcomePhoto(target.number) } } }
+            )
+        }
+        .task(id: settings.map { "\($0.title)|\($0.subtitle)|\($0.churchName)|\($0.language)" }) {
+            guard let settings else { return }
+            do {
+                try await Task.sleep(for: .milliseconds(800))
+                _ = try await session.saveWelcomeSettings(settings)
+                failure = nil
+            } catch is CancellationError {
+                return
+            } catch {
+                failure = error.metocastMessage
+            }
+        }
+    }
+
+    private func field(_ path: WritableKeyPath<WelcomeSettingsRecord, String>) -> Binding<String> {
+        Binding(get: { settings?[keyPath: path] ?? "" }, set: { settings?[keyPath: path] = $0 })
+    }
+
+    /// A month's photo with the month's name; a click previews that month's slide.
+    private func photo(_ number: UInt32, replaced: Bool) -> some View {
+        Button { previewing = ImportTarget(number: number) } label: {
+            VStack(spacing: 4) {
+                ZStack {
+                    Rectangle().fill(.quaternary)
+                    if let data = thumbnails[number], let image = PlatformImage(data: data) {
+                        Image(platformImage: image).resizable().scaledToFill()
+                    }
+                    if busy == number { ProgressView() }
+                }
+                .aspectRatio(16 / 9, contentMode: .fit)
+                .clipShape(.rect(cornerRadius: 6))
+                .overlay(alignment: .bottomTrailing) {
+                    if replaced {
+                        Image(systemName: "pencil.circle.fill").padding(4).foregroundStyle(.white).shadow(radius: 2)
+                    }
+                }
+                Text(Calendar.current.standaloneMonthSymbols[Int(number) - 1].localizedCapitalized)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(replaced
+            ? Text("\(Calendar.current.standaloneMonthSymbols[Int(number) - 1]), photo replaced")
+            : Text(Calendar.current.standaloneMonthSymbols[Int(number) - 1]))
+        .accessibilityHint("Shows that month's welcome slide")
+    }
+
+    /// The other language's default text becomes this one's; text the operator wrote stays.
+    private func switchLanguage(to language: String) {
+        guard var updated = settings, let old = Self.defaults[updated.language], let new = Self.defaults[language] else { return }
+        if updated.title == old.0 { updated.title = new.0 }
+        if updated.subtitle == old.1 { updated.subtitle = new.1 }
+        updated.language = language
+        settings = updated
+    }
+
+    private func load() async {
+        do {
+            settings = try await session.welcomeSettings()
+            for number in UInt32(1)...12 {
+                thumbnails[number] = try await session.welcomePhoto(number)
+            }
+        } catch {
+            failure = error.metocastMessage
+        }
+    }
+
+    /// Runs one upload, reset or removal, then re-reads what changed.
+    private func change(photo number: UInt32? = nil, _ action: () async throws -> Void) async {
+        busy = number
+        defer { busy = nil }
+        do {
+            try await action()
+            let saved = settings
+            settings = try await session.welcomeSettings()
+            // Keep text typed since the last save.
+            if let saved {
+                settings?.title = saved.title
+                settings?.subtitle = saved.subtitle
+                settings?.churchName = saved.churchName
+                settings?.language = saved.language
+            }
+            if let number { thumbnails[number] = try await session.welcomePhoto(number) }
+            failure = nil
+        } catch {
+            failure = error.metocastMessage
+        }
+    }
+
+    private func upload(_ result: Result<URL, Error>, to number: UInt32) async {
+        do {
+            let url = try result.get()
+            let access = url.startAccessingSecurityScopedResource()
+            defer { if access { url.stopAccessingSecurityScopedResource() } }
+            let data = try Data(contentsOf: url)
+            if number == 0 {
+                await change { try await session.setWelcomeLogo(data) }
+            } else {
+                await change(photo: number) { try await session.replaceWelcomePhoto(number, with: data) }
+            }
+        } catch {
+            failure = error.metocastMessage
+        }
+    }
+}
+
+/// One month's welcome slide as the screens will show it, with that photo's actions.
+private struct WelcomePreview: View {
+    @Environment(\.dismiss) private var dismiss
+    let session: MetocastSession
+    let month: UInt32
+    let isReplaced: Bool
+    let replace: () -> Void
+    let reset: () -> Void
+    @State private var svg: String?
+    @State private var failure: String?
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 16) {
+                ZStack {
+                    Color.black
+                    if let svg {
+                        SVGView(svg: SVGView.scalable(svg, width: 1280, height: 720))
+                    } else if let failure {
+                        Label(failure, systemImage: "exclamationmark.triangle").foregroundStyle(.white)
+                    } else {
+                        ProgressView()
+                    }
+                }
+                .aspectRatio(16 / 9, contentMode: .fit)
+                .clipShape(.rect(cornerRadius: 10))
+                HStack {
+                    if isReplaced {
+                        Button("Reset to Default", systemImage: "arrow.uturn.backward") { reset(); dismiss() }
+                    }
+                    Spacer()
+                    Button("Replace…", systemImage: "photo") { replace() }
+                        .buttonStyle(.glassProminent)
+                }
+            }
+            .padding()
+            .navigationTitle(Calendar.current.standaloneMonthSymbols[Int(month) - 1].localizedCapitalized)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        #if os(macOS)
+        .frame(minWidth: 640, minHeight: 460)
+        #endif
+        .task {
+            do {
+                svg = try await session.welcomePreview(month)
+            } catch {
+                failure = error.metocastMessage
+            }
+        }
+    }
+}
+
+#if os(macOS)
+private typealias PlatformImage = NSImage
+private extension Image {
+    init(platformImage: NSImage) { self.init(nsImage: platformImage) }
+}
+#else
+private typealias PlatformImage = UIImage
+private extension Image {
+    init(platformImage: UIImage) { self.init(uiImage: platformImage) }
+}
+#endif
 
 /// The Raspberry Pi installer, with the same auto-start choice as the web UI's.
 private struct PresenterInstallSection: View {

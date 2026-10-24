@@ -67,6 +67,17 @@ fn handwritten() -> Value {
                 }
             },
             "schemas": {
+                "WelcomeSettings": {
+                    "type": "object",
+                    "properties": {
+                        "title": { "type": "string", "maxLength": 120, "description": "The greeting a new event's welcome step is named after", "example": "Isten hozott." },
+                        "subtitle": { "type": "string", "maxLength": 200, "description": "Shown under the title when the step has no notes of its own", "example": "Az ÚR áldása legyen életeden!" },
+                        "churchName": { "type": "string", "maxLength": 120, "description": "Shown above the event's date at the bottom", "example": "Nyíregyházi Metodista Gyülekezet" },
+                        "language": { "type": "string", "enum": ["hu", "en"], "description": "The language the date is written in: 2026. október 25. vasárnap, or Sunday, October 25, 2026", "example": "hu" },
+                        "hasLogo": { "type": "boolean", "readOnly": true },
+                        "replacedPhotos": { "type": "array", "items": { "type": "integer", "minimum": 1, "maximum": 12 }, "readOnly": true, "description": "Months whose photo was replaced by an upload" }
+                    }
+                },
                 "SlideContent": {
                     "type": "object",
                     "description": "Text content extracted from a single slide.",
@@ -1517,7 +1528,7 @@ fn handwritten() -> Value {
                 "get": {
                     "tags": ["Events"],
                     "summary": "Get an event's Order of Service",
-                    "description": "The service's steps in order: songs (a deck), Bible readings (the event's Textus or Lekció), announcements (their notes shown as bullet slides) and blocks (no slides). Step through them live with the `order.go`, `order.next` and `order.previous` WebSocket commands; `order.state` says which step is on screen.",
+                    "description": "The service's steps in order: songs (a deck), Bible readings (the event's Textus or Lekció), announcements (their notes shown as bullet slides), text slides (such as the welcome) and blocks (no slides). Step through them live with the `order.go`, `order.next` and `order.previous` WebSocket commands; `order.state` says which step is on screen.",
                     "operationId": "getEventOrder",
                     "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
                     "responses": {
@@ -1526,11 +1537,13 @@ fn handwritten() -> Value {
                 "required": ["kind"],
                 "properties": {
                     "id": { "type": "string", "format": "uuid", "description": "Omit for a new step; keep it so the live step survives the edit" },
-                    "kind": { "type": "string", "enum": ["song", "bible", "block", "announcements"], "description": "`announcements` shows its notes as bullet slides" },
-                    "title": { "type": "string", "maxLength": 200, "description": "Required for a block and the announcements, and for a song with no deck" },
+                    "kind": { "type": "string", "enum": ["song", "bible", "block", "announcements", "text"], "description": "`announcements` shows its notes as bullet slides; `text` is one slide of its title and its notes as paragraphs" },
+                    "title": { "type": "string", "maxLength": 200, "description": "Required for a block, the announcements and a text slide, and for a song with no deck" },
                     "deckPath": { "type": "string", "description": "Song: a deck on the server's disk. Optional: a song with none leaves the screen as it is" },
-                    "bibleType": { "type": "string", "enum": ["textus", "leckio"], "description": "Bible: which of the event's readings" },
-                    "notes": { "type": "string", "maxLength": 2000, "description": "For the people leading. Announcements: the bullet points, one per line" }
+                    "bibleType": { "type": "string", "enum": ["textus", "leckio"], "description": "Bible: which of the event's readings. Leave it out for a reading of the step's own" },
+                    "reference": { "type": "string", "maxLength": 200, "description": "Bible without `bibleType`: the passage, e.g. Zsolt 23. Its verses are looked up when the list is saved (a reference that finds none is refused) and stored, so showing it needs no network" },
+                    "translation": { "type": "string", "description": "The translation of `reference`, e.g. RUF_v2 (the default) or KG" },
+                    "notes": { "type": "string", "maxLength": 2000, "description": "For the people leading. Announcements: the bullet points, one per line. Text: optional paragraphs, one per line" }
                 }
             } } } } } } },
                         "401": { "description": "Unauthorized — missing or invalid token" },
@@ -1548,11 +1561,13 @@ fn handwritten() -> Value {
                 "required": ["kind"],
                 "properties": {
                     "id": { "type": "string", "format": "uuid", "description": "Omit for a new step; keep it so the live step survives the edit" },
-                    "kind": { "type": "string", "enum": ["song", "bible", "block", "announcements"], "description": "`announcements` shows its notes as bullet slides" },
+                    "kind": { "type": "string", "enum": ["song", "bible", "block", "announcements", "text"], "description": "`announcements` shows its notes as bullet slides; `text` is one slide of its title and its notes as paragraphs" },
                     "title": { "type": "string", "maxLength": 200, "description": "Required for a block" },
                     "deckPath": { "type": "string", "description": "Song: a deck on the server's disk" },
-                    "bibleType": { "type": "string", "enum": ["textus", "leckio"], "description": "Bible: which of the event's readings" },
-                    "notes": { "type": "string", "maxLength": 2000, "description": "For the people leading. Announcements: the bullet points, one per line" }
+                    "bibleType": { "type": "string", "enum": ["textus", "leckio"], "description": "Bible: which of the event's readings. Leave it out for a reading of the step's own" },
+                    "reference": { "type": "string", "maxLength": 200, "description": "Bible without `bibleType`: the passage, e.g. Zsolt 23. Its verses are looked up when the list is saved (a reference that finds none is refused) and stored, so showing it needs no network" },
+                    "translation": { "type": "string", "description": "The translation of `reference`, e.g. RUF_v2 (the default) or KG" },
+                    "notes": { "type": "string", "maxLength": 2000, "description": "For the people leading. Announcements: the bullet points, one per line. Text: optional paragraphs, one per line" }
                 }
             } } } } } } },
                     "responses": {
@@ -1561,11 +1576,13 @@ fn handwritten() -> Value {
                 "required": ["kind"],
                 "properties": {
                     "id": { "type": "string", "format": "uuid", "description": "Omit for a new step; keep it so the live step survives the edit" },
-                    "kind": { "type": "string", "enum": ["song", "bible", "block", "announcements"], "description": "`announcements` shows its notes as bullet slides" },
+                    "kind": { "type": "string", "enum": ["song", "bible", "block", "announcements", "text"], "description": "`announcements` shows its notes as bullet slides; `text` is one slide of its title and its notes as paragraphs" },
                     "title": { "type": "string", "maxLength": 200, "description": "Required for a block" },
                     "deckPath": { "type": "string", "description": "Song: a deck on the server's disk" },
-                    "bibleType": { "type": "string", "enum": ["textus", "leckio"], "description": "Bible: which of the event's readings" },
-                    "notes": { "type": "string", "maxLength": 2000, "description": "For the people leading. Announcements: the bullet points, one per line" }
+                    "bibleType": { "type": "string", "enum": ["textus", "leckio"], "description": "Bible: which of the event's readings. Leave it out for a reading of the step's own" },
+                    "reference": { "type": "string", "maxLength": 200, "description": "Bible without `bibleType`: the passage, e.g. Zsolt 23. Its verses are looked up when the list is saved (a reference that finds none is refused) and stored, so showing it needs no network" },
+                    "translation": { "type": "string", "description": "The translation of `reference`, e.g. RUF_v2 (the default) or KG" },
+                    "notes": { "type": "string", "maxLength": 2000, "description": "For the people leading. Announcements: the bullet points, one per line. Text: optional paragraphs, one per line" }
                 }
             } } } } } } },
                         "400": { "description": "A step is missing what it needs (a song's title or deck, a reading's type, a block's title), or an id repeats" },
@@ -1635,7 +1652,7 @@ fn handwritten() -> Value {
                 "post": {
                     "tags": ["Events"],
                     "summary": "Create event",
-                    "description": "Creates the event with the default Order of Service: Welcome message, Song 1, Song 2, Lekció, Song 3, Textus, Preaching, Song 4, Hirdetések, áldás, Song 4 last part. The songs have no deck until one is picked; read and change the steps with `/api/events/{id}/order`.",
+                    "description": "Creates the event with the default Order of Service: the welcome slide (a text step named after the welcome screen's greeting), Song 1, Song 2, Lekció, Song 3, Textus, Preaching, Song 4, Hirdetések (the announcements), Áldás, Song 4 last part. The songs have no deck until one is picked; read and change the steps with `/api/events/{id}/order`.",
                     "operationId": "createEvent",
                     "requestBody": {
                         "required": true,
@@ -1786,6 +1803,110 @@ fn handwritten() -> Value {
                         "401": { "description": "Unauthorized" },
                         "500": { "description": "Database error" }
                     }
+                }
+            },
+            "/api/presenter/welcome": {
+                "get": {
+                    "tags": ["Presenter"],
+                    "summary": "Read the welcome screen settings",
+                    "description": "The welcome screen is the slide a **text** Order of Service step shows in the web presenter: a photo, the logo top right, the step's title (the greeting), its notes or else `subtitle`, and the church name with the event's date. Each month has its photo: the event's month picks it (photo 1 is January). White text over a dark overlay sized from each photo's brightness keeps at least 4.5:1 contrast (WCAG AAA for large text).",
+                    "operationId": "getWelcomeSettings",
+                    "responses": {
+                        "200": { "description": "The settings", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WelcomeSettings" } } } },
+                        "401": { "description": "Unauthorized" }
+                    }
+                },
+                "put": {
+                    "tags": ["Presenter"],
+                    "summary": "Set the welcome screen settings",
+                    "description": "`hasLogo` and `replacedPhotos` are ignored; they come from the uploads.",
+                    "operationId": "setWelcomeSettings",
+                    "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WelcomeSettings" } } } },
+                    "responses": {
+                        "200": { "description": "The stored settings", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WelcomeSettings" } } } },
+                        "400": { "description": "Text too long, or a language other than hu or en" },
+                        "401": { "description": "Unauthorized" }
+                    }
+                }
+            },
+            "/api/presenter/welcome/photos/{number}": {
+                "parameters": [{ "name": "number", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1, "maximum": 12 } }],
+                "get": {
+                    "tags": ["Presenter"],
+                    "summary": "A month's welcome photo",
+                    "description": "The replacement if one was uploaded, else the built-in default (CC0, see `crates/metocast-server/assets/welcome/CREDITS.md`).",
+                    "operationId": "getWelcomePhoto",
+                    "responses": {
+                        "200": { "description": "The photo", "content": { "image/jpeg": { "schema": { "type": "string", "format": "binary" } } } },
+                        "401": { "description": "Unauthorized" },
+                        "404": { "description": "Not 1–12" }
+                    }
+                },
+                "put": {
+                    "tags": ["Presenter"],
+                    "summary": "Replace a welcome photo",
+                    "description": "The body is the image file (JPEG, PNG, WebP…, up to 40 MB). It is cropped to 16:9 and stored at 1920×1080.",
+                    "operationId": "setWelcomePhoto",
+                    "requestBody": { "required": true, "content": { "application/octet-stream": { "schema": { "type": "string", "format": "binary" } } } },
+                    "responses": {
+                        "204": { "description": "Stored" },
+                        "400": { "description": "Not an image" },
+                        "401": { "description": "Unauthorized" },
+                        "404": { "description": "Not 1–12" }
+                    }
+                },
+                "delete": {
+                    "tags": ["Presenter"],
+                    "summary": "Reset a welcome photo to its default",
+                    "operationId": "resetWelcomePhoto",
+                    "responses": {
+                        "204": { "description": "Reset" },
+                        "401": { "description": "Unauthorized" },
+                        "404": { "description": "Not 1–12" }
+                    }
+                }
+            },
+            "/api/presenter/welcome/preview/{number}": {
+                "parameters": [{ "name": "number", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1, "maximum": 12 } }],
+                "get": {
+                    "tags": ["Presenter"],
+                    "summary": "Preview a month's welcome slide",
+                    "description": "The welcome slide with month `number`'s photo, the logo and the saved text, dated the first Sunday of that month, as the screens would show it.",
+                    "operationId": "previewWelcomeSlide",
+                    "responses": {
+                        "200": { "description": "The slide", "content": { "image/svg+xml": { "schema": { "type": "string" } } } },
+                        "401": { "description": "Unauthorized" },
+                        "404": { "description": "Not 1–12" }
+                    }
+                }
+            },
+            "/api/presenter/welcome/logo": {
+                "get": {
+                    "tags": ["Presenter"],
+                    "summary": "The welcome screen's logo (the built-in one until one is uploaded)",
+                    "operationId": "getWelcomeLogo",
+                    "responses": {
+                        "200": { "description": "The logo", "content": { "image/png": { "schema": { "type": "string", "format": "binary" } }, "image/svg+xml": { "schema": { "type": "string" } } } },
+                        "401": { "description": "Unauthorized" }
+                    }
+                },
+                "put": {
+                    "tags": ["Presenter"],
+                    "summary": "Set the welcome screen's logo",
+                    "description": "The body is a PNG (transparency kept) or an SVG file, up to 5 MB. It shows top right on the welcome screen.",
+                    "operationId": "setWelcomeLogo",
+                    "requestBody": { "required": true, "content": { "application/octet-stream": { "schema": { "type": "string", "format": "binary" } } } },
+                    "responses": {
+                        "204": { "description": "Stored" },
+                        "400": { "description": "Not a PNG or SVG" },
+                        "401": { "description": "Unauthorized" }
+                    }
+                },
+                "delete": {
+                    "tags": ["Presenter"],
+                    "summary": "Remove the welcome screen's logo",
+                    "operationId": "removeWelcomeLogo",
+                    "responses": { "204": { "description": "Removed" }, "401": { "description": "Unauthorized" } }
                 }
             },
             "/api/presenter/parse": {

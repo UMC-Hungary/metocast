@@ -30,17 +30,23 @@ sign() {
 }
 
 profile_flag=""
-profile_dir="debug"
 strip_helper=false
 if [ "${CONFIGURATION:-Debug}" = "Release" ]; then
   profile_flag="--release"
-  profile_dir="release"
   strip_helper=true
 fi
 
-# The host build shares target/<profile> with plain `cargo build`.
-cargo build --manifest-path "$repo_root/Cargo.toml" -p metocast-server --bin metocast-server $profile_flag
-cp "$repo_root/target/$profile_dir/metocast-server" "$helpers/metocast-server"
+# The host build shares its target directory with plain `cargo build`. Copy the binary cargo says it
+# built: CARGO_TARGET_DIR or a `build.target-dir` in ~/.cargo/config.toml can move that directory
+# away from target/, and copying a guessed target/<profile> would ship an old server.
+build_output=$(cargo build --manifest-path "$repo_root/Cargo.toml" -p metocast-server --bin metocast-server \
+  $profile_flag --message-format=json-render-diagnostics)
+helper_bin=$(printf '%s\n' "$build_output" | sed -n 's/.*"executable":"\([^"]*\/metocast-server\)".*/\1/p' | tail -n 1)
+if [ -z "$helper_bin" ]; then
+  echo "error: cargo reported no metocast-server binary" >&2
+  exit 1
+fi
+cp "$helper_bin" "$helpers/metocast-server"
 
 # A shipped build leaves out the local symbol table, about a fifth of the binary and only useful
 # to a debugger. Stripping drops the signature: sign it again, ad hoc here and with Xcode's

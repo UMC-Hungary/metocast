@@ -7,6 +7,7 @@
     Button,
     IconButton,
     Icon,
+    Segmented,
     EmptyState,
     Sheet,
   } from '@metocast/design-system';
@@ -86,6 +87,8 @@
           .pop()
           ?.replace(/\.pptx?$/i, '') ?? ''
       );
+    if (item.kind === 'bible' && !item.bibleType)
+      return item.reference ?? $_('order.readingNotSet');
     if (item.kind === 'bible')
       return (
         readings.find((reading) => reading.type === item.bibleType)?.reference ??
@@ -95,6 +98,7 @@
       const n = bullets(item).length;
       return n ? $_('order.announcementCount', { values: { n } }) : $_('order.noAnnouncements');
     }
+    if (item.kind === 'text') return $_('order.slide');
     return '';
   }
 
@@ -105,8 +109,21 @@
       .map((line) => line.trim())
       .filter(Boolean);
 
-  /** Notes for the leaders; the announcements' notes are their slides, counted in the detail. */
-  const leaderNotes = (item: OrderItem) => (item.kind === 'announcements' ? '' : item.notes);
+  /** The kinds a part without a deck can switch between: nothing, a slide, the announcements. */
+  type Shown = 'block' | 'text' | 'announcements';
+  const isShown = (kind: OrderItem['kind']): kind is Shown =>
+    kind === 'block' || kind === 'text' || kind === 'announcements';
+  const shownOptions = $derived([
+    { value: 'block' as const, label: $_('order.showsNothing') },
+    { value: 'text' as const, label: $_('order.kind.text') },
+    { value: 'announcements' as const, label: $_('order.kind.announcements') },
+  ]);
+
+  /** Whether the notes are what the step shows (bullets or paragraphs), not notes for the leaders. */
+  const notesAreSlides = (item: OrderItem) => item.kind === 'announcements' || item.kind === 'text';
+
+  /** Notes for the leaders; the announcements' and a slide's notes are what they show. */
+  const leaderNotes = (item: OrderItem) => (notesAreSlides(item) ? '' : item.notes);
 
   /**
    * Sends the whole list after every edit. Only the latest save's answer is kept, so a slow
@@ -127,13 +144,33 @@
     }
   }
 
-  function addBlock(event: SubmitEvent) {
-    event.preventDefault();
-    const title = newTitle.trim();
+  /**
+   * Adds a step named by the text field. A block needs a name; announcements and a slide get one
+   * if it's empty and open for editing, since what they show is typed in them.
+   */
+  function add(kind: 'block' | 'announcements' | 'text' | 'bible') {
+    const fallback = {
+      block: '',
+      announcements: $_('order.kind.announcements'),
+      text: $_('order.welcome'),
+      bible: $_('order.kind.bible'),
+    };
+    const title = newTitle.trim() || fallback[kind];
     if (!title) return;
-    steps.push({ key: crypto.randomUUID(), item: { kind: 'block', title, notes: '' } });
+    const key = crypto.randomUUID();
+    steps.push({ key, item: { kind, title, notes: '' } });
     newTitle = '';
-    void save();
+    if (kind === 'block') void save();
+    else startEditing(key);
+  }
+
+  /** A browser download can leave a file name percent-encoded ("P%C3%A9csi…"). */
+  function decodedName(name: string): string {
+    try {
+      return decodeURIComponent(name);
+    } catch {
+      return name;
+    }
   }
 
   function pickDeck(key: string | null) {
@@ -143,7 +180,7 @@
 
   /** A song placeholder takes the deck and its name; with no step, the deck is a new song. */
   function addSong(file: PptFile) {
-    const title = file.name.replace(/\.pptx?$/i, '');
+    const title = decodedName(file.name).replace(/\.pptx?$/i, '');
     const step = steps.find((candidate) => candidate.key === pickingFor);
     if (step) {
       step.item.deckPath = file.path;
@@ -280,13 +317,34 @@
                     placeholder={$_('order.titlePlaceholder')}
                     aria-label={$_('order.stepTitle', { values: { n: index + 1 } })}
                   />
-                  {#if step.item.kind === 'announcements'}
+                  {#if isShown(step.item.kind)}
+                    <Segmented
+                      compact
+                      label={$_('order.shows')}
+                      options={shownOptions}
+                      value={step.item.kind}
+                      onchange={(kind) => (step.item.kind = kind)}
+                    />
+                  {/if}
+                  {#if step.item.kind === 'bible' && !step.item.bibleType}
+                    <input
+                      class="notes"
+                      bind:value={step.item.reference}
+                      placeholder="Zsolt 23"
+                      aria-label={$_('order.stepReference', { values: { n: index + 1 } })}
+                    />
+                  {/if}
+                  {#if notesAreSlides(step.item)}
                     <textarea
                       class="notes bullets"
                       bind:value={step.item.notes}
                       rows="5"
-                      placeholder={$_('order.bulletsPlaceholder')}
-                      aria-label={$_('order.stepBullets', { values: { n: index + 1 } })}
+                      placeholder={step.item.kind === 'text'
+                        ? $_('order.paragraphsPlaceholder')
+                        : $_('order.bulletsPlaceholder')}
+                      aria-label={step.item.kind === 'text'
+                        ? $_('order.stepParagraphs', { values: { n: index + 1 } })
+                        : $_('order.stepBullets', { values: { n: index + 1 } })}
                     ></textarea>
                   {:else}
                     <input
@@ -351,7 +409,13 @@
         </li>
       {/each}
     </ol>
-    <form class="add" onsubmit={addBlock}>
+    <form
+      class="add"
+      onsubmit={(event) => {
+        event.preventDefault();
+        add('block');
+      }}
+    >
       <input
         class="title"
         bind:value={newTitle}
@@ -359,6 +423,9 @@
         aria-label={$_('order.addStep')}
       />
       <Button compact onclick={() => pickDeck(null)}>{$_('order.addSong')}</Button>
+      <Button compact onclick={() => add('announcements')}>{$_('order.addAnnouncements')}</Button>
+      <Button compact onclick={() => add('text')}>{$_('order.addSlide')}</Button>
+      <Button compact onclick={() => add('bible')}>{$_('order.addBible')}</Button>
     </form>
     <p class="hint">{$_('order.editHint')}</p>
     {#if error}<p class="error" role="alert">{error}</p>{/if}
