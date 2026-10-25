@@ -342,20 +342,24 @@ private struct OutputRow: View {
 
 /// Starts or stops one output. Stopping asks first: a stream or recording ended by accident
 /// mid-service can't be picked up again. The caller supplies the label and the style, and
-/// the button is disabled while the output can't start.
+/// the button is disabled while the output can't start. With `askToStop`, the caller presents
+/// the question; without it, the button does.
 struct OutputButton<Content: View>: View {
     let output: LiveOutput
     let send: (ProductionControl) -> Void
+    var askToStop: ((LiveOutput) -> Void)?
     @ViewBuilder let label: Content
     @State private var isConfirmingStop = false
 
     var body: some View {
         Button {
             guard let control = output.control else { return }
-            if output.isOn {
-                isConfirmingStop = true
-            } else {
+            if !output.isOn {
                 send(control(true))
+            } else if let askToStop {
+                askToStop(output)
+            } else {
+                isConfirmingStop = true
             }
         } label: {
             label
@@ -363,11 +367,18 @@ struct OutputButton<Content: View>: View {
         .disabled(output.control == nil || output.isBusy)
         // The label may be a bare verb or an icon; VoiceOver always hears what it acts on.
         .accessibilityLabel(output.actionName)
-        .confirmationDialog("\(output.stopTitle)?", isPresented: $isConfirmingStop) {
+        .stopConfirmation(for: output, isPresented: $isConfirmingStop, send: send)
+    }
+}
+
+extension View {
+    /// Asks before stopping `output`, and stops it on a yes.
+    func stopConfirmation(for output: LiveOutput?, isPresented: Binding<Bool>, send: @escaping (ProductionControl) -> Void) -> some View {
+        confirmationDialog(output.map { Text("\($0.stopTitle)?") } ?? Text(verbatim: ""), isPresented: isPresented, presenting: output) { output in
             Button(output.stopTitle, role: .destructive) {
                 if let control = output.control { send(control(false)) }
             }
-        } message: {
+        } message: { output in
             Text("This stops the \(output.name) for everyone.")
         }
     }
@@ -378,12 +389,17 @@ struct OutputButton<Content: View>: View {
 /// or not an event exists. The toolbar already gives its items glass; a running output takes the
 /// prominent glass in red. One that can't start is dimmed, and both of these only wait for the
 /// RØDECaster.
+///
+/// The stop question is not presented from here: SwiftUI rebuilds toolbar items on every session
+/// update, and a dialog attached to one comes back after each answer. The window asks instead,
+/// for the output named in `stopping`.
 struct OutputToolbarButtons: View {
     let session: MetocastSession
+    @Binding var stopping: LiveOutput.ID?
 
     var body: some View {
         ForEach(session.outputs.filter(\.showsInToolbar)) { output in
-            let button = OutputButton(output: output, send: session.control) {
+            let button = OutputButton(output: output, send: session.control, askToStop: { stopping = $0.id }) {
                 if output.isBusy {
                     ProgressView().controlSize(.small)
                 } else {

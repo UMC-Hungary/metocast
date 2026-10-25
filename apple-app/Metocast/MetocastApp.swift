@@ -96,9 +96,12 @@ private struct RootView: View {
 #if os(macOS)
 private struct MacRootView: View {
     @Environment(AppModel.self) private var model
+    /// The toolbar output waiting on a stop confirmation, asked here rather than in the toolbar.
+    @State private var stoppingOutput: LiveOutput.ID?
 
     var body: some View {
         @Bindable var model = model
+        let stopping = model.session?.outputs.first { $0.id == stoppingOutput && $0.isOn }
         NavigationSplitView {
             // An open equipment page leaves the sidebar unselected; picking any item, even the current one, closes it.
             List(selection: Binding(
@@ -146,7 +149,7 @@ private struct MacRootView: View {
         .toolbar {
             if let session = model.session {
                 // Record and Transcript stay within reach from every page, event or not.
-                ToolbarItemGroup { OutputToolbarButtons(session: session) }
+                ToolbarItemGroup { OutputToolbarButtons(session: session, stopping: $stoppingOutput) }
                 ToolbarSpacer(.fixed)
                 // A running export stays in view from every page.
                 if !session.runningMediaJobs.isEmpty {
@@ -159,6 +162,12 @@ private struct MacRootView: View {
                     .labelStyle(.titleAndIcon)
             }
         }
+        // The current output, so the answer acts on its state now; one that stopped meanwhile drops the question.
+        .stopConfirmation(
+            for: stopping,
+            isPresented: Binding(get: { stopping != nil }, set: { if !$0 { stoppingOutput = nil } }),
+            send: { model.session?.control($0) }
+        )
         .sheet(isPresented: $model.isAddingEvent) {
             EventEditorView()
         }
