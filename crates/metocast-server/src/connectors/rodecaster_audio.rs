@@ -9,7 +9,7 @@ use std::thread::JoinHandle;
 
 use chrono::{DateTime, Utc};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{FromSample, InterfaceType, Sample, SampleFormat, SupportedStreamConfig};
+use cpal::{ErrorKind, FromSample, InterfaceType, Sample, SampleFormat, SupportedStreamConfig};
 use flac_bound::FlacEncoder;
 use serde::Serialize;
 use tokio::sync::broadcast;
@@ -651,6 +651,9 @@ fn build_input_stream(
                     }
                 },
                 move |error| {
+                    if is_glitch(&error) {
+                        return;
+                    }
                     mark_failed_once(
                         &error_failed,
                         &error_state,
@@ -678,7 +681,7 @@ pub(crate) fn build_f32_input_stream(
     device: &cpal::Device,
     supported: &SupportedStreamConfig,
     mut on_data: impl FnMut(&[f32]) + Send + 'static,
-    on_error: impl FnMut(cpal::Error) + Send + 'static,
+    mut on_error: impl FnMut(cpal::Error) + Send + 'static,
 ) -> Result<cpal::Stream, String> {
     let stream_config = supported.config();
     macro_rules! stream {
@@ -691,7 +694,11 @@ pub(crate) fn build_f32_input_stream(
                     converted.extend(samples.iter().map(|s| f32::from_sample(*s)));
                     on_data(&converted);
                 },
-                on_error,
+                move |error| {
+                    if !is_glitch(&error) {
+                        on_error(error);
+                    }
+                },
                 None,
             )
         }};
@@ -705,6 +712,15 @@ pub(crate) fn build_f32_input_stream(
         other => return Err(format!("unsupported_audio_sample_format: {other}")),
     };
     stream.map_err(|e| format!("audio_stream_open_failed: {e}"))
+}
+
+/// A dropped buffer or a rerouted stream: the stream keeps running, so it is logged, not fatal.
+fn is_glitch(error: &cpal::Error) -> bool {
+    let glitch = matches!(error.kind(), ErrorKind::Xrun | ErrorKind::DeviceChanged);
+    if glitch {
+        tracing::warn!("audio input glitch, still capturing: {error}");
+    }
+    glitch
 }
 
 fn to_i24<T>(sample: T) -> i32
@@ -723,6 +739,7 @@ fn mark_failed_once(
     if failed.swap(true, Ordering::SeqCst) {
         return;
     }
+    tracing::error!("audio recording failed: {error}");
     let mut state = state.write().expect("recorder state lock");
     state.status = RecorderStatus::Failed;
     state.error = Some(error.to_string());
@@ -901,6 +918,12 @@ fn remove_failed_start_files(paths: &[String]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_dropped_buffer_does_not_stop_capture_but_a_lost_device_does() {
+        assert!(is_glitch(&cpal::Error::new(ErrorKind::Xrun)));
+        assert!(!is_glitch(&cpal::Error::new(ErrorKind::DeviceNotAvailable)));
+    }
 
     #[test]
     fn selected_channels_keep_frame_alignment_and_order() {
