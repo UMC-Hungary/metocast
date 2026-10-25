@@ -77,6 +77,7 @@ pub fn start(
             let mut framer = Framer::new(sample_rate);
             loop {
                 if let Ok(error) = error_rx.try_recv() {
+                    tracing::error!("transcription audio failed: {error}");
                     frames_tx
                         .blocking_send(Err(format!("audio_stream_failed: {error}")))
                         .log_gone();
