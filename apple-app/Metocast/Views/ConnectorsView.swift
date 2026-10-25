@@ -55,6 +55,11 @@ struct ConnectorFormView: View {
     @Environment(\.openURL) private var openURL
     @State private var fields: [ConfigFieldRecord] = []
     @State private var values: [String: String] = [:]
+    /// What the server sent, so leaving can tell whether anything changed.
+    @State private var loaded: [String: String] = [:]
+    @State private var saved = false
+    @State private var isChoosingFolder = false
+    @State private var folderKey = ""
     @State private var cleared: Set<String> = []
     @State private var isLoading = true
     @State private var isSaving = false
@@ -83,6 +88,8 @@ struct ConnectorFormView: View {
     }
 
     private var signsIn: Bool { ConnectorInfo(id: connector).signsIn }
+
+    private var isDirty: Bool { values != loaded || !cleared.isEmpty }
 
     var body: some View {
         Form {
@@ -189,15 +196,29 @@ struct ConnectorFormView: View {
         .navigationTitle(name)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button("Save") { Task { await save() } }
-                    .pointingHand()
-                    .disabled(isLoading || isSaving)
+                Button(saved ? "Saved" : "Save", systemImage: saved ? "checkmark.circle.fill" : "checkmark") {
+                    Task { await save() }
+                }
+                .labelStyle(.titleAndIcon)
+                .pointingHand()
+                // Stays enabled while it says Saved, so the confirmation is not drawn greyed out.
+                .disabled(isLoading || isSaving || !(isDirty || saved))
             }
         }
         .overlay {
             if isLoading { ProgressView() }
         }
         .task(id: connector) { await load() }
+        // Leaving saves, like System Settings: it is the one hook the Mac sidebar, iOS Back and
+        // closing the window all go through, where a "Save changes?" prompt would need each of them.
+        .onDisappear { saveOnLeave() }
+        .serverFolderPrompt(
+            "Choose Folder",
+            message: "Type the folder's path on the server's Mac.",
+            isPresented: $isChoosingFolder
+        ) { folder in
+            values[folderKey] = folder
+        }
     }
 
     @ViewBuilder
@@ -228,6 +249,16 @@ struct ConnectorFormView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     #endif
+                // ponytail: folders are told apart by key name; give the core a folder kind if one is missed.
+                if field.key.lowercased().hasSuffix("directory") || field.key.lowercased().hasSuffix("folder") {
+                    Button("Choose Folder…", systemImage: "folder") {
+                        folderKey = field.key
+                        isChoosingFolder = true
+                    }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.glass)
+                    .pointingHand()
+                }
             }
         case .secret:
             VStack(alignment: .leading, spacing: 4) {
@@ -257,6 +288,7 @@ struct ConnectorFormView: View {
         do {
             fields = try await session.connectorForm(connector)
             values = Dictionary(uniqueKeysWithValues: fields.map { ($0.key, $0.value) })
+            loaded = values
             cleared = []
             failure = nil
         } catch {
@@ -264,16 +296,36 @@ struct ConnectorFormView: View {
         }
     }
 
+    private var changes: [ConfigValueRecord] {
+        fields.map { field in
+            ConfigValueRecord(key: field.key, value: values[field.key] ?? "", clear: cleared.contains(field.key))
+        }
+    }
+
     private func save() async {
         isSaving = true
         defer { isSaving = false }
         do {
-            try await session.saveConnector(connector, values: fields.map { field in
-                ConfigValueRecord(key: field.key, value: values[field.key] ?? "", clear: cleared.contains(field.key))
-            })
+            try await session.saveConnector(connector, values: changes)
             await load()
+            saved = true
+            try? await Task.sleep(for: .seconds(2))
+            saved = false
         } catch {
             failure = error.metocastMessage
+        }
+    }
+
+    /// The form is gone by the time this fails, so the failure goes to a system banner.
+    private func saveOnLeave() {
+        guard isDirty, !isLoading, !isSaving else { return }
+        let values = changes
+        Task { [session, connector, name] in
+            do {
+                try await session.saveConnector(connector, values: values)
+            } catch {
+                SystemNotice.post(String(localized: "Couldn't save \(name): \(error.metocastMessage)"), opening: .settings)
+            }
         }
     }
 
