@@ -65,6 +65,8 @@ enum EventSchedule {
 enum Redaction {
     static let isOn = UserDefaults.standard.bool(forKey: "MetocastRedact")
     static let host = "studio-mac"
+    /// A documentation address (RFC 5737), the one the server's own redaction uses.
+    static let address = "192.0.2.10"
 }
 
 /// Display names and symbols for the connectors the core reports.

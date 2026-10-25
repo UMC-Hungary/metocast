@@ -5,7 +5,7 @@ import {
   getToken,
   getClientUrl,
   getClientToken,
-  getLocalHost,
+  getLocalHosts,
 } from '@metocast/core-client';
 import type { CoreClientConfig } from '@metocast/core-client';
 
@@ -49,15 +49,16 @@ export async function initCore(): Promise<void> {
  * The address a presenter opens to join. In server mode it must be the LAN address,
  * not localhost, so another device can reach it — the same URL classic hands out.
  */
-export async function presenterUrl(): Promise<string> {
+export async function presenterUrls(): Promise<string[]> {
   const token = encodeURIComponent(cfg.authToken);
-  if (cfg.mode === 'client') return `${cfg.serverUrl}/presenter?token=${token}`;
-  let base = cfg.serverUrl;
-  try {
-    const host = await getLocalHost();
-    if (host) base = `http://${host}:${cfg.serverPort}`;
-  } catch {
-    /* no host — fall back to the configured URL */
+  let bases = [cfg.serverUrl];
+  if (cfg.mode === 'server') {
+    try {
+      const hosts = await getLocalHosts();
+      if (hosts.length > 0) bases = hosts.map((host) => `http://${host}:${cfg.serverPort}`);
+    } catch {
+      /* no host — fall back to the configured URL */
+    }
   }
-  return `${base}/presenter?token=${token}`;
+  return bases.map((base) => `${base}/presenter?token=${token}`);
 }

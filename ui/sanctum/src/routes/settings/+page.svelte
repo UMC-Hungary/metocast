@@ -29,7 +29,7 @@
     createCronJob,
     updateCronJob,
     fetchConnectorStatuses,
-    getLocalHost,
+    getLocalHosts,
     getServerPort,
     getToken,
     connectLink,
@@ -110,8 +110,8 @@
     }
     if (mode === 'server') {
       try {
-        const [host, port, token] = await Promise.all([
-          getLocalHost(),
+        const [[host], port, token] = await Promise.all([
+          getLocalHosts(),
           getServerPort(),
           getToken(),
         ]);
@@ -324,11 +324,18 @@
             />
           {/snippet}
         </Row>
-        <Row title={$_('settings.presenterInstall.command')} meta={presenterCommand} chevron={false} last>
+        <Row
+          title={$_('settings.presenterInstall.command')}
+          meta={presenterCommand}
+          chevron={false}
+          last
+        >
           {#snippet icon()}<TextIcon char="⌘" />{/snippet}
           {#snippet control()}
             <button type="button" class="copy-btn" onclick={copyPresenterCommand}>
-              {presenterCopied ? $_('settings.presenterInstall.copied') : $_('settings.presenterInstall.copy')}
+              {presenterCopied
+                ? $_('settings.presenterInstall.copied')
+                : $_('settings.presenterInstall.copy')}
             </button>
           {/snippet}
         </Row>

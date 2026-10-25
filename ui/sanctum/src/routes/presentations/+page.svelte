@@ -43,7 +43,7 @@
     PptFolder,
   } from '@metocast/core-client/schemas/ws-messages';
   import { live } from '$lib/live.svelte';
-  import { presenterUrl, appMode } from '$lib/core';
+  import { presenterUrls, appMode } from '$lib/core';
   import { relAge } from '$lib/format';
   import NotifBell from '$lib/NotifBell.svelte';
   import DeckLibrary from '$lib/DeckLibrary.svelte';
@@ -333,8 +333,8 @@
   let fontBookOpened = $state(false);
   let fontError = $state('');
 
-  let url = $state('');
-  let copied = $state(false);
+  let urls = $state<string[]>([]);
+  let copied = $state<string | null>(null);
   const clients = $derived(
     live.clients.map((c) => ({
       id: c.id,
@@ -344,11 +344,11 @@
     })),
   );
 
-  async function copyUrl() {
+  async function copyUrl(url: string) {
     try {
       await navigator.clipboard?.writeText(url);
-      copied = true;
-      setTimeout(() => (copied = false), 1300);
+      copied = url;
+      setTimeout(() => (copied = null), 1300);
     } catch {
       /* clipboard blocked */
     }
@@ -428,7 +428,7 @@
   }
 
   onMount(async () => {
-    url = await presenterUrl();
+    urls = await presenterUrls();
     sendWsCommand('clients.list');
     const configuredOutput = await getSongSlideFolder().catch(() => null);
     outputFolder = configuredOutput?.path ?? '';
@@ -680,12 +680,14 @@
 
   {#if mode === 'web'}
     <SectionLabel>{$_('presentations.presenterSupport')}</SectionLabel>
-    <div class="url-bar">
-      <span>{url}</span>
-      <button type="button" onclick={copyUrl}>
-        {copied ? $_('presentations.copied') : $_('presentations.copy')}
-      </button>
-    </div>
+    {#each urls as url (url)}
+      <div class="url-bar">
+        <span>{url}</span>
+        <button type="button" onclick={() => copyUrl(url)}>
+          {copied === url ? $_('presentations.copied') : $_('presentations.copy')}
+        </button>
+      </div>
+    {/each}
 
     <SectionLabel hint={$_('presentations.clientsSummary', { values: { n: clients.length } })}>
       {$_('presentations.clients')}

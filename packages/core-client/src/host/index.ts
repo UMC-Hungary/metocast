@@ -10,6 +10,7 @@
  * and must hide or degrade the control rather than assume Tauri is there.
  */
 
+import { z } from 'zod';
 import { ApplicationLogPathSchema, ApplicationLogTextSchema } from '../schemas/logs.js';
 import {
   PresentationFontsStatusSchema,
@@ -103,8 +104,12 @@ export function getServerPort(): Promise<number> {
   return invokeHost('mode', 'get_server_port');
 }
 
-export function getLocalHost(): Promise<string | null> {
-  return invokeHost('mode', 'get_local_host');
+/**
+ * The addresses other devices reach this machine's core at, best first: the LAN IP
+ * (works from every device), then the `.local` Bonjour name (does not resolve everywhere).
+ */
+export async function getLocalHosts(): Promise<string[]> {
+  return z.array(z.string()).parse(await invokeHost<unknown>('mode', 'get_local_hosts'));
 }
 
 export function getClientUrl(): Promise<string | null> {

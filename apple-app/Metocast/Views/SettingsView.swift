@@ -114,7 +114,7 @@ private struct ServerSection: View {
         let server = model.server
         Section {
             LabeledContent("Address") {
-                Text(ServerAddress.displayName(server.networkURL)).textSelection(.enabled)
+                CopyableLinks(urls: server.networkURLs)
             }
             LabeledContent("Token") {
                 HStack {

@@ -35,6 +35,13 @@ struct PresentationSettingsView: View {
                         ? "Decks open in Metocast's own presenter on the server's screen."
                         : "Decks open in Keynote on the server's Mac.")
                 }
+                Section {
+                    CopyableLinks(urls: presenterURLs)
+                } header: {
+                    Text("Web Presenter Link")
+                } footer: {
+                    Text("Open it in a browser on any device on this network to show the slides. The IP address works everywhere; the .local name needs Bonjour on that device.")
+                }
                 WelcomeScreenSection(session: session)
                 Section("Connected Devices") {
                     if session.clients.isEmpty {
@@ -62,13 +69,20 @@ struct PresentationSettingsView: View {
             .navigationTitle("Presentation Settings")
     }
 
-    /// An address the Pi can reach: the Mac hosting the server knows its network one, while a
-    /// client's own connection is already a network address.
-    private var receiverBaseURL: String {
+    /// Addresses other devices can reach, best first: the Mac hosting the server knows its
+    /// network ones, while a client's own connection is already a network address.
+    private var baseURLs: [String] {
         #if os(macOS)
-        if model.mode == .server { return model.server.networkURL }
+        if model.mode == .server { return model.server.networkURLs }
         #endif
-        return session.baseURL
+        return [session.baseURL]
+    }
+
+    private var receiverBaseURL: String { baseURLs[0] }
+
+    private var presenterURLs: [String] {
+        let token = session.token.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? session.token
+        return baseURLs.map { "\($0.hasSuffix("/") ? String($0.dropLast()) : $0)/presenter?token=\(token)" }
     }
 }
 

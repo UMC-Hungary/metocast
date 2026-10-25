@@ -5,14 +5,13 @@ import SystemConfiguration
 /// How other devices on the network reach this Mac. Mirrors `get_local_host` in
 /// `src-tauri/src/commands/server.rs`.
 enum LocalNetwork {
-    /// The Bonjour name, e.g. `amacmini.local`, which survives DHCP lease changes;
-    /// otherwise the first LAN IPv4 address.
-    static var hostName: String? {
-        if Redaction.isOn { return "\(Redaction.host).local" }
-        if let name = SCDynamicStoreCopyLocalHostName(nil) as String?, !name.isEmpty {
-            return "\(name).local"
-        }
-        return ipv4Address
+    /// The addresses other devices use, best first: the LAN IPv4 address, which every device
+    /// can reach, then the Bonjour name (e.g. `amacmini.local`), which survives DHCP lease
+    /// changes but does not resolve everywhere.
+    static var hosts: [String] {
+        if Redaction.isOn { return [Redaction.address, "\(Redaction.host).local"] }
+        let name = (SCDynamicStoreCopyLocalHostName(nil) as String?).flatMap { $0.isEmpty ? nil : "\($0).local" }
+        return [ipv4Address, name].compactMap { $0 }
     }
 
     private static var ipv4Address: String? {

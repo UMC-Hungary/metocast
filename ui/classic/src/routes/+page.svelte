@@ -1,7 +1,7 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
   import { appMode } from '$lib/stores/mode.js';
-  import { serverUrl, authToken, localNetworkUrl } from '$lib/stores/server-url.js';
+  import { serverUrl, authToken, localNetworkUrls } from '$lib/stores/server-url.js';
   import { wsStatus } from '$lib/stores/ws.js';
   import { CONNECTORS } from '$lib/connectors/registry.js';
   import ConnectorDashboardWidget from '$lib/components/connectors/ConnectorDashboardWidget.svelte';
@@ -28,10 +28,10 @@
         <dt>Server URL</dt>
         <dd>
           <code>{$serverUrl}</code>
-          {#if $localNetworkUrl}
-            <br /><code class="url-secondary">{$localNetworkUrl}</code>
+          {#each $localNetworkUrls as url (url)}
+            <br /><code class="url-secondary">{url}</code>
             <span class="label">network</span>
-          {/if}
+          {/each}
         </dd>
       {/if}
     </dl>

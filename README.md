@@ -61,7 +61,9 @@ of a Metocast server. The Mac is either a client or the
 server: its build embeds the headless `metocast-server` in `Contents/MacOS`
 (`scripts/embed-apple-server.sh`), and server mode runs it, then talks to it over loopback like
 any other client. Client devices connect by address and token, or by opening the
-`metocast://connect` link that the Mac's Settings shows as a QR code.
+`metocast://connect` link that the Mac's Settings shows as a QR code. Every screen that hands out an address shows
+both the LAN IP link and the `.local` one, each copyable; see
+[web presenter and network links](docs/features/web-presenter-links.md).
 
 ```bash
 ./scripts/build-apple.sh   # once, and after Rust bridge changes: the app links this XCFramework
