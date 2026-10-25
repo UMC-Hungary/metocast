@@ -27,7 +27,7 @@ presenter and the apps. The Raspberry Pi receiver shows it still.
 ## Readable for everyone
 
 - The text is white and large. The greeting is 14% of the slide's height, and nothing is
-  smaller than 4.2% (about 30 pixels at 720p), so it reads from the back of the room.
+  smaller than 4.2% (about 45 pixels at 1080p), so it reads from the back of the room.
 - The photo makes room for the text instead of the text fighting the photo: the lower third
   melts into a soft, progressive blur, so no busy detail sits behind the letters.
 - Where text sits (the lower third, and the logo's corner), bright parts of the photo are toned
@@ -82,7 +82,10 @@ Screen**:
 
 The slide shows on every screen that shows slides: the web presenter (`/ui/sanctum/presenter`),
 the Mac and iPhone app's Presentation page, and the Raspberry Pi presenter receiver. The server
-sends it as a finished SVG with the text already drawn, so no screen needs the fonts.
+sends it as a finished SVG with the text already drawn, so no screen needs the fonts. The slide is
+1920×1080, the photos' own size. The Raspberry Pi receiver gets it from the server already drawn
+at its TV's size (Full HD or 4K) as a JPEG (`presenter.frame`), since a Pi needs several
+seconds to draw a full-screen photo itself.
 
 ## Entry points
 

@@ -31,8 +31,8 @@ use crate::server::websocket;
 
 pub const PHOTO_COUNT: usize = 12;
 const SETTINGS_KEY: &str = "welcome_screen";
-const WIDTH: u32 = 1280;
-const HEIGHT: u32 = 720;
+const WIDTH: u32 = 1920;
+const HEIGHT: u32 = 1080;
 /// WCAG AAA for large text. Every line here is large (the smallest is 5% of the slide height),
 /// and this is what the overlay guarantees against nearly all of the photo behind the text.
 const TARGET_CONTRAST: f64 = 4.5;
@@ -308,7 +308,7 @@ fn tone(pixel: &mut image::Rgb<u8>, weight: f64) {
 /// The photo cover-cropped to the slide: sharp and untouched across the middle, blurred
 /// progressively into the lower third, and toned under the top band and the lower third.
 fn treat_photo(photo: &mut image::RgbImage, top_right: bool) {
-    let blurred = image::imageops::fast_blur(photo, 18.0);
+    let blurred = image::imageops::fast_blur(photo, 27.0);
     let (w, h) = (f64::from(photo.width()), f64::from(photo.height()));
     for (x, y, pixel) in photo.enumerate_pixels_mut() {
         let row = (f64::from(y) + 0.5) / h;
@@ -473,7 +473,7 @@ fn foreground(
     date: &str,
 ) -> String {
     let (w, h) = (f64::from(WIDTH), f64::from(HEIGHT));
-    let margin = 64.0;
+    let margin = 96.0;
     let mut layer = String::new();
     // The logo top left at its own proportions (the default carries the church's name).
     let logo_height = h * 0.12;
@@ -486,10 +486,10 @@ fn foreground(
         );
         layer.push_str(&format!(
             "<image x=\"{margin}\" y=\"{y}\" width=\"{logo_width:.1}\" height=\"{logo_height:.1}\" preserveAspectRatio=\"xMinYMin meet\" xlink:href=\"{uri}\"/>\n",
-            y = margin - 20.0,
+            y = margin - 30.0,
         ));
     }
-    // Nothing is smaller than 4.2% of the height (30 px here): readable from the back.
+    // Nothing is smaller than 4.2% of the height (45 px here): readable from the back.
     let small = h * 0.042;
     if !church.is_empty() {
         // Top right beside a logo, top left without one.
@@ -513,7 +513,7 @@ fn foreground(
     }
     // The lower third: the greeting big and left-aligned, the blessing under it, the date on
     // the right of the blessing's line.
-    let baseline = h - 56.0;
+    let baseline = h - 84.0;
     let blessing_lines = lines.len().max(1) as f64;
     let title_baseline = baseline - small * 1.5 * blessing_lines - h * 0.035;
     text(

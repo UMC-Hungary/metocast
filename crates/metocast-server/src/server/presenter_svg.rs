@@ -939,6 +939,41 @@ pub(crate) fn flatten_text_to_paths(svg: &str, options: &usvg::Options) -> Strin
     }
 }
 
+/// A slide's SVG drawn as a JPEG for a `width`×`height` screen, fitted and centred on black.
+/// A Raspberry Pi takes seconds to draw a photo with resvg, but only a moment to decode this.
+pub(crate) fn render_frame(svg: &str, width: u32, height: u32) -> Result<Vec<u8>, String> {
+    // Up to a 4K screen.
+    if width == 0 || height == 0 || u64::from(width) * u64::from(height) > 3840 * 2160 {
+        return Err(format!("a {width}x{height} frame is not supported"));
+    }
+    let tree = usvg::Tree::from_data(svg.as_bytes(), &usvg::Options::default())
+        .map_err(|e| format!("the slide's SVG doesn't parse: {e}"))?;
+    let size = tree.size();
+    let scale = (width as f32 / size.width()).min(height as f32 / size.height());
+    let offset_x = ((width as f32 - size.width() * scale) / 2.0).round();
+    let offset_y = ((height as f32 - size.height() * scale) / 2.0).round();
+    let mut pixmap =
+        resvg::tiny_skia::Pixmap::new(width, height).ok_or("the frame can't be allocated")?;
+    resvg::render(
+        &tree,
+        resvg::tiny_skia::Transform::from_scale(scale, scale).post_translate(offset_x, offset_y),
+        &mut pixmap.as_mut(),
+    );
+    // Premultiplied over a black background, so the colour channels are the output as they are.
+    let rgb: Vec<u8> = pixmap
+        .data()
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .flat_map(|p| [p[0], p[1], p[2]])
+        .collect();
+    let mut jpeg = Vec::new();
+    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg, MEDIA_JPEG_QUALITY)
+        .encode(&rgb, width, height, image::ExtendedColorType::Rgb8)
+        .map_err(|e| format!("the frame can't be encoded: {e}"))?;
+    Ok(jpeg)
+}
+
 fn render_svg(width: i64, height: i64, background: &str, items: &[SvgItem]) -> String {
     let (pixel_width, pixel_height) = svg_pixel_size(width, height);
     let sx = pixel_width as f64 / width.max(1) as f64;
@@ -1267,6 +1302,22 @@ fn resolve_zip_path(base_dir: &str, target: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_frame_fits_the_slide_to_the_screen_on_black() {
+        let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" width="40" height="30"><rect width="40" height="30" fill="#f00"/></svg>"##;
+        let jpeg = render_frame(svg, 64, 36).expect("frame renders");
+        let frame = image::load_from_memory(&jpeg)
+            .expect("frame is a JPEG")
+            .to_rgb8();
+        assert_eq!(frame.dimensions(), (64, 36));
+        // 4:3 on 16:9: red in the middle, black bars left and right.
+        let [r, g, b] = frame.get_pixel(32, 18).0;
+        assert!(r > 200 && g < 60 && b < 60, "middle is {r},{g},{b}");
+        let [r, g, b] = frame.get_pixel(2, 18).0;
+        assert!(r < 40 && g < 40 && b < 40, "bar is {r},{g},{b}");
+        assert!(render_frame(svg, 7680, 4320).is_err());
+    }
 
     #[test]
     fn empty_text_placeholder_end_paragraph_fill_does_not_render_shape() {
