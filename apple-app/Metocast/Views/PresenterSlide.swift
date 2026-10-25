@@ -361,7 +361,10 @@ private struct SongLayout: View {
     }
 
     private var eyebrow: String {
-        if isTitle { return "Ének" }
+        if isTitle {
+            let isReading = lines.first?.range(of: #"^(Textus|Lekció)\b"#, options: .regularExpression) != nil
+            return isReading ? "Ige" : "Ének"
+        }
         return fileName.map { "Ének · \($0)" } ?? "Ének"
     }
 }

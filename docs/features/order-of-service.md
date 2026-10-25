@@ -25,7 +25,9 @@ them. Each step is one of five kinds:
 During the service the operator steps through the list:
 
 - a song opens its deck in the web presenter or Keynote;
-- a reading loads the event's verses;
+- a reading loads the event's verses, bookended like a song: a title slide with the reading's name
+  and reference (_Lekció — Jn 3:16-17_), then the verse pages, then a blank closing slide. The
+  counter on each verse page (_1/3_) counts verse pages only;
 - the announcements show their bullet points as slides, and a slide step its slide;
 - a block leaves the screen as it is.
 

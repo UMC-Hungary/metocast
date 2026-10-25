@@ -301,7 +301,9 @@
           </div>
         {:else}
           <p class="editorial-eyebrow">
-            {editorialSongTitle ? 'Ének' : deckLabel(standaloneState?.filePath)}
+            {editorialSongTitle
+              ? isBibleCounter(mainParagraphs[0]) ? 'Ige' : 'Ének'
+              : deckLabel(standaloneState?.filePath)}
           </p>
           <div
             class="editorial-lyrics"

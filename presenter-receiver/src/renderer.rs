@@ -314,9 +314,13 @@ fn render_editorial_slide(
         );
     } else {
         let is_title = current_slide == 1;
+        let is_reading_title = is_title
+            && main
+                .first()
+                .is_some_and(|text| text.starts_with("Textus") || text.starts_with("Lekció"));
         show_text(
             &ctx,
-            "ÉNEK",
+            if is_reading_title { "IGE" } else { "ÉNEK" },
             "monospace",
             (h * 0.018).max(14.0) as i32,
             (w * 0.1, h * 0.14, w * 0.8),

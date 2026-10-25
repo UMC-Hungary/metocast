@@ -544,30 +544,36 @@ impl PresenterState {
     ) -> Self {
         let pages = paginate_bible_verses(verses, MAX_BIBLE_WORDS_PER_SLIDE);
         let total = pages.len() as u32;
-        let slides = pages
-            .iter()
-            .enumerate()
-            .map(|(idx, page)| {
-                let slide_number = idx as u32 + 1;
-                let verse_range = format_bible_page_range(page);
-                let counter =
-                    format_bible_counter(heading, reference, &verse_range, slide_number, total);
-                let mut paragraphs = vec![ParagraphContent {
+        let paged = pages.iter().enumerate().map(|(idx, page)| {
+            let verse_range = format_bible_page_range(page);
+            let counter =
+                format_bible_counter(heading, reference, &verse_range, idx as u32 + 1, total);
+            vec![
+                ParagraphContent {
                     lines: vec![format_bible_page_text(page)],
                     align: "left".to_string(),
                     font_size_pt: BIBLE_MAIN_FONT_SIZE_PT,
-                }];
-                paragraphs.push(ParagraphContent {
+                },
+                ParagraphContent {
                     lines: vec![counter],
                     align: "center".to_string(),
                     font_size_pt: BIBLE_COUNTER_FONT_SIZE_PT,
-                });
-                SlideContent {
-                    index: slide_number,
-                    paragraphs,
-                }
-            })
-            .collect();
+                },
+            ]
+        });
+        // Bookended like a song deck; the counter keeps counting verse pages only.
+        let slides = if total > 0 {
+            let (heading, reference) = (heading.trim(), reference.trim());
+            let title = if reference.is_empty() || reference == heading {
+                heading.to_string()
+            } else {
+                format!("{heading} — {reference}")
+            };
+            with_bookends(&title, paged)
+        } else {
+            Vec::new()
+        };
+        let total = slides.len() as u32;
 
         Self {
             loaded: total > 0,
@@ -868,26 +874,38 @@ pub fn song_slides(title: &str, lyrics: &str) -> Vec<SlideContent> {
     }
     finish_song_page(&mut pages, &mut lines);
 
-    let mut slides = Vec::with_capacity(pages.len() + 2);
-    slides.push(SlideContent {
+    with_bookends(
+        title,
+        pages.into_iter().map(|lines| {
+            vec![ParagraphContent {
+                lines,
+                align: "center".to_string(),
+                font_size_pt: SONG_FONT_SIZE_PT,
+            }]
+        }),
+    )
+}
+
+/// Wraps a deck's pages between a centred title slide and a blank closing slide.
+fn with_bookends(
+    title: &str,
+    pages: impl IntoIterator<Item = Vec<ParagraphContent>>,
+) -> Vec<SlideContent> {
+    let mut slides = vec![SlideContent {
         index: 1,
         paragraphs: vec![ParagraphContent {
             lines: vec![title.trim().to_string()],
             align: "center".to_string(),
             font_size_pt: SONG_TITLE_FONT_SIZE_PT,
         }],
-    });
+    }];
     slides.extend(
         pages
             .into_iter()
             .enumerate()
-            .map(|(index, lines)| SlideContent {
+            .map(|(index, paragraphs)| SlideContent {
                 index: index as u32 + 2,
-                paragraphs: vec![ParagraphContent {
-                    lines,
-                    align: "center".to_string(),
-                    font_size_pt: SONG_FONT_SIZE_PT,
-                }],
+                paragraphs,
             }),
     );
     slides.push(SlideContent {
@@ -1013,7 +1031,7 @@ mod tests {
             ],
         );
 
-        let slide = state.slides.first().unwrap();
+        let slide = &state.slides[1];
         assert_eq!(slide.paragraphs.len(), 2);
         assert_eq!(slide.paragraphs[0].lines.len(), 1);
         assert_eq!(
@@ -1022,6 +1040,47 @@ mod tests {
         );
         assert_eq!(slide.paragraphs[0].align, "left");
         assert!(slide.paragraphs[1].lines[0].contains("Jn 3:16-17"));
+    }
+
+    #[test]
+    fn bible_reading_is_bookended_like_a_song() {
+        let state = PresenterState::from_bible_reference(
+            "Sunday",
+            BibleReferenceType::Leckio,
+            "Jn 3:16-17",
+            vec![verse(3, 16, "one two"), verse(3, 17, "three four")],
+        );
+        let song = song_slides("Song title", "line");
+
+        assert_eq!(state.total_slides, 3);
+        assert_eq!(state.slides.len(), 3);
+        assert_eq!(state.slides[0].paragraphs[0].lines, ["Lekció — Jn 3:16-17"]);
+        assert_eq!(state.slides[0].paragraphs.len(), song[0].paragraphs.len());
+        assert_eq!(
+            state.slides[0].paragraphs[0].align,
+            song[0].paragraphs[0].align
+        );
+        assert_eq!(
+            state.slides[0].paragraphs[0].font_size_pt,
+            song[0].paragraphs[0].font_size_pt
+        );
+        assert!(state.slides[1].paragraphs[1].lines[0].ends_with("(1/1)"));
+        assert!(state.slides[2].paragraphs.is_empty());
+        assert_eq!(
+            state
+                .slides
+                .iter()
+                .map(|slide| slide.index)
+                .collect::<Vec<_>>(),
+            [1, 2, 3]
+        );
+
+        let empty = PresenterState::from_reading("Sunday", "Jn 3:16", "Jn 3:16", Vec::new());
+        assert!(!empty.loaded);
+        assert!(empty.slides.is_empty());
+        let own =
+            PresenterState::from_reading("Sunday", "Jn 3:16", "Jn 3:16", vec![verse(3, 16, "x")]);
+        assert_eq!(own.slides[0].paragraphs[0].lines, ["Jn 3:16"]);
     }
 
     #[test]
@@ -1047,8 +1106,8 @@ mod tests {
 
         assert_eq!(parsed.total_slides, state.total_slides);
         assert_eq!(parsed.slide_width_emu, state.slide_width_emu);
-        let written = &parsed.slides[0].paragraphs;
-        let expected = &state.slides[0].paragraphs;
+        let written = &parsed.slides[1].paragraphs;
+        let expected = &state.slides[1].paragraphs;
         assert_eq!(written.len(), expected.len());
         assert_eq!(written[0].lines, expected[0].lines);
         assert_eq!(written[0].align, expected[0].align);
@@ -1081,7 +1140,7 @@ mod tests {
         let mut archive = zip::ZipArchive::new(std::fs::File::open(&path).unwrap()).unwrap();
         let mut xml = String::new();
         std::io::Read::read_to_string(
-            &mut archive.by_name("ppt/slides/slide1.xml").unwrap(),
+            &mut archive.by_name("ppt/slides/slide2.xml").unwrap(),
             &mut xml,
         )
         .unwrap();
@@ -1090,14 +1149,14 @@ mod tests {
         assert!(xml.contains("11100E"));
         assert!(xml.contains("Cormorant Garamond"));
         assert!(xml.contains("Metocast Decorative Verse Number"));
-        assert_eq!(parsed.slides[0].paragraphs.len(), 2);
+        assert_eq!(parsed.slides[1].paragraphs.len(), 2);
         assert_eq!(
-            parsed.slides[0].paragraphs[0].lines,
-            state.slides[0].paragraphs[0].lines
+            parsed.slides[1].paragraphs[0].lines,
+            state.slides[1].paragraphs[0].lines
         );
         assert_eq!(
-            parsed.slides[0].paragraphs[1].lines,
-            state.slides[0].paragraphs[1].lines
+            parsed.slides[1].paragraphs[1].lines,
+            state.slides[1].paragraphs[1].lines
         );
     }
 
@@ -1695,7 +1754,13 @@ fn editorial_slide_xml(
         ]
         .join("")
     } else {
-        let label = if is_title {
+        let is_reading_title = main
+            .lines
+            .first()
+            .is_some_and(|text| text.starts_with("Textus") || text.starts_with("Lekció"));
+        let label = if is_title && is_reading_title {
+            "IGE".to_string()
+        } else if is_title {
             "ÉNEK".to_string()
         } else {
             format!("ÉNEK · {deck_label}").to_uppercase()
