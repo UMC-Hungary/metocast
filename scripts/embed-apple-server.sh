@@ -13,9 +13,17 @@ helpers="$TARGET_BUILD_DIR/$EXECUTABLE_FOLDER_PATH"
 # Cargo and FFmpeg's build run without Xcode's environment (SDK, deployment target and toolchain
 # settings for the app): it breaks C builds and would invalidate cargo's cache on every switch
 # between Xcode and terminal builds.
+# Cargo's own directory comes from the PATH this phase inherits: a Homebrew rustup (GitHub's macOS
+# images since 20261021) keeps it in $(brew --prefix rustup)/bin, not ~/.cargo/bin. An Xcode
+# opened from the Dock inherits no such PATH, so rustup's default ~/.cargo/bin is the fallback.
+# CARGO_HOME and RUSTUP_HOME pass through when set, so cargo finds the same toolchain and registry.
+cargo_bin="$(dirname "$(type -P cargo || echo "${CARGO_HOME:-$HOME/.cargo}/bin/cargo")")"
+rust_env=()
+[ -n "${CARGO_HOME:-}" ] && rust_env+=(CARGO_HOME="$CARGO_HOME")
+[ -n "${RUSTUP_HOME:-}" ] && rust_env+=(RUSTUP_HOME="$RUSTUP_HOME")
 clean_env() {
-  env -i HOME="$HOME" USER="${USER:-}" TMPDIR="${TMPDIR:-/tmp}" \
-    PATH="$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+  env -i HOME="$HOME" USER="${USER:-}" TMPDIR="${TMPDIR:-/tmp}" ${rust_env[@]+"${rust_env[@]}"} \
+    PATH="$cargo_bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
     "$@"
 }
 cargo() {
