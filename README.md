@@ -73,7 +73,10 @@ The app covers events, live production (OBS, ATEM, Middle Control, RØDECaster),
 presentations, connector settings and an event's recordings. **Settings → Connectors** lists every
 connector and edits its configuration, with secrets that can be replaced or forgotten but never
 read back; on the Mac that hosts the server, **Show Stored Secrets** reads them back through the
-run's admin token over loopback. **Settings → Equipment → Automations** writes the
+run's admin token over loopback. **Save** turns into **Saved** for a moment, and leaving the page
+saves what was changed, with a notification if that fails. Folder fields, like the RØDECaster's
+**Recording Folder**, have a folder button: on the Mac that hosts the server it opens the folder
+panel, and on any other device it asks for the path on the server's Mac. **Settings → Equipment → Automations** writes the
 [rules that link devices](#connector-automations) and shows their run history, and the **Live** screen
 carries the "Automations armed" switch, the running Middle Control preset and the RØDECaster's own SD
 recorder. **Settings → Server Tools** covers the scheduled jobs, the upload

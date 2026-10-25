@@ -1976,6 +1976,16 @@
         }
       }
     },
+    "Choose Folder" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mappa kiválasztása"
+          }
+        }
+      }
+    },
     "Choose Folder…" : {
       "localizations" : {
         "hu" : {
@@ -2656,6 +2666,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nem sikerült betölteni az esemény többi részét."
+          }
+        }
+      }
+    },
+    "Couldn't save %@: %@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nem sikerült menteni: %1$@ – %2$@"
           }
         }
       }
@@ -8838,6 +8858,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Újra"
+          }
+        }
+      }
+    },
+    "Type the folder's path on the server's Mac." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Írja be a mappa elérési útját a szerver Macjén."
           }
         }
       }
