@@ -226,6 +226,10 @@ const EXCLUDED_WS: &[(&str, &str)] = &[
         "socket lifecycle: labels a connected browser",
     ),
     ("pong", "socket lifecycle: answers a ping"),
+    (
+        "presenter.frame",
+        "replies with a binary JPEG for a screen to show, not data for an agent",
+    ),
 ];
 
 fn tool_name(wire: &str) -> String {

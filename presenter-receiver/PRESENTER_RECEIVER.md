@@ -185,6 +185,14 @@ The presenter receiver speaks a subset of the Metocast WebSocket protocol. All m
 
 `ping_id` must be the integer value received in the `ping` message.
 
+**Frame request** — sent for an SVG slide the receiver has not shown yet in the current state. The server draws the slide at the display's size and replies to this receiver only with one **binary** message: a JPEG of exactly `width`×`height` (up to 3840×2160), letterboxed on black. The receiver decodes it and caches it per slide until the next `presenter.state`:
+
+```json
+{ "type": "presenter.frame", "slide": 1, "width": 1920, "height": 1080 }
+```
+
+A Raspberry Pi takes seconds to draw a full-screen photo with resvg (7 s for the welcome slide on a Pi 2 at 1080p, 33 s at 4K); decoding the server's JPEG takes about 1 s on a Pi 2. Replies come in order, so only the reply to the latest request is shown. If the server answers `error`, or sends nothing within 10 s (a server older than the command), the receiver draws the slide itself as before.
+
 ---
 
 ### Messages consumed by the receiver (server to client)
@@ -244,7 +252,7 @@ Field notes:
 - `paragraphs[].align` — one of `"left"`, `"center"`, `"right"`, `"justify"`. The receiver maps these to Pango alignment values.
 - `paragraphs[].text` — plain text. Hard line breaks within a paragraph are represented as `\n` characters.
 
-**SVG presenter state** — used when the web presenter opens a normal PPTX in visual mode. The receiver rasterizes the active SVG slide and writes it to the display:
+**SVG presenter state** — used when the web presenter opens a normal PPTX in visual mode. The receiver asks the server for the active slide as a frame (`presenter.frame`), and draws the SVG itself only when the server can't:
 
 ```json
 {

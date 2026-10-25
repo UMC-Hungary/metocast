@@ -686,6 +686,20 @@ pub fn rgb_to_u32(rgb: &[u8]) -> Vec<u32> {
         .collect()
 }
 
+/// A `presenter.frame` JPEG the server drew for this display, as a frame. Decoding it takes a
+/// fraction of the time resvg needs to draw a photo on a Raspberry Pi.
+pub fn decode_frame(jpeg: &[u8], width: u32, height: u32) -> Result<Vec<u32>, String> {
+    let mut decoder =
+        zune_jpeg::JpegDecoder::new(zune_jpeg::zune_core::bytestream::ZCursor::new(jpeg));
+    let rgb = decoder
+        .decode()
+        .map_err(|e| format!("frame doesn't decode: {e}"))?;
+    match decoder.dimensions() {
+        Some((w, h)) if (w, h) == (width as usize, height as usize) => Ok(rgb_to_u32(&rgb)),
+        other => Err(format!("frame is {other:?}, not {width}x{height}")),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -3665,6 +3665,7 @@ dependencies = [
  "quick-xml 0.39.4",
  "regex",
  "reqwest 0.13.5",
+ "resvg",
  "rodecaster",
  "rustfft",
  "schemars 1.2.2",
@@ -4894,6 +4895,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-tungstenite 0.24.0",
+ "zune-jpeg",
 ]
 
 [[package]]

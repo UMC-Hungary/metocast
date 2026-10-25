@@ -18,6 +18,7 @@ pango = "0.22"
 pangocairo = "0.22"
 futures-util = "0.3"
 resvg = "0.47"
+zune-jpeg = "0.5"
 
 [lints]
 workspace = true

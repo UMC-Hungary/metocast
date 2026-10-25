@@ -98,6 +98,8 @@ enum ServerMsg {
         #[serde(rename = "pingId")]
         ping_id: i64,
     },
+    #[serde(rename = "error")]
+    Error { message: String },
     #[serde(other)]
     Unknown,
 }
@@ -154,6 +156,34 @@ pub struct DisplayDims {
 /// `presenter.state` message larger than tungstenite's default 16 MiB frame limit.
 const MAX_WS_MESSAGE_BYTES: usize = 64 << 20;
 
+/// How long to wait for a `presenter.frame` before drawing the slide here: a server older than
+/// the command ignores it.
+const FRAME_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// SVG slides are drawn by the server (`presenter.frame`): resvg takes seconds to draw a photo
+/// on a Raspberry Pi, decoding the server's JPEG a fraction of that. Replies come in order, so
+/// the last one answers the latest request.
+struct FrameRequests {
+    /// Asked for and not yet answered.
+    pending: u32,
+    /// The slide the latest request was for.
+    slide: Option<u32>,
+    sent_at: std::time::Instant,
+    /// False once the server turns out not to draw frames.
+    supported: bool,
+}
+
+impl FrameRequests {
+    /// Counts a reply in; true when it answers the latest request.
+    fn answered(&mut self) -> bool {
+        if self.pending == 0 {
+            return false;
+        }
+        self.pending -= 1;
+        self.pending == 0
+    }
+}
+
 fn websocket_config() -> WebSocketConfig {
     WebSocketConfig {
         max_message_size: Some(MAX_WS_MESSAGE_BYTES),
@@ -202,17 +232,71 @@ async fn connect_and_receive(
     };
     let mut presenter_theme = PresenterTheme::Classic;
     let mut svg_frame_cache: HashMap<u32, Frame> = HashMap::new();
+    let mut frames = FrameRequests {
+        pending: 0,
+        slide: None,
+        sent_at: std::time::Instant::now(),
+        supported: true,
+    };
 
     let idle_timeout = std::time::Duration::from_secs(60);
 
     loop {
-        let raw = match tokio::time::timeout(idle_timeout, read.next()).await {
+        let wait = if frames.pending > 0 {
+            FRAME_TIMEOUT.saturating_sub(frames.sent_at.elapsed())
+        } else {
+            idle_timeout
+        };
+        let raw = match tokio::time::timeout(wait, read.next()).await {
             Ok(Some(msg)) => msg?,
             Ok(None) => break, // stream ended cleanly
+            Err(_) if frames.pending > 0 => {
+                eprintln!("[frame] no reply from the server; drawing slides here");
+                frames.pending = 0;
+                frames.supported = false;
+                render_state(
+                    &presenter_state,
+                    presenter_theme,
+                    tx,
+                    dims,
+                    &mut svg_frame_cache,
+                    false,
+                )?;
+                continue;
+            }
             Err(_) => return Err("read timeout — connection lost".into()),
         };
         let text = match raw {
             Message::Text(t) => t,
+            Message::Binary(jpeg) => {
+                if !frames.answered() {
+                    continue;
+                }
+                if let Some(slide) = frames.slide.take() {
+                    let started = std::time::Instant::now();
+                    match crate::renderer::decode_frame(&jpeg, dims.width, dims.height) {
+                        Ok(frame) => {
+                            eprintln!(
+                                "[frame] slide {slide}: {} bytes {:?} after asking, decoded in {:?}",
+                                jpeg.len(),
+                                frames.sent_at.elapsed(),
+                                started.elapsed()
+                            );
+                            svg_frame_cache.insert(slide, frame);
+                        }
+                        Err(err) => eprintln!("[frame] {err}; drawing it here"),
+                    }
+                    render_state(
+                        &presenter_state,
+                        presenter_theme,
+                        tx,
+                        dims,
+                        &mut svg_frame_cache,
+                        false,
+                    )?;
+                }
+                continue;
+            }
             Message::Close(_) => break,
             _ => continue,
         };
@@ -227,25 +311,32 @@ async fn connect_and_receive(
                 presenter_theme: next_theme,
             } => {
                 presenter_theme = next_theme;
-                render_state(
+                show(
+                    &mut write,
                     &presenter_state,
                     presenter_theme,
                     tx,
                     dims,
                     &mut svg_frame_cache,
-                )?;
+                    &mut frames,
+                )
+                .await?;
             }
             ServerMsg::PresenterState { state } => {
                 presenter_state = state;
                 log_presenter_state("state", &presenter_state);
                 svg_frame_cache.clear();
-                render_state(
+                frames.slide = None;
+                show(
+                    &mut write,
                     &presenter_state,
                     presenter_theme,
                     tx,
                     dims,
                     &mut svg_frame_cache,
-                )?;
+                    &mut frames,
+                )
+                .await?;
             }
             ServerMsg::SlideChanged {
                 current_slide: new_slide,
@@ -258,13 +349,16 @@ async fn connect_and_receive(
                     presenter_state.slides.len(),
                     presenter_state.svg_slides.len()
                 );
-                render_state(
+                show(
+                    &mut write,
                     &presenter_state,
                     presenter_theme,
                     tx,
                     dims,
                     &mut svg_frame_cache,
-                )?;
+                    &mut frames,
+                )
+                .await?;
             }
             ServerMsg::Ping { ping_id } => {
                 write
@@ -272,6 +366,22 @@ async fn connect_and_receive(
                         json!({"type": "pong", "ping_id": ping_id}).to_string(),
                     ))
                     .await?;
+            }
+            ServerMsg::Error { message } => {
+                eprintln!("[ws] server error: {message}");
+                // `unauthorized`: a server older than `presenter.frame`.
+                frames.supported &= message != "unauthorized";
+                if frames.answered() {
+                    frames.slide = None;
+                    render_state(
+                        &presenter_state,
+                        presenter_theme,
+                        tx,
+                        dims,
+                        &mut svg_frame_cache,
+                        false,
+                    )?;
+                }
             }
             ServerMsg::Unknown => {}
         }
@@ -293,6 +403,38 @@ fn log_presenter_state(source: &str, state: &PresenterState) {
 
 // ── Render + send ─────────────────────────────────────────────────────────────
 
+/// Shows the current slide, asking the server to draw it when it is an SVG slide not drawn yet.
+async fn show(
+    write: &mut (impl SinkExt<Message, Error = tokio_tungstenite::tungstenite::Error> + Unpin),
+    state: &PresenterState,
+    theme: PresenterTheme,
+    tx: &std::sync::mpsc::Sender<Frame>,
+    dims: DisplayDims,
+    svg_frame_cache: &mut HashMap<u32, Frame>,
+    frames: &mut FrameRequests,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let ask_server = frames.supported && frames.slide != Some(state.current_slide);
+    if render_state(state, theme, tx, dims, svg_frame_cache, ask_server)? {
+        write
+            .send(Message::Text(
+                json!({
+                    "type": "presenter.frame",
+                    "slide": state.current_slide,
+                    "width": dims.width,
+                    "height": dims.height,
+                })
+                .to_string(),
+            ))
+            .await?;
+        frames.pending += 1;
+        frames.slide = Some(state.current_slide);
+        frames.sent_at = std::time::Instant::now();
+    }
+    Ok(())
+}
+
+/// Sends the current slide's frame to the display. With `ask_server`, an SVG slide not drawn
+/// yet is left to the server instead and the result is true; the screen keeps what it shows.
 /// Fails when the display thread is gone and nothing is left to show the frame.
 fn render_state(
     state: &PresenterState,
@@ -300,12 +442,17 @@ fn render_state(
     tx: &std::sync::mpsc::Sender<Frame>,
     dims: DisplayDims,
     svg_frame_cache: &mut HashMap<u32, Frame>,
-) -> Result<(), std::sync::mpsc::SendError<Frame>> {
+    ask_server: bool,
+) -> Result<bool, std::sync::mpsc::SendError<Frame>> {
     if state.muted {
-        return tx.send(vec![0u32; (dims.width * dims.height) as usize]);
+        tx.send(vec![0u32; (dims.width * dims.height) as usize])?;
+        return Ok(false);
     }
 
     if theme == PresenterTheme::Classic && state.render_mode == PresenterRenderMode::Svg {
+        if ask_server && !svg_frame_cache.contains_key(&state.current_slide) {
+            return Ok(true);
+        }
         let frame = svg_frame_cache
             .entry(state.current_slide)
             .or_insert_with(|| {
@@ -326,7 +473,8 @@ fn render_state(
                     .unwrap_or_else(|_| vec![0u32; (dims.width * dims.height) as usize])
             })
             .clone();
-        return tx.send(frame);
+        tx.send(frame)?;
+        return Ok(false);
     }
 
     let owned: Vec<(String, String, f64)> = state
@@ -353,5 +501,6 @@ fn render_state(
         dims.width,
         dims.height,
     );
-    tx.send(crate::renderer::rgb_to_u32(&rgb))
+    tx.send(crate::renderer::rgb_to_u32(&rgb))?;
+    Ok(false)
 }

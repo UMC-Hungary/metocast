@@ -28,6 +28,7 @@ docs {
   | `presenter.goto`  | `slide: N`   | Jump to slide N |
   | `presenter.unload`| —            | Clear the presentation |
   | `presenter.status`| —            | Reply to sender with `presenter.state` |
+  | `presenter.frame` | `slide: N, width: W, height: H` | Reply to sender with one binary message: SVG slide N as a W×H JPEG (up to 3840×2160) |
 
   **Broadcast response for next/prev/first/last/goto:**
   ```json

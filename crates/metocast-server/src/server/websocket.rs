@@ -472,6 +472,9 @@ enum WsCommand {
     /// The web presenter's full state: deck, current slide and mute. Replies with `presenter.state`.
     #[serde(rename = "presenter.status")]
     PresenterStatus,
+    /// SVG slide `slide` (1-based) drawn for a `width`×`height` screen. Replies with one binary message holding the JPEG, for screens too slow to draw the SVG, such as the Raspberry Pi receiver.
+    #[serde(rename = "presenter.frame")]
+    PresenterFrame { slide: u32, width: u32, height: u32 },
     /// Blank the web presenter's screen.
     #[serde(rename = "presenter.mute")]
     PresenterMute,
@@ -1393,6 +1396,32 @@ async fn handle_ws_command(
             let ps = state.presenter_state.read().await;
             let msg = serde_json::json!({ "type": "presenter.state", "state": &*ps }).to_string();
             client_tx.send(Message::Text(msg.into())).log_gone();
+        }
+        WsCommand::PresenterFrame {
+            slide,
+            width,
+            height,
+        } => {
+            let svg = state
+                .presenter_state
+                .read()
+                .await
+                .svg_slides
+                .iter()
+                .find(|s| s.index == slide)
+                .map(|s| s.svg.clone());
+            let Some(svg) = svg else {
+                return ws_error(client_tx, &format!("no SVG slide {slide}"));
+            };
+            let frame = tokio::task::spawn_blocking(move || {
+                presenter::presenter_svg::render_frame(&svg, width, height)
+            })
+            .await
+            .unwrap_or_else(|e| Err(e.to_string()));
+            match frame {
+                Ok(jpeg) => client_tx.send(Message::Binary(jpeg.into())).log_gone(),
+                Err(e) => ws_error(client_tx, &e),
+            }
         }
         WsCommand::PresenterMute => {
             state.presenter_state.write().await.mute();
@@ -3483,6 +3512,7 @@ pub async fn ws_handler(State(state): State<AppState>, req: Request) -> Response
 const READONLY_ALLOWED: &[&str] = &[
     "presenter.register",
     "presenter.status",
+    "presenter.frame",
     "order.status",
     "pong",
 ];
