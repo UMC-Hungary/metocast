@@ -2490,6 +2490,16 @@
         }
       }
     },
+    "Copy" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Másolás"
+          }
+        }
+      }
+    },
     "Copy Access Token" : {
       "localizations" : {
         "hu" : {
@@ -2536,6 +2546,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Telepítési parancs másolása"
+          }
+        }
+      }
+    },
+    "Copy Link" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Link másolása"
           }
         }
       }
@@ -5672,6 +5692,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Megnyitva a Keynote-ban, nem fut."
+          }
+        }
+      }
+    },
+    "Open it in a browser on any device on this network to show the slides. The IP address works everywhere; the .local name needs Bonjour on that device." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nyisd meg böngészőben a hálózat bármely eszközén a diák megjelenítéséhez. Az IP-cím mindenhol működik, a .local névhez Bonjour kell az adott eszközön."
           }
         }
       }
@@ -9196,6 +9226,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Webes vetítő"
+          }
+        }
+      }
+    },
+    "Web Presenter Link" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Webes vetítő linkje"
           }
         }
       }

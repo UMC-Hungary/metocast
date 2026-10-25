@@ -19,6 +19,8 @@ final class MetocastSession {
     }
 
     let baseURL: String
+    /// The token this session signs in with; the web presenter link carries it.
+    let token: String
     private(set) var status: Status = .connecting
     private(set) var events: [EventSummaryRecord] = []
     private(set) var connectors: [String: ConnectorStatusRecord] = [:]
@@ -89,6 +91,7 @@ final class MetocastSession {
 
     init(baseURL: String, token: String) throws {
         self.baseURL = baseURL
+        self.token = token
         client = try AppleClient(baseUrl: baseURL, authToken: token)
     }
 

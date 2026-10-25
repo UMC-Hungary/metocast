@@ -3,7 +3,7 @@
   import { pickDirectory } from '@metocast/core-client';
   import { pptFilter, pptResults, pptFolders, keynoteStatus } from '$lib/stores/presentations.js';
   import { presenterState, useWebPresenter, connectedClients } from '$lib/stores/presenter.js';
-  import { appReady, localNetworkUrl, authToken, serverPort } from '$lib/stores/server-url.js';
+  import { appReady, localNetworkUrls, authToken, serverPort } from '$lib/stores/server-url.js';
   import { lastWsMessage, wsStatus } from '$lib/stores/ws.js';
   import { sendWsCommand } from '@metocast/core-client';
   import { onMount, onDestroy, untrack } from 'svelte';
@@ -33,7 +33,7 @@
   let selectedEventId = $state('');
   let selectedEvent = $state<ServiceEvent | null>(null);
   let selectedEventLoading = $state(false);
-  let copySuccess = $state(false);
+  let copiedUrl = $state<string | null>(null);
   let pingingClient = $state<string | null>(null);
   let now = $state(Date.now());
   let clockTimer: ReturnType<typeof setInterval>;
@@ -188,18 +188,18 @@
 
   // ── Presenter URL ─────────────────────────────────────────────────────────
 
-  function buildPresenterUrl(): string {
-    const base = $localNetworkUrl || 'http://localhost:3737';
-    const token = encodeURIComponent($authToken);
-    return `${base}/presenter?token=${token}`;
-  }
+  const presenterUrls = $derived(
+    ($localNetworkUrls.length > 0 ? $localNetworkUrls : ['http://localhost:3737']).map(
+      (base) => `${base}/presenter?token=${encodeURIComponent($authToken)}`,
+    ),
+  );
 
-  async function copyPresenterUrl() {
+  async function copyPresenterUrl(url: string) {
     try {
-      await navigator.clipboard.writeText(buildPresenterUrl());
-      copySuccess = true;
+      await navigator.clipboard.writeText(url);
+      copiedUrl = url;
       setTimeout(() => {
-        copySuccess = false;
+        copiedUrl = null;
       }, 2000);
     } catch {
       // ignore clipboard errors
@@ -521,12 +521,14 @@
       <p class="note">
         Open this URL on a browser connected to the same network to display slides.
       </p>
-      <div class="url-row">
-        <code class="url-display">{buildPresenterUrl()}</code>
-        <button class="btn-copy" onclick={copyPresenterUrl}>
-          {copySuccess ? '✓ Copied' : 'Copy URL'}
-        </button>
-      </div>
+      {#each presenterUrls as url (url)}
+        <div class="url-row">
+          <code class="url-display">{url}</code>
+          <button class="btn-copy" onclick={() => copyPresenterUrl(url)}>
+            {copiedUrl === url ? '✓ Copied' : 'Copy URL'}
+          </button>
+        </div>
+      {/each}
     </section>
 
     <!-- Presenter Preview (iframe) -->
@@ -924,6 +926,10 @@
     align-items: center;
     gap: 0.75rem;
     flex-wrap: wrap;
+  }
+
+  .url-row + .url-row {
+    margin-top: 0.5rem;
   }
 
   .url-display {

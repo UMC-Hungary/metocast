@@ -1,18 +1,18 @@
 <script lang="ts">
   import { appMode } from '$lib/stores/mode.js';
-  import { serverUrl, serverPort, localNetworkUrl } from '$lib/stores/server-url.js';
+  import { serverUrl, serverPort, localNetworkUrls } from '$lib/stores/server-url.js';
   import TokenDisplay from '$lib/components/connect/TokenDisplay.svelte';
   import ConnectionGuide from '$lib/components/connect/ConnectionGuide.svelte';
   import SshAccessCard from '$lib/components/connect/SshAccessCard.svelte';
   import PresenterInstallCard from '$lib/components/connect/PresenterInstallCard.svelte';
 
-  let copiedNetworkUrl = $state(false);
+  let copiedNetworkUrl = $state<string | null>(null);
 
-  async function copyNetworkUrl() {
-    await navigator.clipboard.writeText($localNetworkUrl);
-    copiedNetworkUrl = true;
+  async function copyNetworkUrl(url: string) {
+    await navigator.clipboard.writeText(url);
+    copiedNetworkUrl = url;
     setTimeout(() => {
-      copiedNetworkUrl = false;
+      copiedNetworkUrl = null;
     }, 2000);
   }
 </script>
@@ -30,13 +30,15 @@
     <dd>{$appMode}</dd>
     <dt>Local URL</dt>
     <dd><code>{$serverUrl}</code></dd>
-    {#if $localNetworkUrl}
+    {#each $localNetworkUrls as url (url)}
       <dt>Network URL</dt>
       <dd class="url-cell">
-        <code>{$localNetworkUrl}</code>
-        <button onclick={copyNetworkUrl}>{copiedNetworkUrl ? 'Copied!' : 'Copy'}</button>
+        <code>{url}</code>
+        <button onclick={() => copyNetworkUrl(url)}
+          >{copiedNetworkUrl === url ? 'Copied!' : 'Copy'}</button
+        >
       </dd>
-    {/if}
+    {/each}
     <dt>Port</dt>
     <dd>{$serverPort}</dd>
   </dl>

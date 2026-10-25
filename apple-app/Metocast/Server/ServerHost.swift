@@ -44,8 +44,12 @@ final class ServerHost {
     private var input: Pipe?
 
     var localURL: String { "http://127.0.0.1:\(Self.port)" }
-    /// The address other devices on the network use.
-    var networkURL: String { "http://\(LocalNetwork.hostName ?? "127.0.0.1"):\(Self.port)" }
+    /// The addresses other devices on the network use, best first (see `LocalNetwork.hosts`).
+    var networkURLs: [String] {
+        let hosts = LocalNetwork.hosts
+        return (hosts.isEmpty ? ["127.0.0.1"] : hosts).map { "http://\($0):\(Self.port)" }
+    }
+    var networkURL: String { networkURLs[0] }
     var connectLink: ConnectLink { ConnectLink(url: networkURL, token: token) }
 
     var dataDirectory: URL {

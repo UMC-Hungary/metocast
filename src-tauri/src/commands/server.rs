@@ -157,13 +157,15 @@ pub async fn reset_setup(
     Ok(())
 }
 
+/// The addresses other devices reach this machine at: the LAN IP first, because every
+/// device can use it, then the Bonjour name, which survives DHCP lease changes but does
+/// not resolve everywhere (many Android, Windows and TV devices).
 #[tauri::command]
-pub fn get_local_host() -> Option<String> {
-    mdns_hostname().or_else(local_ip)
+pub fn get_local_hosts() -> Vec<String> {
+    local_ip().into_iter().chain(mdns_hostname()).collect()
 }
 
 /// The Bonjour/mDNS name this machine advertises on the LAN, e.g. `amacmini.local`.
-/// Preferred over the raw IP because it survives DHCP lease changes.
 #[cfg(target_os = "macos")]
 fn mdns_hostname() -> Option<String> {
     let out = std::process::Command::new("scutil")

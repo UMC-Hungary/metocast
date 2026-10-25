@@ -6,7 +6,7 @@
     getAppMode,
     getToken,
     getServerPort,
-    getLocalHost,
+    getLocalHosts,
     getClientUrl,
     getClientToken,
     listenToHost,
@@ -16,7 +16,7 @@
     serverUrl,
     serverPort,
     authToken,
-    localNetworkUrl,
+    localNetworkUrls,
     appReady,
   } from '$lib/stores/server-url.js';
   import { connectWs, disconnectWs } from '$lib/ws-bindings.js';
@@ -116,17 +116,15 @@
       appMode.set(mode as AppMode);
 
       if (mode === 'server') {
-        const [token, port, localHost] = await Promise.all([
+        const [token, port, localHosts] = await Promise.all([
           getToken(),
           getServerPort(),
-          getLocalHost(),
+          getLocalHosts(),
         ]);
         authToken.set(token);
         serverPort.set(port);
         serverUrl.set(`http://localhost:${port}`);
-        if (localHost) {
-          localNetworkUrl.set(`http://${localHost}:${port}`);
-        }
+        localNetworkUrls.set(localHosts.map((host) => `http://${host}:${port}`));
       } else if (mode === 'client') {
         const [url, token] = await Promise.all([getClientUrl(), getClientToken()]);
         if (url) {
