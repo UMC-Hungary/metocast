@@ -221,6 +221,8 @@ private struct SlidesSettingsSection: View {
     @State private var isSaving = false
     @State private var failure: String?
     @State private var saved = false
+    @State private var isChoosingFolder = false
+    @State private var isChoosingSongFolder = false
 
     var body: some View {
         Section {
@@ -241,6 +243,7 @@ private struct SlidesSettingsSection: View {
                     ), prompt: Text("Path on the server"))
                     .multilineTextAlignment(.trailing)
                     .labelsHidden()
+                    folderButton(song: false)
                 }
                 LabeledContent("Song Slides Folder") {
                     TextField("Song Slides Folder", text: Binding(
@@ -249,6 +252,7 @@ private struct SlidesSettingsSection: View {
                     ), prompt: Text("Path on the server"))
                     .multilineTextAlignment(.trailing)
                     .labelsHidden()
+                    folderButton(song: true)
                 }
                 Button(saved ? "Saved" : "Save Slide Settings") { Task { await save() } }
                     .disabled(isSaving)
@@ -264,6 +268,27 @@ private struct SlidesSettingsSection: View {
             Text("Folders are paths on the server's Mac. Generated decks are written there.")
         }
         .task { await load() }
+        .serverFolderPrompt(
+            "Choose Folder",
+            message: "Type the folder's path on the server's Mac.",
+            isPresented: $isChoosingFolder
+        ) { folder in
+            if isChoosingSongFolder { settings?.songSlideFolder = folder } else { settings?.slideFolder = folder }
+        }
+    }
+
+    /// Only when this Mac is the server: a client would pick a folder on the wrong disk.
+    @ViewBuilder
+    private func folderButton(song: Bool) -> some View {
+        if model.mode == .server {
+            Button("Choose Folder…", systemImage: "folder") {
+                isChoosingSongFolder = song
+                isChoosingFolder = true
+            }
+            .labelStyle(.iconOnly)
+            .buttonStyle(.glass)
+            .pointingHand()
+        }
     }
 
     private func load() async {
