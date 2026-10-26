@@ -19,6 +19,8 @@ struct LiveOutput: Identifiable {
     /// Names it where one connector has two of a kind, such as the RØDECaster's own SD recorder
     /// next to Metocast's audio recording.
     var title: String?
+    /// Where a stream goes, shown as "Live → YouTube (…)".
+    var destination: String?
     /// The outputs that run with or without an event, which the Mac toolbar keeps within reach
     /// from every page.
     var showsInToolbar = false
@@ -48,7 +50,9 @@ extension MetocastSession {
             outputs.append(LiveOutput(connector: "atem", kind: .recording, state: LiveOutput.State(recording)) { .atemRecording(on: $0) })
         }
         if let camera {
-            outputs.append(LiveOutput(connector: "blackmagic-camera", kind: .stream, state: camera.streaming ? .on : .off) { .cameraStreaming(on: $0) })
+            var stream = LiveOutput(connector: "blackmagic-camera", kind: .stream, state: camera.streaming ? .on : .off) { .cameraStreaming(on: $0) }
+            stream.destination = camera.destination?.name
+            outputs.append(stream)
             outputs.append(cameraRecording(LiveOutput(connector: "blackmagic-camera", kind: .recording, state: camera.recording ? .on : .off) { .cameraRecording(on: $0) }))
         }
         if let recording = middlecontrol?.recording {
@@ -143,6 +147,21 @@ extension MetocastSession {
             output.control = { _ in .rodecasterRecordStart(eventId: event?.id) }
         }
         return output
+    }
+}
+
+extension CameraDestination {
+    /// "YouTube (Vasárnapi istentisztelet)", "Middle Control", or `rtmp://host/…` for anything else.
+    var name: String? {
+        let service: String = switch service {
+        case "youtube": "YouTube"
+        case "facebook": "Facebook"
+        case "discord": "Discord"
+        case "middlecontrol": "Middle Control"
+        default: url
+        }
+        guard !service.isEmpty else { return nil }
+        return broadcast.map { "\(service) (\($0))" } ?? service
     }
 }
 

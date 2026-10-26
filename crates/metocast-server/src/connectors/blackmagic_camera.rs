@@ -22,6 +22,8 @@ use super::{BlackmagicCameraConfig, ConnectorStatus};
 /// what actually notices and flips the connector to `Error`.
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(10);
 
+const ACTIVE_PLATFORM: &str = "/livestreams/0/activePlatform";
+
 const INITIAL_BACKOFF: Duration = Duration::from_secs(5);
 const MAX_BACKOFF: Duration = Duration::from_secs(60);
 
@@ -38,6 +40,52 @@ pub struct CameraState {
     /// A card or SSD is in the camera. Without one it answers a record command with 204 and
     /// records nothing.
     pub has_media: bool,
+    /// Where the livestream points; `None` on a model without livestreaming.
+    pub target: Option<StreamTarget>,
+}
+
+/// The camera's active livestream platform and server URL. The stream key stays on the
+/// camera: only its hash is kept, to tell whether a push would change anything.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StreamTarget {
+    pub platform: String,
+    pub url: String,
+    pub key_hash: u64,
+}
+
+impl StreamTarget {
+    /// `youtube`, `facebook`, `discord`, `middlecontrol`, or `other`.
+    pub fn service(&self) -> &'static str {
+        // ponytail: Middle Control names its camera feed "Middle…", as in recording_control.
+        if self.platform.starts_with("Middle") {
+            return "middlecontrol";
+        }
+        let both = format!("{} {}", self.platform, self.url).to_ascii_lowercase();
+        ["youtube", "facebook", "discord"]
+            .into_iter()
+            .find(|service| both.contains(service))
+            .unwrap_or("other")
+    }
+
+    /// `rtmp://host/…`: scheme and host only, since a custom URL may end in the stream key.
+    pub fn masked_url(&self) -> String {
+        let (scheme, rest) = self.url.split_once("://").unwrap_or(("", &self.url));
+        let host = rest.split(['/', '?']).next().unwrap_or_default();
+        let host = host.rsplit('@').next().unwrap_or_default();
+        match (scheme, host) {
+            (_, "") => String::new(),
+            ("", host) => format!("{host}/…"),
+            (scheme, host) => format!("{scheme}://{host}/…"),
+        }
+    }
+}
+
+/// Compares stream keys without holding one.
+pub fn key_hash(key: &str) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    key.hash(&mut hasher);
+    hasher.finish()
 }
 
 /// Livestreaming is absent on some models; that reads as `Idle`, not as a failure.
@@ -64,6 +112,8 @@ pub struct BlackmagicCameraConnector {
     pub camera: Arc<Mutex<Option<Arc<Camera>>>>,
     pub status_tx: broadcast::Sender<ConnectorStatus>,
     pub state_tx: broadcast::Sender<CameraState>,
+    /// The channel's YouTube stream key, hashed (`None` when it couldn't be read), and when.
+    pub youtube_key: Mutex<Option<(std::time::Instant, Option<u64>)>>,
     stop_tx: Mutex<Option<watch::Sender<bool>>>,
 }
 
@@ -77,6 +127,7 @@ impl BlackmagicCameraConnector {
             camera: Arc::new(Mutex::new(None)),
             status_tx,
             state_tx,
+            youtube_key: Mutex::new(None),
             stop_tx: Mutex::new(None),
         }
     }
@@ -207,9 +258,12 @@ fn youtube_platform(config: PlatformConfig, stream_key: &str) -> Result<Livestre
 
 /// Everything the camera control screen reads, in one pass: the camera's own
 /// payloads forwarded as it returns them. Only the active platform's profile
-/// list is fetched — the others cost a round trip each and nothing shows them.
+/// list is fetched — the others cost a round trip each and nothing shows them. The stream
+/// key and SRT passphrase stay on the camera; `apply_settings` keeps them when sent back blank.
 pub async fn settings(camera: &Camera) -> Result<serde_json::Value, Error> {
-    let active = camera.livestream_active_platform().await?;
+    let mut active = camera.livestream_active_platform().await?;
+    active.key = None;
+    active.passphrase = None;
     let platform: serde_json::Value = camera
         .get(&format!("/livestreams/platforms/{}", active.platform))
         .await?;
@@ -249,7 +303,15 @@ pub async fn apply_settings(camera: &Camera, update: &SettingsUpdate) -> Result<
         camera.put("/system/format", record).await?;
     }
     if let Some(stream) = &update.stream {
-        camera.set_livestream_active_platform(stream).await?;
+        let mut stream = stream.clone();
+        if stream.key.as_deref().unwrap_or_default().is_empty() {
+            let current = camera.livestream_active_platform().await?;
+            if current.platform == stream.platform {
+                stream.key = current.key;
+                stream.passphrase = stream.passphrase.or(current.passphrase);
+            }
+        }
+        camera.set_livestream_active_platform(&stream).await?;
     }
     Ok(())
 }
@@ -271,7 +333,37 @@ async fn read_state(camera: &Camera) -> Result<CameraState, Error> {
         stream_status,
         is_recording,
         has_media,
+        target: read_target(camera).await?,
     })
+}
+
+/// A platform entry names its server; a custom one carries the URL, which may end in the key.
+async fn read_target(camera: &Camera) -> Result<Option<StreamTarget>, Error> {
+    let active = match camera.livestream_active_platform().await {
+        Ok(active) => active,
+        Err(e) if e.is_unsupported() || matches!(e, Error::NotFound(_)) => return Ok(None),
+        Err(e) => return Err(e),
+    };
+    let url = match active.url.filter(|url| !url.is_empty()) {
+        Some(url) => url,
+        None => camera
+            .livestream_platform_config(&active.platform)
+            .await?
+            .servers
+            .into_iter()
+            .find(|s| s.server == active.server)
+            .map(|s| s.url)
+            .unwrap_or_default(),
+    };
+    let key = active
+        .key
+        .filter(|key| !key.is_empty())
+        .unwrap_or_else(|| url.rsplit('/').next().unwrap_or_default().to_string());
+    Ok(Some(StreamTarget {
+        platform: active.platform,
+        url,
+        key_hash: key_hash(&key),
+    }))
 }
 
 /// Outcome of one connection attempt: the caller asked us to stop, or the camera
@@ -357,6 +449,7 @@ impl Worker {
                 "/transports/0/record".to_string(),
                 "/livestreams/0".to_string(),
                 "/media/workingset".to_string(),
+                ACTIVE_PLATFORM.to_string(),
             ],
         );
 
@@ -367,6 +460,12 @@ impl Worker {
             tokio::select! {
                 event = events.recv() => {
                     match event {
+                        // The URL behind a platform's server name takes another read.
+                        Some(notify::Event::Changed(change)) if change.property == ACTIVE_PLATFORM => {
+                            if let Err(e) = self.resync_state(&camera).await {
+                                return Ended::ByError(e.to_string());
+                            }
+                        }
                         Some(notify::Event::Changed(change)) => self.apply_change(&change).await,
                         // A reconnect may have missed changes while the socket was down —
                         // catch up with one REST read rather than trusting the gap was empty.
@@ -505,6 +604,32 @@ mod tests {
         assert!(youtube_platform(config, "k").is_err());
     }
 
+    #[test]
+    fn a_target_names_its_service_and_never_shows_the_key() {
+        let target = |platform: &str, url: &str| StreamTarget {
+            platform: platform.to_string(),
+            url: url.to_string(),
+            key_hash: 0,
+        };
+        let youtube = target("YouTube RTMP", "rtmp://a.rtmp.youtube.com/live2");
+        assert_eq!(youtube.service(), "youtube");
+        assert_eq!(youtube.masked_url(), "rtmp://a.rtmp.youtube.com/…");
+        let facebook = target(
+            "Custom",
+            "rtmps://live-api-s.facebook.com:443/rtmp/FB-123-secret",
+        );
+        assert_eq!(facebook.service(), "facebook");
+        assert_eq!(
+            facebook.masked_url(),
+            "rtmps://live-api-s.facebook.com:443/…"
+        );
+        assert_eq!(target("Middle Control", "").service(), "middlecontrol");
+        let other = target("Custom", "rtmp://user:pw@relay.local/live/secret-key");
+        assert_eq!(other.service(), "other");
+        assert_eq!(other.masked_url(), "rtmp://relay.local/…");
+        assert!(!other.masked_url().contains("secret"));
+    }
+
     fn test_worker(initial: CameraState) -> Worker {
         let (status_tx, _) = broadcast::channel(1);
         let (state_tx, _) = broadcast::channel(1);
@@ -531,6 +656,7 @@ mod tests {
             stream_status: STREAM_IDLE.to_string(),
             is_recording: false,
             has_media: true,
+            target: None,
         });
 
         worker
@@ -545,6 +671,7 @@ mod tests {
                 stream_status: STREAM_IDLE.to_string(),
                 is_recording: true,
                 has_media: true,
+                target: None,
             }),
         );
 
@@ -564,6 +691,7 @@ mod tests {
                 stream_status: "Streaming".to_string(),
                 is_recording: true,
                 has_media: true,
+                target: None,
             }),
         );
     }
@@ -574,6 +702,7 @@ mod tests {
             stream_status: STREAM_IDLE.to_string(),
             is_recording: false,
             has_media: true,
+            target: None,
         });
 
         // "Connecting" is the RTMP handshake. Collapsing it to a bool is what left the
@@ -600,6 +729,7 @@ mod tests {
             stream_status: STREAM_IDLE.to_string(),
             is_recording: false,
             has_media: true,
+            target: None,
         });
 
         // What a Cinema Camera 6K with both bays empty answers.
@@ -626,6 +756,7 @@ mod tests {
             stream_status: "Streaming".to_string(),
             is_recording: true,
             has_media: true,
+            target: None,
         });
 
         worker
@@ -641,6 +772,7 @@ mod tests {
                 stream_status: "Streaming".to_string(),
                 is_recording: true,
                 has_media: true,
+                target: None,
             }),
         );
     }
@@ -651,6 +783,7 @@ mod tests {
             stream_status: STREAM_IDLE.to_string(),
             is_recording: false,
             has_media: true,
+            target: None,
         });
 
         // `recording` missing entirely — RecordState fails to deserialize, not a panic.
@@ -667,6 +800,7 @@ mod tests {
                 stream_status: STREAM_IDLE.to_string(),
                 is_recording: false,
                 has_media: true,
+                target: None,
             }),
         );
     }

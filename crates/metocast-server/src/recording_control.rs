@@ -527,6 +527,7 @@ mod observed {
                 stream_status: "Idle".to_string(),
                 is_recording,
                 has_media: true,
+                target: None,
             };
             assert_eq!(acts(camera(Some(&state(true)))), (false, true));
             assert_eq!(acts(camera(Some(&state(false)))), (true, false));

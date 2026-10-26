@@ -49,6 +49,22 @@ pub struct AtemState {
     pub stream_service: Option<String>,
 }
 
+/// Where the camera streams to. Never carries the stream key.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CameraDestination {
+    /// `youtube`, `facebook`, `discord`, `middlecontrol` or `other`.
+    pub service: String,
+    /// Scheme and host only, such as `rtmp://relay.local/…`.
+    pub url: String,
+    /// Today's event, when it has a broadcast on that service.
+    #[serde(default)]
+    pub broadcast: Option<String>,
+    /// The camera already has the channel's YouTube stream; `None` when that can't be checked.
+    #[serde(default)]
+    pub matches_youtube: Option<bool>,
+}
+
 /// The last preset move Metocast watched run to its end.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -101,6 +117,9 @@ pub enum ConnectorState {
         /// False with no card or SSD in the camera; an older server doesn't say, so true.
         #[serde(default = "crate::automations::default_true")]
         has_media: bool,
+        /// Where the camera's livestream points; absent from an older server.
+        #[serde(default)]
+        destination: Option<CameraDestination>,
     },
     #[serde(rename = "middlecontrol")]
     Middlecontrol { state: Option<MiddlecontrolState> },

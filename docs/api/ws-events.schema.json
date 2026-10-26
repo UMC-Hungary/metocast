@@ -168,6 +168,16 @@
       "connector": {
         "type": "string"
       },
+      "destination": {
+        "anyOf": [
+          {
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
       "hasMedia": {
         "anyOf": [
           {

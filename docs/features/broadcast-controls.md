@@ -51,6 +51,24 @@ one.
 
 Both ask for confirmation first.
 
+### Where the camera streams to
+
+The **Live** page's **Camera** section names the camera's destination beside its stream state:
+**Live → YouTube (Sunday Service)**, **→ Facebook**, **→ Middle Control**, **→ Discord**, or
+**→ rtmp://host/…** for anything else. YouTube and Facebook name today's event when it has a
+broadcast there. The stream key is never shown: Metocast reports only the scheme and host, and
+the camera settings endpoint leaves the key and SRT passphrase out (send them back blank to keep
+the camera's).
+
+**YouTube Destination → Push** turns off with **Already set** when the camera already has the
+channel's YouTube stream key; it stays on when the destination differs or can't be checked
+(YouTube not signed in). The channel's key is read from YouTube at most every five minutes.
+While the camera is live, Push asks first, since a new destination interrupts the stream.
+
+The destination rides the camera's `connector.state` message as `destination`
+(`{ service, url, broadcast, matchesYoutube }`, also in `connectors.state` and
+`GET /api/connectors/state`), so MCP's connector state resource has it too.
+
 ## Use it
 
 **Apple app (Mac, iPhone, iPad)**

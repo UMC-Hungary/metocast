@@ -1316,6 +1316,16 @@
         }
       }
     },
+    "Already set" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Már be van állítva"
+          }
+        }
+      }
+    },
     "An English transcript, such as the live translation downloaded from Transcripts, is rebuilt into whole sentences, each placed where it is spoken. Other languages are matched with the voice. The .srt is saved beside the video and sent with the YouTube and Facebook uploads." : {
       "localizations" : {
         "hu" : {
@@ -1956,6 +1966,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mappa módosítása…"
+          }
+        }
+      }
+    },
+    "Change the Stream Destination?" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Módosítod a közvetítés célját?"
           }
         }
       }
@@ -6456,6 +6476,16 @@
         }
       }
     },
+    "Push" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Küldés"
+          }
+        }
+      }
+    },
     "Push YouTube Destination" : {
       "localizations" : {
         "hu" : {
@@ -7360,6 +7390,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "YouTube-közvetítési beállítások küldése"
+          }
+        }
+      }
+    },
+    "Sends this channel's YouTube stream address and key to the camera." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elküldi a kamerának a csatorna YouTube-streamjének címét és kulcsát."
           }
         }
       }
@@ -8404,6 +8444,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ebből a buildből hiányzik a híd."
+          }
+        }
+      }
+    },
+    "The camera already streams to this channel's YouTube stream." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A kamera már a csatorna YouTube-streamjére közvetít."
+          }
+        }
+      }
+    },
+    "The camera is live. Changing its destination interrupts the stream." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A kamera élőben közvetít. A cél módosítása megszakítja a közvetítést."
           }
         }
       }
@@ -9708,6 +9768,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "YouTube"
+          }
+        }
+      }
+    },
+    "YouTube Destination" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "YouTube-cél"
           }
         }
       }

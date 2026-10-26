@@ -19,6 +19,7 @@ import { AutomationMessageSchema } from './automations.js';
 import {
   AtemStateSchema,
   AtemStreamTargetSchema,
+  CameraDestinationSchema,
   CameraStreamTargetSchema,
   ConnectorStatusPayloadSchema,
   DiscoveredCameraSchema,
@@ -289,6 +290,8 @@ export const WsMessageSchema = z.discriminatedUnion('type', [
       isRecording: z.boolean().optional(),
       /** False with no card or SSD in the Blackmagic camera; absent for every other connector. */
       hasMedia: z.boolean().optional(),
+      /** Where the Blackmagic camera streams to; null without livestreaming. */
+      destination: CameraDestinationSchema.nullable().optional(),
       state: MiddlecontrolStateSchema.optional(),
     }),
   ]),
@@ -470,6 +473,7 @@ export const WsMessageSchema = z.discriminatedUnion('type', [
         streamStatus: z.string().default('Idle'),
         isRecording: z.boolean(),
         hasMedia: z.boolean().default(true),
+        destination: CameraDestinationSchema.nullable().default(null),
       })
       .nullable(),
     middlecontrol: MiddlecontrolStateSchema.nullable(),

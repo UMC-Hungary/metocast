@@ -74,6 +74,7 @@ pub const EVENTS: &[Event] = &[
             ("isRecording", "boolean?"),
             ("streamStatus", "string?"),
             ("hasMedia", "boolean?"),
+            ("destination", "object?"),
             ("state", "object?"),
         ],
     ),

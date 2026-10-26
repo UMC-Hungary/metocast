@@ -149,7 +149,7 @@ Connect to `ws://<host>/ws?token=<token>`. Send `{"type": "<command>", …fields
 | `captions.job.state` | A caption job for a recording changed state | `jobId` uuid, `recordingId` uuid, `state` string, `progress` number, `error` string? |
 | `clients.updated` | A client connected, disconnected or reported its label | `clients` array |
 | `connected` | First message on every socket, with the server id | `serverId` string |
-| `connector.state` | A connector's live state (OBS output, camera, ATEM, Middle Control) | `connector` string, `isStreaming` boolean?, `isRecording` boolean?, `streamStatus` string?, `hasMedia` boolean?, `state` object? |
+| `connector.state` | A connector's live state (OBS output, camera, ATEM, Middle Control) | `connector` string, `isStreaming` boolean?, `isRecording` boolean?, `streamStatus` string?, `hasMedia` boolean?, `destination` object?, `state` object? |
 | `connector.status` | A connector connected, disconnected or failed | `connector` string, `status` object |
 | `cron.youtube_pull` | A scheduled YouTube pull ran | `hasLive` boolean |
 | `event.changed` | A service event was inserted, updated or deleted, or a broadcast's `scheduleStatus` changed (`scheduled`, `starting`, `live`, `ended`) | `data` object |
