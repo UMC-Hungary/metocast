@@ -54,7 +54,8 @@ struct SettingsView: View {
                 #endif
             }
 
-            if model.session != nil {
+            if let session = model.session {
+                RecordButtonSection(session: session)
                 SlidesSettingsSection()
             }
 
@@ -92,6 +93,42 @@ struct SettingsView: View {
             .disabled(model.session == nil)
     }
     #endif
+}
+
+/// Which recorders the Record button starts and stops. The server keeps the choice, so every
+/// device's button drives the same ones.
+private struct RecordButtonSection: View {
+    let session: MetocastSession
+    @State private var failure: String?
+
+    var body: some View {
+        Section {
+            ForEach(session.recorders, id: \.target) { row in
+                Toggle(isOn: Binding(get: { row.selected }, set: { choose(row.target, $0) })) {
+                    Text(row.target.shortName)
+                    if !row.available {
+                        Text("Not connected")
+                    }
+                }
+            }
+        } header: {
+            Text("Record Button")
+        } footer: {
+            Text(failure ?? String(localized: "The Record button starts and stops these together. Automations can start any of them too."))
+        }
+    }
+
+    private func choose(_ target: RecordTarget, _ on: Bool) {
+        let targets = session.recorders.filter { $0.target == target ? on : $0.selected }.map(\.target)
+        Task {
+            do {
+                try await session.setRecordButton(targets)
+                failure = nil
+            } catch {
+                failure = String(localized: "Couldn't save: \(error.metocastMessage)")
+            }
+        }
+    }
 }
 
 extension View {

@@ -111,6 +111,8 @@ export type {
   AutomationRun,
   AutomationTrigger,
   ChannelSource,
+  RecordButton,
+  RecorderRow,
   RecordTarget,
 } from './schemas/automations.js';
 export {

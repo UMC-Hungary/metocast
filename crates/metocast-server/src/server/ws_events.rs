@@ -169,6 +169,20 @@ pub const EVENTS: &[Event] = &[
         &[("queues", "array")],
     ),
     (
+        "recorder.stopped",
+        "A recording stopped: which recorder, why, and what it said",
+        &[
+            ("target", "object"),
+            ("reason", "string"),
+            ("error", "string?"),
+        ],
+    ),
+    (
+        "recorders.state",
+        "The Record button's recorders: selected, connected, recording, last start",
+        &[("recorders", "array")],
+    ),
+    (
         "recording.changed",
         "A recording was inserted or updated",
         &[("data", "object")],

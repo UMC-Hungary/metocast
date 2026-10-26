@@ -37,6 +37,7 @@ use crate::server::presenter::{self, BibleReferenceType, BibleVerseContent, Pres
 use crate::server::websocket::{
     broadcast_event_changed, broadcast_untracked_removed, spawn_scheduling_tasks,
 };
+use metocast_core::automations::RecordButton;
 use metocast_core::media::MediaConfig;
 use metocast_core::transcription::{OPENAI_CONFIG_KEY, OpenAiConfig};
 
@@ -1515,6 +1516,35 @@ pub async fn set_title_template(
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     }
+}
+
+/// The recorders the Record button starts and stops. Unset is Metocast's audio recording.
+pub async fn get_record_button(State(state): State<AppState>) -> impl IntoResponse {
+    Json(RecordButton {
+        targets: state.recorders.selected(),
+    })
+}
+
+/// Saves the Record button's recorders; every client hears it in `recorders.state`.
+pub async fn set_record_button(
+    State(state): State<AppState>,
+    Json(body): Json<RecordButton>,
+) -> impl IntoResponse {
+    match settings::set_json(&state.pool, crate::recorders::SETTING, &body).await {
+        Ok(()) => {
+            state.recorders.select(body.targets.clone());
+            (StatusCode::OK, Json(body)).into_response()
+        }
+        Err(e) => {
+            tracing::error!("set_record_button: {e}");
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+    }
+}
+
+/// Every recorder the Record button can drive, as `recorders.state` pushes it.
+pub async fn list_recorders(State(state): State<AppState>) -> impl IntoResponse {
+    Json(crate::recorders::rows(&state).await)
 }
 
 /// The folder generated Bible slide decks are written into. An unset key returns

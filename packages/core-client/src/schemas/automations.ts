@@ -122,6 +122,29 @@ export const AutomationRunSchema = z.object({
   results: z.array(ActionResultSchema),
 });
 
+/** The recorders the Record button starts and stops (`/api/settings/record-button`). */
+export const RecordButtonSchema = z.object({ targets: z.array(RecordTargetSchema) });
+
+/** One recorder as the Record button shows it; `lastStart` is the Record button's or an automation's. */
+export const RecorderRowSchema = z.object({
+  target: RecordTargetSchema,
+  selected: z.boolean(),
+  available: z.boolean(),
+  recording: z.boolean(),
+  lastStart: z.object({ at: z.string(), error: z.string().nullable() }).nullable(),
+});
+
+/** Server → client: the Record button's recorders, and every recording that stops. */
+export const RecorderMessageSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('recorders.state'), recorders: z.array(RecorderRowSchema) }),
+  z.object({
+    type: z.literal('recorder.stopped'),
+    target: RecordTargetSchema,
+    reason: z.enum(['metocast', 'disconnected', 'device']),
+    error: z.string().nullable(),
+  }),
+]);
+
 /** Server → client. `automations.changed` is also the answer to `automations.list`. */
 export const AutomationMessageSchema = z.discriminatedUnion('type', [
   z.object({
@@ -142,3 +165,6 @@ export type AutomationList = z.infer<typeof AutomationListSchema>;
 export type ActionResult = z.infer<typeof ActionResultSchema>;
 export type AutomationRun = z.infer<typeof AutomationRunSchema>;
 export type AutomationMessage = z.infer<typeof AutomationMessageSchema>;
+export type RecordButton = z.infer<typeof RecordButtonSchema>;
+export type RecorderRow = z.infer<typeof RecorderRowSchema>;
+export type RecorderMessage = z.infer<typeof RecorderMessageSchema>;

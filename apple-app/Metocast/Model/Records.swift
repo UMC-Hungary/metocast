@@ -267,6 +267,8 @@ enum ServerCode {
             String(localized: "The camera's stream is Middle Control's camera feed, not a broadcast. Stop it in Middle Control.")
         case "camera_ignored_command":
             String(localized: "The camera took the command but nothing changed. Check the camera; Middle Control may be controlling it.")
+        case "recorders_failed":
+            String(localized: "Some recorders didn't respond. The Record button's menu says why.")
         case "middlecontrol_ignored_command":
             String(localized: "Middle Control didn't report the change. Check the camera in Middle Control.")
         case "rodecaster_not_connected", "obs_not_connected", "atem_not_connected", "middlecontrol_not_connected":

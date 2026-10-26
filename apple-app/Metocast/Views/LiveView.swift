@@ -384,9 +384,85 @@ extension View {
     }
 }
 
+/// The Record button: a press starts every recorder chosen in Settings, or, while any of them
+/// records, asks before stopping them. Its menu (the arrow, or a long press) has a row per chosen
+/// recorder: what it's doing and how its last start went, whether this button or an automation
+/// started it. The symbol fills while anything records: red when every chosen recorder does,
+/// orange when one is missing or failed to start.
+///
+/// Like the toolbar's other outputs, the stop question is asked by the window, through `askToStop`.
+struct RecordButton: View {
+    @Environment(AppModel.self) private var model
+    let session: MetocastSession
+    let askToStop: () -> Void
+
+    var body: some View {
+        let output = session.recordButton
+        let chosen = session.recorders.filter(\.selected)
+        let isTroubled = chosen.contains { !$0.recording && (!$0.available || $0.lastStartError != nil) }
+        let isAllOn = !chosen.isEmpty && chosen.allSatisfy(\.recording)
+        Menu {
+            Section("Record Button") {
+                ForEach(chosen, id: \.target) { row in
+                    // A row opens the Live page, where each recorder has its own controls.
+                    Button { model.pane = .live; model.equipment = nil } label: {
+                        Label {
+                            Text(row.target.shortName)
+                            Text(row.statusText)
+                        } icon: {
+                            Image(systemName: row.symbol)
+                        }
+                    }
+                }
+                if chosen.isEmpty {
+                    Text("No recorders chosen")
+                }
+            }
+            if output.isOn && !isAllOn && chosen.contains(where: { $0.available && !$0.recording }) {
+                Button("Start the Others", systemImage: "record.circle") { session.control(.recorders(on: true)) }
+            }
+            Button("Choose Recorders…", systemImage: "checklist") {
+                #if os(macOS)
+                model.isShowingSettings = true
+                #else
+                model.pane = .settings
+                #endif
+            }
+        } label: {
+            // A short, steady title: in Icon and Text mode the toolbar prints it under the icon.
+            Label {
+                Text("Record")
+            } icon: {
+                Image(systemName: "record.circle")
+                    .symbolVariant(output.isOn ? .fill : .none)
+                    .foregroundStyle(isTroubled ? AnyShapeStyle(.orange) : isAllOn ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+            }
+        } primaryAction: {
+            guard let control = output.control else { return }
+            if output.isOn { askToStop() } else { session.control(control(true)) }
+        }
+        .help(output.control == nil ? String(localized: "None of the chosen recorders is connected.") : output.actionName)
+        .accessibilityLabel(output.actionName)
+        .accessibilityValue(isTroubled ? String(localized: "A recorder needs attention") : output.stateText)
+    }
+}
+
+extension RecorderRecord {
+    /// "Recording", "Not connected", "Not recording · Didn't start: There's no card or SSD in the camera."
+    var statusText: String {
+        let state = recording ? String(localized: "Recording") : available ? String(localized: "Not recording") : String(localized: "Not connected")
+        guard !recording, let error = lastStartError else { return state }
+        return String(localized: "\(state) · Didn't start: \(ServerCode.text(error))", comment: "A recorder's state, then why its last start failed")
+    }
+
+    var symbol: String {
+        recording ? "record.circle.fill" : !available ? "slash.circle" : lastStartError != nil ? "exclamationmark.triangle" : "record.circle"
+    }
+}
+
 #if os(macOS)
-/// Record and Transcript in the Mac toolbar, so they are within reach from every page, whether
-/// or not an event exists. The toolbar gives them its glass; a running output's symbol fills in red.
+/// Transcript in the Mac toolbar, next to the Record button, so it is within reach from every page,
+/// whether or not an event exists. The toolbar gives them its glass; a running output's symbol fills in red.
 /// A custom button style would turn the item into a plain view that the toolbar can't label. One that
 /// can't start is dimmed, and both of these only wait for the RØDECaster.
 ///

@@ -69,7 +69,7 @@ pub enum AutomationTrigger {
 }
 
 /// What a `record.start` or `record.stop` action drives. The names match the connectors'.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(tag = "device")]
 pub enum RecordTarget {
     #[serde(rename = "obs")]
@@ -87,6 +87,53 @@ pub enum RecordTarget {
     /// Metocast's FLAC recording of the desk's USB audio.
     #[serde(rename = "rodecaster-audio")]
     RodecasterAudio,
+}
+
+/// The recorders the Record button starts and stops, stored as `record_button`. Unset is
+/// Metocast's audio recording, which is all the button drove before it could choose.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecordButton {
+    pub targets: Vec<RecordTarget>,
+}
+
+impl Default for RecordButton {
+    fn default() -> Self {
+        Self {
+            targets: vec![RecordTarget::RodecasterAudio],
+        }
+    }
+}
+
+/// The last start of a recorder, by the Record button or an automation. `error` is the
+/// refusal code or the device's words; none means it started or already was recording.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LastStart {
+    pub at: DateTime<Utc>,
+    pub error: Option<String>,
+}
+
+/// One recorder as the Record button shows it. `available` is connected and able to record.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecorderRow {
+    pub target: RecordTarget,
+    pub selected: bool,
+    pub available: bool,
+    pub recording: bool,
+    pub last_start: Option<LastStart>,
+}
+
+/// Why a recording stopped.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum StopReason {
+    /// Metocast asked: the Record button, a Live page button or an automation.
+    Metocast,
+    /// The connection to the device dropped.
+    Disconnected,
+    /// The device stopped by itself, or someone stopped it there.
+    Device,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -95,6 +95,9 @@ const REST: &[(&str, &str, &str, &str)] = &[
     ("POST", "/transcripts/{id}/cleanup", "transcripts_cleanup", "Start the OpenAI clean-up of a finished transcript"),
     ("GET", "/settings/title-template", "settings_title_template_get", "Read the event title template"),
     ("PUT", "/settings/title-template", "settings_title_template_set", "Set the event title template"),
+    ("GET", "/settings/record-button", "settings_record_button_get", "Read which recorders the Record button starts and stops"),
+    ("PUT", "/settings/record-button", "settings_record_button_set", "Choose which recorders the Record button starts and stops"),
+    ("GET", "/recorders", "recorders_list", "Every recorder the Record button can drive: selected, connected, recording, last start"),
     ("GET", "/settings/slide-folder", "settings_slide_folder_get", "Read the folder event slide decks are saved in"),
     ("PUT", "/settings/slide-folder", "settings_slide_folder_set", "Set the folder event slide decks are saved in"),
     ("GET", "/settings/song-slide-folder", "settings_song_slide_folder_get", "Read the folder song slide decks are saved in"),
@@ -256,7 +259,8 @@ struct Tool {
 
 impl Tool {
     /// Access hints from the name and verb (D6): GET and the list/get/status family are read-only;
-    /// delete, logout, stream, record-stop and the transcript clean-up are destructive.
+    /// delete, logout, stream, record-stop (the Record button's too) and the transcript clean-up
+    /// are destructive.
     fn new(name: String, about: String, input: Value, op: Op) -> Self {
         let (label, method) = match &op {
             // A command inherits the verb of its REST twin, so `auth.youtube.url` is a read.
@@ -304,6 +308,7 @@ impl Tool {
                 ])
                 || label.contains(".stream.")
                 || label.contains(".record.stop")
+                || label == "recorders.stop"
                 || label.ends_with("commands.send"));
         let idempotent = read_only
             || matches!(method, "PUT" | "DELETE")
@@ -1612,6 +1617,7 @@ mod tests {
             "jobs_purge",
             "auth_youtube_logout",
             "obs_record_stop",
+            "recorders_stop",
             "transcripts_delete",
             "transcripts_cleanup",
             "media_programs_subtitles",

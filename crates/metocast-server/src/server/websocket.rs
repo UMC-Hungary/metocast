@@ -403,6 +403,14 @@ enum WsCommand {
     /// Stop the desk's own SD or USB recorder; the result arrives as `rodecaster.record.state`.
     #[serde(rename = "rodecaster.record.stop")]
     RodecasterRecordStop,
+    // ── Record button ────────────────────────────────────────────────────────
+    /// Start every recorder the Record button is set to (`GET /api/settings/record-button`).
+    /// Each one's result arrives in `recorders.state`; `recorders_failed` names those that failed.
+    #[serde(rename = "recorders.start")]
+    RecordersStart,
+    /// Stop every recorder the Record button is set to.
+    #[serde(rename = "recorders.stop")]
+    RecordersStop,
     // ── Automations ──────────────────────────────────────────────────────────
     /// Answered by `automations.changed`.
     #[serde(rename = "automations.list")]
@@ -3295,6 +3303,8 @@ async fn handle_ws_command(
         WsCommand::RodecasterRecordStart => {
             reply(client_tx, recording_control::desk_record(state, true).await)
         }
+        WsCommand::RecordersStart => reply(client_tx, crate::recorders::press(state, true).await),
+        WsCommand::RecordersStop => reply(client_tx, crate::recorders::press(state, false).await),
         WsCommand::RodecasterRecordStop => reply(
             client_tx,
             recording_control::desk_record(state, false).await,
@@ -3550,6 +3560,12 @@ async fn handle_socket(
     if is_authenticated {
         tx.send(Message::Text(
             state.automations.changed_message().await.into(),
+        ))
+        .log_gone();
+        tx.send(Message::Text(
+            crate::recorders::state_message(&crate::recorders::rows(&state).await)
+                .to_string()
+                .into(),
         ))
         .log_gone();
     }
