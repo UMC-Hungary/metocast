@@ -17,6 +17,8 @@
 	<array>
 		<string>_switcher_ctrl._udp</string>
 	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Metocast controls Keynote presentations when this Mac hosts the server.</string>
 </dict>

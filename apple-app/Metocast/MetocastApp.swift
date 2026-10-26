@@ -221,6 +221,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 #if os(iOS)
 private struct TabRootView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var isShowingNotifications = false
     /// The Record button's stop question, asked here: a dialog on a bar item comes back after each answer.
     @State private var isStoppingRecorders = false
@@ -238,22 +239,30 @@ private struct TabRootView: View {
             Tab(MetocastPane.events.title, systemImage: MetocastPane.events.icon, value: .events) {
                 root(.events) {
                     EventsView()
-                        // Events swaps the tab bar for a Notes-style bottom toolbar: the tabs share one
-                        // glass group and New Event floats beside it. Both bars claim the same spot,
-                        // so the tab bar has to hide for the toolbar to show.
-                        .toolbarVisibility(.hidden, for: .tabBar)
+                        // On the iPhone, Events swaps the tab bar for a Notes-style bottom toolbar: the
+                        // tabs share one glass group and New Event floats beside it. Both bars claim the
+                        // same spot, so the tab bar has to hide for the toolbar to show. The iPad's tab
+                        // bar sits at the top, so it stays and New Event joins the navigation bar.
+                        .toolbarVisibility(sizeClass == .compact ? .hidden : .automatic, for: .tabBar)
                         .toolbar {
-                            ToolbarItemGroup(placement: .bottomBar) {
-                                ForEach(MetocastPane.allCases.filter { $0 != .media }, id: \.self) { pane in
-                                    Button(pane.title, systemImage: pane.icon) { model.pane = pane }
-                                        .symbolVariant(pane == .events ? .fill : .none)
+                            if sizeClass == .compact {
+                                ToolbarItemGroup(placement: .bottomBar) {
+                                    ForEach(MetocastPane.allCases.filter { $0 != .media }, id: \.self) { pane in
+                                        Button(pane.title, systemImage: pane.icon) { model.pane = pane }
+                                            .symbolVariant(pane == .events ? .fill : .none)
+                                    }
                                 }
+                                ToolbarSpacer(.flexible, placement: .bottomBar)
+                                ToolbarItem(placement: .bottomBar) {
+                                    NewEventButton()
+                                }
+                                .matchedTransitionSource(id: "newEvent", in: newEventTransition)
+                            } else {
+                                ToolbarItem(placement: .primaryAction) {
+                                    NewEventButton()
+                                }
+                                .matchedTransitionSource(id: "newEvent", in: newEventTransition)
                             }
-                            ToolbarSpacer(.flexible, placement: .bottomBar)
-                            ToolbarItem(placement: .bottomBar) {
-                                NewEventButton()
-                            }
-                            .matchedTransitionSource(id: "newEvent", in: newEventTransition)
                         }
                 }
             }

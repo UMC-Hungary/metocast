@@ -56,7 +56,7 @@ the same change.
 ## Native Apple app
 
 `apple-app/Metocast.xcodeproj` is a SwiftUI app for iOS 26 and macOS 26 built on the `apple/`
-Swift package. The Mac app is Apple Silicon only; there is no Intel build. The iPhone is a client
+Swift package. The Mac app is Apple Silicon only; there is no Intel build. The iPhone and iPad are clients
 of a Metocast server. The Mac is either a client or the
 server: its build embeds the headless `metocast-server` in `Contents/MacOS`
 (`scripts/embed-apple-server.sh`), and server mode runs it, then talks to it over loopback like
@@ -64,6 +64,8 @@ any other client. Client devices connect by address and token, or by opening the
 `metocast://connect` link that the Mac's Settings shows as a QR code. Every screen that hands out an address shows
 both the LAN IP link and the `.local` one, each copyable; see
 [web presenter and network links](docs/features/web-presenter-links.md).
+To put the app on an iPhone or iPad (TestFlight, or Xcode for a quick try), see
+[installing on iPhone and iPad](docs/features/install-iphone-ipad.md).
 
 ```bash
 ./scripts/build-apple.sh   # once, and after Rust bridge changes: the app links this XCFramework
