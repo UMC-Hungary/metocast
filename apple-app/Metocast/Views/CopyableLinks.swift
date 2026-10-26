@@ -20,7 +20,7 @@ struct CopyableLinks: View {
                             .font(.footnote.monospaced())
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                        Button(copied == url ? "Copied" : "Copy", systemImage: copied == url ? "checkmark" : "doc.on.doc") {
+                        Button {
                             #if os(macOS)
                             NSPasteboard.general.clearContents()
                             NSPasteboard.general.setString(url, forType: .string)
@@ -28,6 +28,12 @@ struct CopyableLinks: View {
                             UIPasteboard.general.string = url
                             #endif
                             copied = url
+                        } label: {
+                            Label {
+                                Text(copied == url ? "Copied" : "Copy")
+                            } icon: {
+                                SwapSymbol(copied == url ? "checkmark" : "doc.on.doc", among: ["checkmark", "doc.on.doc"])
+                            }
                         }
                         .labelStyle(.iconOnly)
                         .buttonStyle(.glass)

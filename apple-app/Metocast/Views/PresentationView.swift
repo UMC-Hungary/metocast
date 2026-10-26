@@ -244,8 +244,14 @@ struct PresentationView: View {
             .disabled(current <= 1)
         if session.usesWebPresenter {
             // Keynote has no blackout through this API.
-            Button(muted ? "Show Slides" : "Black Out", systemImage: muted ? "eye" : "eye.slash") {
+            Button {
                 session.show(muted ? .unmute : .mute)
+            } label: {
+                Label {
+                    Text(muted ? "Show Slides" : "Black Out")
+                } icon: {
+                    SwapSymbol(muted ? "eye" : "eye.slash", among: ["eye", "eye.slash"])
+                }
             }
             .keyboardShortcut("b", modifiers: [])
         }
