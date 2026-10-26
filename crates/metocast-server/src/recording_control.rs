@@ -1,21 +1,27 @@
 //! Starting and stopping the recorders, for the WebSocket handlers and for automations.
 //!
 //! Each target has two layers:
-//! - the plain calls (`obs_record`, `camera_start`, `audio_stop`, …) do exactly what the
-//!   WebSocket handlers always did, with the same errors, so a command's reply doesn't change;
+//! - the plain calls (`obs_record`, `camera_start`, `audio_stop`, …) are what the WebSocket
+//!   handlers send; the camera and Middle Control ones wait for the state they asked for, since
+//!   neither device refuses a command it then ignores;
 //! - [`ensure`] reads the target's state first, so an automation never starts a recorder that
 //!   is already recording or stops an idle one.
 
 use std::sync::Arc;
 
 use chrono::Utc;
-use metocast_core::{automations::RecordTarget, connectors::RecorderStatus};
+use metocast_core::{
+    automations::RecordTarget,
+    connectors::{MiddlecontrolState, RecorderStatus},
+};
 use sqlx::PgPool;
+use tokio::sync::broadcast;
 use uuid::Uuid;
 
 use crate::automations::matching::{Decision, Observed, decide};
 use crate::connectors::RodecasterConfig;
 use crate::connectors::atem::AtemCommand;
+use crate::connectors::blackmagic_camera::{Camera, CameraState};
 use crate::connectors::rodecaster_audio::{AudioRecorderState, FinalizedAudioFile};
 use crate::models::event::find_current_event;
 use crate::server::AppState;
@@ -28,52 +34,195 @@ pub async fn atem_record(state: &AppState, on: bool) -> Result<(), String> {
     state.atem_connector.send(AtemCommand::Record(on)).await
 }
 
+/// How long a device has to show the state a command asked for before the command counts as
+/// ignored.
+const CONFIRM_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// The camera answers 204 to a record or stream command it then ignores (no card or SSD, the
+/// stream held by Middle Control), so a command only counts once its state arrives.
+///
+/// # Errors
+/// `blackmagic_camera_not_connected`, `camera_no_media`, `camera_stream_held_by_middlecontrol`,
+/// `camera_ignored_command`, or the camera's own words.
 pub async fn camera_start(state: &AppState, clip_name: Option<&str>) -> Result<(), String> {
-    let Some(camera) = state.blackmagic_camera_connector.client().await else {
-        return Err("blackmagic_camera_not_connected".to_string());
-    };
-    camera
-        .start_recording(clip_name)
-        .await
-        .map_err(|error| error.to_string())
+    let camera = camera_client(state).await?;
+    if !camera_has_media(state).await {
+        return Err("camera_no_media".to_string());
+    }
+    camera_confirm(state, camera.start_recording(clip_name), |s| s.is_recording).await
 }
 
 pub async fn camera_stop(state: &AppState) -> Result<(), String> {
-    let Some(camera) = state.blackmagic_camera_connector.client().await else {
-        return Err("blackmagic_camera_not_connected".to_string());
-    };
-    camera
-        .stop_recording()
+    let camera = camera_client(state).await?;
+    camera_confirm(state, camera.stop_recording(), |s| !s.is_recording).await
+}
+
+/// Starts or ends the camera's own livestream. Starting counts once it is connecting.
+pub async fn camera_stream(state: &AppState, on: bool) -> Result<(), String> {
+    let camera = camera_client(state).await?;
+    let result = if on {
+        camera_confirm(state, camera.livestream_start(), |s| {
+            s.stream_status != crate::connectors::blackmagic_camera::STREAM_IDLE
+        })
         .await
-        .map_err(|error| error.to_string())
+    } else {
+        camera_confirm(state, camera.livestream_stop(), |s| !s.is_streaming()).await
+    };
+    if !matches!(&result, Err(error) if error == IGNORED) {
+        return result;
+    }
+    // ponytail: Middle Control names its camera feed "Middle…"; match its exact name if
+    // another platform ever starts that way.
+    match camera.livestream_active_platform().await {
+        Ok(active) if active.platform.starts_with("Middle") => {
+            Err("camera_stream_held_by_middlecontrol".to_string())
+        }
+        Ok(_) => result,
+        Err(error) => Err(format!("{IGNORED}: {error}")),
+    }
+}
+
+async fn camera_client(state: &AppState) -> Result<Arc<Camera>, String> {
+    state
+        .blackmagic_camera_connector
+        .client()
+        .await
+        .ok_or_else(|| "blackmagic_camera_not_connected".to_string())
+}
+
+/// Unknown counts as present: only a camera that said so is refused.
+async fn camera_has_media(state: &AppState) -> bool {
+    state
+        .blackmagic_camera_connector
+        .get_state()
+        .await
+        .is_none_or(|camera| camera.has_media)
+}
+
+const IGNORED: &str = "camera_ignored_command";
+
+async fn camera_confirm(
+    state: &AppState,
+    command: impl Future<Output = blackmagic_camera::Result<()>>,
+    done: impl Fn(&CameraState) -> bool,
+) -> Result<(), String> {
+    let connector = &state.blackmagic_camera_connector;
+    let changes = connector.state_tx.subscribe();
+    command.await.map_err(|error| error.to_string())?;
+    if reached(connector.get_state().await, changes, done).await {
+        Ok(())
+    } else {
+        Err(IGNORED.to_string())
+    }
+}
+
+/// Waits up to [`CONFIRM_TIMEOUT`] for a state `done` accepts: `current`, read after the
+/// command, or a change from `changes`, subscribed before it so none is missed.
+async fn reached<T: Clone>(
+    current: Option<T>,
+    mut changes: broadcast::Receiver<T>,
+    done: impl Fn(&T) -> bool,
+) -> bool {
+    if current.as_ref().is_some_and(&done) {
+        return true;
+    }
+    tokio::time::timeout(CONFIRM_TIMEOUT, async move {
+        loop {
+            match changes.recv().await {
+                Ok(state) if done(&state) => return true,
+                Ok(_) | Err(broadcast::error::RecvError::Lagged(_)) => {}
+                Err(broadcast::error::RecvError::Closed) => return false,
+            }
+        }
+    })
+    .await
+    .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod reached_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn a_command_counts_once_its_state_arrives_and_not_before() {
+        let (tx, _) = broadcast::channel(4);
+        assert!(reached(Some(true), tx.subscribe(), |on| *on).await);
+
+        let changes = tx.subscribe();
+        tx.send(false).unwrap();
+        tx.send(true).unwrap();
+        assert!(reached(Some(false), changes, |on| *on).await);
+
+        // Nothing changes: the camera took the command and did nothing.
+        assert!(!reached(Some(false), tx.subscribe(), |on| *on).await);
+    }
 }
 
 /// Starts or stops the recording of one camera, or of the one Middle Control has selected when
-/// there is none.
+/// there is none. Middle Control never answers a command, so it counts once its recording list
+/// or flag says so.
+///
+/// # Errors
+/// Middle Control's own error, `camera_no_media` when the camera it records with has no card
+/// or SSD, or `middlecontrol_ignored_command`.
 pub async fn middlecontrol_record(
     state: &AppState,
     on: bool,
     camera_id: Option<u8>,
 ) -> Result<(), String> {
+    let connector = &state.middlecontrol_connector;
+    let changes = connector.state_tx.subscribe();
     if on {
-        state
-            .middlecontrol_connector
-            .start_recording(camera_id)
-            .await
+        connector.start_recording(camera_id).await?;
     } else {
-        state
-            .middlecontrol_connector
-            .stop_recording(camera_id)
-            .await
+        connector.stop_recording(camera_id).await?;
     }
+    // A list or flag Middle Control never sent can't confirm anything, so it doesn't refuse.
+    middlecontrol_confirm(state, changes, on, move |s| match camera_id {
+        Some(id) => s
+            .recording_camera_ids
+            .as_ref()
+            .is_none_or(|ids| ids.contains(&id) == on),
+        None => s.recording.is_none_or(|recording| recording == on),
+    })
+    .await
 }
 
 pub async fn middlecontrol_record_all(state: &AppState, on: bool) -> Result<(), String> {
+    let connector = &state.middlecontrol_connector;
+    let changes = connector.state_tx.subscribe();
     if on {
-        state.middlecontrol_connector.start_recording_all().await
+        connector.start_recording_all().await?;
     } else {
-        state.middlecontrol_connector.stop_recording_all().await
+        connector.stop_recording_all().await?;
     }
+    middlecontrol_confirm(state, changes, on, |s| {
+        s.recording.is_none_or(|recording| recording == on)
+    })
+    .await
+}
+
+async fn middlecontrol_confirm(
+    state: &AppState,
+    changes: broadcast::Receiver<MiddlecontrolState>,
+    on: bool,
+    done: impl Fn(&MiddlecontrolState) -> bool,
+) -> Result<(), String> {
+    if reached(
+        state.middlecontrol_connector.get_state().await,
+        changes,
+        done,
+    )
+    .await
+    {
+        return Ok(());
+    }
+    // ponytail: assumes Middle Control drives the one Blackmagic camera Metocast knows;
+    // map Middle Control camera ids to cameras when there is a second one.
+    if on && !camera_has_media(state).await {
+        return Err("camera_no_media".to_string());
+    }
+    Err("middlecontrol_ignored_command".to_string())
 }
 
 /// The RØDECaster's own SD or USB recorder.
@@ -377,6 +526,7 @@ mod observed {
             let state = |is_recording| CameraState {
                 stream_status: "Idle".to_string(),
                 is_recording,
+                has_media: true,
             };
             assert_eq!(acts(camera(Some(&state(true)))), (false, true));
             assert_eq!(acts(camera(Some(&state(false)))), (true, false));

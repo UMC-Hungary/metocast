@@ -550,6 +550,23 @@ encoder is streaming. `POST /api/events/{id}/stream/{youtube|facebook}/{start|st
 WebSocket commands `events.stream.start` / `events.stream.stop`. See
 [docs/features/broadcast-controls.md](docs/features/broadcast-controls.md).
 
+### Camera record and stream buttons
+
+The Blackmagic camera answers every record or stream command with success, even one it then
+ignores. So the server waits up to 5 seconds for the camera's (or Middle Control's) state to
+change, and otherwise answers with why:
+
+- `camera_no_media`: no card or SSD in the camera. The camera's `connector.state` carries
+  `hasMedia`, and the Live page hides its **Record** buttons (camera and Middle Control) and
+  says so before anyone presses them.
+- `camera_stream_held_by_middlecontrol`: the camera's livestream is Middle Control's camera
+  feed, not a broadcast; stop it in Middle Control.
+- `camera_ignored_command` / `middlecontrol_ignored_command`: nothing changed in time.
+- `blackmagic_camera_not_connected`: the camera isn't reachable.
+
+Recording stays on the camera's REST API even while Middle Control is connected: it answers
+with state, and Middle Control's protocol answers nothing.
+
 ## Connector automations
 
 Metocast drives several devices, but an operator used to start each recorder by hand. **Automations**

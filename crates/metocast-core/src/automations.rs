@@ -24,7 +24,7 @@ pub const REVERSE_HOLD_SECONDS: f32 = 5.0;
 /// The highest fader slot a trigger can name.
 pub const MAX_CHANNEL: u32 = 63;
 
-const fn default_true() -> bool {
+pub(crate) const fn default_true() -> bool {
     true
 }
 

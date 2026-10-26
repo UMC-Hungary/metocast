@@ -368,6 +368,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
                     "isStreaming": state.is_streaming(),
                     "streamStatus": state.stream_status,
                     "isRecording": state.is_recording,
+                    "hasMedia": state.has_media,
                 })
                 .to_string();
                 let guard = clients.read().await;

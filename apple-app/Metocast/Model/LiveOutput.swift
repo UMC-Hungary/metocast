@@ -49,10 +49,12 @@ extension MetocastSession {
         }
         if let camera {
             outputs.append(LiveOutput(connector: "blackmagic-camera", kind: .stream, state: camera.streaming ? .on : .off) { .cameraStreaming(on: $0) })
-            outputs.append(LiveOutput(connector: "blackmagic-camera", kind: .recording, state: camera.recording ? .on : .off) { .cameraRecording(on: $0) })
+            outputs.append(cameraRecording(LiveOutput(connector: "blackmagic-camera", kind: .recording, state: camera.recording ? .on : .off) { .cameraRecording(on: $0) }))
         }
         if let recording = middlecontrol?.recording {
-            outputs.append(LiveOutput(connector: "middlecontrol", kind: .recording, state: recording ? .on : .off) { .middlecontrolRecordingAll(on: $0) })
+            // ponytail: assumes Middle Control records with the one camera Metocast knows; map
+            // Middle Control's camera ids to cameras when there is a second one.
+            outputs.append(cameraRecording(LiveOutput(connector: "middlecontrol", kind: .recording, state: recording ? .on : .off) { .middlecontrolRecordingAll(on: $0) }))
         }
         if let recorder, rodecaster != nil || recorder.status != .idle {
             outputs.append(audioRecording(recorder))
@@ -91,6 +93,15 @@ extension MetocastSession {
         } else if state.status == .ready || state.status == .error {
             output.control = { _ in .transcriptionStart(eventId: event?.id) }
         }
+        return output
+    }
+
+    /// The camera records to a card or SSD, so with none it can't start, and says why.
+    private func cameraRecording(_ output: LiveOutput) -> LiveOutput {
+        guard camera?.hasMedia == false, output.state == .off else { return output }
+        var output = output
+        output.control = nil
+        output.detail = String(localized: "No card or SSD in the camera")
         return output
     }
 
