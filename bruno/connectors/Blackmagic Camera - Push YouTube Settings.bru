@@ -20,6 +20,9 @@ docs {
   only the stream key; falls back to a custom RTMP URL on models that list no
   YouTube platform.
 
+  The reply's `rtmpUrl` (and `url`, for a custom URL) is the ingestion address
+  only; the stream key is never returned.
+
   Sets the destination only — the camera does not go live. Send
   `blackmagic-camera.stream.start` over the WebSocket for that.
 

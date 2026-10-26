@@ -14,9 +14,10 @@ use metocast_core::{
     },
     config::ConfigFieldKind,
     connectors::{
-        AtemInput, AtemState, ConnectorState, ConnectorStatus, DeskRecorderStatus, LastPreset,
-        MiddlecontrolState, RecordStatus, RecorderStatus, RodecasterChannel,
-        RodecasterDeskRecorder, RodecasterProfile, RodecasterRecorderState, StreamStatus,
+        AtemInput, AtemState, CameraDestination, ConnectorState, ConnectorStatus,
+        DeskRecorderStatus, LastPreset, MiddlecontrolState, RecordStatus, RecorderStatus,
+        RodecasterChannel, RodecasterDeskRecorder, RodecasterProfile, RodecasterRecorderState,
+        StreamStatus,
     },
     events::{
         BibleReference, BibleVerse, CreateBibleReference, CreateConnection, CreateEvent, Event,
@@ -238,6 +239,16 @@ pub struct AtemState {
     pub streaming: Option<StreamStatus>,
     pub recording: Option<RecordStatus>,
     pub stream_service: Option<String>,
+}
+
+#[uniffi::remote(Record)]
+pub struct CameraDestination {
+    /// `youtube`, `facebook`, `discord`, `middlecontrol` or `other`.
+    pub service: String,
+    /// Scheme and host only; never the stream key.
+    pub url: String,
+    pub broadcast: Option<String>,
+    pub matches_youtube: Option<bool>,
 }
 
 #[uniffi::remote(Record)]
@@ -1339,6 +1350,8 @@ pub enum AppleEvent {
         stream_status: String,
         /// False with no card or SSD in the camera.
         has_media: bool,
+        /// Where the livestream points; `None` from an older server or a camera without one.
+        destination: Option<CameraDestination>,
     },
     DeviceAlerts {
         listeners: Vec<DeviceListenerRecord>,
@@ -3063,11 +3076,13 @@ impl From<ServerEvent> for AppleEvent {
                 is_recording,
                 stream_status,
                 has_media,
+                destination,
             }) => Self::CameraState {
                 streaming: is_streaming,
                 recording: is_recording,
                 stream_status,
                 has_media,
+                destination,
             },
             ServerEvent::DeviceAlerts { listeners } => Self::DeviceAlerts {
                 listeners: listeners.into_iter().map(Into::into).collect(),

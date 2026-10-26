@@ -680,8 +680,19 @@ mod tests {
                 is_streaming: false,
                 is_recording: false,
                 stream_status: "Idle".to_string(),
-                has_media: true
+                has_media: true,
+                destination: None
             }
+        );
+        let ConnectorState::Camera { destination, .. } = decode(
+            r#"{"type":"connector.state","connector":"blackmagic-camera","isStreaming":true,"streamStatus":"Streaming","isRecording":false,
+                "destination":{"service":"youtube","url":"rtmp://a.rtmp.youtube.com/…","broadcast":"Vasárnapi istentisztelet","matchesYoutube":true}}"#,
+        ) else {
+            panic!("expected a camera state");
+        };
+        assert_eq!(
+            destination.unwrap().broadcast.as_deref(),
+            Some("Vasárnapi istentisztelet")
         );
         assert_eq!(
             decode(r#"{"type":"connector.state","connector":"vmix","isStreaming":true}"#),

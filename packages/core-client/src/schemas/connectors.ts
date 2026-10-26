@@ -261,8 +261,22 @@ export const DiscoveredCamerasSchema = z.object({ cameras: z.array(DiscoveredCam
 
 export type DiscoveredCamera = z.infer<typeof DiscoveredCameraSchema>;
 
+/** Where the camera streams to, from its `connector.state`. Never carries the stream key. */
+export const CameraDestinationSchema = z.object({
+  service: z.enum(['youtube', 'facebook', 'discord', 'middlecontrol', 'other']).catch('other'),
+  /** Scheme and host only, e.g. `rtmp://relay.local/…`. */
+  url: z.string(),
+  /** Today's event, when it has a broadcast on that service. */
+  broadcast: z.string().nullable().default(null),
+  /** The camera already has the channel's YouTube stream; null when that can't be checked. */
+  matchesYoutube: z.boolean().nullable().default(null),
+});
+
+export type CameraDestination = z.infer<typeof CameraDestinationSchema>;
+
 /** Where the camera's livestream now points, after YouTube settings were pushed. */
 export const CameraStreamTargetSchema = z.object({
+  /** The ingestion address; the stream key is never returned. */
   rtmpUrl: z.string(),
   platform: z.string(),
   server: z.string(),
@@ -312,7 +326,8 @@ const MediaDeviceSchema = z.object({
   totalSpace: z.number().default(0),
 });
 
-/** Where the livestream points now: the platform entry plus the stream key. */
+/** Where the livestream points now: the platform entry. The core never returns the key or
+ *  passphrase; leave them null when applying to keep the camera's. */
 export const CameraPlatformSchema = z.object({
   platform: z.string(),
   server: z.string(),

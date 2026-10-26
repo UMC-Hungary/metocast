@@ -699,8 +699,8 @@ final class MetocastSession {
             transcriptCredit = credit
         case .event(.transcriptCleanup(let sessionId, let state, let progress, let error)):
             transcriptCleanup = TranscriptCleanup(sessionId: sessionId, state: state, progress: progress, error: error)
-        case .event(.cameraState(let streaming, let recording, let status, let hasMedia)):
-            camera = CameraState(streaming: streaming, recording: recording, streamStatus: status, hasMedia: hasMedia)
+        case .event(.cameraState(let streaming, let recording, let status, let hasMedia, let destination)):
+            camera = CameraState(streaming: streaming, recording: recording, streamStatus: status, hasMedia: hasMedia, destination: destination)
         case .event(.deviceAlerts(let listeners)):
             deviceAlerts = listeners
         case .event(.mediaRenderProgress(let progress)):
@@ -835,6 +835,8 @@ struct CameraState: Equatable {
     var streamStatus: String
     /// False with no card or SSD in the camera, which then can't record.
     var hasMedia: Bool
+    /// Where the livestream points; nil from an older server.
+    var destination: CameraDestination?
 }
 
 /// What the Rust event stream reports, carried from its threads to the main actor.

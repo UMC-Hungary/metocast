@@ -56,9 +56,7 @@ struct LiveView: View {
                     if session.camera != nil {
                         Section {
                             outputRows(outputs, for: "blackmagic-camera", session: session)
-                            Button("Push YouTube Destination", systemImage: "arrow.up.forward.square") {
-                                session.control(.cameraPushYoutube)
-                            }
+                            CameraPushYoutubeRow(session: session)
                         } header: {
                             Text("Camera")
                         } footer: {
@@ -311,7 +309,9 @@ private struct OutputRow: View {
                     }
                     .foregroundStyle(output.color)
                     .layoutPriority(1)
-                    if let detail = output.detail {
+                    if let destination = output.destination {
+                        Text(verbatim: "→ \(destination)")
+                    } else if let detail = output.detail {
                         Text("· \(detail)")
                     }
                 }
@@ -336,6 +336,51 @@ private struct OutputRow: View {
         // Going live or stopping happens out of view (a rule, another device), so say it.
         .onChange(of: output.state) { _, _ in
             AccessibilityNotification.Announcement("\(output.name): \(output.stateText)").post()
+        }
+    }
+}
+
+/// Points the camera at the channel's YouTube stream. Off when the camera already has it; asks
+/// first while the camera is live, since a new destination interrupts the stream.
+private struct CameraPushYoutubeRow: View {
+    let session: MetocastSession
+    @State private var isConfirming = false
+
+    var body: some View {
+        let camera = session.camera
+        let alreadySet = camera?.destination?.matchesYoutube == true
+        let isLive = camera.map { $0.streaming || $0.streamStatus == "Connecting" } ?? false
+        HStack {
+            Label {
+                Text("YouTube Destination")
+                if alreadySet {
+                    Text("Already set")
+                }
+            } icon: {
+                Image(systemName: alreadySet ? "checkmark.circle" : "arrow.up.forward.square")
+                    .foregroundStyle(alreadySet ? AnyShapeStyle(.green) : AnyShapeStyle(.tint))
+            }
+            Spacer()
+            Button("Push") {
+                if isLive {
+                    isConfirming = true
+                } else {
+                    session.control(.cameraPushYoutube)
+                }
+            }
+            .buttonStyle(.glass)
+            .disabled(alreadySet)
+            .accessibilityLabel("Push YouTube Destination")
+        }
+        .help(alreadySet
+            ? String(localized: "The camera already streams to this channel's YouTube stream.")
+            : String(localized: "Sends this channel's YouTube stream address and key to the camera."))
+        .confirmationDialog("Change the Stream Destination?", isPresented: $isConfirming) {
+            Button("Push YouTube Destination", role: .destructive) {
+                session.control(.cameraPushYoutube)
+            }
+        } message: {
+            Text("The camera is live. Changing its destination interrupts the stream.")
         }
     }
 }

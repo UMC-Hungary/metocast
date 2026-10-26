@@ -20,7 +20,8 @@ docs {
   and `/media/active`, plus the livestream status, availability, platform list, active
   platform and that platform's servers and quality profiles.
 
-  Payloads are the camera's own, forwarded unchanged. Only the active platform's
+  Payloads are the camera's own, forwarded unchanged, except that the active
+  platform's stream key and SRT passphrase are left out. Only the active platform's
   profile list is fetched — the others cost a round trip each.
 
   409 when no camera is connected, 502 when the camera rejects a request.

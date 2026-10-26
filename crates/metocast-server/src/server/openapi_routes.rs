@@ -370,7 +370,7 @@ pub fn paths() -> Value {
                 Some(object(
                     json!({
                         "obs": json!({ "type": ["object", "null"], "properties": { "isStreaming": flag(), "isRecording": flag() } }),
-                        "blackmagic-camera": json!({ "type": ["object", "null"], "properties": { "isStreaming": flag(), "streamStatus": text(), "isRecording": flag(), "hasMedia": flag() } }),
+                        "blackmagic-camera": json!({ "type": ["object", "null"], "properties": { "isStreaming": flag(), "streamStatus": text(), "isRecording": flag(), "hasMedia": flag(), "destination": json!({ "type": ["object", "null"], "description": "Where the livestream points; never the stream key", "properties": { "service": text(), "url": text(), "broadcast": json!({ "type": ["string", "null"] }), "matchesYoutube": json!({ "type": ["boolean", "null"] }) } }) } }),
                         "middlecontrol": json!({ "type": ["object", "null"] }),
                         "atem": json!({ "type": ["object", "null"] }),
                     }),

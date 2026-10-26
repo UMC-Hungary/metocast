@@ -33,7 +33,8 @@ docs {
   as a whole. Take the four values from an entry in `record.supported.supportedFormats`.
 
   `stream` is the whole active-platform entry, so send back the one from GET with the
-  fields you changed — omitting `key` clears the stream key on the camera.
+  fields you changed. GET never returns `key` or `passphrase`; leaving them out keeps
+  the camera's own when the platform is unchanged.
 
   Answers with the settings read back from the camera. 409 when no camera is connected,
   502 when the camera rejects the format or platform.

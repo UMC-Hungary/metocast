@@ -24,7 +24,7 @@ use crate::models::{
     cron_job::{self, CreateCronJob, UpdateCronJob},
     event::{
         CreateBibleReference, CreateEvent, SlideFolder, TitleTemplate, UpdateEvent, fetch_event,
-        fetch_event_summaries,
+        fetch_event_summaries, find_current_event,
     },
     recording::{CreateRecording, FlagUploadRequest, Recording, RecordingUpload},
     untracked_recording,
@@ -97,7 +97,10 @@ pub async fn get_connector_state(State(state): State<AppState>) -> impl IntoResp
     let middlecontrol_state = state.middlecontrol_connector.get_state().await;
     Json(json!({
         "obs": obs_state.map(|s| json!({"isStreaming": s.is_streaming, "isRecording": s.is_recording})),
-        "blackmagic-camera": camera_state.map(|s| json!({"isStreaming": s.is_streaming(), "streamStatus": s.stream_status, "isRecording": s.is_recording, "hasMedia": s.has_media})),
+        "blackmagic-camera": match &camera_state {
+            Some(camera) => Some(camera_state_json(&state, camera).await),
+            None => None,
+        },
         "middlecontrol": middlecontrol_state,
         "atem": state.atem_connector.get_state().await,
     }))
@@ -800,27 +803,115 @@ async fn adopt_camera(state: &AppState, found: Option<&blackmagic_camera::Discov
 
 /// Copies the channel's RTMP ingestion address and stream key into the camera's
 /// livestream settings, and reports what the camera will stream to. Setting the
-/// destination is all this does — going live is a separate action.
+/// destination is all this does — going live is a separate action. The reply never
+/// carries the key: `rtmpUrl` and `url` are the ingestion address alone.
 pub(crate) async fn push_youtube_to_camera(
-    pool: &sqlx::PgPool,
+    state: &AppState,
     camera: &blackmagic_camera::Camera,
 ) -> Result<serde_json::Value, String> {
-    let token = youtube::load_tokens(pool)
+    let token = youtube::load_tokens(&state.pool)
         .await
         .ok_or_else(|| "not_authenticated".to_string())?;
     let ingestion = youtube::live_stream_ingestion(&token.access_token)
         .await
         .map_err(|e| e.to_string())?;
+    *state.blackmagic_camera_connector.youtube_key.lock().await = Some((
+        std::time::Instant::now(),
+        Some(blackmagic_camera::key_hash(&ingestion.key)),
+    ));
     let platform = blackmagic_camera::push_youtube(camera, &ingestion.address, &ingestion.key)
         .await
         .map_err(|e| e.to_string())?;
     Ok(json!({
-        "rtmpUrl": ingestion.rtmp_url(),
+        "rtmpUrl": ingestion.address,
         "platform": platform.platform,
         "server": platform.server,
         "quality": platform.quality,
-        "url": platform.url,
+        "url": platform.url.map(|_| &ingestion.address),
     }))
+}
+
+/// How long the channel's YouTube key is trusted before it is read again.
+const YOUTUBE_KEY_TTL: std::time::Duration = std::time::Duration::from_secs(300);
+
+/// The camera's `connector.state` fields, with where its livestream points.
+pub(crate) async fn camera_state_json(
+    state: &AppState,
+    camera: &blackmagic_camera::CameraState,
+) -> serde_json::Value {
+    let destination = match &camera.target {
+        Some(target) => Some(camera_destination(state, target).await),
+        None => None,
+    };
+    json!({
+        "isStreaming": camera.is_streaming(),
+        "streamStatus": camera.stream_status,
+        "isRecording": camera.is_recording,
+        "hasMedia": camera.has_media,
+        "destination": destination,
+    })
+}
+
+async fn camera_destination(
+    state: &AppState,
+    target: &blackmagic_camera::StreamTarget,
+) -> serde_json::Value {
+    let service = target.service();
+    // ponytail: names today's event by service alone, since a broadcast's own stream key
+    // isn't stored; match on the key if an event ever has two broadcasts on one service.
+    let broadcast = if matches!(service, "youtube" | "facebook") {
+        find_current_event(&state.pool)
+            .await
+            .ok()
+            .flatten()
+            .and_then(|event| {
+                event
+                    .connections
+                    .iter()
+                    .any(|c| c.platform == service && c.external_id.is_some())
+                    .then_some(event.title)
+            })
+    } else {
+        None
+    };
+    let matches_youtube = if service == "youtube" {
+        youtube_key_hash(state)
+            .await
+            .map(|hash| hash == target.key_hash)
+    } else {
+        Some(false)
+    };
+    json!({
+        "service": service,
+        "url": target.masked_url(),
+        "broadcast": broadcast,
+        "matchesYoutube": matches_youtube,
+    })
+}
+
+/// The channel's YouTube stream key, hashed; `None` when YouTube isn't signed in or can't
+/// be reached. Read at most every five minutes, a failure included, so an offline YouTube
+/// doesn't hold up every camera update.
+async fn youtube_key_hash(state: &AppState) -> Option<u64> {
+    let mut cached = state.blackmagic_camera_connector.youtube_key.lock().await;
+    if let Some((at, hash)) = *cached
+        && at.elapsed() < YOUTUBE_KEY_TTL
+    {
+        return hash;
+    }
+    let hash = match youtube::load_tokens(&state.pool).await {
+        Some(token) => tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            youtube::live_stream_ingestion(&token.access_token),
+        )
+        .await
+        .ok()
+        .and_then(Result::ok)
+        .map(|ingestion| blackmagic_camera::key_hash(&ingestion.key)),
+        None => None,
+    };
+    *cached = Some((std::time::Instant::now(), hash));
+    hash
 }
 
 pub(crate) async fn push_youtube_to_atem(state: &AppState) -> Result<serde_json::Value, String> {
@@ -872,7 +963,7 @@ pub async fn blackmagic_camera_push_youtube(State(state): State<AppState>) -> im
     let Some(camera) = connected_camera(&state).await else {
         return camera_not_connected();
     };
-    match push_youtube_to_camera(&state.pool, &camera).await {
+    match push_youtube_to_camera(&state, &camera).await {
         Ok(payload) => Json(payload).into_response(),
         Err(e) => upstream_error(e),
     }

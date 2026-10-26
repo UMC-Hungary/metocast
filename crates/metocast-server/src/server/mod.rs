@@ -364,17 +364,13 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
     {
         let clients = ws_clients.clone();
         let mut state_rx = blackmagic_camera_connector.state_tx.subscribe();
+        let st = state.clone();
         tokio::spawn(async move {
-            while let Ok(state) = state_rx.recv().await {
-                let msg = json!({
-                    "type": "connector.state",
-                    "connector": "blackmagic-camera",
-                    "isStreaming": state.is_streaming(),
-                    "streamStatus": state.stream_status,
-                    "isRecording": state.is_recording,
-                    "hasMedia": state.has_media,
-                })
-                .to_string();
+            while let Ok(camera) = state_rx.recv().await {
+                let mut msg = routes::camera_state_json(&st, &camera).await;
+                msg["type"] = json!("connector.state");
+                msg["connector"] = json!("blackmagic-camera");
+                let msg = msg.to_string();
                 let guard = clients.read().await;
                 for tx in guard.values() {
                     tx.send(Message::Text(msg.clone().into())).log_gone();

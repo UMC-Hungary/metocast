@@ -2471,7 +2471,10 @@ async fn handle_ws_command(
             let msg = json!({
                 "type": "connectors.state",
                 "obs": obs_output.map(|s| json!({"isStreaming": s.is_streaming, "isRecording": s.is_recording})),
-                "blackmagic-camera": camera.map(|s| json!({"isStreaming": s.is_streaming(), "streamStatus": s.stream_status, "isRecording": s.is_recording, "hasMedia": s.has_media})),
+                "blackmagic-camera": match &camera {
+                    Some(camera) => Some(crate::server::routes::camera_state_json(state, camera).await),
+                    None => None,
+                },
                 "middlecontrol": middlecontrol,
                 "atem": state.atem_connector.get_state().await,
             })
@@ -3359,7 +3362,7 @@ async fn handle_ws_command(
                 ws_error(client_tx, "blackmagic_camera_not_connected");
                 return;
             };
-            match crate::server::routes::push_youtube_to_camera(&state.pool, &camera).await {
+            match crate::server::routes::push_youtube_to_camera(state, &camera).await {
                 Ok(mut payload) => {
                     payload["type"] = json!("blackmagic-camera.stream.platform");
                     client_tx
@@ -3630,6 +3633,13 @@ async fn handle_socket(
         })
         .to_string();
         tx.send(Message::Text(msg.into())).log_gone();
+    }
+
+    if let Some(camera) = state.blackmagic_camera_connector.get_state().await {
+        let mut msg = crate::server::routes::camera_state_json(&state, &camera).await;
+        msg["type"] = json!("connector.state");
+        msg["connector"] = json!("blackmagic-camera");
+        tx.send(Message::Text(msg.to_string().into())).log_gone();
     }
 
     if let Some(middlecontrol) = state.middlecontrol_connector.get_state().await {
