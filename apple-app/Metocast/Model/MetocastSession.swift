@@ -594,6 +594,21 @@ final class MetocastSession {
         if message.hasPrefix("rodecaster_audio_recording_disabled") {
             return String(localized: "Audio recording is off. Turn on Record Audio and choose a folder in Settings → Connectors → RØDECaster.")
         }
+        if message.hasPrefix("camera_no_media") {
+            return String(localized: "There's no card or SSD in the camera.")
+        }
+        if message.hasPrefix("blackmagic_camera_not_connected") {
+            return String(localized: "The camera isn't reachable. Check that it's on and on the network.")
+        }
+        if message.hasPrefix("camera_stream_held_by_middlecontrol") {
+            return String(localized: "The camera's stream is Middle Control's camera feed, not a broadcast. Stop it in Middle Control.")
+        }
+        if message.hasPrefix("camera_ignored_command") {
+            return String(localized: "The camera took the command but nothing changed. Check the camera; Middle Control may be controlling it.")
+        }
+        if message.hasPrefix("middlecontrol_ignored_command") {
+            return String(localized: "Middle Control didn't report the change. Check the camera in Middle Control.")
+        }
         if message.hasPrefix("recording_directory_not_found") {
             return String(localized: "The recording folder doesn't exist on the server's Mac. Set it in Settings → Connectors → RØDECaster.")
         }
@@ -691,8 +706,8 @@ final class MetocastSession {
             transcriptCredit = credit
         case .event(.transcriptCleanup(let sessionId, let state, let progress, let error)):
             transcriptCleanup = TranscriptCleanup(sessionId: sessionId, state: state, progress: progress, error: error)
-        case .event(.cameraState(let streaming, let recording, let status)):
-            camera = CameraState(streaming: streaming, recording: recording, streamStatus: status)
+        case .event(.cameraState(let streaming, let recording, let status, let hasMedia)):
+            camera = CameraState(streaming: streaming, recording: recording, streamStatus: status, hasMedia: hasMedia)
         case .event(.deviceAlerts(let listeners)):
             deviceAlerts = listeners
         case .event(.mediaRenderProgress(let progress)):
@@ -826,6 +841,8 @@ struct CameraState: Equatable {
     var streaming: Bool
     var recording: Bool
     var streamStatus: String
+    /// False with no card or SSD in the camera, which then can't record.
+    var hasMedia: Bool
 }
 
 /// What the Rust event stream reports, carried from its threads to the main actor.

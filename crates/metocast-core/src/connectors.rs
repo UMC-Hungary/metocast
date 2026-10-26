@@ -98,6 +98,9 @@ pub enum ConnectorState {
         /// The camera's own word, such as `Idle`, `Connecting` or `Streaming`.
         #[serde(default)]
         stream_status: String,
+        /// False with no card or SSD in the camera; an older server doesn't say, so true.
+        #[serde(default = "crate::automations::default_true")]
+        has_media: bool,
     },
     #[serde(rename = "middlecontrol")]
     Middlecontrol { state: Option<MiddlecontrolState> },

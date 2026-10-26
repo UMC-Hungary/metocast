@@ -287,6 +287,8 @@ export const WsMessageSchema = z.discriminatedUnion('type', [
        *  Absent for every connector but the Blackmagic camera. */
       streamStatus: z.string().optional(),
       isRecording: z.boolean().optional(),
+      /** False with no card or SSD in the Blackmagic camera; absent for every other connector. */
+      hasMedia: z.boolean().optional(),
       state: MiddlecontrolStateSchema.optional(),
     }),
   ]),
@@ -467,6 +469,7 @@ export const WsMessageSchema = z.discriminatedUnion('type', [
         isStreaming: z.boolean(),
         streamStatus: z.string().default('Idle'),
         isRecording: z.boolean(),
+        hasMedia: z.boolean().default(true),
       })
       .nullable(),
     middlecontrol: MiddlecontrolStateSchema.nullable(),

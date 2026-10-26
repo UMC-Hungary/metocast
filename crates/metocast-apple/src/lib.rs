@@ -1291,6 +1291,8 @@ pub enum AppleEvent {
         recording: bool,
         /// The camera's own word for what streaming is doing.
         stream_status: String,
+        /// False with no card or SSD in the camera.
+        has_media: bool,
     },
     DeviceAlerts {
         listeners: Vec<DeviceListenerRecord>,
@@ -3004,10 +3006,12 @@ impl From<ServerEvent> for AppleEvent {
                 is_streaming,
                 is_recording,
                 stream_status,
+                has_media,
             }) => Self::CameraState {
                 streaming: is_streaming,
                 recording: is_recording,
                 stream_status,
+                has_media,
             },
             ServerEvent::DeviceAlerts { listeners } => Self::DeviceAlerts {
                 listeners: listeners.into_iter().map(Into::into).collect(),
