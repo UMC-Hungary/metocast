@@ -167,8 +167,9 @@ impl AtemConnector {
 
     async fn run(&self, config: AtemConfig) {
         let mut backoff = INITIAL_BACKOFF;
+        // Only the first attempt shows Connecting: a retry keeps the last error on screen.
+        self.set_status(ConnectorStatus::Connecting).await;
         loop {
-            self.set_status(ConnectorStatus::Connecting).await;
             let (message, was_connected) = self.session(&config).await;
             self.clear().await;
             tracing::warn!(connector = "atem", "session ended: {message}");

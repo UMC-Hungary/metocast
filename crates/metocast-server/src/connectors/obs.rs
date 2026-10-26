@@ -199,13 +199,16 @@ async fn run_obs_loop(obs: ObsLoop) {
     } = obs;
     let mut backoff = Duration::from_secs(5);
     loop {
-        set_status(
-            &status,
-            &status_tx,
-            host.as_ref(),
-            ConnectorStatus::Connecting,
-        )
-        .await;
+        // A retry keeps the last error on screen rather than a generic Connecting.
+        if !matches!(*status.read().await, ConnectorStatus::Error { .. }) {
+            set_status(
+                &status,
+                &status_tx,
+                host.as_ref(),
+                ConnectorStatus::Connecting,
+            )
+            .await;
+        }
 
         let connect_result = tokio::select! {
             result = obws::Client::connect(
