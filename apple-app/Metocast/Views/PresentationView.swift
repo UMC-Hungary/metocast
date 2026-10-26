@@ -18,18 +18,12 @@ struct PresentationView: View {
             if let session = model.session {
                 page(session)
                     .toolbar {
-                        // Page actions carry their names; the shell's icons around them would otherwise blur together.
                         ToolbarItemGroup {
-                            Group {
-                                Button("New Song", systemImage: "music.note.list") { Task { await newSong(session) } }
-                                if isShowing(session) {
-                                    Button("Close Slides", systemImage: "xmark.circle") { session.show(.close) }
-                                }
-                                Button("Presentation Settings", systemImage: "slider.horizontal.3") { isShowingSettings = true }
+                            Button("New Song", systemImage: "music.note.list") { Task { await newSong(session) } }
+                            if isShowing(session) {
+                                Button("Close Slides", systemImage: "xmark.circle") { session.show(.close) }
                             }
-                            #if os(macOS)
-                            .labelStyle(.titleAndIcon)
-                            #endif
+                            Button("Presentation Settings", systemImage: "slider.horizontal.3") { isShowingSettings = true }
                         }
                         #if os(macOS)
                         if isShowing(session) {
