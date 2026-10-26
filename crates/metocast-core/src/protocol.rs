@@ -662,7 +662,8 @@ mod tests {
             ConnectorState::Camera {
                 is_streaming: false,
                 is_recording: false,
-                stream_status: "Idle".to_string()
+                stream_status: "Idle".to_string(),
+                has_media: true
             }
         );
         assert_eq!(

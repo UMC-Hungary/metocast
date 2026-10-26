@@ -2463,7 +2463,7 @@ async fn handle_ws_command(
             let msg = json!({
                 "type": "connectors.state",
                 "obs": obs_output.map(|s| json!({"isStreaming": s.is_streaming, "isRecording": s.is_recording})),
-                "blackmagic-camera": camera.map(|s| json!({"isStreaming": s.is_streaming(), "streamStatus": s.stream_status, "isRecording": s.is_recording})),
+                "blackmagic-camera": camera.map(|s| json!({"isStreaming": s.is_streaming(), "streamStatus": s.stream_status, "isRecording": s.is_recording, "hasMedia": s.has_media})),
                 "middlecontrol": middlecontrol,
                 "atem": state.atem_connector.get_state().await,
             })
@@ -3336,32 +3336,14 @@ async fn handle_ws_command(
         WsCommand::BlackmagicCameraRecordStop => {
             reply(client_tx, recording_control::camera_stop(state).await)
         }
-        WsCommand::BlackmagicCameraStreamStart => {
-            let Some(camera) = state.blackmagic_camera_connector.client().await else {
-                ws_error(client_tx, "blackmagic_camera_not_connected");
-                return;
-            };
-            match camera.livestream_start().await {
-                Ok(()) => ws_ok(client_tx),
-                Err(e) => ws_error(client_tx, &e.to_string()),
-            }
-        }
-        WsCommand::BlackmagicCameraStreamStop => {
-            let Some(camera) = state.blackmagic_camera_connector.client().await else {
-                ws_error(client_tx, "blackmagic_camera_not_connected");
-                return;
-            };
-            match camera.livestream_stop().await {
-                Ok(()) => {
-                    tracing::info!("camera livestream stop: accepted (204)");
-                    ws_ok(client_tx)
-                }
-                Err(e) => {
-                    tracing::info!("camera livestream stop: refused — {e}");
-                    ws_error(client_tx, &e.to_string())
-                }
-            }
-        }
+        WsCommand::BlackmagicCameraStreamStart => reply(
+            client_tx,
+            recording_control::camera_stream(state, true).await,
+        ),
+        WsCommand::BlackmagicCameraStreamStop => reply(
+            client_tx,
+            recording_control::camera_stream(state, false).await,
+        ),
         WsCommand::BlackmagicCameraStreamPushYoutube => {
             let Some(camera) = state.blackmagic_camera_connector.client().await else {
                 ws_error(client_tx, "blackmagic_camera_not_connected");

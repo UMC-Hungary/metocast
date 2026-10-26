@@ -96,7 +96,7 @@ pub async fn get_connector_state(State(state): State<AppState>) -> impl IntoResp
     let middlecontrol_state = state.middlecontrol_connector.get_state().await;
     Json(json!({
         "obs": obs_state.map(|s| json!({"isStreaming": s.is_streaming, "isRecording": s.is_recording})),
-        "blackmagic-camera": camera_state.map(|s| json!({"isStreaming": s.is_streaming(), "streamStatus": s.stream_status, "isRecording": s.is_recording})),
+        "blackmagic-camera": camera_state.map(|s| json!({"isStreaming": s.is_streaming(), "streamStatus": s.stream_status, "isRecording": s.is_recording, "hasMedia": s.has_media})),
         "middlecontrol": middlecontrol_state,
         "atem": state.atem_connector.get_state().await,
     }))

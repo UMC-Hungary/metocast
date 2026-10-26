@@ -259,8 +259,17 @@ enum ServerCode {
             String(localized: "More than one RØDECaster multitrack audio device is connected to this Mac. Disconnect the extra one.")
         case "rodecaster_no_media":
             String(localized: "No SD card or USB drive in the RØDECaster.")
-        case "rodecaster_not_connected", "obs_not_connected", "atem_not_connected",
-             "middlecontrol_not_connected", "blackmagic_camera_not_connected":
+        case "camera_no_media":
+            String(localized: "There's no card or SSD in the camera.")
+        case "blackmagic_camera_not_connected":
+            String(localized: "The camera isn't reachable. Check that it's on and on the network.")
+        case "camera_stream_held_by_middlecontrol":
+            String(localized: "The camera's stream is Middle Control's camera feed, not a broadcast. Stop it in Middle Control.")
+        case "camera_ignored_command":
+            String(localized: "The camera took the command but nothing changed. Check the camera; Middle Control may be controlling it.")
+        case "middlecontrol_ignored_command":
+            String(localized: "Middle Control didn't report the change. Check the camera in Middle Control.")
+        case "rodecaster_not_connected", "obs_not_connected", "atem_not_connected", "middlecontrol_not_connected":
             String(localized: "\(ConnectorInfo(id: String(code.dropLast("_not_connected".count)).replacing("_", with: "-")).name) isn't connected right now.")
         case "atem_timeout", "atem_no_response", "atem_no_ack":
             String(localized: "The ATEM didn't answer. Check its network connection.")

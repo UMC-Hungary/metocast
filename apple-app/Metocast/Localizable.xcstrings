@@ -4680,6 +4680,16 @@
         }
       }
     },
+    "Middle Control didn't report the change. Check the camera in Middle Control." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A Middle Control nem jelezte a változást. Nézd meg a kamerát a Middle Controlban."
+          }
+        }
+      }
+    },
     "Middle Control preset" : {
       "localizations" : {
         "hu" : {
@@ -5172,6 +5182,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Még nincs hirdetés"
+          }
+        }
+      }
+    },
+    "No card or SSD in the camera" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nincs kártya/SSD a kamerában"
           }
         }
       }
@@ -8388,6 +8408,26 @@
         }
       }
     },
+    "The camera isn't reachable. Check that it's on and on the network." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A kamera nem érhető el. Ellenőrizd, hogy be van-e kapcsolva és a hálózaton van-e."
+          }
+        }
+      }
+    },
+    "The camera took the command but nothing changed. Check the camera; Middle Control may be controlling it." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A kamera fogadta a parancsot, de nem változott semmi. Nézd meg a kamerát; lehet, hogy a Middle Control vezérli."
+          }
+        }
+      }
+    },
     "The camera's clock is %@ ahead of the recorder's" : {
       "localizations" : {
         "hu" : {
@@ -8404,6 +8444,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A kamera órája %@ értékkel késik a felvevőéhez képest"
+          }
+        }
+      }
+    },
+    "The camera's stream is Middle Control's camera feed, not a broadcast. Stop it in Middle Control." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A kamera streamje a Middle Control kameraképe, nem közvetítés. A Middle Controlban állítsd le."
           }
         }
       }
@@ -8812,6 +8862,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Utána a kamera mozgatása"
+          }
+        }
+      }
+    },
+    "There's no card or SSD in the camera." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nincs kártya/SSD a kamerában."
           }
         }
       }

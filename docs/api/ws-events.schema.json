@@ -168,6 +168,16 @@
       "connector": {
         "type": "string"
       },
+      "hasMedia": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
       "isRecording": {
         "anyOf": [
           {
@@ -192,6 +202,16 @@
         "anyOf": [
           {
             "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "streamStatus": {
+        "anyOf": [
+          {
+            "type": "string"
           },
           {
             "type": "null"

@@ -35,6 +35,9 @@ pub struct CameraState {
     /// `Idle` | `Connecting` | `Streaming` | `Flushing` | `Interrupted`, verbatim.
     pub stream_status: String,
     pub is_recording: bool,
+    /// A card or SSD is in the camera. Without one it answers a record command with 204 and
+    /// records nothing.
+    pub has_media: bool,
 }
 
 /// Livestreaming is absent on some models; that reads as `Idle`, not as a failure.
@@ -44,6 +47,13 @@ impl CameraState {
     pub fn is_streaming(&self) -> bool {
         self.stream_status == "Streaming"
     }
+}
+
+/// `/media/workingset` lists one slot per card or drive bay, `null` where nothing is in it.
+fn has_media(workingset: &serde_json::Value) -> bool {
+    workingset["workingset"]
+        .as_array()
+        .is_some_and(|slots| slots.iter().any(|slot| !slot.is_null()))
 }
 
 pub struct BlackmagicCameraConnector {
@@ -251,9 +261,16 @@ async fn read_state(camera: &Camera) -> Result<CameraState, Error> {
         Err(e) if e.is_unsupported() || matches!(e, Error::NotFound(_)) => STREAM_IDLE.to_string(),
         Err(e) => return Err(e),
     };
+    // A model without the media endpoint can't say, so it isn't stopped from recording.
+    let has_media = match camera.get::<serde_json::Value>("/media/workingset").await {
+        Ok(workingset) => has_media(&workingset),
+        Err(e) if e.is_unsupported() || matches!(e, Error::NotFound(_)) => true,
+        Err(e) => return Err(e),
+    };
     Ok(CameraState {
         stream_status,
         is_recording,
+        has_media,
     })
 }
 
@@ -339,6 +356,7 @@ impl Worker {
             vec![
                 "/transports/0/record".to_string(),
                 "/livestreams/0".to_string(),
+                "/media/workingset".to_string(),
             ],
         );
 
@@ -409,6 +427,7 @@ impl Worker {
                 tracing::info!("camera livestream status: {}", status.status);
                 current.stream_status = status.status;
             }
+            "/media/workingset" => current.has_media = has_media(&change.value),
             _ => return,
         }
         if guard.as_ref() != Some(&current) {
@@ -511,6 +530,7 @@ mod tests {
         let worker = test_worker(CameraState {
             stream_status: STREAM_IDLE.to_string(),
             is_recording: false,
+            has_media: true,
         });
 
         worker
@@ -523,7 +543,8 @@ mod tests {
             *worker.state.read().await,
             Some(CameraState {
                 stream_status: STREAM_IDLE.to_string(),
-                is_recording: true
+                is_recording: true,
+                has_media: true,
             }),
         );
 
@@ -541,7 +562,8 @@ mod tests {
             *worker.state.read().await,
             Some(CameraState {
                 stream_status: "Streaming".to_string(),
-                is_recording: true
+                is_recording: true,
+                has_media: true,
             }),
         );
     }
@@ -551,6 +573,7 @@ mod tests {
         let worker = test_worker(CameraState {
             stream_status: STREAM_IDLE.to_string(),
             is_recording: false,
+            has_media: true,
         });
 
         // "Connecting" is the RTMP handshake. Collapsing it to a bool is what left the
@@ -572,10 +595,37 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn an_empty_working_set_means_no_card_or_ssd() {
+        let worker = test_worker(CameraState {
+            stream_status: STREAM_IDLE.to_string(),
+            is_recording: false,
+            has_media: true,
+        });
+
+        // What a Cinema Camera 6K with both bays empty answers.
+        worker
+            .apply_change(&notify::PropertyChange {
+                property: "/media/workingset".to_string(),
+                value: serde_json::json!({ "size": 2, "workingset": [null, null] }),
+            })
+            .await;
+        assert!(!worker.state.read().await.as_ref().unwrap().has_media);
+
+        worker
+            .apply_change(&notify::PropertyChange {
+                property: "/media/workingset".to_string(),
+                value: serde_json::json!({ "size": 2, "workingset": [null, { "index": 1, "volume": "A002" }] }),
+            })
+            .await;
+        assert!(worker.state.read().await.as_ref().unwrap().has_media);
+    }
+
+    #[tokio::test]
     async fn apply_change_ignores_a_property_it_does_not_track() {
         let worker = test_worker(CameraState {
             stream_status: "Streaming".to_string(),
             is_recording: true,
+            has_media: true,
         });
 
         worker
@@ -589,7 +639,8 @@ mod tests {
             *worker.state.read().await,
             Some(CameraState {
                 stream_status: "Streaming".to_string(),
-                is_recording: true
+                is_recording: true,
+                has_media: true,
             }),
         );
     }
@@ -599,6 +650,7 @@ mod tests {
         let worker = test_worker(CameraState {
             stream_status: STREAM_IDLE.to_string(),
             is_recording: false,
+            has_media: true,
         });
 
         // `recording` missing entirely — RecordState fails to deserialize, not a panic.
@@ -613,7 +665,8 @@ mod tests {
             *worker.state.read().await,
             Some(CameraState {
                 stream_status: STREAM_IDLE.to_string(),
-                is_recording: false
+                is_recording: false,
+                has_media: true,
             }),
         );
     }
