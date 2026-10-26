@@ -441,7 +441,7 @@ pub fn validate_config(config: &RodecasterAudioRecordingConfig) -> Result<(), St
     }
     let directory = Path::new(&config.directory);
     if !directory.is_dir() {
-        return Err("recording_directory_not_found".to_string());
+        return Err(format!("recording_directory_not_found: {}", config.directory));
     }
     let probe = directory.join(format!(".metocast-write-check-{}", Uuid::new_v4()));
     OpenOptions::new()

@@ -960,6 +960,16 @@
         }
       }
     },
+    "A chosen RØDECaster source isn't available." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az egyik kiválasztott RØDECaster-forrás nem érhető el."
+          }
+        }
+      }
+    },
     "A folder on the server's Mac. The deck is saved there." : {
       "localizations" : {
         "hu" : {
@@ -976,6 +986,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Egy felvevő figyelmet igényel"
+          }
+        }
+      }
+    },
+    "A recording with this name already exists." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Már van ilyen nevű felvétel."
           }
         }
       }
@@ -1918,6 +1938,30 @@
         }
       }
     },
+    "Caption Finished YouTube Uploads" : {
+      "comment" : "Named in English by the Rust core (metocast_core::config); looked up at runtime",
+      "extractionState" : "manual",
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Feliratozás a kész YouTube-feltöltésekhez"
+          }
+        }
+      }
+    },
+    "Caption Ingestion URL (override)" : {
+      "comment" : "Named in English by the Rust core (metocast_core::config); looked up at runtime",
+      "extractionState" : "manual",
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Feliratfogadó URL (felülírás)"
+          }
+        }
+      }
+    },
     "Caption Overlay" : {
       "localizations" : {
         "hu" : {
@@ -2096,6 +2140,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Válassz eseményt, hogy az átirat a videóval együtt a YouTube-ra és a Facebookra kerüljön."
+          }
+        }
+      }
+    },
+    "Choose at least one audio source to record." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Válassz legalább egy hangforrást a felvételhez."
           }
         }
       }
@@ -3274,6 +3328,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "EXPOZÍCIÓ"
+          }
+        }
+      }
+    },
+    "Each audio source can be chosen only once." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minden hangforrás csak egyszer választható."
           }
         }
       }
@@ -4608,6 +4672,16 @@
         }
       }
     },
+    "Metocast can't write to the recording folder. Choose another one with the folder button." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A Metocast nem tud írni a felvételek mappájába. Válassz másikat a mappa gombbal."
+          }
+        }
+      }
+    },
     "Metocast isn't sure about this sync. Play the file and check the lips; move the sound below if needed." : {
       "localizations" : {
         "hu" : {
@@ -4660,6 +4734,16 @@
         }
       }
     },
+    "Middle Control didn't answer. Check its network connection." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A Middle Control nem válaszolt. Ellenőrizd a hálózati kapcsolatát."
+          }
+        }
+      }
+    },
     "Middle Control didn't report the change. Check the camera in Middle Control." : {
       "localizations" : {
         "hu" : {
@@ -4696,6 +4780,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Több"
+          }
+        }
+      }
+    },
+    "More than one RØDECaster multitrack audio device is connected to this Mac. Disconnect the extra one." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Több RØDECaster többsávos hangeszköz is csatlakozik ehhez a Machez. Húzd ki a fölöslegeset."
           }
         }
       }
@@ -5062,6 +5156,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nincs SD-kártya vagy USB-meghajtó"
+          }
+        }
+      }
+    },
+    "No SD card or USB drive in the RØDECaster." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nincs SD-kártya vagy USB-meghajtó a RØDECasterben."
           }
         }
       }
@@ -5706,6 +5810,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kivetítve"
+          }
+        }
+      }
+    },
+    "One FLAC file holds at most 8 channels. Record to separate files instead." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Egy FLAC fájlba legfeljebb 8 csatorna fér. Vegyél fel inkább külön fájlokba."
           }
         }
       }
@@ -6466,6 +6580,18 @@
         }
       }
     },
+    "Read-only (agents can look, not change)" : {
+      "comment" : "Named in English by the Rust core (metocast_core::config); looked up at runtime",
+      "extractionState" : "manual",
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Csak olvasás (az ügynökök látják, de nem módosíthatják)"
+          }
+        }
+      }
+    },
     "Ready" : {
       "localizations" : {
         "hu" : {
@@ -6544,6 +6670,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Felvétel"
+          }
+        }
+      }
+    },
+    "Recording Folder (on the Server's Mac)" : {
+      "comment" : "Named in English by the Rust core (metocast_core::config); looked up at runtime",
+      "extractionState" : "manual",
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Felvételek mappája (a szerver Macjén)"
           }
         }
       }
@@ -8274,6 +8412,26 @@
         }
       }
     },
+    "The ATEM didn't answer. Check its network connection." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az ATEM nem válaszolt. Ellenőrizd a hálózati kapcsolatát."
+          }
+        }
+      }
+    },
+    "The ATEM has no such input." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az ATEM-nek nincs ilyen bemenete."
+          }
+        }
+      }
+    },
     "The Blackmagic camera and Middle Control may drive the same camera, so it could be started twice." : {
       "localizations" : {
         "hu" : {
@@ -8340,6 +8498,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A RØDECaster nincs csatlakozva."
+          }
+        }
+      }
+    },
+    "The RØDECaster's audio couldn't be opened on this Mac." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A RØDECaster hangját nem sikerült megnyitni ezen a Macen."
           }
         }
       }
@@ -8474,6 +8642,16 @@
         }
       }
     },
+    "The event wasn't found." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az esemény nem található."
+          }
+        }
+      }
+    },
     "The first job downloads jive-vocals (about 53 MB)." : {
       "localizations" : {
         "hu" : {
@@ -8520,6 +8698,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A napló üres."
+          }
+        }
+      }
+    },
+    "The main mix can't be recorded together with fader sources." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A fő keverés nem vehető fel a faderek forrásaival együtt."
           }
         }
       }
@@ -8572,12 +8760,32 @@
         }
       }
     },
-    "The recording folder doesn't exist on the server's Mac. Set it in Settings → Connectors → RØDECaster." : {
+    "The recording file couldn't be written." : {
       "localizations" : {
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "A felvételek mappája nem létezik a szerver Macjén. Állítsd be a Beállítások → Csatlakozók → RØDECaster alatt."
+            "value" : "Nem sikerült írni a felvétel fájlját."
+          }
+        }
+      }
+    },
+    "The recording folder doesn't exist on the server's Mac. Choose one with the folder button." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A felvételek mappája nem létezik a szerver Macjén. Válassz egyet a mappa gombbal."
+          }
+        }
+      }
+    },
+    "The recording folder doesn't exist on the server's Mac: %@. Choose one with the folder button." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A felvételek mappája nem létezik a szerver Macjén: %@. Válassz egyet a mappa gombbal."
           }
         }
       }
@@ -8798,6 +9006,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nincs kártya/SSD a kamerában."
+          }
+        }
+      }
+    },
+    "This ATEM model can't record." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ez az ATEM típus nem tud felvenni."
+          }
+        }
+      }
+    },
+    "This ATEM model can't stream." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ez az ATEM típus nem tud közvetíteni."
           }
         }
       }
@@ -9030,6 +9258,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Átirat"
+          }
+        }
+      }
+    },
+    "Transcription isn't available right now." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az átiratkészítés most nem érhető el."
           }
         }
       }

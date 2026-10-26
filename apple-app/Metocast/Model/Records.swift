@@ -220,9 +220,109 @@ extension ConnectorStatusRecord {
     var detail: String? {
         switch code {
         case "credentials_required", "login_required", "relogin_required": nil
-        default: message.flatMap { $0.isEmpty ? nil : $0 }
+        default: message.flatMap { $0.isEmpty ? nil : ServerCode.text($0) }
         }
     }
+}
+
+/// The server answers with codes such as `rodecaster_not_connected` or
+/// `recording_directory_not_found: /path`. This puts them in the app's language; a code it
+/// doesn't know reads as words, and text that isn't a code passes through.
+enum ServerCode {
+    static func text(_ message: String) -> String {
+        let code = String(message.prefix { $0.isASCII && ($0.isLowercase || $0.isNumber || $0 == "_") })
+        let rest = message.dropFirst(code.count)
+        guard code.contains("_"), rest.isEmpty || rest.first == ":" || rest.first == ";" else { return message }
+        let detail = rest.dropFirst().trimmingCharacters(in: .whitespaces)
+        // "recording_start_failed: rodecaster_multitrack_endpoint_missing: …" says why in its detail.
+        let cause = text(detail)
+        if cause != detail { return cause }
+        if let words = known(code, detail: detail) { return words }
+        // ponytail: rare internal codes read as English words; give one a case when it shows up.
+        let words = code.replacing("_", with: " ").capitalizedFirst
+        return detail.isEmpty ? words : "\(words) (\(detail))"
+    }
+
+    private static func known(_ code: String, detail: String) -> String? {
+        switch code {
+        case "recording_directory_not_found":
+            detail.isEmpty
+                ? String(localized: "The recording folder doesn't exist on the server's Mac. Choose one with the folder button.")
+                : String(localized: "The recording folder doesn't exist on the server's Mac: \(detail). Choose one with the folder button.")
+        case "recording_directory_not_writable", "recording_directory_unavailable":
+            String(localized: "Metocast can't write to the recording folder. Choose another one with the folder button.")
+        case "rodecaster_audio_recording_disabled":
+            String(localized: "Audio recording is off. Turn on Record Audio and choose a folder in Settings → Connectors → RØDECaster.")
+        case "rodecaster_multitrack_endpoint_missing":
+            String(localized: "The RØDECaster's multitrack USB audio isn't reaching this Mac. Connect USB 1 and enable multitrack.")
+        case "rodecaster_multitrack_endpoint_ambiguous":
+            String(localized: "More than one RØDECaster multitrack audio device is connected to this Mac. Disconnect the extra one.")
+        case "rodecaster_no_media":
+            String(localized: "No SD card or USB drive in the RØDECaster.")
+        case "camera_no_media":
+            String(localized: "There's no card or SSD in the camera.")
+        case "blackmagic_camera_not_connected":
+            String(localized: "The camera isn't reachable. Check that it's on and on the network.")
+        case "camera_stream_held_by_middlecontrol":
+            String(localized: "The camera's stream is Middle Control's camera feed, not a broadcast. Stop it in Middle Control.")
+        case "camera_ignored_command":
+            String(localized: "The camera took the command but nothing changed. Check the camera; Middle Control may be controlling it.")
+        case "recorders_failed":
+            String(localized: "Some recorders didn't respond. The Record button's menu says why.")
+        case "middlecontrol_ignored_command":
+            String(localized: "Middle Control didn't report the change. Check the camera in Middle Control.")
+        case "rodecaster_not_connected", "obs_not_connected", "atem_not_connected", "middlecontrol_not_connected":
+            String(localized: "\(ConnectorInfo(id: String(code.dropLast("_not_connected".count)).replacing("_", with: "-")).name) isn't connected right now.")
+        case "atem_timeout", "atem_no_response", "atem_no_ack":
+            String(localized: "The ATEM didn't answer. Check its network connection.")
+        case "middlecontrol_timeout":
+            String(localized: "Middle Control didn't answer. Check its network connection.")
+        case "atem_recording_unsupported":
+            String(localized: "This ATEM model can't record.")
+        case "atem_streaming_unsupported":
+            String(localized: "This ATEM model can't stream.")
+        case "atem_unknown_input":
+            String(localized: "The ATEM has no such input.")
+        case "transcription_not_configured":
+            String(localized: "Add an OpenAI API key in Settings → Connectors.")
+        case "transcription_unavailable":
+            String(localized: "Transcription isn't available right now.")
+        case "recording_sources_required":
+            String(localized: "Choose at least one audio source to record.")
+        case "recording_sources_must_be_unique":
+            String(localized: "Each audio source can be chosen only once.")
+        case "configured_rodecaster_source_is_unavailable":
+            String(localized: "A chosen RØDECaster source isn't available.")
+        case "main_mix_cannot_be_combined_with_fader_sources":
+            String(localized: "The main mix can't be recorded together with fader sources.")
+        case "multichannel_flac_supports_at_most_8_channels":
+            String(localized: "One FLAC file holds at most 8 channels. Record to separate files instead.")
+        case "recording_file_already_exists":
+            String(localized: "A recording with this name already exists.")
+        case "recording_event_unavailable", "event_not_found":
+            String(localized: "The event wasn't found.")
+        case "recording_start_failed", "recording_stream_failed", "recording_stream_open_failed",
+             "recording_stream_start_failed", "audio_stream_failed", "audio_stream_open_failed",
+             "audio_stream_start_failed", "audio_discovery_failed", "audio_device_discovery_failed",
+             "audio_device_identity_failed", "audio_thread_unavailable":
+            String(localized: "The RØDECaster's audio couldn't be opened on this Mac.")
+        case "recording_writer_unavailable", "recording_writer_panicked", "recording_metadata_failed",
+             "recording_stop_failed", "flac_encode_failed", "flac_encoder_init_failed",
+             "flac_metadata_failed", "flac_rename_failed", "flac_sync_failed":
+            String(localized: "The recording file couldn't be written.")
+        case "credentials_required": String(localized: "Not set up")
+        case "login_required", "not_authenticated": String(localized: "Not signed in")
+        case "relogin_required": String(localized: "Sign-in expired")
+        case "already_live": String(localized: "It's already live.")
+        case "not_live": String(localized: "It isn't live.")
+        case "broadcast_ended": String(localized: "This broadcast has ended. Schedule a new one.")
+        default: nil
+        }
+    }
+}
+
+private extension String {
+    var capitalizedFirst: String { prefix(1).uppercased() + dropFirst() }
 }
 
 extension PresenterStateRecord {

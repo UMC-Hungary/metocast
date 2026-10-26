@@ -460,7 +460,7 @@ extension Error {
     var metocastMessage: String {
         guard let error = self as? AppleError else { return localizedDescription }
         return switch error {
-        case .Server(let message): message
+        case .Server(let message): ServerCode.text(message)
         case .Authentication: String(localized: "The server rejected this device's token.")
         case .Transport: String(localized: "The server couldn't be reached.")
         case .Refused(let status): String(localized: "The server refused this request (HTTP \(status)).")

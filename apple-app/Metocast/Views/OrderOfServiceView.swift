@@ -182,8 +182,14 @@ struct EventOrderSection: View {
             }
             #if os(macOS)
             // Swipe isn't a Mac gesture, and `.draggable` takes the right-click menu: the row's own buttons.
-            Button("Rename", systemImage: renaming == id ? "checkmark" : "pencil") {
+            Button {
                 renaming == id ? finishRename() : rename(id)
+            } label: {
+                Label {
+                    Text("Rename")
+                } icon: {
+                    SwapSymbol(renaming == id ? "checkmark" : "pencil", among: ["checkmark", "pencil"])
+                }
             }
             .labelStyle(.iconOnly)
             .buttonStyle(.borderless)

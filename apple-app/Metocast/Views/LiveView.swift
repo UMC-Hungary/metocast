@@ -452,7 +452,7 @@ extension RecorderRecord {
     var statusText: String {
         let state = recording ? String(localized: "Recording") : available ? String(localized: "Not recording") : String(localized: "Not connected")
         guard !recording, let error = lastStartError else { return state }
-        return String(localized: "\(state) · Didn't start: \(MetocastSession.refusalText(error))", comment: "A recorder's state, then why its last start failed")
+        return String(localized: "\(state) · Didn't start: \(ServerCode.text(error))", comment: "A recorder's state, then why its last start failed")
     }
 
     var symbol: String {

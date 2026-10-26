@@ -591,41 +591,6 @@ final class MetocastSession {
         Task { try? await client.productionControl(control: control) }
     }
 
-    /// A refused command's server code, in words.
-    static func refusalText(_ message: String) -> String {
-        if message.contains("rodecaster_multitrack_endpoint_missing") {
-            return String(localized: "The RØDECaster's multitrack USB audio isn't reaching this Mac. Connect USB 1 and enable multitrack.")
-        }
-        if message.hasPrefix("transcription_not_configured") {
-            return String(localized: "Add an OpenAI API key in Settings → Connectors.")
-        }
-        if message.hasPrefix("rodecaster_audio_recording_disabled") {
-            return String(localized: "Audio recording is off. Turn on Record Audio and choose a folder in Settings → Connectors → RØDECaster.")
-        }
-        if message.hasPrefix("camera_no_media") {
-            return String(localized: "There's no card or SSD in the camera.")
-        }
-        if message.hasPrefix("blackmagic_camera_not_connected") {
-            return String(localized: "The camera isn't reachable. Check that it's on and on the network.")
-        }
-        if message.hasPrefix("camera_stream_held_by_middlecontrol") {
-            return String(localized: "The camera's stream is Middle Control's camera feed, not a broadcast. Stop it in Middle Control.")
-        }
-        if message.hasPrefix("camera_ignored_command") {
-            return String(localized: "The camera took the command but nothing changed. Check the camera; Middle Control may be controlling it.")
-        }
-        if message.hasPrefix("middlecontrol_ignored_command") {
-            return String(localized: "Middle Control didn't report the change. Check the camera in Middle Control.")
-        }
-        if message.hasPrefix("recorders_failed") {
-            return String(localized: "Some recorders didn't respond. The Record button's menu says why.")
-        }
-        if message.hasPrefix("recording_directory_not_found") {
-            return String(localized: "The recording folder doesn't exist on the server's Mac. Set it in Settings → Connectors → RØDECaster.")
-        }
-        return message.replacingOccurrences(of: "_", with: " ")
-    }
-
     /// The event happening now or next, by the same rule as `metocast_core::events::current_event`.
     var upNext: EventSummaryRecord? {
         EventSchedule.current(in: events, now: .now)
@@ -714,7 +679,7 @@ final class MetocastSession {
                 String(localized: "stopped on the camera. Its card or SSD may be full or too slow.")
             case .device: String(localized: "stopped on the device.")
             }
-            let said = error.map { " " + Self.refusalText($0) } ?? ""
+            let said = error.map { " " + ServerCode.text($0) } ?? ""
             onActivity(ActivityItem(
                 icon: "stop.circle",
                 title: String(localized: "\(target.shortName) recording stopped: \(why)\(said)", comment: "The recorder, then why it stopped, then what it said"),
@@ -777,10 +742,9 @@ final class MetocastSession {
         case .event(.discovery(let tool, let devices, let message)):
             discoveryResults[tool] = DiscoverySnapshot(devices: devices, message: message)
         case .event(.commandFailed(let message)):
-            let words = Self.refusalText(message)
+            let words = ServerCode.text(message)
             if message.hasPrefix("transcription_") { transcriptRefusal = words }
-            discoveryFailure = message.replacingOccurrences(of: "_", with: " ")
-            // ponytail: codes show as words ("atem not connected"); map them to prose if they read badly.
+            discoveryFailure = words
             onActivity(ActivityItem(icon: "exclamationmark.triangle", title: String(localized: "Couldn't do that: \(words)"), isAlert: true))
         case .event(.connected), .event(.event), .event(.unknown):
             break
