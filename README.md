@@ -86,6 +86,10 @@ queues, the saved Broadlink commands, the OBS sources the server watches, record
 to no event, the caption overlay address and the core log. **Presentation → Open Slides** searches the server's watched folders, opens a deck in
 whichever backend the server uses, and writes a song deck from pasted lyrics.
 
+The **Record** button (the Mac toolbar, the iPhone's Live tab) starts and stops every recorder chosen
+in Settings, shows each one's state, and Metocast notifies whenever any recording stops; see
+[the Record button](docs/features/record-button.md).
+
 The app is in English and Hungarian and follows the device's language, or the one chosen for
 Metocast alone in System Settings or the iPhone's Settings; see
 [Hungarian in the Apple app](docs/features/apple-app-language.md).
@@ -771,8 +775,9 @@ without those fields keeps what was stored.
 Automations are controlled from Companion through the same WebSocket (`automations.list`,
 `automations.run`, `automations.set_armed`): the actions **Automations: Arm / Disarm** (arm, disarm or
 toggle the master switch), **Automations: Run** (a rule picked by name from the list the core sends
-on connect and after every change) and **RØDECaster SD: Start/Stop Recording**; the feedbacks
-**Automations: Armed** and **RØDECaster SD: Recording**; and the variables `automations_armed`
+on connect and after every change), **RØDECaster SD: Start/Stop Recording** and **Record Button:
+Start/Stop**; the feedbacks **Automations: Armed**, **RØDECaster SD: Recording** and **Record
+Button: Recording**; and the variables `automations_armed`
 (`ON`/`OFF`) and `last_automation` (`Service start: ok` or `Service start: 2 failed`). The module has
 presets for them under **Automations**. Preset buttons on a Stream Deck stay on Middle Things' own
 module: Metocast sees those presets in Middle Control's feedback, so rules fire on them without

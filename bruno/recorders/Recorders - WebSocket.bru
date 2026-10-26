@@ -1,0 +1,49 @@
+meta {
+  name: Recorders - WebSocket
+  type: http
+  seq: 4
+}
+
+# WebSocket commands — use a WS client connected to:
+# ws://{{host}}/ws?token={{authToken}}
+
+get {
+  url: {{baseUrl}}/ws
+  body: none
+  auth: none
+}
+
+docs {
+  ## The Record button over the WebSocket
+
+  ### Commands (token required)
+
+  ```json
+  { "type": "recorders.start" }
+  { "type": "recorders.stop" }
+  ```
+
+  Each starts or stops every recorder in `GET /api/settings/record-button`, side by side, through
+  the same code automations use: one already recording is left alone. The answer is `ok`, or
+  `{ "type": "error", "message": "recorders_failed: blackmagic-camera: camera_no_media; obs: obs_not_connected" }`.
+
+  ### Broadcasts
+
+  ```json
+  {
+    "type": "recorders.state",
+    "recorders": [
+      { "target": { "device": "blackmagic-camera" }, "selected": true, "available": true, "recording": false,
+        "lastStart": { "at": "2026-10-26T09:00:00Z", "error": "camera_no_media" } },
+      { "target": { "device": "rodecaster-audio" }, "selected": true, "available": true, "recording": true,
+        "lastStart": { "at": "2026-10-26T09:00:00Z", "error": null } }
+    ]
+  }
+  { "type": "recorder.stopped", "target": { "device": "blackmagic-camera" }, "reason": "device", "error": "camera_no_media" }
+  ```
+
+  `recorders.state` goes out when any row changes. `recorder.stopped` goes out whenever any
+  recording stops, selected or not. `reason` is `metocast` (the Record button, a Live page button
+  or an automation), `disconnected` (the connection dropped) or `device` (it stopped by itself, or
+  someone stopped it on the device).
+}

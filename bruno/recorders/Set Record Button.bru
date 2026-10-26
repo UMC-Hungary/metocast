@@ -1,0 +1,25 @@
+meta {
+  name: Set Record Button
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{baseUrl}}/api/settings/record-button
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "targets": [
+      { "device": "rodecaster-audio" },
+      { "device": "blackmagic-camera" },
+      { "device": "middlecontrol", "cameraId": null }
+    ]
+  }
+}

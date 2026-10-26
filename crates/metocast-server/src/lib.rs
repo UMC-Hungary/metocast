@@ -13,6 +13,7 @@ pub mod media;
 mod models;
 mod obs_devices;
 pub mod queue;
+pub mod recorders;
 pub mod recording_control;
 pub mod runtime;
 pub mod scheduler;

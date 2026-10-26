@@ -3,6 +3,8 @@ import {
 	AutomationRunMessageSchema,
 	AutomationsChangedMessageSchema,
 	DeskRecorderMessageSchema,
+	RecordersStateMessageSchema,
+	RecorderStoppedMessageSchema,
 	PresentationSettingsMessageSchema,
 	OrderStateMessageSchema,
 	type OrderStep,
@@ -41,6 +43,7 @@ export class MetocastApi {
 	private onAutomationRun?: (name: string, manual: boolean, failures: number) => void
 	private onOrderStepChanged?: (step: OrderStep | null) => void
 	private onDeskRecorderChanged?: (status: 'stopped' | 'paused' | 'recording', mediaPresent: boolean) => void
+	private onRecordersChanged?: (recording: boolean) => void
 	private useWebPresenter = false
 
 	constructor(config: ModuleConfig) {
@@ -311,6 +314,7 @@ export class MetocastApi {
 		onAutomationsChanged?: (armed: boolean, automations: AutomationSummary[]) => void
 		onAutomationRun?: (name: string, manual: boolean, failures: number) => void
 		onDeskRecorderChanged?: (status: 'stopped' | 'paused' | 'recording', mediaPresent: boolean) => void
+		onRecordersChanged?: (recording: boolean) => void
 		onOrderStepChanged?: (step: OrderStep | null) => void
 	}): void {
 		this.onConnectionChange = callbacks.onConnectionChange
@@ -323,6 +327,7 @@ export class MetocastApi {
 		this.onAutomationsChanged = callbacks.onAutomationsChanged
 		this.onAutomationRun = callbacks.onAutomationRun
 		this.onDeskRecorderChanged = callbacks.onDeskRecorderChanged
+		this.onRecordersChanged = callbacks.onRecordersChanged
 		this.onOrderStepChanged = callbacks.onOrderStepChanged
 	}
 
@@ -459,6 +464,20 @@ export class MetocastApi {
 			case 'rodecaster.record.state': {
 				const result = DeskRecorderMessageSchema.safeParse(message)
 				if (result.success) this.onDeskRecorderChanged?.(result.data.state.status, result.data.state.mediaPresent)
+				break
+			}
+			case 'recorders.state': {
+				const result = RecordersStateMessageSchema.safeParse(message)
+				if (result.success)
+					this.onRecordersChanged?.(result.data.recorders.some((row) => row.selected && row.recording))
+				break
+			}
+			case 'recorder.stopped': {
+				const result = RecorderStoppedMessageSchema.safeParse(message)
+				if (result.success) {
+					const { target, reason, error } = result.data
+					console.warn('[Metocast]', `${target.device} recording stopped (${reason})${error ? `: ${error}` : ''}`)
+				}
 				break
 			}
 			case 'ppt.folders_changed': {

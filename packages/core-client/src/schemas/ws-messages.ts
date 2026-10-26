@@ -15,7 +15,7 @@ import {
   CleanupProgressSchema,
   TranscriptMessageSchema,
 } from './transcription.js';
-import { AutomationMessageSchema } from './automations.js';
+import { AutomationMessageSchema, RecorderMessageSchema } from './automations.js';
 import {
   AtemStateSchema,
   AtemStreamTargetSchema,
@@ -383,6 +383,7 @@ export const WsMessageSchema = z.discriminatedUnion('type', [
   }),
   // ── Automations ────────────────────────────────────────────────────────────
   ...AutomationMessageSchema.options,
+  ...RecorderMessageSchema.options,
   // ── Live transcript and final-video captions ───────────────────────────────
   ...TranscriptMessageSchema.options,
   CaptionsJobStateSchema.extend({ type: z.literal('captions.job.state') }),

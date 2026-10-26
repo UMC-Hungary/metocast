@@ -162,6 +162,19 @@ export const DeskRecorderMessageSchema = z.object({
 	}),
 })
 
+/** The Record button's recorders; only whether the selected ones record matters here. */
+export const RecordersStateMessageSchema = z.object({
+	type: z.literal('recorders.state'),
+	recorders: z.array(z.object({ selected: z.boolean(), recording: z.boolean() })),
+})
+
+export const RecorderStoppedMessageSchema = z.object({
+	type: z.literal('recorder.stopped'),
+	target: z.object({ device: z.string() }),
+	reason: z.enum(['metocast', 'disconnected', 'device']),
+	error: z.string().nullable(),
+})
+
 export type AutomationSummary = z.infer<typeof AutomationSummarySchema>
 export type EventSummary = z.infer<typeof EventSummarySchema>
 export type PresenterEventListResponse = z.infer<typeof PresenterEventListResponseSchema>

@@ -751,6 +751,54 @@ fn handwritten() -> Value {
                         "automations": { "type": "array", "items": { "$ref": "#/components/schemas/Automation" } }
                     }
                 },
+                "RecordButton": {
+                    "type": "object",
+                    "description": "The recorders the Record button starts and stops. Unset is `rodecaster-audio`, Metocast's audio recording.",
+                    "required": ["targets"],
+                    "properties": {
+                        "targets": { "type": "array", "items": { "$ref": "#/components/schemas/RecordTarget" } }
+                    }
+                },
+                "RecorderRow": {
+                    "type": "object",
+                    "description": "One recorder as the Record button shows it.",
+                    "required": ["target", "selected", "available", "recording", "lastStart"],
+                    "properties": {
+                        "target": { "$ref": "#/components/schemas/RecordTarget" },
+                        "selected": { "type": "boolean", "description": "The Record button drives it" },
+                        "available": { "type": "boolean", "description": "Connected and able to record" },
+                        "recording": { "type": "boolean" },
+                        "lastStart": {
+                            "type": ["object", "null"],
+                            "description": "The last start by the Record button or an automation, since the server started",
+                            "required": ["at", "error"],
+                            "properties": {
+                                "at": { "type": "string", "format": "date-time" },
+                                "error": { "type": ["string", "null"], "description": "The refusal code or the device's words; null when it started or already was recording", "example": "camera_no_media" }
+                            }
+                        }
+                    }
+                },
+                "WsRecordersStateMessage": {
+                    "type": "object",
+                    "description": "Broadcast when any recorder's row changes: a recording starts or stops, a device comes or goes, a start fails, the selection changes.",
+                    "required": ["type", "recorders"],
+                    "properties": {
+                        "type": { "type": "string", "const": "recorders.state" },
+                        "recorders": { "type": "array", "items": { "$ref": "#/components/schemas/RecorderRow" } }
+                    }
+                },
+                "WsRecorderStoppedMessage": {
+                    "type": "object",
+                    "description": "Broadcast whenever a recording stops, for whatever reason.",
+                    "required": ["type", "target", "reason", "error"],
+                    "properties": {
+                        "type": { "type": "string", "const": "recorder.stopped" },
+                        "target": { "$ref": "#/components/schemas/RecordTarget" },
+                        "reason": { "type": "string", "enum": ["metocast", "disconnected", "device"], "description": "`metocast`: Metocast asked (the Record button, a Live page button or an automation); `disconnected`: the connection dropped; `device`: the device stopped by itself or someone stopped it there" },
+                        "error": { "type": ["string", "null"], "description": "What the recorder said, e.g. `camera_no_media`" }
+                    }
+                },
                 "WsAutomationRunMessage": {
                     "type": "object",
                     "description": "Broadcast after every run.",
@@ -1386,6 +1434,41 @@ fn handwritten() -> Value {
                         },
                         "401": { "description": "Unauthorized — missing or invalid token" },
                         "500": { "description": "Database error" }
+                    }
+                }
+            },
+            "/api/settings/record-button": {
+                "get": {
+                    "tags": ["Settings"],
+                    "summary": "Get the Record button's recorders",
+                    "operationId": "getRecordButton",
+                    "responses": {
+                        "200": { "description": "The recorders, or the default when unset", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RecordButton" } } } },
+                        "401": { "description": "Unauthorized — missing or invalid token" }
+                    }
+                },
+                "put": {
+                    "tags": ["Settings"],
+                    "summary": "Choose the Record button's recorders",
+                    "description": "Every client hears the change in `recorders.state`.",
+                    "operationId": "setRecordButton",
+                    "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RecordButton" } } } },
+                    "responses": {
+                        "200": { "description": "The stored recorders", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RecordButton" } } } },
+                        "401": { "description": "Unauthorized — missing or invalid token" },
+                        "500": { "description": "Database error" }
+                    }
+                }
+            },
+            "/api/recorders": {
+                "get": {
+                    "tags": ["Settings"],
+                    "summary": "Every recorder the Record button can drive, with its state",
+                    "description": "The same rows `recorders.state` pushes. Start or stop the selected ones with the `recorders.start` and `recorders.stop` WebSocket commands.",
+                    "operationId": "listRecorders",
+                    "responses": {
+                        "200": { "description": "One row per recorder", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/RecorderRow" } } } } },
+                        "401": { "description": "Unauthorized — missing or invalid token" }
                     }
                 }
             },
@@ -3006,6 +3089,8 @@ mod tests {
             "/api/automations/armed",
             "/api/automations/{id}",
             "/api/automations/{id}/run",
+            "/api/settings/record-button",
+            "/api/recorders",
         ] {
             assert!(spec["paths"][path].is_object(), "{path} is missing");
         }
@@ -3022,6 +3107,10 @@ mod tests {
             "WsAutomationsChangedMessage",
             "WsAutomationRunMessage",
             "WsRodecasterRecordStateMessage",
+            "RecordButton",
+            "RecorderRow",
+            "WsRecordersStateMessage",
+            "WsRecorderStoppedMessage",
         ] {
             assert!(
                 spec["components"]["schemas"][schema].is_object(),

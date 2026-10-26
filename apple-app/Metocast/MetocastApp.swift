@@ -101,7 +101,9 @@ private struct MacRootView: View {
 
     var body: some View {
         @Bindable var model = model
-        let stopping = model.session?.outputs.first { $0.id == stoppingOutput && $0.isOn }
+        let stopping = model.session.flatMap { session in
+            (session.outputs + [session.recordButton]).first { $0.id == stoppingOutput && $0.isOn }
+        }
         NavigationSplitView {
             // An open equipment page leaves the sidebar unselected; picking any item, even the current one, closes it.
             List(selection: Binding(
@@ -152,7 +154,10 @@ private struct MacRootView: View {
         .toolbar {
             if let session = model.session {
                 // Record and Transcript stay within reach from every page, event or not.
-                ToolbarItemGroup { OutputToolbarButtons(session: session, stopping: $stoppingOutput) }
+                ToolbarItemGroup {
+                    RecordButton(session: session) { stoppingOutput = session.recordButton.id }
+                    OutputToolbarButtons(session: session, stopping: $stoppingOutput)
+                }
                 ToolbarSpacer(.fixed)
                 // A running export stays in view from every page.
                 if !session.runningMediaJobs.isEmpty {
@@ -211,6 +216,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 private struct TabRootView: View {
     @Environment(AppModel.self) private var model
     @State private var isShowingNotifications = false
+    /// The Record button's stop question, asked here: a dialog on a bar item comes back after each answer.
+    @State private var isStoppingRecorders = false
     @Namespace private var newEventTransition
     @Namespace private var notificationsTransition
 
@@ -263,6 +270,11 @@ private struct TabRootView: View {
             NotificationsView()
                 .navigationTransition(.zoom(sourceID: model.pane, in: notificationsTransition))
         }
+        .stopConfirmation(
+            for: isStoppingRecorders ? model.session?.recordButton : nil,
+            isPresented: $isStoppingRecorders,
+            send: { model.session?.control($0) }
+        )
     }
 
     // Every tab keeps its own bell, so each one is a separate zoom source keyed by its tab.
@@ -270,6 +282,12 @@ private struct TabRootView: View {
         NavigationStack {
             content()
                 .toolbar {
+                    // The Live tab keeps the Record button in reach; the Mac has it on every page.
+                    if pane == .live, let session = model.session {
+                        ToolbarItem(placement: .topBarLeading) {
+                            RecordButton(session: session) { isStoppingRecorders = true }
+                        }
+                    }
                     if let pending = model.slideIndexPending {
                         ToolbarItem(placement: .topBarTrailing) { SlideIndexBadge(pending: pending) }
                     }

@@ -46,6 +46,9 @@ final class MetocastSession {
     /// Why the server turned down the last transcript start; the next start clears it.
     private(set) var transcriptRefusal: String?
     private(set) var camera: CameraState?
+    /// Every recorder the Record button can drive, with whether it's chosen, connected and
+    /// recording, and how its last start went.
+    private(set) var recorders: [RecorderRecord] = []
     /// The OBS sources the server warns about.
     private(set) var deviceAlerts: [DeviceListenerRecord] = []
     /// Rules that run inside the server: when one device does something, it does something on
@@ -302,6 +305,11 @@ final class MetocastSession {
     }
 
     /// Queues an audio master; its progress then arrives in `audioJobs`.
+    /// Chooses the Record button's recorders; the new rows arrive as `recorders.state`.
+    func setRecordButton(_ targets: [RecordTarget]) async throws {
+        try await client.setRecordButton(targets: targets)
+    }
+
     func startAudio(paths: [String], eventId: String?, settings: AudioSettings?) async throws {
         let queued = try await client.startAudio(paths: paths, eventId: eventId, settings: settings)
         audioJobs[queued.jobId] = AudioProgressRecord(
@@ -584,7 +592,7 @@ final class MetocastSession {
     }
 
     /// A refused command's server code, in words.
-    private static func refusalText(_ message: String) -> String {
+    static func refusalText(_ message: String) -> String {
         if message.contains("rodecaster_multitrack_endpoint_missing") {
             return String(localized: "The RØDECaster's multitrack USB audio isn't reaching this Mac. Connect USB 1 and enable multitrack.")
         }
@@ -608,6 +616,9 @@ final class MetocastSession {
         }
         if message.hasPrefix("middlecontrol_ignored_command") {
             return String(localized: "Middle Control didn't report the change. Check the camera in Middle Control.")
+        }
+        if message.hasPrefix("recorders_failed") {
+            return String(localized: "Some recorders didn't respond. The Record button's menu says why.")
         }
         if message.hasPrefix("recording_directory_not_found") {
             return String(localized: "The recording folder doesn't exist on the server's Mac. Set it in Settings → Connectors → RØDECaster.")
@@ -693,6 +704,23 @@ final class MetocastSession {
             if !run.didFail {
                 onActivity(ActivityItem(icon: "bolt.circle", title: String(localized: "\(run.name) ran: \(run.cause)")))
             }
+        case .event(.recordersState(let recorders)):
+            self.recorders = recorders
+        case .event(.recorderStopped(let target, let reason, let error)):
+            let why = switch reason {
+            case .metocast: String(localized: "stopped from Metocast.")
+            case .disconnected: String(localized: "the connection dropped.")
+            case .device where target == .blackmagicCamera:
+                String(localized: "stopped on the camera. Its card or SSD may be full or too slow.")
+            case .device: String(localized: "stopped on the device.")
+            }
+            let said = error.map { " " + Self.refusalText($0) } ?? ""
+            onActivity(ActivityItem(
+                icon: "stop.circle",
+                title: String(localized: "\(target.shortName) recording stopped: \(why)\(said)", comment: "The recorder, then why it stopped, then what it said"),
+                isAlert: true,
+                pane: .live
+            ))
         case .event(.transcription(let state)):
             transcription = state
             if state.status == .connecting || state.status == .running { transcriptRefusal = nil }

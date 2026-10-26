@@ -370,6 +370,18 @@ impl MetocastClient {
         })
     }
 
+    /// Chooses the recorders the Record button starts and stops.
+    pub async fn set_record_button(
+        &self,
+        targets: Vec<metocast_core::automations::RecordTarget>,
+    ) -> Result<(), ClientError> {
+        self.put_json(
+            "api/settings/record-button",
+            &metocast_core::automations::RecordButton { targets },
+        )
+        .await
+    }
+
     /// Saves all three. The server refuses a folder that does not exist.
     pub async fn save_server_settings(&self, settings: &ServerSettings) -> Result<(), ClientError> {
         self.put_json(

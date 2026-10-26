@@ -242,6 +242,23 @@
         }
       }
     },
+    "%@ recording stopped: %@%@" : {
+      "comment" : "The recorder, then why it stopped, then what it said",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ recording stopped: %2$@%3$@"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ felvétele leállt: %2$@%3$@"
+          }
+        }
+      }
+    },
     "%@ s" : {
       "comment" : "A duration in seconds",
       "localizations" : {
@@ -479,6 +496,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ · %2$@ · %3$@"
+          }
+        }
+      }
+    },
+    "%@ · Didn't start: %@" : {
+      "comment" : "A recorder's state, then why its last start failed",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · Didn't start: %2$@"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ · Nem indult el: %2$@"
           }
         }
       }
@@ -932,6 +966,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Egy mappa a szerver Macjén. A diasor oda kerül."
+          }
+        }
+      }
+    },
+    "A recorder needs attention" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Egy felvevő figyelmet igényel"
           }
         }
       }
@@ -2006,6 +2050,16 @@
         }
       }
     },
+    "Choose Recorders…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Felvevők kiválasztása…"
+          }
+        }
+      }
+    },
     "Choose Scan to look for devices." : {
       "localizations" : {
         "hu" : {
@@ -2716,6 +2770,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nem sikerült menteni az eseményt. Ellenőrizd a kapcsolatot, és próbáld újra."
+          }
+        }
+      }
+    },
+    "Couldn't save: %@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nem sikerült menteni: %@"
           }
         }
       }
@@ -5162,6 +5226,16 @@
         }
       }
     },
+    "No recorders chosen" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nincs kiválasztott felvevő"
+          }
+        }
+      }
+    },
     "No recording for %@; that part is silent" : {
       "localizations" : {
         "hu" : {
@@ -5272,12 +5346,32 @@
         }
       }
     },
+    "None of the chosen recorders is connected." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Egyik kiválasztott felvevő sincs csatlakoztatva."
+          }
+        }
+      }
+    },
     "Not Connected" : {
       "localizations" : {
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nincs kapcsolat"
+          }
+        }
+      }
+    },
+    "Not connected" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nincs csatlakoztatva"
           }
         }
       }
@@ -6430,6 +6524,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hangfelvétel"
+          }
+        }
+      }
+    },
+    "Record Button" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Felvétel gomb"
           }
         }
       }
@@ -7668,6 +7772,16 @@
         }
       }
     },
+    "Some recorders didn't respond. The Record button's menu says why." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Néhány felvevő nem reagált. A Felvétel gomb menüje megmutatja, miért."
+          }
+        }
+      }
+    },
     "Something went wrong." : {
       "localizations" : {
         "hu" : {
@@ -7774,6 +7888,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Felvétel indítása"
+          }
+        }
+      }
+    },
+    "Start the Others" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A többi indítása"
           }
         }
       }
@@ -8186,6 +8310,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A Metocast szerver hiányzik az alkalmazásból."
+          }
+        }
+      }
+    },
+    "The Record button starts and stops these together. Automations can start any of them too." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A Felvétel gomb ezeket együtt indítja és állítja le. Az automatizmusok is bármelyiket elindíthatják."
           }
         }
       }
@@ -9600,6 +9734,16 @@
         }
       }
     },
+    "chosen recorders" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "kiválasztott felvevők"
+          }
+        }
+      }
+    },
     "cleaned up" : {
       "localizations" : {
         "hu" : {
@@ -9730,6 +9874,46 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ leállítása"
+          }
+        }
+      }
+    },
+    "stopped from Metocast." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "a Metocastból állították le."
+          }
+        }
+      }
+    },
+    "stopped on the camera. Its card or SSD may be full or too slow." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "a kamerán állt le. Lehet, hogy megtelt a kártya/SSD, vagy túl lassú."
+          }
+        }
+      }
+    },
+    "stopped on the device." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "az eszközön állt le."
+          }
+        }
+      }
+    },
+    "the connection dropped." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "megszakadt a kapcsolat."
           }
         }
       }
