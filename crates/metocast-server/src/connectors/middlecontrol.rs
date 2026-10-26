@@ -21,6 +21,8 @@ use super::{
 
 const INITIAL_BACKOFF: Duration = Duration::from_secs(5);
 const MAX_BACKOFF: Duration = Duration::from_secs(60);
+/// Without it a host that drops packets holds the attempt for the OS's ~75 s.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const DISCOVERY_PORTS: [u16; 3] = [11584, 11581, 11580];
 const DISCOVERY_CONNECT_TIMEOUT: Duration = Duration::from_millis(300);
 const DISCOVERY_FEEDBACK_TIMEOUT: Duration = Duration::from_millis(1200);
@@ -305,8 +307,9 @@ struct Worker {
 impl Worker {
     async fn run(mut self, mut stop_rx: watch::Receiver<bool>) {
         let mut backoff = INITIAL_BACKOFF;
+        // Only the first attempt shows Connecting: a retry keeps the last error on screen.
+        self.set_status(ConnectorStatus::Connecting).await;
         loop {
-            self.set_status(ConnectorStatus::Connecting).await;
             let (ended, was_connected) = self.session(&mut stop_rx).await;
             *self.writer.lock().await = None;
             *self.state.write().await = None;
@@ -340,9 +343,11 @@ impl Worker {
     }
 
     async fn session(&mut self, stop_rx: &mut watch::Receiver<bool>) -> (Ended, bool) {
-        let stream = match TcpStream::connect((&*self.config.host, self.config.port)).await {
-            Ok(stream) => stream,
-            Err(error) => return (Ended::ByError(error.to_string()), false),
+        let connect = TcpStream::connect((&*self.config.host, self.config.port));
+        let stream = match timeout(CONNECT_TIMEOUT, connect).await {
+            Ok(Ok(stream)) => stream,
+            Ok(Err(error)) => return (Ended::ByError(error.to_string()), false),
+            Err(_) => return (Ended::ByError("middlecontrol_timeout".to_string()), false),
         };
         let (read_half, write_half) = stream.into_split();
         *self.writer.lock().await = Some(write_half);
@@ -865,6 +870,51 @@ mod tests {
 
         connector.stop().await;
         assert_eq!(*motion.borrow(), Motion::default());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_failing_connection_shows_its_error_while_retrying() {
+        let port = std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        let connector = MiddlecontrolConnector::new();
+        let mut status_rx = connector.status_tx.subscribe();
+        let worker = Worker {
+            config: MiddlecontrolConfig {
+                host: "127.0.0.1".to_string(),
+                port,
+                ..MiddlecontrolConfig::default()
+            },
+            status: Arc::clone(&connector.status),
+            state: Arc::clone(&connector.state),
+            writer: Arc::clone(&connector.writer),
+            status_tx: connector.status_tx.clone(),
+            state_tx: connector.state_tx.clone(),
+            preset_tx: connector.preset_tx.clone(),
+            motion_tx: Arc::clone(&connector.motion_tx),
+            tracker: Arc::clone(&connector.tracker),
+            reconnect_rx: connector.reconnect_tx.subscribe(),
+        };
+        let (stop_tx, stop_rx) = watch::channel(false);
+        let task = tokio::spawn(worker.run(stop_rx));
+        // Several retries' worth of backoff.
+        tokio::time::sleep(Duration::from_secs(300)).await;
+        stop_tx.send(true).unwrap();
+        task.await.unwrap();
+
+        let mut seen = Vec::new();
+        while let Ok(status) = status_rx.try_recv() {
+            seen.push(status);
+        }
+        assert_eq!(seen.first(), Some(&ConnectorStatus::Connecting));
+        assert!(matches!(seen.get(1), Some(ConnectorStatus::Error { .. })));
+        assert_eq!(seen.last(), Some(&ConnectorStatus::Disconnected));
+        assert!(
+            !seen[1..].contains(&ConnectorStatus::Connecting),
+            "{seen:?}"
+        );
     }
 
     #[tokio::test]
