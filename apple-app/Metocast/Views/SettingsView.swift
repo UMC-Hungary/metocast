@@ -126,11 +126,20 @@ private struct ServerSection: View {
                         .monospaced()
                         // Not "bullet" twelve times.
                         .accessibilityLabel(isShowingToken && !Redaction.isOn ? server.token : String(localized: "Hidden"))
-                    Button(isShowingToken ? "Hide Token" : "Show Token", systemImage: isShowingToken ? "eye.slash" : "eye") {
-                        isShowingToken.toggle()
+                    // Redaction always masks the token, so the toggle would do nothing.
+                    if !Redaction.isOn {
+                        Button {
+                            isShowingToken.toggle()
+                        } label: {
+                            Label {
+                                Text(isShowingToken ? "Hide Token" : "Show Token")
+                            } icon: {
+                                SwapSymbol(isShowingToken ? "eye.slash" : "eye", among: ["eye", "eye.slash"])
+                            }
+                        }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.borderless)
                     }
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.borderless)
                 }
             }
             Button("New Token…") { isConfirmingNewToken = true }
