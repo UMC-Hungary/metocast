@@ -141,10 +141,13 @@ private struct MacRootView: View {
             .id(model.equipment.map { "\($0)" } ?? model.pane.rawValue)
             // Root pages; each pushed page applies it too, since a push drops the stack's own.
             .windowActions()
+            // In Icon and Text mode the toolbar's labels sit over scrolled content; a hard edge keeps them legible.
+            .scrollEdgeEffectStyle(.hard, for: .top)
         }
         .inspector(isPresented: $model.isShowingSettings) {
             SettingsView()
                 .inspectorColumnWidth(340)
+                .scrollEdgeEffectStyle(.hard, for: .top)
         }
         .toolbar {
             if let session = model.session {
@@ -157,10 +160,7 @@ private struct MacRootView: View {
                     ToolbarSpacer(.fixed)
                 }
             }
-            ToolbarItem {
-                NewEventButton()
-                    .labelStyle(.titleAndIcon)
-            }
+            ToolbarItem { NewEventButton() }
         }
         // The current output, so the answer acts on its state now; one that stopped meanwhile drops the question.
         .stopConfirmation(
@@ -303,14 +303,12 @@ private struct WindowActions: ViewModifier {
                     if let pending = model.slideIndexPending {
                         ToolbarItem { SlideIndexBadge(pending: pending) }
                     }
-                    ToolbarItem {
+                    ToolbarItemGroup {
                         // The Mac has room for a popover, which the HIG reserves for wide layouts.
                         NotificationsBell { isShowingNotifications = true }
                             .popover(isPresented: $isShowingNotifications, arrowEdge: .bottom) {
                                 NotificationsView()
                             }
-                    }
-                    ToolbarItem {
                         Button("Settings", systemImage: "sidebar.trailing") {
                             model.isShowingSettings.toggle()
                         }

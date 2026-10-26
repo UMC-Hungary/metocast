@@ -386,9 +386,9 @@ extension View {
 
 #if os(macOS)
 /// Record and Transcript in the Mac toolbar, so they are within reach from every page, whether
-/// or not an event exists. The toolbar already gives its items glass; a running output takes the
-/// prominent glass in red. One that can't start is dimmed, and both of these only wait for the
-/// RØDECaster.
+/// or not an event exists. The toolbar gives them its glass; a running output's symbol fills in red.
+/// A custom button style would turn the item into a plain view that the toolbar can't label. One that
+/// can't start is dimmed, and both of these only wait for the RØDECaster.
 ///
 /// The stop question is not presented from here: SwiftUI rebuilds toolbar items on every session
 /// update, and a dialog attached to one comes back after each answer. The window asks instead,
@@ -399,21 +399,22 @@ struct OutputToolbarButtons: View {
 
     var body: some View {
         ForEach(session.outputs.filter(\.showsInToolbar)) { output in
-            let button = OutputButton(output: output, send: session.control, askToStop: { stopping = $0.id }) {
-                if output.isBusy {
-                    ProgressView().controlSize(.small)
-                } else {
-                    // Icon-only in the bar, but VoiceOver hears what it does, not just what it is.
-                    Label(output.actionName, systemImage: output.symbol)
+            OutputButton(output: output, send: session.control, askToStop: { stopping = $0.id }) {
+                // A short title that doesn't change with the state: in Icon and Text mode the toolbar
+                // prints it under the icon. The action is in the tooltip and VoiceOver's label.
+                Label {
+                    Text(output.kind == .transcript ? String(localized: "Transcript") : output.startTitle)
+                } icon: {
+                    if output.isBusy {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: output.symbol)
+                            .symbolVariant(output.isOn ? .fill : .none)
+                            .foregroundStyle(output.isOn ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+                    }
                 }
             }
             .help(output.control == nil ? String(localized: "The RØDECaster isn't connected.") : output.actionName)
-            // Two glass styles are two types, so the running one branches.
-            if output.isOn {
-                button.buttonStyle(.glassProminent).tint(.red)
-            } else {
-                button
-            }
         }
     }
 }
