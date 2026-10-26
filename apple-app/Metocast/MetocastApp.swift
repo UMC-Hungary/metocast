@@ -98,11 +98,13 @@ private struct MacRootView: View {
     @Environment(AppModel.self) private var model
     /// The toolbar output waiting on a stop confirmation, asked here rather than in the toolbar.
     @State private var stoppingOutput: LiveOutput.ID?
+    /// Kept here so a collapsed sidebar stays collapsed when the split view is rebuilt.
+    @State private var columns = NavigationSplitViewVisibility.automatic
 
     var body: some View {
         @Bindable var model = model
         let stopping = model.session?.outputs.first { $0.id == stoppingOutput && $0.isOn }
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columns) {
             // An open equipment page leaves the sidebar unselected; picking any item, even the current one, closes it.
             List(selection: Binding(
                 get: { model.equipment == nil ? model.pane : nil },
@@ -137,13 +139,17 @@ private struct MacRootView: View {
                     }
                 }
             }
-            // A fresh stack per page, so screens pushed on one page don't linger on the next.
-            .id(model.equipment.map { "\($0)" } ?? model.pane.rawValue)
             // Root pages; each pushed page applies it too, since a push drops the stack's own.
             .windowActions()
             // In Icon and Text mode the toolbar's labels sit over scrolled content; a hard edge keeps them legible.
             .scrollEdgeEffectStyle(.hard, for: .top)
         }
+        // A fresh split view per page, so screens pushed on one page don't linger on the next. A new
+        // detail stack alone isn't enough: the split view keeps pages pushed by `NavigationLink { }`
+        // and `navigationDestination(isPresented:)` on screen after the page that pushed them is gone.
+        // ponytail: a dragged sidebar width snaps back to ideal on page change; bind the
+        // stack to a path and use value links everywhere if that matters.
+        .id(model.equipment.map { "\($0)" } ?? model.pane.rawValue)
         .inspector(isPresented: $model.isShowingSettings) {
             SettingsView()
                 .inspectorColumnWidth(340)
