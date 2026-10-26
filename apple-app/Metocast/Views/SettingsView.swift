@@ -64,6 +64,9 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
+                // The Mac inspector lays this out while sliding open from zero width; an unfixed
+                // segmented control keeps that collapsed "…" layout until it is clicked.
+                .fixedSize()
             }
 
             Section("About") {
