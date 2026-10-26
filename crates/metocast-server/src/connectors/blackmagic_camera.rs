@@ -277,9 +277,9 @@ struct Worker {
 impl Worker {
     async fn run(self, mut stop_rx: watch::Receiver<bool>) {
         let mut backoff = INITIAL_BACKOFF;
+        // Only the first attempt shows Connecting: a retry keeps the last error on screen.
+        self.set_status(ConnectorStatus::Connecting).await;
         loop {
-            self.set_status(ConnectorStatus::Connecting).await;
-
             let ended = self.session(&mut stop_rx).await;
             let was_connected = self.camera.lock().await.take().is_some();
             *self.state.write().await = None;
