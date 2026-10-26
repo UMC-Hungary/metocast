@@ -103,9 +103,9 @@ extension ActionResult {
         }
     }
 
-    /// The server's own code or note, as words ("obs_not_connected" is "obs not connected").
+    /// The server's own code or note, in words.
     var messageText: String? {
-        message.map { $0.replacingOccurrences(of: "_", with: " ") }
+        message.map(ServerCode.text)
     }
 }
 

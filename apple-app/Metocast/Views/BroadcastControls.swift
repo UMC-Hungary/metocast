@@ -178,7 +178,7 @@ private struct BroadcastConfirmation: ViewModifier {
         case "not_live": String(localized: "It isn't live.")
         case "broadcast_ended": String(localized: "This broadcast has ended. Schedule a new one.")
         case "youtube_testing_timeout": String(localized: "YouTube didn't get the stream ready in time. Try again.")
-        default: code
+        default: ServerCode.text(code)
         }
     }
 }

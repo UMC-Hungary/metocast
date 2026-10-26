@@ -23,11 +23,13 @@ Some words come from somewhere other than the app, so they read the same in eith
 - **Messages from the server.** A refusal sent in the server's own words, notifications the server
   pushes (an OBS source going missing, a failed upload), a connector's status detail (such as an
   OBS connection error), a job queue's status, an automation run's cause and step results, and the
-  server and core logs. Where the server sends a known code instead of a sentence, the app shows it
-  in Hungarian: broadcast refusals (`encoder_not_streaming`, `not_authenticated`,
-  `already_live`, …), transcript refusals (`transcription_not_configured`,
-  `recording_directory_not_found`, …), the YouTube/Facebook sign-in states and the problems an
-  automation editor reports before saving (a missing name, trigger or step).
+  server and core logs. Where the server sends a code instead of a sentence
+  (`rodecaster_not_connected`, `recording_directory_not_found: /path`, `already_live`, …), the app
+  shows it in Hungarian wherever it appears: a refused command, a setting the server would not
+  save, a connector's status, a device scan, an automation step and the notifications list. A code
+  the app doesn't know yet reads as plain words ("Recording filename invalid") rather than the raw
+  code. The YouTube/Facebook sign-in states and the problems an automation editor reports before
+  saving (a missing name, trigger or step) are Hungarian too.
 - **Names from the equipment and the library.** Mixer channel labels, ATEM inputs, deck and folder
   names, event titles and the Bible text.
 - **Product and proper names.** OBS, ATEM, RØDECaster, Middle Control, Keynote, YouTube, Facebook,
@@ -46,6 +48,9 @@ Some words come from somewhere other than the app, so they read the same in eith
   and connector setting fields (`metocast_core::config::schema`), are manual entries in the same
   catalogue, looked up with `String(localized: String.LocalizationValue(label))`. A new field
   label in the core needs a manual entry there.
+- Server error codes go through `ServerCode.text` (`apple-app/Metocast/Model/Records.swift`);
+  `Error.metocastMessage` and the connector status detail already use it. A new code the server
+  sends to clients gets a case there, with its Hungarian in the catalogue.
 - `apple-app/Metocast/InfoPlist.xcstrings` translates the app's name and its permission prompts
   (local network, microphone, controlling Keynote).
 - Xcode adds new strings to `Localizable.xcstrings` when the app builds. A change that adds a
