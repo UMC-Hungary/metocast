@@ -623,7 +623,7 @@ fn handwritten() -> Value {
                             }
                         },
                         { "type": "object", "title": "rodecaster", "description": "The desk's own SD or USB recorder. A start needs a card or drive: `rodecaster_no_media` otherwise.", "required": ["device"], "properties": { "device": { "type": "string", "const": "rodecaster" } } },
-                        { "type": "object", "title": "rodecaster-audio", "description": "Metocast's FLAC recording of the desk's USB audio, filed under the server's current event (`no event today` when there is none)", "required": ["device"], "properties": { "device": { "type": "string", "const": "rodecaster-audio" } } }
+                        { "type": "object", "title": "rodecaster-audio", "description": "Metocast's FLAC recording of the desk's USB audio, filed under the server's current event, or untracked when there is none", "required": ["device"], "properties": { "device": { "type": "string", "const": "rodecaster-audio" } } }
                     ]
                 },
                 "AutomationAction": {
