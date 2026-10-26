@@ -461,11 +461,12 @@ async fn observe(state: &AppState, target: &RecordTarget) -> Result<Observed, St
 }
 
 /// Starts (`recording`) or stops a recorder, unless it already is. Metocast's audio recording
-/// goes under the server's current event.
+/// goes under the server's current event, or is untracked when there is none, like the
+/// manual Record button.
 ///
 /// # Errors
 /// The connector's error code (`obs_not_connected`, `atem_recording_unsupported`,
-/// `rodecaster_no_media`, …), `no event today`, or the device's own words.
+/// `rodecaster_no_media`, …) or the device's own words.
 pub async fn ensure(
     state: &AppState,
     target: &RecordTarget,
@@ -493,9 +494,10 @@ pub async fn ensure(
             }
             let event = find_current_event(&state.pool)
                 .await
-                .map_err(|error| error.to_string())?
-                .ok_or_else(|| "no event today".to_string())?;
-            audio_start(state, Some(event.id)).await.map(drop)
+                .map_err(|error| error.to_string())?;
+            audio_start(state, event.map(|event| event.id))
+                .await
+                .map(drop)
         }
         RecordTarget::RodecasterAudio => audio_stop(state).await.map(drop),
     }?;

@@ -591,8 +591,8 @@ of 1–80 characters, presets 1–12, cameras 1–99.
   back, nothing happens. "Silent for at least 5 s" keeps a cough-mute from splitting the recording.
 - **Idempotent.** Each recorder action reads its target's state first: starting a recorder that is
   recording, or stopping an idle one, is `skipped` (no OBS "output already active" error, no double
-  toggle). Metocast's audio recording goes under the server's current event (`no event today`
-  fails that one action; the others still run).
+  toggle). Metocast's audio recording goes under the server's current event, or is untracked
+  when there is none (assign it later), as with the manual Record button.
 - **Order.** Actions run in the order listed, except that recorder actions next to each other start
   together (each with a 10 s timeout, so one dead device holds up none). A start rule moves the
   camera first, so recording starts on the right shot; a stop rule stops recording first, so the
