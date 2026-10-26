@@ -39,7 +39,7 @@ struct DevicesView: View {
                 LabeledContent("Scanning from", value: ServerAddress.displayName(session.baseURL))
                 if let status = session.connectors[selected.connector] {
                     LabeledContent("Connector", value: status.status.title)
-                    if let message = status.message { Text(message).foregroundStyle(.secondary) }
+                    if let message = status.detail { Text(message).foregroundStyle(.secondary) }
                 }
                 if !connected { Text("Reconnect to the server to discover devices.").foregroundStyle(.secondary) }
                 if !connectorReady { Text("Connect \(selected.title) before scanning its devices.").foregroundStyle(.secondary) }
@@ -56,7 +56,7 @@ struct DevicesView: View {
                 if scanning {
                     ProgressView("Scanning…")
                 } else if let result = results[selected] {
-                    if let message = result.message { Text(message).foregroundStyle(.secondary) }
+                    if let message = result.message { Text(ServerCode.text(message)).foregroundStyle(.secondary) }
                     if result.devices.isEmpty {
                         Text("No devices found. Check the equipment connection and try again.")
                             .foregroundStyle(.secondary)
