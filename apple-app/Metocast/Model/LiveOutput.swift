@@ -27,6 +27,7 @@ struct LiveOutput: Identifiable {
 
     /// "OBS stream", "ATEM recording".
     var name: String {
+        if connector == LiveOutput.recordButton { return String(localized: "chosen recorders") }
         if kind == .transcript { return String(localized: "English transcript") }
         if let title { return "\(ConnectorInfo(id: connector).name) \(title)" }
         let device = connector == "middlecontrol" ? String(localized: "Camera") : ConnectorInfo(id: connector).name
@@ -34,7 +35,24 @@ struct LiveOutput: Identifiable {
     }
 }
 
+extension LiveOutput {
+    /// The Record button's `connector`: it drives every recorder chosen in Settings.
+    static let recordButton = "recorders"
+}
+
 extension MetocastSession {
+    /// The Record button, as one output: on while any chosen recorder records, so a press then
+    /// asks before stopping them all.
+    var recordButton: LiveOutput {
+        let chosen = recorders.filter(\.selected)
+        let isOn = chosen.contains(where: \.recording)
+        var output = LiveOutput(connector: LiveOutput.recordButton, kind: .recording, state: isOn ? .on : .off)
+        if isOn || chosen.contains(where: \.available) {
+            output.control = { .recorders(on: $0) }
+        }
+        return output
+    }
+
     /// Every stream and recording the connected devices offer.
     var outputs: [LiveOutput] {
         var outputs: [LiveOutput] = []
@@ -138,8 +156,7 @@ extension MetocastSession {
             kind: .recording,
             state: recording ? .on : recorder.status == .failed ? .failed : .off,
             detail: event?.title ?? String(localized: "No event: saved as untracked"),
-            since: recording ? recorder.startedAt.flatMap(Date.init(rfc3339:)) : nil,
-            showsInToolbar: true
+            since: recording ? recorder.startedAt.flatMap(Date.init(rfc3339:)) : nil
         )
         if recording {
             output.control = { _ in .rodecasterRecordStop }

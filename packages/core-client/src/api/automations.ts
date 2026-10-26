@@ -6,8 +6,13 @@ import {
   AutomationListSchema,
   AutomationRunSchema,
   AutomationSchema,
+  RecordButtonSchema,
+  RecorderRowSchema,
 } from '../schemas/automations.js';
 import type {
+  RecordButton,
+  RecorderRow,
+  RecordTarget,
   Automation,
   AutomationDraft,
   AutomationList,
@@ -72,4 +77,26 @@ export function sendRunAutomation(id: string): boolean {
 
 export function sendAutomationsArmed(armed: boolean): boolean {
   return sendWsCommand('automations.set_armed', { armed });
+}
+
+/** The recorders the Record button starts and stops. */
+export function getRecordButton(): Promise<RecordButton> {
+  return apiFetch('/api/settings/record-button', RecordButtonSchema);
+}
+
+export function setRecordButton(targets: RecordTarget[]): Promise<RecordButton> {
+  return apiFetch('/api/settings/record-button', RecordButtonSchema, {
+    method: 'PUT',
+    body: { targets },
+  });
+}
+
+/** Every recorder the Record button can drive; changes arrive as `recorders.state`. */
+export function listRecorders(): Promise<RecorderRow[]> {
+  return apiFetch('/api/recorders', z.array(RecorderRowSchema));
+}
+
+/** Starts (`true`) or stops every recorder the Record button is set to. */
+export function sendRecorders(recording: boolean): boolean {
+  return sendWsCommand(recording ? 'recorders.start' : 'recorders.stop');
 }

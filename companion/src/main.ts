@@ -36,6 +36,8 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 	public orderStep: OrderStep | null = null
 	/** The RØDECaster's own SD/USB recorder is recording. */
 	public deskRecording = false
+	/** Any recorder the Record button drives is recording. */
+	public recordButtonRecording = false
 
 	private pollTimer: ReturnType<typeof setInterval> | null = null
 	private presentationPollTimer: ReturnType<typeof setInterval> | null = null
@@ -149,6 +151,10 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 			onDeskRecorderChanged: (status) => {
 				this.deskRecording = status === 'recording'
 				this.checkFeedbacks('rodecaster_desk_recording')
+			},
+			onRecordersChanged: (recording) => {
+				this.recordButtonRecording = recording
+				this.checkFeedbacks('record_button_recording')
 			},
 		})
 

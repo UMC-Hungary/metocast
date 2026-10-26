@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    automations::{Automation, AutomationRun},
+    automations::{Automation, AutomationRun, RecordTarget, RecorderRow, StopReason},
     connectors::{
         ConnectorState, ConnectorStatus, RodecasterDeskRecorder, RodecasterProfile,
         RodecasterRecorderState,
@@ -111,6 +111,12 @@ pub enum ProductionCommand {
     },
     #[serde(rename = "transcription.stop")]
     TranscriptionStop,
+    /// Starts every recorder the Record button is set to; each one's result arrives in
+    /// `recorders.state`.
+    #[serde(rename = "recorders.start")]
+    RecordersStart,
+    #[serde(rename = "recorders.stop")]
+    RecordersStop,
 }
 
 /// Automations. `automations.list` is answered by `automations.changed`; the others by `ok` or
@@ -411,6 +417,17 @@ pub enum ServerEvent {
     /// A rule ran: what fired it and what each action came to.
     #[serde(rename = "automation.run")]
     AutomationRun { run: AutomationRun },
+    /// Every recorder the Record button can drive, whenever one of them changes. Also the
+    /// answer to `GET /api/recorders`.
+    #[serde(rename = "recorders.state")]
+    RecordersState { recorders: Vec<RecorderRow> },
+    /// A recording stopped, for whatever reason. `error` is what the recorder said, if anything.
+    #[serde(rename = "recorder.stopped")]
+    RecorderStopped {
+        target: RecordTarget,
+        reason: StopReason,
+        error: Option<String>,
+    },
     #[serde(rename = "obs.devices.available")]
     ObsDevices {
         devices: crate::discovery::ObsDevices,

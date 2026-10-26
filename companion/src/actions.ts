@@ -306,6 +306,28 @@ export function GetActions(instance: ModuleInstance): CompanionActionDefinitions
 			},
 		},
 
+		record_button: {
+			name: 'Record Button: Start/Stop',
+			description:
+				'Start or stop every recorder chosen for the Record button in Metocast Settings, like the Record button itself.',
+			options: [
+				{
+					type: 'dropdown',
+					id: 'operation',
+					label: 'Operation',
+					default: 'start',
+					choices: [
+						{ id: 'start', label: 'Start' },
+						{ id: 'stop', label: 'Stop' },
+					],
+				},
+			],
+			callback: (action: CompanionActionEvent) => {
+				const type = action.options['operation'] === 'stop' ? 'recorders.stop' : 'recorders.start'
+				if (!instance.api.sendWsCommand(type)) instance.log('error', 'Record command failed: WebSocket not connected')
+			},
+		},
+
 		obs_record: {
 			name: 'OBS: Recording',
 			description: 'Start or stop recording in OBS',

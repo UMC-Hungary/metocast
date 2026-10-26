@@ -180,6 +180,18 @@ export function GetFeedbacks(instance: ModuleInstance): CompanionFeedbackDefinit
 			callback: () => instance.deskRecording,
 		},
 
+		record_button_recording: {
+			type: 'boolean',
+			name: 'Record Button: Recording',
+			description: 'Shows while any recorder the Record button drives is recording',
+			defaultStyle: {
+				bgcolor: combineRgb(200, 0, 0),
+				color: combineRgb(255, 255, 255),
+			},
+			options: [],
+			callback: () => instance.recordButtonRecording,
+		},
+
 		presentation_blanked: {
 			type: 'boolean',
 			name: 'Presentation: Screen Blanked',

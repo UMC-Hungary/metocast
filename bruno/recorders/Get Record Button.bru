@@ -1,0 +1,15 @@
+meta {
+  name: Get Record Button
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/settings/record-button
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}

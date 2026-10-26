@@ -574,6 +574,50 @@
     ],
     "type": "object"
   },
+  "recorder.stopped": {
+    "properties": {
+      "error": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "reason": {
+        "type": "string"
+      },
+      "target": {
+        "type": "object"
+      },
+      "type": {
+        "const": "recorder.stopped"
+      }
+    },
+    "required": [
+      "type",
+      "target",
+      "reason"
+    ],
+    "type": "object"
+  },
+  "recorders.state": {
+    "properties": {
+      "recorders": {
+        "type": "array"
+      },
+      "type": {
+        "const": "recorders.state"
+      }
+    },
+    "required": [
+      "type",
+      "recorders"
+    ],
+    "type": "object"
+  },
   "recording.changed": {
     "properties": {
       "data": {

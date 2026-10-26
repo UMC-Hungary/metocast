@@ -26,11 +26,20 @@ use crate::connectors::rodecaster_audio::{AudioRecorderState, FinalizedAudioFile
 use crate::models::event::find_current_event;
 use crate::server::AppState;
 
+/// Notes a stop Metocast asks for, so the `recorder.stopped` that follows says who stopped it.
+fn stopping(state: &AppState, on: bool, target: RecordTarget) {
+    if !on {
+        state.recorders.stopping(target);
+    }
+}
+
 pub async fn obs_record(state: &AppState, on: bool) -> Result<(), String> {
+    stopping(state, on, RecordTarget::Obs);
     state.obs_connector.set_recording(on).await
 }
 
 pub async fn atem_record(state: &AppState, on: bool) -> Result<(), String> {
+    stopping(state, on, RecordTarget::Atem);
     state.atem_connector.send(AtemCommand::Record(on)).await
 }
 
@@ -53,6 +62,7 @@ pub async fn camera_start(state: &AppState, clip_name: Option<&str>) -> Result<(
 }
 
 pub async fn camera_stop(state: &AppState) -> Result<(), String> {
+    stopping(state, false, RecordTarget::BlackmagicCamera);
     let camera = camera_client(state).await?;
     camera_confirm(state, camera.stop_recording(), |s| !s.is_recording).await
 }
@@ -170,6 +180,7 @@ pub async fn middlecontrol_record(
     on: bool,
     camera_id: Option<u8>,
 ) -> Result<(), String> {
+    stopping(state, on, RecordTarget::Middlecontrol { camera_id });
     let connector = &state.middlecontrol_connector;
     let changes = connector.state_tx.subscribe();
     if on {
@@ -189,6 +200,7 @@ pub async fn middlecontrol_record(
 }
 
 pub async fn middlecontrol_record_all(state: &AppState, on: bool) -> Result<(), String> {
+    stopping(state, on, RecordTarget::Middlecontrol { camera_id: None });
     let connector = &state.middlecontrol_connector;
     let changes = connector.state_tx.subscribe();
     if on {
@@ -227,6 +239,7 @@ async fn middlecontrol_confirm(
 
 /// The RØDECaster's own SD or USB recorder.
 pub async fn desk_record(state: &AppState, on: bool) -> Result<(), String> {
+    stopping(state, on, RecordTarget::Rodecaster);
     state.rodecaster_connector.set_recording(on).await
 }
 
@@ -291,6 +304,7 @@ pub enum AudioStop {
 /// # Errors
 /// `recording_metadata_failed: …`, or the writer's own error.
 pub async fn audio_stop(state: &AppState) -> Result<AudioStop, String> {
+    stopping(state, false, RecordTarget::RodecasterAudio);
     let recorder_state = state.rodecaster_audio_recorder.state();
     if recorder_state.status == RecorderStatus::Idle {
         return Ok(AudioStop::AlreadyIdle(Box::new(recorder_state)));
@@ -613,7 +627,7 @@ async fn observe(state: &AppState, target: &RecordTarget) -> Result<Observed, St
 
 /// Starts (`recording`) or stops a recorder, unless it already is. Metocast's audio recording
 /// goes under the server's current event, or is untracked when there is none, like the
-/// manual Record button.
+/// manual Record button. A start's result is kept for the Record button's status.
 ///
 /// # Errors
 /// The connector's error code (`obs_not_connected`, `atem_recording_unsupported`,
@@ -623,6 +637,14 @@ pub async fn ensure(
     target: &RecordTarget,
     recording: bool,
 ) -> Result<Outcome, String> {
+    let result = act(state, target, recording).await;
+    if recording {
+        state.recorders.started(target, &result);
+    }
+    result
+}
+
+async fn act(state: &AppState, target: &RecordTarget, recording: bool) -> Result<Outcome, String> {
     match decide(observe(state, target).await?, recording) {
         Decision::Skip(reason) => return Ok(Outcome::Skipped(reason.to_string())),
         Decision::Act => {}

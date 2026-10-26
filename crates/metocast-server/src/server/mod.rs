@@ -100,6 +100,8 @@ pub struct AppState {
     /// Rules that run inside the core: when one device does something, Metocast does something
     /// on others.
     pub automations: Arc<crate::automations::AutomationService>,
+    /// The Record button's recorders and the last start of each.
+    pub recorders: Arc<crate::recorders::Recorders>,
     #[cfg(target_os = "macos")]
     pub keynote_connector: Arc<KeynoteConnector>,
 }
@@ -271,6 +273,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
         media: Arc::new(crate::media::MediaRuntime::new(&data_dir)),
         transcription,
         automations,
+        recorders: Arc::default(),
         #[cfg(target_os = "macos")]
         keynote_connector: keynote_connector.clone(),
     };
@@ -278,6 +281,7 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
     crate::queue::spawn_worker(state.clone());
     broadcast::spawn_watcher(state.clone());
     crate::automations::spawn(state.clone(), automation_jobs).await;
+    crate::recorders::spawn(state.clone()).await;
     crate::media::spawn_worker(state.clone());
     crate::media::spawn_camera_clip_log(state.clone());
     if let Err(e) = crate::transcription::library::fail_interrupted(&state.pool).await {
@@ -772,6 +776,11 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
             "/settings/title-template",
             get(routes::get_title_template).put(routes::set_title_template),
         )
+        .route(
+            "/settings/record-button",
+            get(routes::get_record_button).put(routes::set_record_button),
+        )
+        .route("/recorders", get(routes::list_recorders))
         .route(
             "/settings/slide-folder",
             get(routes::get_slide_folder).put(routes::set_slide_folder),

@@ -10,7 +10,7 @@ use metocast_client::{
 use metocast_core::{
     automations::{
         ActionOutcome, ActionResult, Automation, AutomationAction, AutomationDraft, AutomationList,
-        AutomationRun, AutomationTrigger, ChannelSource, RecordTarget,
+        AutomationRun, AutomationTrigger, ChannelSource, RecordTarget, RecorderRow, StopReason,
     },
     config::ConfigFieldKind,
     connectors::{
@@ -439,6 +439,10 @@ pub enum ProductionControl {
     CameraPushYoutube,
     /// The same for the ATEM.
     AtemPushYoutube,
+    /// Every recorder the Record button is set to; the results arrive as `RecordersState`.
+    Recorders {
+        on: bool,
+    },
 }
 
 /// The OBS sources the server watches. Ids cross the bridge as strings.
@@ -669,6 +673,38 @@ pub enum RecordTarget {
     Middlecontrol { camera_id: Option<u8> },
     Rodecaster,
     RodecasterAudio,
+}
+
+#[uniffi::remote(Enum)]
+pub enum StopReason {
+    Metocast,
+    Disconnected,
+    Device,
+}
+
+/// One recorder as the Record button shows it. `last_start_at` (RFC 3339) and
+/// `last_start_error` are the last start by the Record button or an automation.
+#[derive(Clone, uniffi::Record)]
+pub struct RecorderRecord {
+    pub target: RecordTarget,
+    pub selected: bool,
+    pub available: bool,
+    pub recording: bool,
+    pub last_start_at: Option<String>,
+    pub last_start_error: Option<String>,
+}
+
+impl From<RecorderRow> for RecorderRecord {
+    fn from(row: RecorderRow) -> Self {
+        Self {
+            target: row.target,
+            selected: row.selected,
+            available: row.available,
+            recording: row.recording,
+            last_start_at: row.last_start.as_ref().map(|start| start.at.to_rfc3339()),
+            last_start_error: row.last_start.and_then(|start| start.error),
+        }
+    }
 }
 
 #[uniffi::remote(Enum)]
@@ -1281,6 +1317,16 @@ pub enum AppleEvent {
     /// A rule ran.
     AutomationRun {
         run: AutomationRunRecord,
+    },
+    /// Every recorder the Record button can drive.
+    RecordersState {
+        recorders: Vec<RecorderRecord>,
+    },
+    /// A recording stopped, for whatever reason.
+    RecorderStopped {
+        target: RecordTarget,
+        reason: StopReason,
+        error: Option<String>,
     },
     /// A command this client sent failed: a stable code such as `atem_not_connected`, or the
     /// device's own words.
@@ -1998,6 +2044,14 @@ impl AppleClient {
         })
     }
 
+    /// Chooses the recorders the Record button starts and stops; every client hears it in
+    /// `RecordersState`.
+    pub async fn set_record_button(&self, targets: Vec<RecordTarget>) -> Result<(), AppleError> {
+        let client = self.client.clone();
+        self.run(async move { client.set_record_button(targets).await })
+            .await
+    }
+
     /// Saves them. The server refuses a folder that does not exist.
     pub async fn save_server_settings(
         &self,
@@ -2540,6 +2594,8 @@ impl TryFrom<ProductionControl> for ProductionCommand {
             ProductionControl::CameraStreaming { on: false } => Self::CameraStreamStop,
             ProductionControl::CameraPushYoutube => Self::CameraPushYoutube,
             ProductionControl::AtemPushYoutube => Self::AtemPushYoutube,
+            ProductionControl::Recorders { on: true } => Self::RecordersStart,
+            ProductionControl::Recorders { on: false } => Self::RecordersStop,
         })
     }
 }
@@ -3054,6 +3110,18 @@ impl From<ServerEvent> for AppleEvent {
                 automations: automations.into_iter().map(Into::into).collect(),
             },
             ServerEvent::AutomationRun { run } => Self::AutomationRun { run: run.into() },
+            ServerEvent::RecordersState { recorders } => Self::RecordersState {
+                recorders: recorders.into_iter().map(Into::into).collect(),
+            },
+            ServerEvent::RecorderStopped {
+                target,
+                reason,
+                error,
+            } => Self::RecorderStopped {
+                target,
+                reason,
+                error,
+            },
             ServerEvent::ObsDevices { devices } => Self::Discovery {
                 tool: DiscoveryTool::Obs,
                 devices: discovery::obs_devices(devices),

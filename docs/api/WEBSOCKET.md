@@ -116,6 +116,8 @@ Connect to `ws://<host>/ws?token=<token>`. Send `{"type": "<command>", …fields
 | `presenter.status` | — | — |
 | `presenter.unload` | — | — |
 | `presenter.unmute` | — | — |
+| `recorders.start` | — | — |
+| `recorders.stop` | — | — |
 | `recordings.create` | `custom_description`, `custom_title`, `duration_seconds`, `event_id`*, `file_name`*, `file_path`*, `file_size` | `POST /api/events/{id}/recordings` |
 | `recordings.delete` | `delete_file`, `event_id`*, `recording_id`* | `DELETE /api/events/{id}/recordings/{recording_id}` |
 | `recordings.flag_upload` | `event_id`*, `recordings`* | `POST /api/events/{id}/recordings/flag-upload` |
@@ -169,6 +171,8 @@ Connect to `ws://<host>/ws?token=<token>`. Send `{"type": "<command>", …fields
 | `presenter.slide_changed` | The presenter moved to another slide | `currentSlide` integer?, `totalSlides` integer? |
 | `presenter.state` | The full web-presenter state | `state` object |
 | `queue.stats` | Job queue counters; sent while any client is connected | `queues` array |
+| `recorder.stopped` | A recording stopped: which recorder, why, and what it said | `target` object, `reason` string, `error` string? |
+| `recorders.state` | The Record button's recorders: selected, connected, recording, last start | `recorders` array |
 | `recording.changed` | A recording was inserted or updated | `data` object |
 | `recording.detected` | A new recording file appeared on disk | `fileName` string, `eventTitle` string? |
 | `recording.untracked.removed` | An untracked recording was assigned or deleted | `id` uuid |
