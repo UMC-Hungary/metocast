@@ -19,32 +19,42 @@ struct DeckList: View {
     @State private var isAddingFolder = false
 
     var body: some View {
-        List(files) { file in
-            Button { onPick(file) } label: { row(file) }
-                .buttonStyle(.plain)
+        List {
+            if let failure, !files.isEmpty {
+                Section {
+                    Label(failure, systemImage: "exclamationmark.triangle")
+                        .font(.subheadline)
+                        .foregroundStyle(.red)
+                }
+            }
+            ForEach(files) { file in
+                Button { onPick(file) } label: { row(file) }
+                    .buttonStyle(.plain)
+            }
         }
         .overlay {
             if isLoading && files.isEmpty {
                 ProgressView()
-            } else if let failure {
-                ContentUnavailableView("Couldn't Load Slides", systemImage: "exclamationmark.triangle", description: Text(failure))
-            } else if folders.isEmpty {
-                ContentUnavailableView {
-                    Label("No Slide Folders", systemImage: "folder.badge.plus")
-                } description: {
-                    Text("Add a folder of PowerPoint decks on the server's Mac.")
-                } actions: {
-                    Button("Add Folder…") { isAddingFolder = true }
-                        .buttonStyle(.glassProminent)
-                }
             } else if files.isEmpty {
-                if query.isEmpty {
+                if let failure {
+                    ContentUnavailableView("Couldn't Load Slides", systemImage: "exclamationmark.triangle", description: Text(failure))
+                } else if folders.isEmpty {
+                    ContentUnavailableView {
+                        Label("No Slide Folders", systemImage: "folder.badge.plus")
+                    } description: {
+                        Text("Add a folder of PowerPoint decks on the server's Mac.")
+                    } actions: {
+                        Button("Add Folder…") { isAddingFolder = true }
+                            .buttonStyle(.glassProminent)
+                    }
+                } else if query.isEmpty {
                     ContentUnavailableView("No Decks", systemImage: "rectangle.on.rectangle", description: Text("This folder has no PowerPoint decks."))
                 } else {
                     ContentUnavailableView.search(text: query)
                 }
             }
         }
+        .refreshable { await load() }
         .toolbar {
             ToolbarItem { folderMenu }
         }

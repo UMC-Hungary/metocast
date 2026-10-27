@@ -42,62 +42,65 @@ struct AutomationEditorView: View {
     private var problem: String? { automationProblem(automation: draft).map(Self.problemText) }
 
     var body: some View {
-        NavigationStack {
-            Form {
+        Form {
+            Section {
+                LabeledContent("Name") {
+                    TextField("Name", text: $name, prompt: Text("Service start"))
+                        .multilineTextAlignment(.trailing)
+                        .labelsHidden()
+                }
+                Toggle("Enabled", isOn: $enabled)
+            }
+            whenSection
+            doSection
+            optionsSection
+            if !triggers.isEmpty || !steps.isEmpty {
+                reverseSection
+            }
+            if !id.isEmpty {
+                runSection
+            }
+            if let failure {
                 Section {
-                    LabeledContent("Name") {
-                        TextField("Name", text: $name, prompt: Text("Service start"))
-                            .multilineTextAlignment(.trailing)
-                            .labelsHidden()
-                    }
-                    Toggle("Enabled", isOn: $enabled)
+                    Label(failure, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
                 }
-                whenSection
-                doSection
-                optionsSection
-                if !triggers.isEmpty || !steps.isEmpty {
-                    reverseSection
+            } else if let problem {
+                Section {
+                    Label("To save: \(problem)", systemImage: "info.circle").foregroundStyle(.secondary)
                 }
-                if !id.isEmpty {
-                    runSection
-                }
-                if let failure {
-                    Section {
-                        Label(failure, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
-                    }
-                } else if let problem {
-                    Section {
-                        Label("To save: \(problem)", systemImage: "info.circle").foregroundStyle(.secondary)
-                    }
-                }
-            }
-            .formStyle(.grouped)
-            .navigationTitle(id.isEmpty ? "New Automation" : "Automation")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { Task { await save() } }
-                        .disabled(problem != nil || isSaving)
-                }
-            }
-            .onAppear(perform: load)
-            .confirmationDialog("Run “\(name.trimmed)” now?", isPresented: $isConfirmingRun, titleVisibility: .visible) {
-                Button("Run Now", role: .destructive) { Task { await runNow() } }
-            } message: {
-                Text("This really records and moves cameras: \(original?.summary ?? draft.summary)")
-            }
-            .sheet(isPresented: $isAskingReverse) {
-                ReverseRuleSheet(hasCameraMove: steps.contains { $0.kind == .camera }) { preset in
-                    loadReversed(preset)
-                }
-            }
-            .sheet(item: $finishedRun) { run in
-                AutomationRunDetail(run: run)
             }
         }
-        #if os(macOS)
-        .frame(minWidth: 560, minHeight: 640)
+        .formStyle(.grouped)
+        .toggleStyle(.switch)
+        .navigationTitle(name.trimmed.isEmpty ? (id.isEmpty ? String(localized: "New Automation") : String(localized: "Automation")) : name.trimmed)
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar)
         #endif
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                if isSaving {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Button("Save") { Task { await save() } }
+                        .disabled(problem != nil)
+                }
+            }
+        }
+        .onAppear(perform: load)
+        .confirmationDialog("Run “\(name.trimmed)” now?", isPresented: $isConfirmingRun, titleVisibility: .visible) {
+            Button("Run Now", role: .destructive) { Task { await runNow() } }
+        } message: {
+            Text("This really records and moves cameras: \(original?.summary ?? draft.summary)")
+        }
+        .sheet(isPresented: $isAskingReverse) {
+            ReverseRuleSheet(hasCameraMove: steps.contains { $0.kind == .camera }) { preset in
+                loadReversed(preset)
+            }
+        }
+        .sheet(item: $finishedRun) { run in
+            AutomationRunDetail(run: run)
+        }
     }
 
     /// The core's reason in the app's language, for the limits a rule written here can reach.
@@ -112,13 +115,18 @@ struct AutomationEditorView: View {
 
     // ── When ─────────────────────────────────────────────────────────────────────────────
 
+    @ViewBuilder
     private var whenSection: some View {
-        Section {
-            ForEach($triggers) { $trigger in
+        ForEach($triggers) { $trigger in
+            Section {
                 TriggerEditor(session: session, trigger: $trigger) {
                     triggers.removeAll { $0.id == trigger.id }
                 }
+            } header: {
+                Text(triggers.first?.id == trigger.id ? "When" : "Or")
             }
+        }
+        Section {
             Menu("Add Trigger", systemImage: "plus") {
                 Button("Middle Control preset finished", systemImage: "slider.horizontal.3") {
                     triggers.append(TriggerDraft(kind: .preset))
@@ -128,7 +136,9 @@ struct AutomationEditorView: View {
                 }
             }
         } header: {
-            Text("When")
+            if triggers.isEmpty {
+                Text("When")
+            }
         } footer: {
             VStack(alignment: .leading, spacing: 4) {
                 Text("The rule fires when any of these happens.")
@@ -141,9 +151,10 @@ struct AutomationEditorView: View {
 
     // ── Do ───────────────────────────────────────────────────────────────────────────────
 
+    @ViewBuilder
     private var doSection: some View {
-        Section {
-            ForEach($steps) { $step in
+        ForEach($steps) { $step in
+            Section {
                 StepEditor(
                     session: session,
                     step: $step,
@@ -152,8 +163,11 @@ struct AutomationEditorView: View {
                     move: { offset in move(step.id, by: offset) },
                     remove: { steps.removeAll { $0.id == step.id } }
                 )
+            } header: {
+                Text(steps.first?.id == step.id ? "Do" : "Then")
             }
-            .onMove { steps.move(fromOffsets: $0, toOffset: $1) }
+        }
+        Section {
             Menu("Add Step", systemImage: "plus") {
                 Button("Move camera to preset", systemImage: "video") {
                     steps.append(StepDraft(kind: .camera))
@@ -170,7 +184,9 @@ struct AutomationEditorView: View {
                 }
             }
         } header: {
-            Text("Do")
+            if steps.isEmpty {
+                Text("Do")
+            }
         } footer: {
             Text("Steps run in this order, and the recorders in one step start together. A start rule moves the camera first, so recording starts on the right shot; a stop rule stops recording first, so the recording doesn't end on a camera move.")
         }
@@ -277,7 +293,7 @@ private struct TriggerEditor: View {
     var remove: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        Group {
             HStack {
                 Label(
                     trigger.kind == .preset ? "Middle Control preset" : "RØDECaster channel",
@@ -295,7 +311,6 @@ private struct TriggerEditor: View {
             case .channel: channelFields
             }
         }
-        .padding(.vertical, 4)
     }
 
     @ViewBuilder
@@ -303,28 +318,30 @@ private struct TriggerEditor: View {
         Picker("Preset", selection: $trigger.preset) {
             ForEach(1...12, id: \.self) { Text("Preset \($0)").tag($0) }
         }
+        .pickerStyle(.menu)
+
         valueStepper("Camera", value: trigger.cameraId == 0 ? String(localized: "Any") : String(localized: "Camera \(trigger.cameraId)"), number: $trigger.cameraId, in: 0...99)
-        Group {
-            if trigger.cameraId == 0 {
-                Text("Preset \(trigger.preset) has finished moving")
+
+        VStack(alignment: .leading, spacing: 3) {
+            Text(trigger.cameraId == 0
+                ? "Preset \(trigger.preset) has finished moving"
+                : "Preset \(trigger.preset) has finished moving on camera \(trigger.cameraId)")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            // Detection works when Middle Control's own feedback shows moves, so this is how to check
+            // it before Sunday.
+            if let last = session.middlecontrol?.lastPreset {
+                let time = Date(rfc3339: last.at).map { ", " + $0.formatted(date: .omitted, time: .shortened) } ?? ""
+                Text("Last seen: preset \(last.preset) on camera \(last.cameraId)\(time)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             } else {
-                Text("Preset \(trigger.preset) has finished moving on camera \(trigger.cameraId)")
+                Text("No preset move seen yet. Click a preset in Middle Control to check that it is noticed.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-        // Detection works when Middle Control's own feedback shows moves, so this is how to check
-        // it before Sunday.
-        if let last = session.middlecontrol?.lastPreset {
-            let time = Date(rfc3339: last.at).map { ", " + $0.formatted(date: .omitted, time: .shortened) } ?? ""
-            Text("Last seen: preset \(last.preset) on camera \(last.cameraId)\(time)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        } else {
-            Text("No preset move seen yet. Click a preset in Middle Control to check that it is noticed.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
+        .padding(.vertical, 2)
     }
 
     @ViewBuilder
@@ -345,6 +362,7 @@ private struct TriggerEditor: View {
                     Text(savedChannelName).tag(trigger.channel)
                 }
             }
+            .pickerStyle(.menu)
         } else {
             // The desk is offline, so there are no names to pick from.
             valueStepper("Fader", value: savedChannelName, number: $trigger.channel, in: 0...63)
@@ -361,6 +379,7 @@ private struct TriggerEditor: View {
                 Text("Desk only").tag(ChannelSource.desk)
                 Text("Transmitter only").tag(ChannelSource.transmitter)
             }
+            .pickerStyle(.menu)
             Text(sourceHelp)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -393,7 +412,7 @@ private struct StepEditor: View {
     var remove: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        Group {
             HStack {
                 Label(title, systemImage: symbol).font(.headline).accessibilityAddTraits(.isHeader)
                 Spacer()
@@ -411,7 +430,6 @@ private struct StepEditor: View {
             case .start, .stop: recorderFields
             }
         }
-        .padding(.vertical, 4)
     }
 
     private var title: String {
@@ -435,19 +453,25 @@ private struct StepEditor: View {
         Picker("Preset", selection: $step.preset) {
             ForEach(1...12, id: \.self) { Text("Preset \($0)").tag($0) }
         }
+        .pickerStyle(.menu)
+
         valueStepper("Camera", value: step.cameraId == 0 ? String(localized: "Selected") : String(localized: "Camera \(step.cameraId)"), number: $step.cameraId, in: 0...99)
-        Toggle("Wait until it arrives", isOn: $step.waitForArrival)
-        Text(step.waitForArrival
-            ? "The steps after this one start once the camera has reached the preset."
-            : "The steps after this one start right away.")
-            .font(.caption)
-            .foregroundStyle(.secondary)
+
+        VStack(alignment: .leading, spacing: 4) {
+            Toggle("Wait until it arrives", isOn: $step.waitForArrival)
+            Text(step.waitForArrival
+                ? "The steps after this one start once the camera has reached the preset."
+                : "The steps after this one start right away.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 2)
     }
 
     @ViewBuilder
     private var recorderFields: some View {
         ForEach(RecorderChoice.allCases, id: \.self) { recorder in
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Toggle(recorder.title, isOn: Binding(
                     get: { step.recorders.contains(recorder) },
                     set: { isOn in
@@ -457,20 +481,23 @@ private struct StepEditor: View {
                 if step.recorders.contains(recorder) {
                     if recorder == .middlecontrol {
                         valueStepper("Camera", value: step.middlecontrolCameraId == 0 ? String(localized: "Every camera") : String(localized: "Camera \(step.middlecontrolCameraId)"), number: $step.middlecontrolCameraId, in: 0...99)
-                        .font(.subheadline)
+                            .padding(.leading, 8)
                     }
                     if let warning = warning(for: recorder) {
                         Label(warning, systemImage: "exclamationmark.triangle")
                             .font(.caption)
                             .foregroundStyle(.orange)
+                            .padding(.top, 2)
                     }
                 }
             }
+            .padding(.vertical, 2)
         }
         if step.recorders.contains(.camera), step.recorders.contains(.middlecontrol) {
             Label("The Blackmagic camera and Middle Control may drive the same camera, so it could be started twice.", systemImage: "exclamationmark.triangle")
                 .font(.caption)
                 .foregroundStyle(.orange)
+                .padding(.vertical, 2)
         }
     }
 
@@ -506,6 +533,7 @@ private struct ReverseRuleSheet: View {
                             Picker("To preset", selection: $preset) {
                                 ForEach(1...12, id: \.self) { Text("Preset \($0)").tag($0) }
                             }
+                            .pickerStyle(.menu)
                         }
                     }
                 } header: {
@@ -535,8 +563,13 @@ private struct ReverseRuleSheet: View {
 /// A stepper with its value written beside the title, such as "Any" for camera 0. VoiceOver reads
 /// that too, instead of the bare number.
 private func valueStepper<V: Strideable>(_ title: LocalizedStringKey, value: String, number: Binding<V>, in range: ClosedRange<V>) -> some View {
-    Stepper(value: number, in: range) {
-        LabeledContent(title, value: value)
+    HStack {
+        Text(title)
+        Spacer()
+        Text(value)
+            .foregroundStyle(.secondary)
+        Stepper("", value: number, in: range)
+            .labelsHidden()
     }
     .accessibilityValue(value)
 }

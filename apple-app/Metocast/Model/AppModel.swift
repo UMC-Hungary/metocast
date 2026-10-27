@@ -27,6 +27,12 @@ final class AppModel {
     /// An equipment page opened from the Mac's settings; it takes over the content column until a sidebar item is picked.
     var equipment: EquipmentPage?
 
+    init() {
+        Task { [weak self] in
+            await self?.resume()
+        }
+    }
+
     #if os(macOS)
     let server = ServerHost()
     #endif
@@ -148,6 +154,13 @@ final class AppModel {
         guard let session = try? MetocastSession(baseURL: url, token: token) else { return }
         attach(session)
         await session.start()
+        if session.status == .unreachable && mode == .client {
+            Task { [weak self] in
+                try? await Task.sleep(for: .seconds(5))
+                guard let self, self.mode == .client, self.session?.status == .unreachable else { return }
+                await self.retry()
+            }
+        }
     }
 
     /// `pane` is in front already, and shows the news itself, so a banner would only repeat it.

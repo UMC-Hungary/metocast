@@ -1,5 +1,6 @@
 #if os(macOS)
 import AppKit
+#endif
 import Metocast
 import SwiftUI
 import UniformTypeIdentifiers
@@ -187,10 +188,14 @@ struct MediaJobRow: View {
                         Task { try? await session.cancelRender(jobId: job.id) }
                     }
                 case .succeeded:
+                    #if os(macOS)
                     Button("Play") { NSWorkspace.shared.open(URL(fileURLWithPath: job.outputPath)) }
                     Button("Show in Finder") {
                         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: job.outputPath)])
                     }
+                    #else
+                    EmptyView()
+                    #endif
                 case .failed, .cancelled:
                     EmptyView()
                 }
@@ -546,4 +551,3 @@ extension UTType {
     static let subRip = UTType(filenameExtension: "srt") ?? .text
     static let webVTT = UTType(filenameExtension: "vtt") ?? .text
 }
-#endif

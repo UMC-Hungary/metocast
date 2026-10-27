@@ -50,8 +50,11 @@ struct BroadcastBadge: View {
                     .symbolEffect(.pulse)
             }
             Text(connection.stateName)
+                .lineLimit(1)
         }
         .font(.caption.weight(.medium))
+        .lineLimit(1)
+        .fixedSize(horizontal: true, vertical: false)
         .foregroundStyle(connection.scheduleStatus == "ended" ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
         .padding(.horizontal, 8)
         .padding(.vertical, 4)

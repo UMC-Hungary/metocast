@@ -215,13 +215,16 @@ struct EventRow: View {
             #endif
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.title)
+                    .lineLimit(1)
                 Text([event.date?.eventDisplay, event.speaker.isEmpty ? nil : event.speaker]
                     .compactMap(\.self).joined(separator: " · "))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
-            Spacer()
+            Spacer(minLength: 8)
             BroadcastBadges(connections: event.connections)
+            #if os(macOS)
             // Its own buttons: a click here opens the broadcast, not the event.
             ForEach(event.connections.filter { $0.hasBroadcast && $0.scheduleStatus != "ended" }, id: \.platform) { connection in
                 if let link = connection.link {
@@ -233,6 +236,7 @@ struct EventRow: View {
                     .help("Open \(connection.platformName)")
                 }
             }
+            #endif
         }
     }
 }
@@ -242,22 +246,25 @@ private struct ConnectorCard: View {
 
     var body: some View {
         let info = ConnectorInfo(id: status.connector)
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             Label(info.name, systemImage: info.icon)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+            Spacer(minLength: 2)
             Label(status.title, systemImage: status.symbol)
                 .font(.headline)
                 .foregroundStyle(status.color)
+                .lineLimit(1)
             if let message = status.detail {
                 Text(message)
-                    .font(.footnote)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .lineLimit(1)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
+        .frame(maxWidth: .infinity, minHeight: 82, maxHeight: 82, alignment: .topLeading)
+        .padding(12)
         .contentShape(.rect)
         .card()
         // "ATEM, Off" as one stop rather than two.

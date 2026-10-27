@@ -101,9 +101,17 @@ final class MetocastSession {
     /// Checks the server, loads the first snapshot and opens the event stream.
     func start() async {
         status = .connecting
-        do {
-            try await client.health()
-        } catch {
+        var healthy = false
+        for attempt in 1...3 {
+            do {
+                try await client.health()
+                healthy = true
+                break
+            } catch {
+                if attempt < 3 { try? await Task.sleep(for: .seconds(1)) }
+            }
+        }
+        guard healthy else {
             status = .unreachable
             return
         }

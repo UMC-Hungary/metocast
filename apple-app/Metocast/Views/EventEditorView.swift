@@ -166,14 +166,51 @@ struct EventEditorView: View {
             }
             Section {
                 if let youtube = model.session?.connectors["youtube"] {
-                    LabeledContent("Account") {
-                        Label(youtube.title, systemImage: youtube.symbol).foregroundStyle(youtube.color)
+                    HStack {
+                        Text("Account")
+                        Spacer()
+                        Label(youtube.title, systemImage: youtube.symbol)
+                            .foregroundStyle(youtube.color)
                     }
                 }
-                Picker("Privacy", selection: $privacy) {
-                    Text("Public").tag("public")
-                    Text("Unlisted").tag("unlisted")
-                    Text("Private").tag("private")
+                HStack {
+                    Text("Privacy")
+                    Spacer()
+                    Menu {
+                        Button {
+                            privacy = "public"
+                        } label: {
+                            if privacy == "public" {
+                                Label("Public", systemImage: "checkmark")
+                            } else {
+                                Text("Public")
+                            }
+                        }
+                        Button {
+                            privacy = "unlisted"
+                        } label: {
+                            if privacy == "unlisted" {
+                                Label("Unlisted", systemImage: "checkmark")
+                            } else {
+                                Text("Unlisted")
+                            }
+                        }
+                        Button {
+                            privacy = "private"
+                        } label: {
+                            if privacy == "private" {
+                                Label("Private", systemImage: "checkmark")
+                            } else {
+                                Text("Private")
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(privacy.capitalized)
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.footnote)
+                        }
+                    }
                 }
                 Toggle("Auto-upload after event", isOn: $autoUpload)
                 if let hint = jobHint, let session = model.session {
@@ -338,7 +375,7 @@ private struct Lookup: Hashable {
 }
 
 /// A quiet note that a scheduled job is missing, how to add one, and a way there.
-private struct ScheduledJobHint: View {
+struct ScheduledJobHint: View {
     let text: String
     let session: MetocastSession
     @State private var isExplaining = false
@@ -375,12 +412,23 @@ struct BibleTranslationPicker: View {
         if !options.contains(where: { $0.code == selection }) {
             options.append(.init(code: selection, name: selection))
         }
-        return Picker("\(label) Translation", selection: $selection) {
-            Section("Our API") {
-                ForEach(options.filter(\.isOurs), id: \.code) { Text($0.name).tag($0.code) }
-            }
-            Section("Szentírás.eu") {
-                ForEach(options.filter { !$0.isOurs }, id: \.code) { Text($0.name).tag($0.code) }
+        let currentName = options.first(where: { $0.code == selection })?.name ?? selection
+        return LabeledContent("\(label) Translation") {
+            Menu {
+                Picker("\(label) Translation", selection: $selection) {
+                    Section("Our API") {
+                        ForEach(options.filter(\.isOurs), id: \.code) { Text($0.name).tag($0.code) }
+                    }
+                    Section("Szentírás.eu") {
+                        ForEach(options.filter { !$0.isOurs }, id: \.code) { Text($0.name).tag($0.code) }
+                    }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(currentName)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.footnote)
+                }
             }
         }
         .pointingHand()
@@ -400,29 +448,42 @@ struct EventReadingSection: View {
     @State private var translation = MetocastSession.defaultBibleTranslation
     @State private var isSaving = false
     @State private var failure: String?
+    @State private var isExpanded = false
 
     private var stored: BibleReferenceRecord? { event.bibleReferences.first { $0.referenceType == type } }
     private var label: String { type == "textus" ? "Textus" : "Lekció" }
 
     var body: some View {
         Section {
-            LabeledContent(label) {
+            DisclosureGroup(isExpanded: $isExpanded) {
+                LabeledContent(String(localized: "Reference")) {
+                    HStack {
+                        TextField(label, text: $reference, prompt: Text("Jn 3,16-21"))
+                            .labelsHidden()
+                            .autocorrectionDisabled()
+                        if isSaving { ProgressView().controlSize(.small) }
+                    }
+                }
+                BibleTranslationPicker(label: label, selection: $translation)
+                if let failure {
+                    Text(failure).font(.footnote).foregroundStyle(.red)
+                }
+                ForEach(stored?.verses ?? [], id: \.self) { verse in
+                    Text("\(Text("\(verse.chapter):\(verse.verse)").foregroundStyle(.secondary)) \(verse.text)")
+                }
+            } label: {
                 HStack {
-                    TextField(label, text: $reference, prompt: Text("Jn 3,16-21"))
-                        .labelsHidden()
-                        .autocorrectionDisabled()
-                    if isSaving { ProgressView().controlSize(.small) }
+                    Label(label, systemImage: "book")
+                    Spacer()
+                    if let ref = stored?.reference, !ref.isEmpty {
+                        Text(ref)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Not set")
+                            .foregroundStyle(.tertiary)
+                    }
                 }
             }
-            BibleTranslationPicker(label: label, selection: $translation)
-            if let failure {
-                Text(failure).font(.footnote).foregroundStyle(.red)
-            }
-            ForEach(stored?.verses ?? [], id: \.self) { verse in
-                Text("\(Text("\(verse.chapter):\(verse.verse)").foregroundStyle(.secondary)) \(verse.text)")
-            }
-        } header: {
-            Text(label)
         }
         .task(id: event.updatedAt) {
             reference = stored?.reference ?? ""

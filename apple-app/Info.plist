@@ -21,5 +21,7 @@
 	<false/>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Metocast controls Keynote presentations when this Mac hosts the server.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Metocast uses the camera to scan server connection QR codes.</string>
 </dict>
 </plist>

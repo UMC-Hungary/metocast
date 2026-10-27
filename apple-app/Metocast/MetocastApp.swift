@@ -69,8 +69,16 @@ private struct RootView: View {
         .task { await model.resume() }
         .onOpenURL { model.open($0) }
         .onChange(of: scenePhase) { _, phase in
-            // The socket may have slept in the background, so coming back is a good time to reload.
-            if phase == .active { Task { await model.session?.refresh() } }
+            // The socket may have slept in the background, so coming back is a good time to reload or reconnect.
+            if phase == .active {
+                Task {
+                    if model.session == nil || model.session?.status == .unreachable || model.session?.status == .closed {
+                        await model.retry()
+                    } else {
+                        await model.session?.refresh()
+                    }
+                }
+            }
         }
         .confirmationDialog(
             "Connect to a different server?",

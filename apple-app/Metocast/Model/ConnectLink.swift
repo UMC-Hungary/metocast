@@ -24,8 +24,19 @@ struct ConnectLink: Equatable, Identifiable {
     }
 
     init?(scanned text: String) {
-        guard let link = URL(string: text) else { return nil }
-        self.init(link)
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let link = URL(string: trimmed), let parsed = ConnectLink(link) {
+            self = parsed
+            return
+        }
+        if let data = trimmed.data(using: .utf8),
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let url = obj["url"] as? String,
+           let token = obj["token"] as? String {
+            self.init(url: url, token: token)
+            return
+        }
+        return nil
     }
 
     var link: URL? {

@@ -1,4 +1,3 @@
-#if os(macOS)
 import SwiftUI
 import Metocast
 
@@ -219,4 +218,3 @@ private extension DiscoveryTool {
         }
     }
 }
-#endif

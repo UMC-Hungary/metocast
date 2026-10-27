@@ -5,7 +5,6 @@ import Metocast
 /// and what they did lately. Every client sees and edits the same rules.
 struct AutomationsView: View {
     let session: MetocastSession
-    @State private var editing: AutomationEdit?
     @State private var failure: String?
 
     var body: some View {
@@ -26,13 +25,18 @@ struct AutomationsView: View {
 
             Section {
                 ForEach(session.automations) { rule in
-                    AutomationRow(session: session, rule: rule) { editing = .edit(rule) }
-                        // Mac lists have no swipe to delete.
-                        .contextMenu {
-                            Button("Delete", role: .destructive) {
-                                Task { await delete([rule.id]) }
-                            }
+                    NavigationLink {
+                        AutomationEditorView(session: session, original: rule)
+                            .windowActions()
+                    } label: {
+                        AutomationRow(session: session, rule: rule)
+                    }
+                    // Mac lists have no swipe to delete.
+                    .contextMenu {
+                        Button("Delete", role: .destructive) {
+                            Task { await delete([rule.id]) }
                         }
+                    }
                 }
                 .onDelete { offsets in
                     let ids = offsets.map { session.automations[$0].id }
@@ -68,18 +72,26 @@ struct AutomationsView: View {
                 } description: {
                     Text("A rule links devices: when a Middle Control preset finishes moving or the pastor's channel goes live, Metocast moves the camera and starts the recorders.")
                 } actions: {
-                    Button("New Automation") { editing = .new }
+                    NavigationLink {
+                        AutomationEditorView(session: session, original: nil)
+                            .windowActions()
+                    } label: {
+                        Text("New Automation")
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
             }
         }
         .navigationTitle("Automations")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button("New Automation", systemImage: "plus") { editing = .new }
+                NavigationLink {
+                    AutomationEditorView(session: session, original: nil)
+                        .windowActions()
+                } label: {
+                    Label("New Automation", systemImage: "plus")
+                }
             }
-        }
-        .sheet(item: $editing) { edit in
-            AutomationEditorView(session: session, original: edit.rule)
         }
         .task { await session.loadAutomations() }
     }
@@ -104,53 +116,33 @@ struct AutomationsView: View {
     }
 }
 
-/// What the rule list is editing: a new rule, or a saved one.
-private enum AutomationEdit: Identifiable {
-    case new
-    case edit(AutomationRecord)
-
-    var id: String {
-        switch self {
-        case .new: "new"
-        case .edit(let rule): rule.id
-        }
-    }
-
-    var rule: AutomationRecord? {
-        if case .edit(let rule) = self { rule } else { nil }
-    }
-}
-
 /// A rule's name, what it does in one line, how its last run went, and its own switch.
 private struct AutomationRow: View {
     let session: MetocastSession
     let rule: AutomationRecord
-    var edit: () -> Void
 
     var body: some View {
         HStack(alignment: .top) {
-            Button(action: edit) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(rule.name)
-                    Text(rule.summary)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(3)
-                    if let run = session.lastRun(of: rule.id) {
-                        Label {
-                            let time = run.date.map { $0.formatted(date: .omitted, time: .shortened) + " · " } ?? ""
-                            Text("Last run \(time)\(run.outcomeText)")
-                        } icon: {
-                            Image(systemName: run.didFail ? "exclamationmark.triangle.fill" : "checkmark.circle")
-                        }
-                        .font(.caption)
-                        .foregroundStyle(run.didFail ? Color.orange : Color.secondary)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(rule.name)
+                    .foregroundStyle(.primary)
+                Text(rule.summary)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+                if let run = session.lastRun(of: rule.id) {
+                    Label {
+                        let time = run.date.map { $0.formatted(date: .omitted, time: .shortened) + " · " } ?? ""
+                        Text("Last run \(time)\(run.outcomeText)")
+                    } icon: {
+                        Image(systemName: run.didFail ? "exclamationmark.triangle.fill" : "checkmark.circle")
                     }
+                    .font(.caption)
+                    .foregroundStyle(run.didFail ? Color.orange : Color.secondary)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(.rect)
             }
-            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
             // Named for its rule: a list of switches all called "Enabled" says nothing.
             Toggle("\(rule.name) Enabled", isOn: Binding(
                 get: { rule.enabled },

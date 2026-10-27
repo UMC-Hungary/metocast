@@ -115,13 +115,21 @@ struct EventOrderSection: View {
                     Button("Bible…", systemImage: "book") { add(.bible) }
                     Button("Block", systemImage: "text.alignleft") { add(.block) }
                 } label: {
+                    #if os(macOS)
                     Label("Add", systemImage: "plus")
+                    #else
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(.tint)
+                    #endif
                 }
-                .buttonStyle(.glass)
-                .fixedSize()
                 #if os(macOS)
+                .buttonStyle(.glass)
                 .labelStyle(.titleAndIcon)
+                #else
+                .buttonStyle(.borderless)
                 #endif
+                .fixedSize()
             }
         } header: {
             Text("Order of Service")
