@@ -127,6 +127,15 @@ pub fn current_event(events: &[EventSummary], now: DateTime<Utc>) -> Option<&Eve
                 .filter(|event| !event.is_completed && event.date_time >= now)
                 .min_by_key(|event| event.date_time)
         })
+        .or_else(|| {
+            events
+                .iter()
+                .filter(|event| {
+                    !event.is_completed
+                        && event.date_time.with_timezone(&Local).date_naive() == today
+                })
+                .max_by_key(|event| event.date_time)
+        })
 }
 
 pub const DEFAULT_TITLE_TEMPLATE: &str =

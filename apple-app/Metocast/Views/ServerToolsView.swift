@@ -195,6 +195,9 @@ private struct CronJobEditor: View {
                 autoUpload = job.autoUpload
             }
         }
+        #if os(macOS)
+        .frame(minWidth: 420, minHeight: 360)
+        #endif
     }
 
     private func save() async {
@@ -503,11 +506,20 @@ struct EventPicker: View {
                 }
                 .buttonStyle(.plain)
             }
+            .overlay {
+                if session.events.isEmpty {
+                    ContentUnavailableView("No Events", systemImage: "calendar")
+                }
+            }
             .navigationTitle("Choose an Event")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
             }
+            .task { await session.refresh() }
         }
+        #if os(macOS)
+        .frame(minWidth: 420, minHeight: 480)
+        #endif
     }
 }
 

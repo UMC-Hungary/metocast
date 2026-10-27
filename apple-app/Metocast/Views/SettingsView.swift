@@ -9,6 +9,9 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @AppStorage("appearance") private var appearance = Appearance.system
     @State private var isConfirmingReset = false
+    #if os(iOS)
+    @State private var isShowingScanner = false
+    #endif
 
     var body: some View {
         Form {
@@ -20,6 +23,13 @@ struct SettingsView: View {
             if model.mode == .client, let session = model.session {
                 Section("Server") {
                     LabeledContent("Address", value: ServerAddress.displayName(session.baseURL))
+                    #if os(iOS)
+                    Button {
+                        isShowingScanner = true
+                    } label: {
+                        Label("Scan QR Code to Switch Server", systemImage: "qrcode.viewfinder")
+                    }
+                    #endif
                 }
             }
 
@@ -31,28 +41,28 @@ struct SettingsView: View {
                     : "This device forgets the server and its token.")
             }
 
-            Section("Equipment") {
-                #if os(iOS)
-                NavigationLink("Connectors") {
-                    if let session = model.session { ConnectorsView(session: session) }
+            #if os(iOS)
+            if UIDevice.current.userInterfaceIdiom == .phone {
+                Section("Equipment") {
+                    NavigationLink("Connectors") {
+                        if let session = model.session { ConnectorsView(session: session) }
+                    }
+                    .disabled(model.session == nil)
+                    NavigationLink("Automations") {
+                        if let session = model.session { AutomationsView(session: session) }
+                    }
+                    .disabled(model.session == nil)
+                    NavigationLink("Server Tools") {
+                        if let session = model.session { ServerToolsView(session: session) }
+                    }
+                    .disabled(model.session == nil)
+                    NavigationLink("Discover Devices") {
+                        if let session = model.session { DevicesView(session: session) }
+                    }
+                    .disabled(model.session == nil)
                 }
-                .disabled(model.session == nil)
-                NavigationLink("Automations") {
-                    if let session = model.session { AutomationsView(session: session) }
-                }
-                .disabled(model.session == nil)
-                NavigationLink("Server Tools") {
-                    if let session = model.session { ServerToolsView(session: session) }
-                }
-                .disabled(model.session == nil)
-                #else
-                // Each opens in the window's content column, like a sidebar item.
-                equipmentButton("Connectors", systemImage: "puzzlepiece.extension", page: .connectors)
-                equipmentButton("Automations", systemImage: "bolt", page: .automations)
-                equipmentButton("Server Tools", systemImage: "wrench.and.screwdriver", page: .serverTools)
-                equipmentButton("Discover Devices", systemImage: "network", page: .devices)
-                #endif
             }
+            #endif
 
             if let session = model.session {
                 RecordButtonSection(session: session)
@@ -79,20 +89,20 @@ struct SettingsView: View {
         .confirmationDialog(resetTitle + "?", isPresented: $isConfirmingReset) {
             Button(resetTitle, role: .destructive) { Task { await model.reset() } }
         }
+        #if os(iOS)
+        .sheet(isPresented: $isShowingScanner) {
+            QRScannerSheet { link in
+                Task {
+                    _ = await model.useServer(link)
+                }
+            }
+        }
+        #endif
     }
 
     private var resetTitle: String {
         model.mode == .server ? String(localized: "Stop Hosting") : String(localized: "Remove Access")
     }
-
-    #if os(macOS)
-    private func equipmentButton(_ title: LocalizedStringKey, systemImage: String, page: EquipmentPage) -> some View {
-        Button(title, systemImage: systemImage) { model.equipment = page }
-            .fontWeight(model.equipment == page ? .semibold : nil)
-            .accessibilityAddTraits(model.equipment == page ? .isSelected : [])
-            .disabled(model.session == nil)
-    }
-    #endif
 }
 
 /// Which recorders the Record button starts and stops. The server keeps the choice, so every

@@ -10,6 +10,8 @@ struct SetupView: View {
     @State private var error: String?
     #if os(macOS)
     @State private var role = AppMode.server
+    #else
+    @State private var isShowingScanner = false
     #endif
 
     var body: some View {
@@ -24,6 +26,15 @@ struct SetupView: View {
                 #endif
                 connect()
             }
+            #if os(iOS)
+            .sheet(isPresented: $isShowingScanner) {
+                QRScannerSheet { link in
+                    address = link.url
+                    token = link.token
+                    connect()
+                }
+            }
+            #endif
     }
 
     #if os(macOS)
@@ -86,6 +97,15 @@ struct SetupView: View {
 
     private var clientFields: some View {
         Section {
+            #if os(iOS)
+            Button {
+                isShowingScanner = true
+            } label: {
+                Label("Scan QR Code", systemImage: "qrcode.viewfinder")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.glass)
+            #endif
             TextField("Server", text: $address, prompt: Text("192.168.1.10:3737"))
                 #if os(iOS)
                 .keyboardType(.URL)

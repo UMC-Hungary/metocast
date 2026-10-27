@@ -12,6 +12,18 @@ struct PresentationView: View {
     @State private var isAskingForSongFolder = false
     @State private var isShowingSettings = false
     @State private var isShowingOrder = true
+    @State private var selectedEventId: String?
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    #endif
+
+    private var isWideLayout: Bool {
+        #if os(macOS)
+        true
+        #else
+        horizontalSizeClass == .regular
+        #endif
+    }
 
     var body: some View {
         Group {
@@ -19,11 +31,18 @@ struct PresentationView: View {
                 page(session)
                     .toolbar {
                         ToolbarItemGroup {
-                            Button("New Song", systemImage: "music.note.list") { Task { await newSong(session) } }
-                            if isShowing(session) {
-                                Button("Close Slides", systemImage: "xmark.circle") { session.show(.close) }
+                            let actions = Group {
+                                Button("New Song", systemImage: "music.note.list") { Task { await newSong(session) } }
+                                if isShowing(session) {
+                                    Button("Close Slides", systemImage: "xmark.circle") { session.show(.close) }
+                                }
+                                Button("Presentation Settings", systemImage: "slider.horizontal.3") { isShowingSettings = true }
                             }
-                            Button("Presentation Settings", systemImage: "slider.horizontal.3") { isShowingSettings = true }
+                            if isWideLayout {
+                                actions.labelStyle(.titleAndIcon)
+                            } else {
+                                actions
+                            }
                         }
                         #if os(macOS)
                         if isShowing(session) {
@@ -48,28 +67,50 @@ struct PresentationView: View {
     @ViewBuilder
     private func page(_ session: MetocastSession) -> some View {
         let library = sidebar(session)
-        #if os(macOS)
-        HStack(spacing: 0) {
-            library.frame(width: 340)
-            Divider()
-            content(session)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        #else
-        VStack(spacing: 0) {
-            if isShowing(session) {
-                content(session).frame(maxHeight: 360)
+        Group {
+            if isWideLayout {
+                HStack(spacing: 0) {
+                    library.frame(width: 340)
+                    Divider()
+                    content(session)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            } else {
+                VStack(spacing: 0) {
+                    if isShowing(session) {
+                        content(session).frame(maxHeight: 360)
+                    }
+                    library
+                }
+                .navigationTitle("Presentation")
             }
-            library
         }
-        .navigationTitle("Presentation")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
         #endif
+        .task { await session.refresh() }
     }
 
-    /// The event to step through: the one on screen, else the one under way or next.
+    /// The event to step through: the one chosen by the user, the one currently on screen,
+    /// the one scheduled now or next, an open event from today, or the most recent open event.
     private func orderEvent(_ session: MetocastSession) -> EventSummaryRecord? {
-        session.events.first { $0.id == session.orderPosition?.eventId }
-            ?? EventSchedule.current(in: session.events, now: .now)
+        if let id = selectedEventId, let match = session.events.first(where: { $0.id == id }) {
+            return match
+        }
+        if let current = session.events.first(where: { $0.id == session.orderPosition?.eventId }) {
+            return current
+        }
+        if let scheduled = EventSchedule.current(in: session.events, now: .now) {
+            return scheduled
+        }
+        let open = session.events.filter { !$0.isCompleted }
+        let today = open.filter { event in
+            event.date.map { Calendar.current.isDateInToday($0) } ?? false
+        }
+        if let latestToday = today.max(by: { ($0.date ?? .distantPast) < ($1.date ?? .distantPast) }) {
+            return latestToday
+        }
+        return open.max(by: { ($0.date ?? .distantPast) < ($1.date ?? .distantPast) }) ?? session.events.first
     }
 
     /// The deck library, and the event's Order of Service beside it, so the service can be stepped
@@ -79,12 +120,36 @@ struct PresentationView: View {
         let event = orderEvent(session)
         VStack(spacing: 0) {
             if event != nil {
-                Picker("Show", selection: $isShowingOrder) {
-                    Text("Order of Service").tag(true)
-                    Text("Library").tag(false)
+                HStack(spacing: 8) {
+                    Picker("Show", selection: $isShowingOrder) {
+                        Text("Order of Service").tag(true)
+                        Text("Library").tag(false)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+
+                    if isShowingOrder, session.events.count > 1 {
+                        Menu {
+                            ForEach(session.events, id: \.id) { ev in
+                                Button {
+                                    selectedEventId = ev.id
+                                } label: {
+                                    HStack {
+                                        Text(ev.title)
+                                        if ev.id == event?.id {
+                                            Image(systemName: "checkmark")
+                                        }
+                                    }
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "calendar")
+                                .imageScale(.medium)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Choose Event")
+                    }
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
                 .padding(10)
             }
             if let event, isShowingOrder {
@@ -113,16 +178,16 @@ struct PresentationView: View {
     private func content(_ session: MetocastSession) -> some View {
         if session.usesWebPresenter, let state = session.presenter, state.loaded {
             VStack(spacing: 20) {
-                // The Mac puts the next slide beside the current one, like a presenter view; the iPhone below it.
-                #if os(macOS)
-                HStack(alignment: .top, spacing: 20) {
+                // The Mac and iPad put the next slide beside the current one, like a presenter view; the iPhone below it.
+                if isWideLayout {
+                    HStack(alignment: .top, spacing: 20) {
+                        currentSlide(state, session: session)
+                        nextSlide(state, session: session).frame(width: 240)
+                    }
+                } else {
                     currentSlide(state, session: session)
-                    nextSlide(state, session: session).frame(width: 240)
+                    nextSlide(state, session: session).frame(maxWidth: 240)
                 }
-                #else
-                currentSlide(state, session: session)
-                nextSlide(state, session: session).frame(maxWidth: 240)
-                #endif
                 slidePicker(current: state.currentSlide, total: state.totalSlides, session: session)
                 #if os(iOS)
                 controls(session)

@@ -20,6 +20,13 @@ struct CopyableLinks: View {
                             .font(.footnote.monospaced())
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
+                        if let destination = URL(string: url) {
+                            Link(destination: destination) {
+                                Image(systemName: "safari")
+                            }
+                            .buttonStyle(.glass)
+                            .help("Open in Browser")
+                        }
                         Button {
                             #if os(macOS)
                             NSPasteboard.general.clearContents()
@@ -45,6 +52,7 @@ struct CopyableLinks: View {
                 }
             }
         }
+        .padding(.vertical, 4)
         .task(id: copied) {
             guard copied != nil else { return }
             try? await Task.sleep(for: .seconds(2))

@@ -32,7 +32,7 @@ private enum RFC3339 {
     }
 }
 
-extension EventSummaryRecord {
+extension EventSummaryRecord: @retroactive Identifiable {
     var date: Date? { Date(rfc3339: dateTime) }
 }
 
@@ -42,7 +42,7 @@ extension EventRecord {
 
 enum EventSchedule {
     /// Mirrors `metocast_core::events::current_event`: an event that started today within
-    /// the last four hours, otherwise the next upcoming one.
+    /// the last four hours, otherwise the next upcoming one, or an open event from today.
     static func current(in events: [EventSummaryRecord], now: Date) -> EventSummaryRecord? {
         let open = events.filter { !$0.isCompleted }
         let running = open
@@ -52,10 +52,17 @@ enum EventSchedule {
             }
             .max { $0.1 < $1.1 }
         if let running { return running.0 }
-        return open
+
+        let upcoming = open
             .compactMap { event in event.date.map { (event, $0) } }
             .filter { $0.1 >= now }
             .min { $0.1 < $1.1 }?.0
+        if let upcoming { return upcoming }
+
+        return open
+            .compactMap { event in event.date.map { (event, $0) } }
+            .filter { _, date in Calendar.current.isDate(date, inSameDayAs: now) }
+            .max { $0.1 < $1.1 }?.0
     }
 }
 
