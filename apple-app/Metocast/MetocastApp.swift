@@ -20,6 +20,8 @@ struct MetocastApp: App {
                 .preferredColorScheme(appearance.colorScheme)
                 #if os(macOS)
                 .onAppear { delegate.model = model }
+                #else
+                .background(KeyboardDismissal())
                 #endif
         }
         #if os(macOS)
@@ -31,7 +33,7 @@ struct MetocastApp: App {
                     .keyboardShortcut("n")
                     .disabled(model.session == nil)
             }
-            // No Settings window: Metocast → Settings… shows or hides the inspector instead.
+            // No Settings window: Metocast → Settings… shows or hides the panel beside the page instead.
             CommandGroup(replacing: .appSettings) {
                 Button("Settings…") { model.isShowingSettings.toggle() }
                     .keyboardShortcut(",")
@@ -101,6 +103,57 @@ private struct RootView: View {
     }
 }
 
+private struct EquipmentPageView: View {
+    let page: EquipmentPage
+    let session: MetocastSession
+
+    var body: some View {
+        switch page {
+        case .connectors: ConnectorsView(session: session)
+        case .automations: AutomationsView(session: session)
+        case .serverTools: ServerToolsView(session: session)
+        case .devices: DevicesView(session: session)
+        }
+    }
+}
+
+/// The sidebar of the Mac and the iPad: the pages, then the equipment.
+private struct SidebarList: View {
+    private enum Item: Hashable {
+        case pane(MetocastPane)
+        case equipment(EquipmentPage)
+    }
+
+    let panes: [MetocastPane]
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        List(selection: Binding<Item?>(
+            get: { model.equipment.map(Item.equipment) ?? .pane(model.pane) },
+            set: { item in
+                switch item {
+                case .pane(let pane): model.pane = pane; model.equipment = nil
+                case .equipment(let page): model.equipment = page
+                case nil: break
+                }
+            }
+        )) {
+            ForEach(panes, id: \.self) { pane in
+                Label(pane.title, systemImage: pane.icon)
+                    .badge(pane == .dashboard && model.session?.accountsNeedingSignIn.isEmpty == false
+                        ? Text(Image(systemName: "exclamationmark.triangle.fill")) : nil)
+                    .tag(Item.pane(pane))
+            }
+            Section("Equipment") {
+                Label("Connectors", systemImage: "puzzlepiece.extension").tag(Item.equipment(.connectors))
+                Label("Automations", systemImage: "bolt").tag(Item.equipment(.automations))
+                Label("Server Tools", systemImage: "wrench.and.screwdriver").tag(Item.equipment(.serverTools))
+                Label("Discover Devices", systemImage: "network").tag(Item.equipment(.devices))
+            }
+        }
+    }
+}
+
 #if os(macOS)
 private struct MacRootView: View {
     @Environment(AppModel.self) private var model
@@ -114,56 +167,46 @@ private struct MacRootView: View {
         let stopping = model.session.flatMap { session in
             (session.outputs + [session.recordButton]).first { $0.id == stoppingOutput && $0.isOn }
         }
-        NavigationSplitView(columnVisibility: $columns) {
-            // An open equipment page leaves the sidebar unselected; picking any item, even the current one, closes it.
-            List(selection: Binding(
-                get: { model.equipment == nil ? model.pane : nil },
-                set: { if let pane = $0 { model.pane = pane; model.equipment = nil } }
-            )) {
-                // On the Mac, settings live in the inspector (⌘,) rather than the sidebar. Media reads
+        // Settings sits beside the split view rather than in an inspector, which widens the window
+        // to make room. Here the page gives up the width instead.
+        HStack(spacing: 0) {
+            NavigationSplitView(columnVisibility: $columns) {
+                // On the Mac, settings open beside the page (⌘,) rather than in the sidebar. Media reads
                 // files on the server's disk, so only the Mac hosting the server offers it.
-                ForEach(MetocastPane.allCases.filter { $0 != .settings && ($0 != .media || model.mode == .server) }, id: \.self) { item in
-                    Label(item.title, systemImage: item.icon)
-                        .badge(item == .dashboard && model.session?.accountsNeedingSignIn.isEmpty == false
-                            ? Text(Image(systemName: "exclamationmark.triangle.fill")) : nil)
-                }
-            }
-            .navigationSplitViewColumnWidth(min: 180, ideal: 220)
-        } detail: {
-            NavigationStack {
-                if let page = model.equipment, let session = model.session {
-                    switch page {
-                    case .connectors: ConnectorsView(session: session)
-                    case .automations: AutomationsView(session: session)
-                    case .serverTools: ServerToolsView(session: session)
-                    case .devices: DevicesView(session: session)
-                    }
-                } else {
-                    switch model.pane {
-                    case .dashboard: DashboardView()
-                    case .events: EventsView()
-                    case .live: LiveView()
-                    case .presentation: PresentationView()
-                    case .media: MediaView()
-                    case .settings: EmptyView()
+                SidebarList(panes: MetocastPane.allCases.filter { $0 != .settings && ($0 != .media || model.mode == .server) })
+                    .navigationSplitViewColumnWidth(min: 180, ideal: 220)
+            } detail: {
+                NavigationStack {
+                    if let page = model.equipment, let session = model.session {
+                        EquipmentPageView(page: page, session: session)
+                    } else {
+                        switch model.pane {
+                        case .dashboard: DashboardView()
+                        case .events: EventsView()
+                        case .live: LiveView()
+                        case .presentation: PresentationView()
+                        case .media: MediaView()
+                        case .settings: EmptyView()
+                        }
                     }
                 }
-            }
-            // Root pages; each pushed page applies it too, since a push drops the stack's own.
-            .windowActions()
-            // In Icon and Text mode the toolbar's labels sit over scrolled content; a hard edge keeps them legible.
-            .scrollEdgeEffectStyle(.hard, for: .top)
-        }
-        // A fresh split view per page, so screens pushed on one page don't linger on the next. A new
-        // detail stack alone isn't enough: the split view keeps pages pushed by `NavigationLink { }`
-        // and `navigationDestination(isPresented:)` on screen after the page that pushed them is gone.
-        // ponytail: a dragged sidebar width snaps back to ideal on page change; bind the
-        // stack to a path and use value links everywhere if that matters.
-        .id(model.equipment.map { "\($0)" } ?? model.pane.rawValue)
-        .inspector(isPresented: $model.isShowingSettings) {
-            SettingsView()
-                .inspectorColumnWidth(340)
+                // Root pages; each pushed page applies it too, since a push drops the stack's own.
+                .windowActions()
+                // In Icon and Text mode the toolbar's labels sit over scrolled content; a hard edge keeps them legible.
                 .scrollEdgeEffectStyle(.hard, for: .top)
+            }
+            // A fresh split view per page, so screens pushed on one page don't linger on the next. A new
+            // detail stack alone isn't enough: the split view keeps pages pushed by `NavigationLink { }`
+            // and `navigationDestination(isPresented:)` on screen after the page that pushed them is gone.
+            // ponytail: a dragged sidebar width snaps back to ideal on page change; bind the
+            // stack to a path and use value links everywhere if that matters.
+            .id(model.equipment.map { "\($0)" } ?? model.pane.rawValue)
+            if model.isShowingSettings {
+                Divider()
+                SettingsView()
+                    .frame(width: 340)
+                    .scrollEdgeEffectStyle(.hard, for: .top)
+            }
         }
         .toolbar {
             if let session = model.session {
@@ -227,67 +270,112 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 #endif
 
 #if os(iOS)
+/// A tap outside a text field closes the keyboard, on every page and sheet of the window. The tap
+/// still reaches whatever is under it.
+private struct KeyboardDismissal: UIViewRepresentable {
+    func makeUIView(context: Context) -> InstallingView { InstallingView() }
+    func updateUIView(_ view: InstallingView, context: Context) {}
+
+    final class InstallingView: UIView, UIGestureRecognizerDelegate {
+        private lazy var tap: UITapGestureRecognizer = {
+            let tap = UITapGestureRecognizer(target: self, action: #selector(dismiss))
+            tap.cancelsTouchesInView = false
+            tap.delegate = self
+            return tap
+        }()
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            window?.addGestureRecognizer(tap)
+        }
+
+        @objc private func dismiss() {
+            tap.view?.endEditing(true)
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            // A tap inside a field moves its cursor.
+            var view = touch.view
+            while let current = view {
+                if current is UITextField || current is UITextView { return false }
+                view = current.superview
+            }
+            return true
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+            true
+        }
+    }
+}
+
+/// Black out and close the open deck, with their names: at the foot of the iPad's sidebar, or
+/// floating over the page while the sidebar is closed.
+private struct SlideControls: View {
+    let session: MetocastSession
+    var isFloating = false
+    /// Just the icons, when Settings leaves the page too little room for the names.
+    var isCompact = false
+
+    var body: some View {
+        let muted = session.presenter?.muted == true
+        let layout = isFloating ? AnyLayout(HStackLayout(spacing: 8)) : AnyLayout(VStackLayout(spacing: 8))
+        GlassEffectContainer(spacing: 8) {
+            layout {
+                if session.usesWebPresenter {
+                    Button {
+                        session.show(muted ? .unmute : .mute)
+                    } label: {
+                        Label(muted ? "Show Slides" : "Black Out", systemImage: muted ? "eye" : "eye.slash")
+                            .frame(maxWidth: isFloating ? nil : .infinity, alignment: .leading)
+                    }
+                }
+                Button {
+                    session.show(.close)
+                } label: {
+                    Label("Close Slides", systemImage: "xmark.circle")
+                        .frame(maxWidth: isFloating ? nil : .infinity, alignment: .leading)
+                }
+            }
+            .labelStyle(SlideControlLabelStyle(isCompact: isCompact))
+            .buttonStyle(.glass)
+            .controlSize(.large)
+            .lineLimit(1)
+        }
+        .fixedSize(horizontal: isFloating, vertical: false)
+    }
+}
+
+private struct SlideControlLabelStyle: LabelStyle {
+    let isCompact: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        if isCompact {
+            Label { configuration.title } icon: { configuration.icon }.labelStyle(.iconOnly)
+        } else {
+            Label { configuration.title } icon: { configuration.icon }.labelStyle(.titleAndIcon)
+        }
+    }
+}
+
 private struct TabRootView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var isShowingNotifications = false
+    /// Kept here so a collapsed sidebar stays collapsed when the split view is rebuilt.
+    @State private var columns = NavigationSplitViewVisibility.all
     /// The Record button's stop question, asked here: a dialog on a bar item comes back after each answer.
     @State private var isStoppingRecorders = false
-    @Namespace private var newEventTransition
     @Namespace private var notificationsTransition
 
     var body: some View {
         @Bindable var model = model
-        TabView(selection: $model.pane) {
-            Tab(MetocastPane.dashboard.title, systemImage: MetocastPane.dashboard.icon, value: .dashboard) {
-                root(.dashboard) { DashboardView() }
-            }
-            // The Dashboard's banner says which account needs signing in.
-            .badge(model.session?.accountsNeedingSignIn.isEmpty == false ? Text("!") : nil)
-            Tab(MetocastPane.events.title, systemImage: MetocastPane.events.icon, value: .events) {
-                root(.events) {
-                    EventsView()
-                        // On the iPhone, Events swaps the tab bar for a Notes-style bottom toolbar: the
-                        // tabs share one glass group and New Event floats beside it. Both bars claim the
-                        // same spot, so the tab bar has to hide for the toolbar to show. The iPad's tab
-                        // bar sits at the top, so it stays and New Event joins the navigation bar.
-                        .toolbarVisibility(sizeClass == .compact ? .hidden : .automatic, for: .tabBar)
-                        .toolbar {
-                            if sizeClass == .compact {
-                                ToolbarItemGroup(placement: .bottomBar) {
-                                    ForEach(MetocastPane.allCases.filter { $0 != .media }, id: \.self) { pane in
-                                        Button(pane.title, systemImage: pane.icon) { model.pane = pane }
-                                            .symbolVariant(pane == .events ? .fill : .none)
-                                    }
-                                }
-                                ToolbarSpacer(.flexible, placement: .bottomBar)
-                                ToolbarItem(placement: .bottomBar) {
-                                    NewEventButton()
-                                }
-                                .matchedTransitionSource(id: "newEvent", in: newEventTransition)
-                            } else {
-                                ToolbarItem(placement: .primaryAction) {
-                                    NewEventButton()
-                                }
-                                .matchedTransitionSource(id: "newEvent", in: newEventTransition)
-                            }
-                        }
-                }
-            }
-            Tab(MetocastPane.live.title, systemImage: MetocastPane.live.icon, value: .live) {
-                root(.live) { LiveView() }
-            }
-            Tab(MetocastPane.presentation.title, systemImage: MetocastPane.presentation.icon, value: .presentation) {
-                root(.presentation) { PresentationView() }
-            }
-            Tab(MetocastPane.settings.title, systemImage: MetocastPane.settings.icon, value: .settings) {
-                root(.settings) { SettingsView().navigationTitle("Settings") }
-            }
+        Group {
+            if sizeClass == .regular { sidebar } else { tabs }
         }
-        .tabBarMinimizeBehavior(.onScrollDown)
+        .scrollDismissesKeyboard(.interactively)
         .sheet(isPresented: $model.isAddingEvent) {
             EventEditorView()
-                .navigationTransition(.zoom(sourceID: "newEvent", in: newEventTransition))
         }
         .sheet(isPresented: $isShowingNotifications) {
             NotificationsView()
@@ -300,24 +388,118 @@ private struct TabRootView: View {
         )
     }
 
+    /// The iPad's navigation, laid out like the Mac's: the pages and the equipment in a sidebar,
+    /// Settings in an inspector.
+    private var sidebar: some View {
+        @Bindable var model = model
+        return NavigationSplitView(columnVisibility: $columns) {
+            SidebarList(panes: MetocastPane.allCases.filter { $0 != .settings && $0 != .media })
+                .navigationTitle(Text(verbatim: "Metocast"))
+            // What's on the output screen stays in reach from every page.
+            .safeAreaInset(edge: .bottom) {
+                if let session = model.session, session.isShowingSlides {
+                    SlideControls(session: session).padding()
+                }
+            }
+        } detail: {
+            if let page = model.equipment, let session = model.session {
+                root(.settings) {
+                    EquipmentPageView(page: page, session: session)
+                }
+            } else {
+                root(model.pane) {
+                    switch model.pane {
+                    case .events: EventsView()
+                    case .live: LiveView()
+                    case .presentation: PresentationView()
+                    case .dashboard, .media, .settings: DashboardView()
+                    }
+                }
+            }
+        }
+        // A fresh split view per page, so screens pushed on one page don't linger on the next.
+        .id(model.equipment.map { "\($0)" } ?? model.pane.rawValue)
+        // The page is too narrow for both panels, so opening one closes the other.
+        .onChange(of: model.isShowingSettings) { _, isShowing in
+            if isShowing { columns = .detailOnly }
+        }
+        .onChange(of: columns) { _, columns in
+            if columns != .detailOnly { model.isShowingSettings = false }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            HStack(spacing: 12) {
+                if columns == .detailOnly, let session = model.session, session.isShowingSlides {
+                    SlideControls(session: session, isFloating: true, isCompact: model.isShowingSettings)
+                }
+                Button {
+                    model.isShowingSettings.toggle()
+                } label: {
+                    Label("Settings", systemImage: "gearshape")
+                        .labelStyle(.iconOnly)
+                        .font(.title2)
+                        .padding(8)
+                }
+                .buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+            }
+            .padding(20)
+        }
+        .inspector(isPresented: $model.isShowingSettings) {
+            NavigationStack {
+                SettingsView(showsEquipment: false).navigationTitle("Settings")
+            }
+            .inspectorColumnWidth(340)
+        }
+    }
+
+    private var tabs: some View {
+        @Bindable var model = model
+        return TabView(selection: $model.pane) {
+            Tab(MetocastPane.dashboard.title, systemImage: MetocastPane.dashboard.icon, value: .dashboard) {
+                root(.dashboard) { DashboardView() }
+            }
+            // The Dashboard's banner says which account needs signing in.
+            .badge(model.session?.accountsNeedingSignIn.isEmpty == false ? Text("!") : nil)
+            Tab(MetocastPane.events.title, systemImage: MetocastPane.events.icon, value: .events) {
+                root(.events) { EventsView() }
+            }
+            Tab(MetocastPane.live.title, systemImage: MetocastPane.live.icon, value: .live) {
+                root(.live) { LiveView() }
+            }
+            Tab(MetocastPane.presentation.title, systemImage: MetocastPane.presentation.icon, value: .presentation) {
+                root(.presentation) { PresentationView() }
+            }
+            Tab(MetocastPane.settings.title, systemImage: MetocastPane.settings.icon, value: .settings) {
+                root(.settings) { SettingsView().navigationTitle("Settings") }
+            }
+        }
+    }
+
     // Every tab keeps its own bell, so each one is a separate zoom source keyed by its tab.
     private func root(_ pane: MetocastPane, @ViewBuilder content: () -> some View) -> some View {
         NavigationStack {
             content()
                 .toolbar {
+                    ToolbarItem(placement: .keyboard) {
+                        Button("Done") {
+                            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                        }
+                    }
                     // The Live tab keeps the Record button in reach; the Mac has it on every page.
                     if pane == .live, let session = model.session {
                         ToolbarItem(placement: .topBarLeading) {
                             RecordButton(session: session) { isStoppingRecorders = true }
                         }
                     }
-                    if let pending = model.slideIndexPending {
-                        ToolbarItem(placement: .topBarTrailing) { SlideIndexBadge(pending: pending) }
+                    if pane != .presentation {
+                        if let pending = model.slideIndexPending {
+                            ToolbarItem(placement: .topBarTrailing) { SlideIndexBadge(pending: pending) }
+                        }
+                        ToolbarItem(placement: .topBarTrailing) {
+                            NotificationsBell { isShowingNotifications = true }
+                        }
+                        .matchedTransitionSource(id: pane, in: notificationsTransition)
                     }
-                    ToolbarItem(placement: .topBarTrailing) {
-                        NotificationsBell { isShowingNotifications = true }
-                    }
-                    .matchedTransitionSource(id: pane, in: notificationsTransition)
                 }
         }
     }
@@ -357,7 +539,7 @@ private struct WindowActions: ViewModifier {
                 }
         }
         #else
-        // The iPhone puts Notifications in each tab's bar and Settings in its own tab.
+        // The iPhone and iPad put Notifications in each page's bar.
         content
         #endif
     }
@@ -425,7 +607,7 @@ struct NotificationsBell: View {
     }
 }
 
-/// Settings' equipment screens, shown in the Mac's content column (the iPhone pushes them from Settings).
+/// The equipment screens, in the sidebar on the Mac and iPad (the iPhone pushes them from Settings).
 enum EquipmentPage: Hashable {
     case connectors, automations, serverTools, devices
 }

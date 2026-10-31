@@ -18,7 +18,9 @@ use sqlx::PgPool;
 pub use metocast_core::slides::WelcomeSettings;
 
 use crate::database::settings;
-use std::sync::OnceLock;
+use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
+use std::sync::{Mutex, OnceLock};
 
 use crate::media::tools::{self, Download};
 
@@ -249,22 +251,35 @@ fn svg_open() -> String {
 }
 
 fn to_linear(c: u8) -> f64 {
-    let c = f64::from(c) / 255.0;
-    if c <= 0.04045 {
-        c / 12.92
-    } else {
-        ((c + 0.055) / 1.055).powf(2.4)
-    }
+    static LUT: OnceLock<[f64; 256]> = OnceLock::new();
+    LUT.get_or_init(|| {
+        std::array::from_fn(|i| {
+            let c = i as f64 / 255.0;
+            if c <= 0.04045 {
+                c / 12.92
+            } else {
+                ((c + 0.055) / 1.055).powf(2.4)
+            }
+        })
+    })[usize::from(c)]
 }
 
 fn to_srgb(c: f64) -> u8 {
-    let c = c.clamp(0.0, 1.0);
-    let s = if c <= 0.003_130_8 {
-        c * 12.92
-    } else {
-        1.055 * c.powf(1.0 / 2.4) - 0.055
-    };
-    (s * 255.0).round() as u8
+    const STEPS: usize = 4096;
+    static LUT: OnceLock<[u8; STEPS + 1]> = OnceLock::new();
+    let table = LUT.get_or_init(|| {
+        std::array::from_fn(|i| {
+            let c = i as f64 / STEPS as f64;
+            let s = if c <= 0.003_130_8 {
+                c * 12.92
+            } else {
+                1.055 * c.powf(1.0 / 2.4) - 0.055
+            };
+            (s * 255.0).round() as u8
+        })
+    });
+    let idx = (c.clamp(0.0, 1.0) * STEPS as f64).round() as usize;
+    table[idx]
 }
 
 fn smoothstep(edge0: f64, edge1: f64, value: f64) -> f64 {
@@ -308,14 +323,19 @@ fn tone(pixel: &mut image::Rgb<u8>, weight: f64) {
 /// The photo cover-cropped to the slide: sharp and untouched across the middle, blurred
 /// progressively into the lower third, and toned under the top band and the lower third.
 fn treat_photo(photo: &mut image::RgbImage, top_right: bool) {
-    let blurred = image::imageops::fast_blur(photo, 27.0);
-    let (w, h) = (f64::from(photo.width()), f64::from(photo.height()));
+    let (width, height) = (photo.width(), photo.height());
+    let (w, h) = (f64::from(width), f64::from(height));
+    // Blur only the lower strip where `blurring(row) > 0` (`row >= 0.45`), with 27 px padding
+    // above so the blur kernel has full context at the transition line.
+    let blur_top = ((height as f64 * 0.45) as u32).saturating_sub(54);
+    let sub = image::imageops::crop_imm(photo, 0, blur_top, width, height - blur_top).to_image();
+    let blurred = image::imageops::fast_blur(&sub, 27.0);
     for (x, y, pixel) in photo.enumerate_pixels_mut() {
         let row = (f64::from(y) + 0.5) / h;
         let column = (f64::from(x) + 0.5) / w;
         let blur = blurring(row);
-        if blur > 0.0 {
-            let soft = blurred.get_pixel(x, y).0;
+        if blur > 0.0 && y >= blur_top {
+            let soft = blurred.get_pixel(x, y - blur_top).0;
             pixel.0 = std::array::from_fn(|c| {
                 (f64::from(pixel.0[c]) * (1.0 - blur) + f64::from(soft[c]) * blur).round() as u8
             });
@@ -324,21 +344,52 @@ fn treat_photo(photo: &mut image::RgbImage, top_right: bool) {
     }
 }
 
-/// The photo prepared for the slide, as a JPEG data URI.
+fn hash_bytes(bytes: &[u8], top_right: bool) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    bytes.hash(&mut hasher);
+    top_right.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// The photo prepared for the slide, as a JPEG data URI. Cached in memory so opening or
+/// previewing the welcome slide again skips re-decoding, blurring and toning the photo.
 fn prepare_photo(bytes: &[u8], top_right: bool) -> Result<String, String> {
-    let mut photo = image::load_from_memory(bytes)
-        .map_err(|e| format!("Couldn't read the photo: {e}"))?
-        .resize_to_fill(WIDTH, HEIGHT, image::imageops::FilterType::CatmullRom)
-        .to_rgb8();
+    static CACHE: OnceLock<Mutex<HashMap<u64, String>>> = OnceLock::new();
+    let key = hash_bytes(bytes, top_right);
+    if let Some(cached) = CACHE
+        .get_or_init(|| Mutex::new(HashMap::new()))
+        .lock()
+        .ok()
+        .and_then(|map| map.get(&key).cloned())
+    {
+        return Ok(cached);
+    }
+
+    let decoded =
+        image::load_from_memory(bytes).map_err(|e| format!("Couldn't read the photo: {e}"))?;
+    let mut photo = if decoded.width() == WIDTH && decoded.height() == HEIGHT {
+        decoded.to_rgb8()
+    } else {
+        decoded
+            .resize_to_fill(WIDTH, HEIGHT, image::imageops::FilterType::CatmullRom)
+            .to_rgb8()
+    };
     treat_photo(&mut photo, top_right);
     let mut jpeg = Vec::new();
     image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg, 84)
         .encode_image(&photo)
         .map_err(|e| format!("Couldn't encode the photo: {e}"))?;
-    Ok(format!(
+    let uri = format!(
         "data:image/jpeg;base64,{}",
         base64::engine::general_purpose::STANDARD.encode(jpeg)
-    ))
+    );
+    if let Ok(mut map) = CACHE.get_or_init(|| Mutex::new(HashMap::new())).lock() {
+        if map.len() >= 24 {
+            map.clear();
+        }
+        map.insert(key, uri.clone());
+    }
+    Ok(uri)
 }
 
 /// A logo's width for a height of 1: from an SVG's size or a PNG's pixels.
@@ -449,21 +500,40 @@ fn slide_svg(
 ) -> Result<String, String> {
     // The church name goes top right beside a logo, so that corner is toned too.
     let background = match photo {
-        Some(photo) => format!(
-            "<image x=\"0\" y=\"0\" width=\"{WIDTH}\" height=\"{HEIGHT}\" preserveAspectRatio=\"xMidYMid slice\" xlink:href=\"{}\"/>",
-            prepare_photo(photo, logo.is_some() && !church.is_empty())?
-        ),
+        Some(photo) => {
+            let uri = prepare_photo(photo, logo.is_some() && !church.is_empty())?;
+            format!(
+                "<style>@keyframes metocast-zoom{{from{{transform:scale(1)}}to{{transform:scale(1.08)}}}}\
+                 .metocast-zoom{{transform-origin:50% 50%;transform-box:view-box;animation:metocast-zoom 20s ease-in-out infinite alternate}}</style>\
+                 <g class=\"metocast-zoom\"><image x=\"0\" y=\"0\" width=\"{WIDTH}\" height=\"{HEIGHT}\" preserveAspectRatio=\"xMidYMid slice\" href=\"{uri}\"/></g>"
+            )
+        }
         // Not downloaded yet: a plain dark slide, on which white text always reads.
         None => format!("<rect width=\"{WIDTH}\" height=\"{HEIGHT}\" fill=\"#1d2430\"/>"),
     };
-    let layer = foreground(logo, church, title, lines, date);
-    let svg = format!("{}{background}\n{layer}</svg>\n", svg_open());
-    // Outlines instead of text, so no screen needs the font.
-    let flat = presenter_svg::flatten_text_to_paths(&svg, text_options());
-    Ok(with_slow_zoom(&flat))
+    let (logo_layer, text_layer) = foreground(logo, church, title, lines, date);
+    let text_svg = format!("{}{text_layer}</svg>\n", svg_open());
+    // Outlines instead of text, so no screen needs the font; the photo and logo are inserted
+    // afterward so usvg does not decode and re-encode the 1920x1080 JPEG on every render.
+    let flat = presenter_svg::flatten_text_to_paths(&text_svg, text_options());
+    Ok(insert_after_svg_open(
+        &flat,
+        &format!("{background}\n{logo_layer}"),
+    ))
 }
 
-/// The text and the logo as SVG elements. Everything written sits where `prepare_photo` has
+fn insert_after_svg_open(svg: &str, content: &str) -> String {
+    let Some(start) = svg.find("<svg") else {
+        return svg.to_string();
+    };
+    let Some(close) = svg[start..].find('>') else {
+        return svg.to_string();
+    };
+    let insert_at = start + close + 1;
+    format!("{}\n{content}{}", &svg[..insert_at], &svg[insert_at..])
+}
+
+/// The logo and text as SVG elements. Everything written sits where `prepare_photo` has
 /// toned the photo: the top band (logo, church name) and the lower third (the rest).
 fn foreground(
     logo: Option<(&str, &[u8])>,
@@ -471,9 +541,10 @@ fn foreground(
     title: &str,
     lines: &[String],
     date: &str,
-) -> String {
+) -> (String, String) {
     let (w, h) = (f64::from(WIDTH), f64::from(HEIGHT));
     let margin = 96.0;
+    let mut logo_layer = String::new();
     let mut layer = String::new();
     // The logo top left at its own proportions (the default carries the church's name).
     let logo_height = h * 0.12;
@@ -484,8 +555,8 @@ fn foreground(
             "data:{mime};base64,{}",
             base64::engine::general_purpose::STANDARD.encode(bytes)
         );
-        layer.push_str(&format!(
-            "<image x=\"{margin}\" y=\"{y}\" width=\"{logo_width:.1}\" height=\"{logo_height:.1}\" preserveAspectRatio=\"xMinYMin meet\" xlink:href=\"{uri}\"/>\n",
+        logo_layer.push_str(&format!(
+            "<image x=\"{margin}\" y=\"{y}\" width=\"{logo_width:.1}\" height=\"{logo_height:.1}\" preserveAspectRatio=\"xMinYMin meet\" href=\"{uri}\"/>\n",
             y = margin - 30.0,
         ));
     }
@@ -556,28 +627,7 @@ fn foreground(
             max_width: w * 0.34,
         },
     );
-    layer
-}
-
-/// Wraps the photo (the first `<image>`) in a group that zooms in by 8% over 20 seconds and back,
-/// for the screens that play CSS animation in SVG (the web presenter and the apps). Others, such
-/// as the Raspberry Pi receiver, ignore it and show the photo still.
-fn with_slow_zoom(svg: &str) -> String {
-    let Some(start) = svg.find("<image") else {
-        return svg.to_string();
-    };
-    let Some(len) = svg[start..].find("/>") else {
-        return svg.to_string();
-    };
-    let end = start + len + 2;
-    let style = "<style>@keyframes metocast-zoom{from{transform:scale(1)}to{transform:scale(1.08)}}\
-                 .metocast-zoom{transform-origin:50% 50%;transform-box:view-box;animation:metocast-zoom 20s ease-in-out infinite alternate}</style>";
-    format!(
-        "{}{style}<g class=\"metocast-zoom\">{}</g>{}",
-        &svg[..start],
-        &svg[start..end],
-        &svg[end..]
-    )
+    (logo_layer, layer)
 }
 
 /// The service date in the welcome screen's language: "2026. október 25. vasárnap" as Hungarian
@@ -652,14 +702,22 @@ async fn render(
         .await
         .map_err(|e| e.to_string())?
         .unwrap_or_else(|| ("image/svg+xml".to_string(), DEFAULT_LOGO.to_vec()));
-    let svg = slide_svg(
-        photo.as_deref(),
-        Some((logo.0.as_str(), logo.1.as_slice())),
-        stored.church_name.trim(),
-        title.trim(),
-        &lines,
-        &service_date(date, &stored.language),
-    )?;
+    let church = stored.church_name.trim().to_string();
+    let title = title.trim().to_string();
+    let date_text = service_date(date, &stored.language);
+    let lines_for_svg = lines.clone();
+    let svg = tokio::task::spawn_blocking(move || {
+        slide_svg(
+            photo.as_deref(),
+            Some((logo.0.as_str(), logo.1.as_slice())),
+            &church,
+            &title,
+            &lines_for_svg,
+            &date_text,
+        )
+    })
+    .await
+    .map_err(|e| format!("welcome render failed: {e}"))??;
     Ok((svg, lines, footer))
 }
 
@@ -1036,6 +1094,10 @@ mod tests {
         assert!(svg.contains("class=\"metocast-zoom\""));
         // The font is found, so no text is left for a screen to lay out.
         assert!(!svg.contains("<text"));
+        // And the server's frame renderer (for the Raspberry Pi receiver) parses it cleanly.
+        let jpeg = presenter_svg::render_frame(&svg, 1920, 1080)
+            .expect("welcome slide renders to a Pi JPEG frame");
+        assert!(!jpeg.is_empty());
     }
 
     #[test]

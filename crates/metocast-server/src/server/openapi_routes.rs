@@ -480,6 +480,28 @@ pub fn paths() -> Value {
             ],
         ),
     );
+    put(
+        "/auth/callback",
+        "post",
+        op(
+            "Finish a sign-in that a client device captured on its loopback address",
+            "Connectors",
+            vec![],
+            Some(object(
+                json!({ "code": text(), "state": text() }),
+                &["code", "state"],
+            )),
+            (
+                "200",
+                "Signed in; names the connector",
+                Some(object(
+                    json!({ "status": text(), "connector": text() }),
+                    &["status", "connector"],
+                )),
+            ),
+            &[("400", "The code or state was refused")],
+        ),
+    );
     for platform in ["youtube", "facebook"] {
         let name = if platform == "youtube" {
             "YouTube"

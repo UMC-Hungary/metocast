@@ -1050,6 +1050,62 @@ pub struct OAuthCallbackParams {
     pub error: Option<String>,
 }
 
+#[derive(Deserialize)]
+pub struct SubmitOAuthCallbackBody {
+    pub code: String,
+    pub state: String,
+}
+
+pub async fn execute_oauth_exchange(
+    state: &AppState,
+    code: &str,
+    state_token: &str,
+) -> Result<String, String> {
+    let connector = {
+        let mut states = state.oauth_states.write().await;
+        match states.remove(state_token) {
+            Some((name, _)) => name,
+            None => return Err("invalid_state".to_string()),
+        }
+    };
+
+    match connector.as_str() {
+        "youtube" => {
+            let config = state.youtube_config.read().await.clone();
+            match youtube::exchange_code(&state.pool, &config, code, OAUTH_REDIRECT_URI).await {
+                Ok(_) => {
+                    state
+                        .youtube_connector
+                        .start(state.pool.clone(), config, state.host.clone())
+                        .await;
+                    Ok("youtube".to_string())
+                }
+                Err(e) => {
+                    tracing::error!("YouTube token exchange failed: {e}");
+                    Err(format!("token_exchange_failed: {e}"))
+                }
+            }
+        }
+        "facebook" => {
+            let config = state.facebook_config.read().await.clone();
+            match facebook::exchange_code(&state.pool, &config, code, OAUTH_REDIRECT_URI).await {
+                Ok(_) => {
+                    state
+                        .facebook_connector
+                        .start(state.pool.clone(), config, state.host.clone())
+                        .await;
+                    Ok("facebook".to_string())
+                }
+                Err(e) => {
+                    tracing::error!("Facebook token exchange failed: {e}");
+                    Err(format!("token_exchange_failed: {e}"))
+                }
+            }
+        }
+        other => Err(format!("unknown_connector: {other}")),
+    }
+}
+
 /// Unified OAuth callback — handles both YouTube and Facebook.
 /// Google/Facebook redirect to http://127.0.0.1:8766/callback; the connector
 /// is identified by looking up the state token in oauth_states.
@@ -1065,48 +1121,25 @@ pub async fn oauth_callback(
         _ => return Html(OAUTH_ERROR_HTML).into_response(),
     };
 
-    let connector = {
-        let mut states = state.oauth_states.write().await;
-        match states.remove(&state_token) {
-            Some((name, _)) => name,
-            None => return Html(OAUTH_ERROR_HTML).into_response(),
-        }
-    };
+    match execute_oauth_exchange(&state, &code, &state_token).await {
+        Ok(_) => Html(OAUTH_SUCCESS_HTML).into_response(),
+        Err(_) => Html(OAUTH_ERROR_HTML).into_response(),
+    }
+}
 
-    match connector.as_str() {
-        "youtube" => {
-            let config = state.youtube_config.read().await.clone();
-            match youtube::exchange_code(&state.pool, &config, &code, OAUTH_REDIRECT_URI).await {
-                Ok(_) => {
-                    state
-                        .youtube_connector
-                        .start(state.pool.clone(), config, state.host.clone())
-                        .await;
-                    Html(OAUTH_SUCCESS_HTML).into_response()
-                }
-                Err(e) => {
-                    tracing::error!("YouTube token exchange failed: {e}");
-                    Html(OAUTH_ERROR_HTML).into_response()
-                }
-            }
-        }
-        "facebook" => {
-            let config = state.facebook_config.read().await.clone();
-            match facebook::exchange_code(&state.pool, &config, &code, OAUTH_REDIRECT_URI).await {
-                Ok(_) => {
-                    state
-                        .facebook_connector
-                        .start(state.pool.clone(), config, state.host.clone())
-                        .await;
-                    Html(OAUTH_SUCCESS_HTML).into_response()
-                }
-                Err(e) => {
-                    tracing::error!("Facebook token exchange failed: {e}");
-                    Html(OAUTH_ERROR_HTML).into_response()
-                }
-            }
-        }
-        _ => Html(OAUTH_ERROR_HTML).into_response(),
+/// Finishes OAuth when invoked from a client device (e.g. iPad, iPhone, or remote Mac).
+/// The client captures the code and state on loopback and submits them here.
+pub async fn submit_oauth_callback(
+    State(state): State<AppState>,
+    Json(body): Json<SubmitOAuthCallbackBody>,
+) -> impl IntoResponse {
+    match execute_oauth_exchange(&state, &body.code, &body.state).await {
+        Ok(connector) => (
+            StatusCode::OK,
+            Json(json!({ "status": "ok", "connector": connector })),
+        )
+            .into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, Json(json!({ "error": e }))).into_response(),
     }
 }
 

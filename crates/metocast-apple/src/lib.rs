@@ -628,6 +628,9 @@ pub enum PresentationCommand {
         hostname: Option<String>,
     },
     ClientsList,
+    ClientsPing {
+        client_id: String,
+    },
 }
 
 #[derive(Clone, uniffi::Record)]
@@ -1226,6 +1229,7 @@ pub struct ConnectedClientRecord {
     pub user_agent: Option<String>,
     /// RFC 3339.
     pub connected_at: String,
+    /// RFC 3339.
     pub latency_ms: Option<i64>,
 }
 
@@ -2143,6 +2147,22 @@ impl AppleClient {
         let client = self.client.clone();
         self.run(async move { client.auth_url(&platform).await })
             .await
+    }
+
+    /// Submits the OAuth code and state a client device captured on its loopback listener.
+    pub async fn submit_oauth_callback(
+        &self,
+        code: String,
+        state: String,
+    ) -> Result<(), AppleError> {
+        let client = self.client.clone();
+        self.run(async move {
+            client
+                .submit_oauth_callback(&code, &state)
+                .await
+                .map(|_| ())
+        })
+        .await
     }
 
     pub async fn sign_out(&self, platform: String) -> Result<(), AppleError> {

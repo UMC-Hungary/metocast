@@ -53,7 +53,7 @@ The songs are placeholders with no deck: pick one from the slide library and the
 deck and its name. Lekció and Textus are the event's readings, and each shows its reference once it
 is set on the event. The first step is the welcome slide: double-tap it to change its title and add
 paragraphs. _Hirdetések_ is an announcements step: double-tap it and type this week's
-announcements, one per line. The server adds the steps when it creates the event, so Live, Companion's
+announcements, one per line. The server adds the steps when it creates the event, so Presentation, Companion's
 _Next Step_ and every other client can step through a new event before anyone edits it.
 
 **The readings join by themselves.** When a Lekció or Textus is set or changed on an event whose
@@ -84,19 +84,17 @@ button: every change is saved at once.
   - the last row adds a step: type its name and press Return for a block, or use **Add** for a
     **Song…** from the library, **Announcements**, a **Slide**, a **Bible…** reading or
     a **Block**.
-- **Live** shows the current event's Order of Service:
-  - click a step to show it;
-  - use **Previous Step** / **Next Step**.
-  - The Dashboard's Presentation card links there.
-- **Presentation** is the slide library:
+- **Live** and the Dashboard's Presentation card have a button that opens **Presentation** for the
+  current event.
+- **Presentation** is where the service is run, and holds the slide library:
   - every deck in the watched folders, with search by title, hymn number or lyrics and a
     folder filter (see [Slide library search](slide-library.md));
   - one click opens a deck;
   - the folder menu adds and removes watched folders.
   - The sidebar (on the iPhone, the top of the page) switches between
     **Order of Service** and **Library**. Order of Service is the list of the event on screen, or
-    else the one under way or next, with the same steps and **Previous Step** / **Next Step** as
-    Live, so the service can be stepped through while watching the slides.
+    else the one under way or next. Click a step to show it, or use **Previous Step** / **Next
+    Step**, to step through the service while watching the slides.
 
 **Sanctum**
 

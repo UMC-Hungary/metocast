@@ -248,6 +248,33 @@ impl MetocastClient {
         Ok(())
     }
 
+    /// Submits OAuth callback code and state captured on loopback by a client device.
+    pub async fn submit_oauth_callback(
+        &self,
+        code: &str,
+        state: &str,
+    ) -> Result<String, ClientError> {
+        #[derive(serde::Serialize)]
+        struct Request<'a> {
+            code: &'a str,
+            state: &'a str,
+        }
+        #[derive(serde::Deserialize)]
+        struct Response {
+            connector: String,
+        }
+        let url = self.config.endpoint("api/auth/callback")?;
+        let response: Response = self
+            .send_json(
+                self.http
+                    .post(url)
+                    .bearer_auth(self.config.token.expose())
+                    .json(&Request { code, state }),
+            )
+            .await?;
+        Ok(response.connector)
+    }
+
     /// The stored configuration of one connector, with its secrets blanked by the server.
     pub async fn connector_config(
         &self,
@@ -1243,6 +1270,7 @@ mod tests {
         for expected in [
             "api/auth/{platform}/url",
             "api/auth/{platform}/logout",
+            "api/auth/callback",
             "api/connectors/status",
         ] {
             assert!(

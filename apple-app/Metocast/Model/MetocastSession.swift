@@ -64,6 +64,16 @@ final class MetocastSession {
     private(set) var presentationStatus: PresentationStatus?
     /// The Order of Service step on screen, as (event id, step id), on every client alike.
     private(set) var orderPosition: (eventId: String, itemId: String)?
+    /// The Order of Service step currently being opened by this session (`order.go` / `order.next` / `order.previous`).
+    private(set) var loadingOrderItemId: String?
+    /// Whether `order.next` or `order.previous` is currently loading.
+    private(set) var isSteppingOrder = false
+    /// A deck open on the output, in either presenter.
+    var isShowingSlides: Bool {
+        usesWebPresenter ? presenter?.loaded == true : presentationStatus?.appRunning == true
+    }
+    /// The deck path currently being opened by this session (`presentation.open`).
+    private(set) var loadingDeckPath: String?
     /// Bumped when any event's Order of Service changes, so open screens reload it.
     private(set) var orderRevision = 0
     /// Decks the server is parsing into the slide search index; 0 when idle.
@@ -435,6 +445,12 @@ final class MetocastSession {
         URL(string: try await client.authUrl(platform: platform))
     }
 
+    /// Submits the OAuth authorization code and state token captured on loopback by a client device.
+    func submitOAuthCallback(code: String, state: String) async throws {
+        try await client.submitOauthCallback(code: code, state: state)
+        await refresh()
+    }
+
     func signOut(_ platform: String) async throws {
         try await client.signOut(platform: platform)
         await refresh()
@@ -507,7 +523,30 @@ final class MetocastSession {
 
     /// Sends a presentation command. The server routes it to the web presenter or to Keynote.
     func show(_ command: PresentationCommand) {
-        Task { try? await client.presentationControl(command: command) }
+        switch command {
+        case .orderGo(_, let itemId):
+            loadingOrderItemId = itemId
+        case .orderNext, .orderPrevious:
+            isSteppingOrder = true
+        case .open(let filePath):
+            loadingDeckPath = filePath
+        default:
+            break
+        }
+        Task {
+            do {
+                try await client.presentationControl(command: command)
+            } catch {
+                loadingOrderItemId = nil
+                isSteppingOrder = false
+                loadingDeckPath = nil
+            }
+        }
+    }
+
+    /// Pings one connected WebSocket client so its round-trip latency updates in `clients`.
+    func pingClient(_ clientId: String) {
+        show(.clientsPing(clientId: clientId))
     }
 
     /// Decks in the server's watched folders by title, hymn number or slide text, best match first.
@@ -616,6 +655,7 @@ final class MetocastSession {
             self.events = events
         case .event(.presenterState(let state)):
             presenter = state
+            loadingDeckPath = nil
         case .event(.presenterSlideChanged(let current, let total)):
             presenter?.currentSlide = current
             presenter?.totalSlides = total
@@ -623,6 +663,9 @@ final class MetocastSession {
             Task { await refresh() }
         case .event(.orderState(let eventId, let itemId)):
             orderPosition = eventId.flatMap { event in itemId.map { (event, $0) } }
+            loadingOrderItemId = nil
+            isSteppingOrder = false
+            loadingDeckPath = nil
         case .event(.eventOrderChanged):
             orderRevision += 1
         case .event(.slideIndexState(let pending)):
@@ -745,15 +788,25 @@ final class MetocastSession {
             presenterTheme = theme
         case .event(.presentationStatus(let status)):
             presentationStatus = status
+            loadingDeckPath = nil
         case .event(.clients(let clients)):
             self.clients = clients
         case .event(.discovery(let tool, let devices, let message)):
             discoveryResults[tool] = DiscoverySnapshot(devices: devices, message: message)
         case .event(.commandFailed(let message)):
+            loadingOrderItemId = nil
+            isSteppingOrder = false
+            loadingDeckPath = nil
             let words = ServerCode.text(message)
             if message.hasPrefix("transcription_") { transcriptRefusal = words }
             discoveryFailure = words
-            onActivity(ActivityItem(icon: "exclamationmark.triangle", title: String(localized: "Couldn't do that: \(words)"), isAlert: true))
+            let started = message.hasPrefix("recorders_failed:")
+                ? recorders.filter { $0.selected && $0.recording }.map(\.target.shortName)
+                : []
+            let title = started.isEmpty
+                ? String(localized: "Couldn't do that: \(words)")
+                : String(localized: "Started: \(started.joined(separator: ", ")) · \(words)")
+            onActivity(ActivityItem(icon: "exclamationmark.triangle", title: title, isAlert: true))
         case .event(.connected), .event(.event), .event(.unknown):
             break
         }
@@ -766,6 +819,10 @@ final class MetocastSession {
             if previous != .connected { status = .connecting }
         case .connected:
             status = .connected
+            // A reply lost with the old socket never clears these.
+            loadingOrderItemId = nil
+            isSteppingOrder = false
+            loadingDeckPath = nil
             requestMixerProfile()
             show(.register(label: Self.deviceLabel, hostname: nil))
             if previous == .reconnecting {

@@ -421,13 +421,27 @@ pub fn spawn_sync(state: AppState) {
     tokio::spawn(async move { sync_index(&state, true).await });
 }
 
-/// `hala ur` → `hala:* & ur:*`. Only letters and digits reach `to_tsquery`, so no input can
-/// make it a syntax error.
-fn prefix_query(filter: &str) -> Option<String> {
-    let words: Vec<String> = filter
+/// Splits `filter` into alphanumeric words for search.
+fn search_words(filter: &str) -> Vec<&str> {
+    filter
         .split(|c: char| !c.is_alphanumeric())
         .filter(|w| !w.is_empty())
-        .map(|w| format!("{w}:*"))
+        .collect()
+}
+
+/// `hala ur` → `hala:* & ur:*`, `d-40` → `d:* & (40:* | -40:*)` (Postgres's FTS parser
+/// tokenizes `-408` in `D-408` as the signed integer `-408`). Only letters and digits reach
+/// `to_tsquery`, so no input can make it a syntax error.
+fn prefix_query(filter: &str) -> Option<String> {
+    let words: Vec<String> = search_words(filter)
+        .into_iter()
+        .map(|w| {
+            if w.as_bytes()[0].is_ascii_digit() {
+                format!("({w}:* | -{w}:*)")
+            } else {
+                format!("{w}:*")
+            }
+        })
         .collect();
     (!words.is_empty()).then(|| words.join(" & "))
 }
@@ -468,15 +482,22 @@ const LIST_SQL: &str = "SELECT path, name, folder_id, title, number, \
      FROM ppt_decks WHERE $1::uuid IS NULL OR folder_id = $1 \
      ORDER BY lower(unaccent(title)), title LIMIT $2";
 
-const SEARCH_SQL: &str = "WITH q AS (SELECT to_tsquery('metocast_search', $1) AS tsq), \
+const SEARCH_SQL: &str = "WITH q AS ( \
+         SELECT to_tsquery('metocast_search', $1) AS tsq, \
+                lower(unaccent($5)) AS raw, \
+                ARRAY(SELECT lower(unaccent(p)) FROM unnest($6::text[]) AS p) AS pats \
+     ), \
      hits AS ( \
          SELECT d.path, d.name, d.folder_id, d.title, d.number, d.body, q.tsq, \
                 COALESCE(d.number = $2, false) AS number_hit, \
-                to_tsvector('metocast_search', d.title) @@ q.tsq AS title_hit, \
+                strpos(lower(unaccent(d.name)), q.raw) > 0 AS exact_title_hit, \
+                (to_tsvector('metocast_search', d.title) @@ q.tsq \
+                 OR lower(unaccent(d.name)) LIKE ALL(q.pats)) AS title_hit, \
                 ts_rank(d.search, q.tsq) AS rank \
          FROM ppt_decks d, q \
-         WHERE (d.search @@ q.tsq OR d.number = $2) AND ($3::uuid IS NULL OR d.folder_id = $3) \
-         ORDER BY number_hit DESC, title_hit DESC, rank DESC, lower(unaccent(d.title)) \
+         WHERE (d.search @@ q.tsq OR d.number = $2 OR lower(unaccent(d.name)) LIKE ALL(q.pats)) \
+           AND ($3::uuid IS NULL OR d.folder_id = $3) \
+         ORDER BY number_hit DESC, exact_title_hit DESC, title_hit DESC, rank DESC, lower(unaccent(d.title)) \
          LIMIT $4) \
      SELECT path, name, folder_id, title, number, \
          CASE WHEN number_hit THEN 'number' WHEN title_hit THEN 'title' ELSE 'text' END AS matched_in, \
@@ -485,7 +506,7 @@ const SEARCH_SQL: &str = "WITH q AS (SELECT to_tsquery('metocast_search', $1) AS
          CASE WHEN NOT number_hit AND NOT title_hit THEN ts_headline('metocast_search', \
              replace(body, E'\\n', ' / '), tsq, \
              'MaxFragments=1, MinWords=4, MaxWords=14, StartSel=⟦, StopSel=⟧') END AS snippet_marked \
-     FROM hits ORDER BY number_hit DESC, title_hit DESC, rank DESC, lower(unaccent(title))";
+     FROM hits ORDER BY number_hit DESC, exact_title_hit DESC, title_hit DESC, rank DESC, lower(unaccent(title))";
 
 /// Syncs the index (unless a sync is already running), then finds decks by title, hymn number
 /// or slide text, best match first. Used by the HTTP handler and the WS command.
@@ -505,6 +526,10 @@ pub async fn search_files_internal(
             .fetch_all(&state.pool)
             .await?
     } else if let Some(tsquery) = prefix_query(filter) {
+        let patterns: Vec<String> = search_words(filter)
+            .into_iter()
+            .map(|w| format!("%{w}%"))
+            .collect();
         let number: Option<i32> = filter
             .bytes()
             .all(|b| b.is_ascii_digit())
@@ -515,6 +540,8 @@ pub async fn search_files_internal(
             .bind(number)
             .bind(folder_id)
             .bind(limit)
+            .bind(filter)
+            .bind(patterns)
             .fetch_all(&state.pool)
             .await?
     } else {
@@ -734,7 +761,11 @@ mod tests {
             prefix_query("hála  az úr!"),
             Some("hála:* & az:* & úr:*".to_string())
         );
-        assert_eq!(prefix_query("47"), Some("47:*".to_string()));
+        assert_eq!(prefix_query("47"), Some("(47:* | -47:*)".to_string()));
+        assert_eq!(
+            prefix_query("d-40"),
+            Some("d:* & (40:* | -40:*)".to_string())
+        );
         assert_eq!(prefix_query("'&|!():*"), None);
         assert_eq!(prefix_query(""), None);
     }

@@ -35,7 +35,18 @@ fn stopping(state: &AppState, on: bool, target: RecordTarget) {
 
 pub async fn obs_record(state: &AppState, on: bool) -> Result<(), String> {
     stopping(state, on, RecordTarget::Obs);
-    state.obs_connector.set_recording(on).await
+    let connector = &state.obs_connector;
+    let changes = connector.output_state_tx.subscribe();
+    connector.set_recording(on).await?;
+    if reached(connector.get_output_state().await, changes, |s| {
+        s.is_recording == on
+    })
+    .await
+    {
+        Ok(())
+    } else {
+        Err("obs_ignored_command".to_string())
+    }
 }
 
 pub async fn atem_record(state: &AppState, on: bool) -> Result<(), String> {

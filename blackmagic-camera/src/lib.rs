@@ -114,7 +114,9 @@ impl Camera {
             }
         };
 
-        let mut builder = reqwest::Client::builder();
+        let mut builder = reqwest::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(5))
+            .timeout(std::time::Duration::from_secs(10));
         let seen_fingerprint = if plain_http {
             Arc::new(Mutex::new(None))
         } else {

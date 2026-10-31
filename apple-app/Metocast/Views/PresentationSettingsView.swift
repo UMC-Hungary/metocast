@@ -43,23 +43,7 @@ struct PresentationSettingsView: View {
                     Text("Open it in a browser on any device on this network to show the slides. The IP address works everywhere; the .local name needs Bonjour on that device.")
                 }
                 WelcomeScreenSection(session: session)
-                Section("Connected Devices") {
-                    if session.clients.isEmpty {
-                        Text("No other devices").foregroundStyle(.secondary)
-                    }
-                    ForEach(session.clients, id: \.id) { client in
-                        LabeledContent {
-                            if let latency = client.latencyMs {
-                                Text("\(latency) ms").foregroundStyle(.secondary).monospacedDigit()
-                            }
-                        } label: {
-                            Text(client.label.isEmpty ? String(localized: "Unnamed device") : client.label)
-                            if let hostname = client.hostname {
-                                Text(hostname)
-                            }
-                        }
-                    }
-                }
+                ConnectedDevicesSection(session: session)
                 PresenterInstallSection(baseURL: receiverBaseURL)
                 #if os(macOS)
                 PresentationFontsSection()
@@ -103,6 +87,9 @@ private struct WelcomeScreenSection: View {
     @State private var previewing: ImportTarget?
     /// A replace asked for in the preview, opened once the preview has closed.
     @State private var pendingImport: ImportTarget?
+    /// The last text fields that were saved or loaded, so opening the page or resetting a photo
+    /// doesn't trigger an unnecessary save.
+    @State private var lastSavedText: String?
 
     /// The default greeting and blessing in each language, swapped in on a language change
     /// unless the operator wrote their own.
@@ -115,6 +102,10 @@ private struct WelcomeScreenSection: View {
     private struct ImportTarget: Identifiable {
         let number: UInt32
         var id: UInt32 { number }
+    }
+
+    private func textKey(for settings: WelcomeSettingsRecord) -> String {
+        "\(settings.title)|\(settings.subtitle)|\(settings.churchName)|\(settings.language)"
     }
 
     var body: some View {
@@ -134,12 +125,16 @@ private struct WelcomeScreenSection: View {
                 }
                 .padding(.vertical, 4)
                 LabeledContent("Logo") {
-                    HStack {
-                        // The church's cross-and-flame logo is built in; an upload replaces it.
-                        Text(settings.hasLogo ? "Custom" : "Default").foregroundStyle(.secondary)
-                        Button("Replace…") { pick(ImportTarget(number: 0)) }
-                        if settings.hasLogo {
-                            Button("Reset to Default") { Task { await change { try await session.removeWelcomeLogo() } } }
+                    GlassEffectContainer(spacing: 8) {
+                        HStack(spacing: 8) {
+                            // The church's cross-and-flame logo is built in; an upload replaces it.
+                            Text(settings.hasLogo ? "Custom" : "Default").foregroundStyle(.secondary)
+                            if settings.hasLogo {
+                                Button("Reset to Default") { Task { await change { try await session.removeWelcomeLogo() } } }
+                                    .buttonStyle(.glass)
+                            }
+                            Button("Replace…") { pick(ImportTarget(number: 0)) }
+                                .buttonStyle(.glassProminent)
                         }
                     }
                 }
@@ -152,7 +147,7 @@ private struct WelcomeScreenSection: View {
         } header: {
             Text("Welcome Screen")
         } footer: {
-            Text("A Slide step in the Order of Service shows this with the web presenter: the photo of the event's month with the logo, and its title, the blessing and the date in the lower third. Click a month to preview it. The text always stays readable: the photo softens and tones down only where text sits.")
+            Text("A Slide step in the Order of Service shows this with the web presenter: the photo of the event's month with the logo, and its title, the blessing and the date in the lower third. Click a month to preview it, or right-click to replace or reset its photo. The text always stays readable: the photo softens and tones down only where text sits.")
         }
         .fileImporter(
             isPresented: $importing,
@@ -175,11 +170,14 @@ private struct WelcomeScreenSection: View {
                 reset: { Task { await change(photo: target.number) { try await session.resetWelcomePhoto(target.number) } } }
             )
         }
-        .task(id: settings.map { "\($0.title)|\($0.subtitle)|\($0.churchName)|\($0.language)" }) {
-            guard let settings else { return }
+        .task(id: settings.map(textKey(for:))) {
+            guard let current = settings else { return }
+            let key = textKey(for: current)
+            guard key != lastSavedText else { return }
             do {
                 try await Task.sleep(for: .milliseconds(800))
-                _ = try await session.saveWelcomeSettings(settings)
+                // Not stored back: it would overwrite whatever was typed during the save.
+                lastSavedText = textKey(for: try await session.saveWelcomeSettings(current))
                 failure = nil
             } catch is CancellationError {
                 return
@@ -222,6 +220,16 @@ private struct WelcomeScreenSection: View {
             }
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button("Preview", systemImage: "eye") { previewing = ImportTarget(number: number) }
+            Button("Replace Photo…", systemImage: "photo") { pick(ImportTarget(number: number)) }
+            if replaced {
+                Divider()
+                Button("Reset to Default", systemImage: "arrow.uturn.backward", role: .destructive) {
+                    Task { await change(photo: number) { try await session.resetWelcomePhoto(number) } }
+                }
+            }
+        }
         .accessibilityLabel(replaced
             ? Text("\(Calendar.current.standaloneMonthSymbols[Int(number) - 1]), photo replaced")
             : Text(Calendar.current.standaloneMonthSymbols[Int(number) - 1]))
@@ -239,7 +247,9 @@ private struct WelcomeScreenSection: View {
 
     private func load() async {
         do {
-            settings = try await session.welcomeSettings()
+            let loaded = try await session.welcomeSettings()
+            lastSavedText = textKey(for: loaded)
+            settings = loaded
         } catch {
             failure = error.metocastMessage
         }
@@ -260,14 +270,17 @@ private struct WelcomeScreenSection: View {
         do {
             try await action()
             let saved = settings
-            settings = try await session.welcomeSettings()
+            var reloaded = try await session.welcomeSettings()
             // Keep text typed since the last save.
             if let saved {
-                settings?.title = saved.title
-                settings?.subtitle = saved.subtitle
-                settings?.churchName = saved.churchName
-                settings?.language = saved.language
+                reloaded.title = saved.title
+                reloaded.subtitle = saved.subtitle
+                reloaded.churchName = saved.churchName
+                reloaded.language = saved.language
+            } else {
+                lastSavedText = textKey(for: reloaded)
             }
+            settings = reloaded
             if let number { thumbnails[number] = try await session.welcomePhoto(number) }
             failure = nil
         } catch {
@@ -318,13 +331,19 @@ private struct WelcomePreview: View {
                 }
                 .aspectRatio(16 / 9, contentMode: .fit)
                 .clipShape(.rect(cornerRadius: 10))
-                HStack {
-                    if isReplaced {
-                        Button("Reset to Default", systemImage: "arrow.uturn.backward") { reset(); dismiss() }
+                GlassEffectContainer(spacing: 12) {
+                    HStack(spacing: 12) {
+                        if isReplaced {
+                            Button("Reset to Default", systemImage: "arrow.uturn.backward") {
+                                reset()
+                                dismiss()
+                            }
+                            .buttonStyle(.glass)
+                        }
+                        Spacer()
+                        Button("Replace…", systemImage: "photo") { replace() }
+                            .buttonStyle(.glassProminent)
                     }
-                    Spacer()
-                    Button("Replace…", systemImage: "photo") { replace() }
-                        .buttonStyle(.glassProminent)
                 }
             }
             .padding()
@@ -345,6 +364,162 @@ private struct WelcomePreview: View {
                 failure = error.metocastMessage
             }
         }
+    }
+}
+
+/// Devices currently connected to the server over WebSocket (Raspberry Pi presenter receivers,
+/// browser presenters, and other Metocast apps), with their live round-trip latency and Ping action.
+private struct ConnectedDevicesSection: View {
+    let session: MetocastSession
+    @State private var pingingIds: Set<String> = []
+
+    var body: some View {
+        Section {
+            if session.clients.isEmpty {
+                Text("No other devices connected")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(session.clients, id: \.id) { client in
+                    HStack(spacing: 12) {
+                        Image(systemName: icon(for: client))
+                            .font(.title3)
+                            .foregroundStyle(.tint)
+                            .frame(width: 24)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(client.label.isEmpty ? String(localized: "Unnamed device") : client.label)
+                                .fontWeight(.medium)
+                            if let subtitle = subtitle(for: client) {
+                                Text(subtitle)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer(minLength: 8)
+                        HStack(spacing: 10) {
+                            if let latency = client.latencyMs {
+                                Text("\(latency) ms")
+                                    .font(.caption.monospacedDigit().weight(.medium))
+                                    .foregroundStyle(latencyColor(latency))
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3)
+                                    .background(latencyColor(latency).opacity(0.14), in: .capsule)
+                            } else {
+                                Text("—")
+                                    .font(.caption.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                            }
+                            Button {
+                                ping(client.id)
+                            } label: {
+                                if pingingIds.contains(client.id) {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                } else {
+                                    Label("Ping", systemImage: "wave.3.right")
+                                        .font(.caption)
+                                }
+                            }
+                            .buttonStyle(.glass)
+                            .controlSize(.small)
+                            .labelStyle(.iconOnly)
+                            .disabled(pingingIds.contains(client.id))
+                        }
+                        // The device's name wraps instead; the button and latency keep their size.
+                        .fixedSize()
+                    }
+                    .padding(.vertical, 2)
+                    // Otherwise the row's divider starts at the button's label.
+                    .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
+                }
+            }
+        } header: {
+            HStack {
+                Text("Connected Devices (\(session.clients.count))")
+                Spacer()
+                if !session.clients.isEmpty {
+                    Button("Ping All", systemImage: "wave.3.right") {
+                        for client in session.clients {
+                            ping(client.id)
+                        }
+                    }
+                    .font(.caption)
+                    .buttonStyle(.borderless)
+                }
+            }
+        } footer: {
+            Text("Devices connected to the server right now — Raspberry Pi receivers, web presenters, and other Metocast apps. Ping measures live WebSocket round-trip latency.")
+        }
+        .task {
+            session.show(.clientsList)
+        }
+    }
+
+    private func ping(_ clientId: String) {
+        pingingIds.insert(clientId)
+        session.pingClient(clientId)
+        Task {
+            try? await Task.sleep(for: .milliseconds(700))
+            pingingIds.remove(clientId)
+        }
+    }
+
+    private func icon(for client: ConnectedClientRecord) -> String {
+        let label = client.label.lowercased()
+        if label.contains("receiver") || label.contains("raspberry") || label.contains("pi") {
+            return "play.display"
+        }
+        if label.contains("iphone") || label.contains("ios") {
+            return "iphone"
+        }
+        if label.contains("ipad") {
+            return "ipad"
+        }
+        if label.contains("mac") || label.contains("tauri") || label.contains("desktop") || label.contains("metocast") {
+            return "laptopcomputer"
+        }
+        return "globe"
+    }
+
+    private func subtitle(for client: ConnectedClientRecord) -> String? {
+        var parts: [String] = []
+        if let hostname = client.hostname, !hostname.isEmpty {
+            parts.append(hostname)
+        }
+        if let ua = client.userAgent, !ua.isEmpty {
+            parts.append(shortUserAgent(ua))
+        }
+        if let duration = connectedDuration(client.connectedAt) {
+            parts.append(duration)
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    private func shortUserAgent(_ ua: String) -> String {
+        if ua.contains("presenter-receiver") { return "Presenter Receiver" }
+        if ua.contains("Edg/") { return "Edge" }
+        if ua.contains("Chrome/") && !ua.contains("Chromium") { return "Chrome" }
+        if ua.contains("Firefox/") { return "Firefox" }
+        if ua.contains("Safari/") && !ua.contains("Chrome/") { return "Safari" }
+        return ua.count > 28 ? String(ua.prefix(28)) + "…" : ua
+    }
+
+    private func connectedDuration(_ iso: String) -> String? {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let date = formatter.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
+        guard let date else { return nil }
+        let seconds = max(0, Int(Date.now.timeIntervalSince(date)))
+        if seconds < 60 { return "\(seconds)s" }
+        let minutes = seconds / 60
+        if minutes < 60 { return "\(minutes)m" }
+        let hours = minutes / 60
+        return "\(hours)h \(minutes % 60)m"
+    }
+
+    private func latencyColor(_ ms: Int64) -> Color {
+        if ms < 50 { return .green }
+        if ms < 150 { return .orange }
+        return .red
     }
 }
 

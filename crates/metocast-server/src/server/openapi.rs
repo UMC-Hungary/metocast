@@ -1568,7 +1568,7 @@ fn handwritten() -> Value {
                 "post": {
                     "tags": ["Presentations"],
                     "summary": "Create a song PowerPoint",
-                    "description": "Splits pasted lyrics only at two empty lines, preserves every entered line without wrapping it onto another line, adds a title slide and a final blank slide, and writes the `.pptx` into the configured song slide output folder.",
+                    "description": "Starts a new slide at each empty line and at each line starting with Refr., breaks a line too long for the song size at punctuation or a space, adds a title slide and a blank last slide, and writes the deck to the song slide folder.",
                     "operationId": "createSongPresentation",
                     "requestBody": {
                         "required": true,

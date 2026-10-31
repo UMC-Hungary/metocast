@@ -34,6 +34,7 @@ const AUTHENTICATED = [
   { method: 'POST', path: '/api/auth/youtube/logout' },
   { method: 'GET', path: '/api/auth/facebook/url' },
   { method: 'POST', path: '/api/auth/facebook/logout' },
+  { method: 'POST', path: '/api/auth/callback' },
   { method: 'POST', path: '/api/connectors/blackmagic-camera/discover' },
   { method: 'POST', path: '/api/connectors/middlecontrol/discover' },
   { method: 'POST', path: '/api/connectors/blackmagic-camera/stream/youtube' },

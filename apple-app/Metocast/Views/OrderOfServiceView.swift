@@ -39,6 +39,7 @@ struct OrderStepRow: View {
     let item: OrderItemRecord
     let number: Int
     var isCurrent = false
+    var isLoading = false
     /// A reading step's reference, e.g. "Jn 3,16-21", when the row knows the event's readings.
     var reading: String?
 
@@ -63,7 +64,12 @@ struct OrderStepRow: View {
                 }
             }
             Spacer(minLength: 0)
-            if isCurrent {
+            if isLoading {
+                ProgressView()
+                    .controlSize(.small)
+                    .padding(4)
+                    .glassEffect(.regular, in: .capsule)
+            } else if isCurrent {
                 Image(systemName: "play.fill")
                     .foregroundStyle(.tint)
                     .accessibilityHidden(true)
@@ -71,7 +77,7 @@ struct OrderStepRow: View {
         }
         .contentShape(.rect)
         .accessibilityElement(children: .combine)
-        .accessibilityValue(isCurrent ? "On screen" : "")
+        .accessibilityValue(isLoading ? "Opening" : (isCurrent ? "On screen" : ""))
     }
 
     private var subtitle: String? {
@@ -466,28 +472,41 @@ struct LiveOrderSection: View {
                 Button {
                     if let id = item.id { session.show(.orderGo(eventId: event.id, itemId: id)) }
                 } label: {
-                    OrderStepRow(item: item, number: index + 1, isCurrent: isCurrent(item))
+                    OrderStepRow(
+                        item: item,
+                        number: index + 1,
+                        isCurrent: isCurrent(item),
+                        isLoading: item.id != nil && session.loadingOrderItemId == item.id
+                    )
                 }
                 .buttonStyle(.plain)
                 .accessibilityHint("Shows this step on the output screen")
             }
             if !items.isEmpty {
-                HStack {
-                    Button("Previous Step", systemImage: "chevron.backward") {
-                        session.show(.orderPrevious(eventId: event.id))
+                GlassEffectContainer(spacing: 12) {
+                    HStack(spacing: 12) {
+                        Button("Previous Step", systemImage: "chevron.backward") {
+                            session.show(.orderPrevious(eventId: event.id))
+                        }
+                        // The arrow alone, so both buttons stay on one line in the narrow sidebar.
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.glass)
+                        .disabled(session.isSteppingOrder || (currentIndex.map { $0 == 0 } ?? true))
+                        Spacer()
+                        if session.isSteppingOrder {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+                        Button("Next Step", systemImage: "chevron.forward") {
+                            session.show(.orderNext(eventId: event.id))
+                        }
+                        .lineLimit(1)
+                        .buttonStyle(.glassProminent)
+                        .foregroundStyle(.white)
+                        .disabled(session.isSteppingOrder || (currentIndex.map { $0 >= items.count - 1 } ?? false))
                     }
-                    .disabled(currentIndex.map { $0 == 0 } ?? true)
-                    Spacer()
-                    Button("Next Step", systemImage: "chevron.forward") {
-                        session.show(.orderNext(eventId: event.id))
-                    }
-                    .buttonStyle(.glassProminent)
-                    .tint(.accentColor)
-                    .disabled(currentIndex.map { $0 >= items.count - 1 } ?? false)
                 }
             }
-        } header: {
-            Text("Order of Service · \(event.title)")
         }
         .task(id: "\(event.id)-\(session.orderRevision)") {
             items = (try? await session.order(eventId: event.id)) ?? items

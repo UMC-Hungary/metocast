@@ -79,14 +79,14 @@ impl Recorders {
 /// `recorders_failed: obs: obs_not_connected; …`, naming each recorder that failed.
 pub async fn press(state: &AppState, recording: bool) -> Result<(), String> {
     let targets = state.recorders.selected();
-    let results = join_all(
-        targets
-            .iter()
-            .map(|target| recording_control::ensure(state, target, recording)),
-    )
+    let results = join_all(targets.iter().map(|target| async move {
+        let result = recording_control::ensure(state, target, recording).await;
+        // Broadcast as each recorder finishes so one slow or unreachable device never holds
+        // back the others' states or errors.
+        broadcast_json(&state.ws_clients, &state_message(&rows(state).await)).await;
+        result
+    }))
     .await;
-    // The rows show the new results now, not on the next tick.
-    broadcast_json(&state.ws_clients, &state_message(&rows(state).await)).await;
     let failures: Vec<String> = targets
         .iter()
         .zip(results)
@@ -99,7 +99,12 @@ pub async fn press(state: &AppState, recording: bool) -> Result<(), String> {
     if failures.is_empty() {
         Ok(())
     } else {
-        Err(format!("recorders_failed: {}", failures.join("; ")))
+        let code = if recording {
+            "recorders_failed"
+        } else {
+            "recorders_stop_failed"
+        };
+        Err(format!("{code}: {}", failures.join("; ")))
     }
 }
 

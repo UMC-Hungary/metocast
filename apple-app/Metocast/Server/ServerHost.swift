@@ -41,6 +41,7 @@ final class ServerHost {
     private(set) var token: String
 
     private var process: Process?
+    private var isStarting = false
     private var input: Pipe?
 
     var localURL: String { "http://127.0.0.1:\(Self.port)" }
@@ -76,7 +77,10 @@ final class ServerHost {
     @discardableResult
     func start() async -> Bool {
         if state == .running { return true }
-        guard process == nil else { return false }
+        // Every restored window asks for the server. Two helpers would kill each other's PostgreSQL.
+        guard process == nil, !isStarting else { return false }
+        isStarting = true
+        defer { isStarting = false }
         guard let helper = Self.helper else {
             state = .failed(String(localized: "The Metocast server is missing from the app bundle."))
             return false

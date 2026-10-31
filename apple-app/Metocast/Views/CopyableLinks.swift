@@ -22,8 +22,13 @@ struct CopyableLinks: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                         if let destination = URL(string: url) {
                             Link(destination: destination) {
-                                Image(systemName: "safari")
+                                Label {
+                                    Text("Open in Browser")
+                                } icon: {
+                                    SwapSymbol("safari", among: ["safari", "checkmark", "doc.on.doc"])
+                                }
                             }
+                            .labelStyle(.iconOnly)
                             .buttonStyle(.glass)
                             .help("Open in Browser")
                         }
@@ -39,16 +44,13 @@ struct CopyableLinks: View {
                             Label {
                                 Text(copied == url ? "Copied" : "Copy")
                             } icon: {
-                                SwapSymbol(copied == url ? "checkmark" : "doc.on.doc", among: ["checkmark", "doc.on.doc"])
+                                SwapSymbol(copied == url ? "checkmark" : "doc.on.doc", among: ["safari", "checkmark", "doc.on.doc"])
                             }
                         }
                         .labelStyle(.iconOnly)
                         .buttonStyle(.glass)
                         .accessibilityLabel(copied == url ? "Copied" : "Copy Link")
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 10))
                 }
             }
         }
