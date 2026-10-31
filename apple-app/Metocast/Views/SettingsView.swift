@@ -4,8 +4,10 @@ import Metocast
 import CoreImage.CIFilterBuiltins
 #endif
 
-// One settings form for both platforms: the iPhone's Settings tab and the Mac window's inspector.
+// One settings form for every platform: the iPhone's Settings tab and the panel on the Mac and iPad.
 struct SettingsView: View {
+    /// The iPad and the Mac list the equipment in their sidebars instead.
+    var showsEquipment = true
     @Environment(AppModel.self) private var model
     @AppStorage("appearance") private var appearance = Appearance.system
     @State private var isConfirmingReset = false
@@ -42,7 +44,7 @@ struct SettingsView: View {
             }
 
             #if os(iOS)
-            if UIDevice.current.userInterfaceIdiom == .phone {
+            if showsEquipment {
                 Section("Equipment") {
                     NavigationLink("Connectors") {
                         if let session = model.session { ConnectorsView(session: session) }
@@ -73,11 +75,6 @@ struct SettingsView: View {
                 Picker("Appearance", selection: $appearance) {
                     ForEach(Appearance.allCases, id: \.self) { Text($0.title) }
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                // The Mac inspector lays this out while sliding open from zero width; an unfixed
-                // segmented control keeps that collapsed "…" layout until it is clicked.
-                .fixedSize()
             }
 
             Section("About") {
@@ -116,9 +113,7 @@ private struct RecordButtonSection: View {
             ForEach(session.recorders, id: \.target) { row in
                 Toggle(isOn: Binding(get: { row.selected }, set: { choose(row.target, $0) })) {
                     Text(row.target.shortName)
-                    if !row.available {
-                        Text("Not connected")
-                    }
+                    Text(row.statusText)
                 }
             }
         } header: {

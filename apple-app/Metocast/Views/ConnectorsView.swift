@@ -1,5 +1,8 @@
 import SwiftUI
 import Metocast
+#if os(iOS)
+import SafariServices
+#endif
 
 /// Every connector the server can run, with its state. Picking one opens its settings.
 struct ConnectorsView: View {
@@ -66,6 +69,9 @@ struct ConnectorFormView: View {
     @State private var failure: String?
     @State private var discovered: [DiscoveredDeviceRecord] = []
     @State private var isDiscovering = false
+    @State private var activeListener: OAuthLoopbackListener?
+    @State private var isShowingAuthSheet = false
+    @State private var authSheetURL: URL?
 
     /// The tool that finds this connector's device on the network, when it has one.
     private var discoveryTool: DiscoveryTool? {
@@ -211,7 +217,11 @@ struct ConnectorFormView: View {
         .task(id: connector) { await load() }
         // Leaving saves, like System Settings: it is the one hook the Mac sidebar, iOS Back and
         // closing the window all go through, where a "Save changes?" prompt would need each of them.
-        .onDisappear { saveOnLeave() }
+        .onDisappear {
+            activeListener?.cancel()
+            activeListener = nil
+            saveOnLeave()
+        }
         .serverFolderPrompt(
             "Choose Folder",
             message: "Type the folder's path on the server's Mac.",
@@ -219,6 +229,21 @@ struct ConnectorFormView: View {
         ) { folder in
             values[folderKey] = folder
         }
+        #if os(iOS)
+        .sheet(isPresented: $isShowingAuthSheet, onDismiss: {
+            activeListener?.cancel()
+            activeListener = nil
+        }) {
+            if let authSheetURL {
+                SafariView(url: authSheetURL) {
+                    isShowingAuthSheet = false
+                    activeListener?.cancel()
+                    activeListener = nil
+                }
+                .ignoresSafeArea()
+            }
+        }
+        #endif
     }
 
     @ViewBuilder
@@ -359,18 +384,61 @@ struct ConnectorFormView: View {
     private func signIn() async {
         do {
             guard let url = try await session.authURL(connector) else {
-                // The server answered with something that is not a URL, which no retry fixes.
                 failure = String(localized: "The server did not send a usable sign-in address.")
                 return
             }
             failure = nil
+
+            #if os(macOS)
+            if model.mode == .server {
+                openURL(url)
+                return
+            }
+            #endif
+
+            let listener = OAuthLoopbackListener()
+            activeListener = listener
+            try listener.start()
+
+            #if os(iOS)
+            authSheetURL = url
+            isShowingAuthSheet = true
+            #else
             openURL(url)
+            #endif
+
+            let result = try await listener.waitForCallback()
+            activeListener = nil
+            #if os(iOS)
+            isShowingAuthSheet = false
+            authSheetURL = nil
+            #endif
+
+            try await session.submitOAuthCallback(code: result.code, state: result.state)
+        } catch is CancellationError {
+            activeListener?.cancel()
+            activeListener = nil
+        } catch let listenerError as OAuthLoopbackListener.ListenerError {
+            if listenerError != .cancelled {
+                failure = listenerError.localizedDescription
+            }
+            closeSignIn()
         } catch {
             failure = error.metocastMessage
+            closeSignIn()
         }
     }
 
     /// Sign-out failures used to be dropped, so the button looked like it had worked.
+    /// A failure shows on this page, so the browser sheet over it has to go.
+    private func closeSignIn() {
+        activeListener = nil
+        #if os(iOS)
+        isShowingAuthSheet = false
+        authSheetURL = nil
+        #endif
+    }
+
     private func signOut() async {
         do {
             try await session.signOut(connector)
@@ -380,6 +448,29 @@ struct ConnectorFormView: View {
         }
     }
 }
+
+#if os(iOS)
+private struct SafariView: UIViewControllerRepresentable {
+    let url: URL
+    let onDismiss: () -> Void
+
+    func makeUIViewController(context: Context) -> SFSafariViewController {
+        let controller = SFSafariViewController(url: url)
+        controller.delegate = context.coordinator
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(onDismiss: onDismiss) }
+
+    final class Coordinator: NSObject, SFSafariViewControllerDelegate {
+        let onDismiss: () -> Void
+        init(onDismiss: @escaping () -> Void) { self.onDismiss = onDismiss }
+        func safariViewControllerDidFinish(_ controller: SFSafariViewController) { onDismiss() }
+    }
+}
+#endif
 
 extension Optional where Wrapped == String {
     var orEmpty: String { self ?? "" }

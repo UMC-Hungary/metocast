@@ -4458,12 +4458,12 @@
         }
       }
     },
-    "Leave two empty lines between slides. One empty line stays on the slide. A title slide and a blank last slide are added." : {
+    "An empty line or a Refr. line starts a new slide, and long lines are broken to keep the text large. A title slide and a blank last slide are added." : {
       "localizations" : {
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "A diák közé hagyj két üres sort. Egy üres sor a dián marad. Egy címdia és egy üres záródia is hozzáadódik."
+            "value" : "Üres sor vagy Refr. sor új diát kezd, a hosszú sorokat pedig megtörjük, hogy a szöveg nagy maradjon. Címdia és üres záródia is készül."
           }
         }
       }
@@ -10254,6 +10254,226 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "· %@"
+          }
+        }
+      }
+    },
+    "%@ · Didn't start" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · Nem indult el"
+          }
+        }
+      }
+    },
+    "%1$@ — %2$@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ — %2$@"
+          }
+        }
+      }
+    },
+    "Actions" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Műveletek"
+          }
+        }
+      }
+    },
+    "Connected Devices (%lld)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Csatlakoztatott eszközök (%lld)"
+          }
+        }
+      }
+    },
+    "Current slide %u. Tap for previous." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aktuális dia: %u. Koppintson az előzőhöz."
+          }
+        }
+      }
+    },
+    "Next slide %u. Tap for next." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Következő dia: %u. Koppintson a továbblépéshez."
+          }
+        }
+      }
+    },
+    "Devices connected to the server right now — Raspberry Pi receivers, web presenters, and other Metocast apps. Ping measures live WebSocket round-trip latency." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A szerverhez most csatlakozó eszközök: Raspberry Pi vevők, webes kivetítők és más Metocast-alkalmazások. A Ping a WebSocket-kapcsolat valós idejű oda-vissza késleltetését méri."
+          }
+        }
+      }
+    },
+    "Didn't start — %@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nem indult el – %@"
+          }
+        }
+      }
+    },
+    "Didn't stop — %@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nem állt le – %@"
+          }
+        }
+      }
+    },
+    "No other devices connected" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nincs más csatlakoztatott eszköz"
+          }
+        }
+      }
+    },
+    "OBS took the command but didn't report the change." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az OBS fogadta a parancsot, de nem jelezte a változást."
+          }
+        }
+      }
+    },
+    "Open in Browser" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Megnyitás böngészőben"
+          }
+        }
+      }
+    },
+    "Opening…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Megnyitás…"
+          }
+        }
+      }
+    },
+    "Ping" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ping"
+          }
+        }
+      }
+    },
+    "Ping All" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Összes pingelése"
+          }
+        }
+      }
+    },
+    "Port 8766 is already in use." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A 8766-os port már foglalt."
+          }
+        }
+      }
+    },
+    "Replace Photo…" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fotó cseréje…"
+          }
+        }
+      }
+    },
+    "Sign-in timed out. Please try again." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A bejelentkezés időtúllépés miatt megszakadt. Próbálja újra."
+          }
+        }
+      }
+    },
+    "Sign-in was cancelled." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A bejelentkezés megszakadt."
+          }
+        }
+      }
+    },
+    "Started: %1$@ · %2$@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elindult: %1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "The authorization response was invalid or was denied." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az engedélyezési válasz érvénytelen volt, vagy elutasították."
+          }
+        }
+      }
+    },
+    "A Slide step in the Order of Service shows this with the web presenter: the photo of the event's month with the logo, and its title, the blessing and the date in the lower third. Click a month to preview it, or right-click to replace or reset its photo. The text always stays readable: the photo softens and tones down only where text sits." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az istentisztelet rendjének Dia lépése ezt mutatja a webes kivetítőn: az esemény hónapjának fotóját a logóval, az alsó harmadban a címmel, az áldással és a dátummal. Kattintson egy hónapra az előnézethez, vagy jobb gombbal cserélje le vagy állítsa vissza a fotóját. A szöveg mindig olvasható marad: a fotó csak a szöveg alatt lágyul és sötétül."
           }
         }
       }

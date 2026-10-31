@@ -251,6 +251,21 @@ export async function facebookAuthUrl(): Promise<string> {
   return (await apiFetch('/api/auth/facebook/url', AuthUrlSchema)).url;
 }
 
+const OAuthCallbackResponseSchema = z.object({
+  status: z.string(),
+  connector: z.string(),
+});
+
+export function submitOAuthCallback(payload: {
+  code: string;
+  state: string;
+}): Promise<{ status: string; connector: string }> {
+  return apiFetch('/api/auth/callback', OAuthCallbackResponseSchema, {
+    method: 'POST',
+    body: payload,
+  });
+}
+
 export function youtubeLogout(): Promise<void> {
   return apiFetch('/api/auth/youtube/logout', z.void(), { method: 'POST' });
 }

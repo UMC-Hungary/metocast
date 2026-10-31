@@ -75,9 +75,9 @@ struct DashboardView: View {
                             .padding(16)
                         if let event = EventSchedule.current(in: session.events, now: .now) {
                             Divider()
-                            // The Live page steps through the event's Order of Service.
+                            // The Presentation page steps through the event's Order of Service.
                             Button {
-                                model.pane = .live
+                                model.pane = .presentation
                             } label: {
                                 Label("Run the Order of Service for \(event.title)", systemImage: "list.number")
                                     .frame(maxWidth: .infinity, alignment: .leading)

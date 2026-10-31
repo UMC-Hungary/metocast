@@ -24,7 +24,7 @@ final class AppModel {
     var isAddingEvent = false
     /// The selected tab (iPhone) or sidebar item (Mac), here so the Dashboard's On Air card can open Live.
     var pane = MetocastPane.dashboard
-    /// An equipment page opened from the Mac's settings; it takes over the content column until a sidebar item is picked.
+    /// An equipment page opened from the sidebar on the Mac or iPad; it takes over the content column until a sidebar item is picked.
     var equipment: EquipmentPage?
 
     init() {

@@ -11,6 +11,7 @@ struct PresentationView: View {
     @State private var isWritingSong = false
     @State private var isAskingForSongFolder = false
     @State private var isShowingSettings = false
+    @State private var isShowingNotifications = false
     @State private var isShowingOrder = true
     @State private var selectedEventId: String?
     #if os(iOS)
@@ -30,23 +31,25 @@ struct PresentationView: View {
             if let session = model.session {
                 page(session)
                     .toolbar {
-                        ToolbarItemGroup {
-                            let actions = Group {
-                                Button("New Song", systemImage: "music.note.list") { Task { await newSong(session) } }
-                                if isShowing(session) {
-                                    Button("Close Slides", systemImage: "xmark.circle") { session.show(.close) }
-                                }
-                                Button("Presentation Settings", systemImage: "slider.horizontal.3") { isShowingSettings = true }
-                            }
-                            if isWideLayout {
-                                actions.labelStyle(.titleAndIcon)
-                            } else {
-                                actions
-                            }
-                        }
                         #if os(macOS)
-                        if isShowing(session) {
+                        ToolbarItemGroup {
+                            Button("New Song", systemImage: "music.note.list") { Task { await newSong(session) } }
+                            if session.isShowingSlides {
+                                Button("Close Slides", systemImage: "xmark.circle") { session.show(.close) }
+                            }
+                            Button("Presentation Settings", systemImage: "slider.horizontal.3") { isShowingSettings = true }
+                        }
+                        if session.isShowingSlides {
                             ToolbarItemGroup { buttons(session) }
+                        }
+                        #else
+                        // The iPad's page starts right under this, with the sidebar button beside it.
+                        if isWideLayout, orderEvent(session) != nil {
+                            ToolbarItem(placement: .topBarLeading) {
+                                listPicker
+                                    .frame(width: 130)
+                            }
+                            .sharedBackgroundVisibility(.hidden)
                         }
                         #endif
                     }
@@ -57,9 +60,14 @@ struct PresentationView: View {
                     .navigationDestination(isPresented: $isShowingSettings) {
                         PresentationSettingsView(session: session).windowActions()
                     }
+                    .sheet(isPresented: $isShowingNotifications) {
+                        NotificationsView()
+                    }
             } else {
                 ContentUnavailableView("No Presentation", systemImage: "play.rectangle")
+                    #if os(macOS)
                     .navigationTitle("Presentation")
+                    #endif
             }
         }
     }
@@ -70,23 +78,33 @@ struct PresentationView: View {
         Group {
             if isWideLayout {
                 HStack(spacing: 0) {
-                    library.frame(width: 340)
+                    library.frame(width: 320)
                     Divider()
+                        #if os(iOS)
+                        // All the way up behind the top bar, like the sidebar's own edge.
+                        .ignoresSafeArea(.container, edges: .top)
+                        #endif
                     content(session)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             } else {
-                VStack(spacing: 0) {
-                    if isShowing(session) {
-                        content(session).frame(maxHeight: 360)
+                GeometryReader { proxy in
+                    VStack(spacing: 0) {
+                        if session.isShowingSlides {
+                            iphonePresenter(session, maxHeight: proxy.size.height * 0.25)
+                            Divider()
+                        }
+                        library
                     }
-                    library
                 }
-                .navigationTitle("Presentation")
             }
         }
         #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
+        // The iPad's bar holds the sidebar button.
+        .toolbarVisibility(isWideLayout ? .automatic : .hidden, for: .navigationBar)
+        #endif
+        #if os(macOS)
+        .navigationTitle(session.presenter?.loaded == true ? session.presenter?.fileName ?? "" : String(localized: "Presentation"))
         #endif
         .task { await session.refresh() }
     }
@@ -118,30 +136,38 @@ struct PresentationView: View {
     @ViewBuilder
     private func sidebar(_ session: MetocastSession) -> some View {
         let event = orderEvent(session)
+        #if os(iOS)
+        if isWideLayout {
+            switchableSidebar(session, event: event)
+        } else if let event {
+            TabView(selection: $isShowingOrder) {
+                Form { LiveOrderSection(session: session, event: event) }
+                    .formStyle(.grouped)
+                    .tag(true)
+
+                deckList(session)
+                .tag(false)
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+        } else {
+            deckList(session)
+        }
+        #else
+        switchableSidebar(session, event: event)
+        #endif
+    }
+
+    /// The sidebar on the wide layouts, with a control to switch between its two lists.
+    private func switchableSidebar(_ session: MetocastSession, event: EventSummaryRecord?) -> some View {
         VStack(spacing: 0) {
             if event != nil {
+                #if os(macOS)
                 HStack(spacing: 8) {
-                    Picker("Show", selection: $isShowingOrder) {
-                        Text("Order of Service").tag(true)
-                        Text("Library").tag(false)
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
+                    listPicker
 
                     if isShowingOrder, session.events.count > 1 {
                         Menu {
-                            ForEach(session.events, id: \.id) { ev in
-                                Button {
-                                    selectedEventId = ev.id
-                                } label: {
-                                    HStack {
-                                        Text(ev.title)
-                                        if ev.id == event?.id {
-                                            Image(systemName: "checkmark")
-                                        }
-                                    }
-                                }
-                            }
+                            eventChoices(session)
                         } label: {
                             Image(systemName: "calendar")
                                 .imageScale(.medium)
@@ -151,17 +177,53 @@ struct PresentationView: View {
                     }
                 }
                 .padding(10)
+                #endif
             }
             if let event, isShowingOrder {
                 Form { LiveOrderSection(session: session, event: event) }
                     .formStyle(.grouped)
             } else {
-                DeckList(session: session, query: query) { file in
-                    session.show(.open(filePath: file.path))
-                }
-                .librarySearch($query)
+                deckList(session)
             }
         }
+    }
+
+    private func eventChoices(_ session: MetocastSession) -> some View {
+        let chosen = orderEvent(session)?.id
+        return ForEach(session.events, id: \.id) { event in
+            Button {
+                selectedEventId = event.id
+            } label: {
+                HStack {
+                    Text(event.title)
+                    if event.id == chosen {
+                        Image(systemName: "checkmark")
+                    }
+                }
+            }
+        }
+    }
+
+    private func deckList(_ session: MetocastSession) -> some View {
+        DeckList(session: session, query: query) { file in
+            session.show(.open(filePath: file.path))
+        }
+        .librarySearch($query)
+    }
+
+    private var listPicker: some View {
+        Picker("Show", selection: $isShowingOrder) {
+            #if os(iOS)
+            // Icons, so the switch fits its column beside the iPad's sidebar button.
+            Image(systemName: "list.number").accessibilityLabel(Text("Order of Service")).tag(true)
+            Image(systemName: "books.vertical").accessibilityLabel(Text("Library")).tag(false)
+            #else
+            Text("Order of Service").tag(true)
+            Text("Library").tag(false)
+            #endif
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
     }
 
     /// A song needs somewhere to go, so a missing folder is asked for before the page opens.
@@ -174,66 +236,335 @@ struct PresentationView: View {
         }
     }
 
+    private func isLoading(_ session: MetocastSession) -> Bool {
+        session.loadingOrderItemId != nil || session.isSteppingOrder || session.loadingDeckPath != nil
+    }
+
     @ViewBuilder
-    private func content(_ session: MetocastSession) -> some View {
-        if session.usesWebPresenter, let state = session.presenter, state.loaded {
-            VStack(spacing: 20) {
-                // The Mac and iPad put the next slide beside the current one, like a presenter view; the iPhone below it.
-                if isWideLayout {
-                    HStack(alignment: .top, spacing: 20) {
-                        currentSlide(state, session: session)
-                        nextSlide(state, session: session).frame(width: 240)
-                    }
-                } else {
-                    currentSlide(state, session: session)
-                    nextSlide(state, session: session).frame(maxWidth: 240)
-                }
-                slidePicker(current: state.currentSlide, total: state.totalSlides, session: session)
-                #if os(iOS)
-                controls(session)
-                #endif
-                Spacer(minLength: 0)
+    private func floatingActions(_ session: MetocastSession) -> some View {
+        GlassEffectContainer(spacing: 8) {
+            HStack(spacing: 8) {
+                actionButtons(session)
             }
-            .padding()
-            .navigationTitle(state.fileName)
-        } else if !session.usesWebPresenter, let status = session.presentationStatus, status.appRunning {
-            // Keynote holds the slides and sends only its position, so there is nothing to draw.
-            VStack(spacing: 20) {
-                ContentUnavailableView {
-                    Label(status.documentName ?? "Keynote", systemImage: "play.display")
-                } description: {
-                    Text(status.slideshowActive ? "Playing in Keynote." : "Open in Keynote, not playing.")
-                }
-                if let current = status.currentSlide, let total = status.totalSlides {
-                    slidePicker(current: current, total: total, session: session)
-                }
-                Button(status.slideshowActive ? "Stop Slideshow" : "Play Slideshow", systemImage: status.slideshowActive ? "stop" : "play") {
-                    session.show(status.slideshowActive ? .stop : .start)
-                }
-                .buttonStyle(.bordered)
-                #if os(iOS)
-                controls(session)
-                #endif
-                Spacer(minLength: 0)
-            }
-            .padding()
-            .navigationTitle(status.documentName ?? String(localized: "Presentation"))
-        } else {
-            ContentUnavailableView {
-                Label("No Presentation", systemImage: "play.rectangle")
-            } description: {
-                Text(session.usesWebPresenter
-                    ? "Pick a deck from the list to show it on the output screen."
-                    : "Pick a deck from the list to show it in Keynote on the server's Mac.")
-            }
-            .navigationTitle("Presentation")
+            .buttonStyle(.glass)
         }
     }
 
-    private func isShowing(_ session: MetocastSession) -> Bool {
-        session.usesWebPresenter
-            ? session.presenter?.loaded == true
-            : session.presentationStatus?.appRunning == true
+    #if os(iOS)
+    /// The iPad has room for the iPhone's menu as buttons, floating under the slides. Black Out and
+    /// Close Slides are in its sidebar, or float beside Settings while the sidebar is closed.
+    private func bottomActions(_ session: MetocastSession) -> some View {
+        GlassEffectContainer(spacing: 8) {
+            HStack(spacing: 8) {
+                HStack(spacing: 0) {
+                    Button("New Song", systemImage: "music.note.list") { Task { await newSong(session) } }
+                        .frame(width: 40, height: 44)
+                    Button("Presentation Settings", systemImage: "slider.horizontal.3") { isShowingSettings = true }
+                        .frame(width: 40, height: 44)
+                    Button("Notifications", systemImage: "bell") { isShowingNotifications = true }
+                        .frame(width: 40, height: 44)
+                    if session.events.count > 1 {
+                        Menu("Event", systemImage: "calendar") { eventChoices(session) }
+                        .frame(width: 40, height: 44)
+                    }
+                }
+                .padding(.horizontal, 4)
+                .glassEffect(.regular.interactive(), in: .capsule)
+            }
+            .labelStyle(.iconOnly)
+            .buttonStyle(.borderless)
+        }
+        .fixedSize()
+    }
+    #endif
+
+    @ViewBuilder
+    private func actionButtons(_ session: MetocastSession) -> some View {
+        if session.usesWebPresenter {
+            let muted = session.presenter?.muted == true
+            Button {
+                session.show(muted ? .unmute : .mute)
+            } label: {
+                Image(systemName: muted ? "eye" : "eye.slash")
+                    .imageScale(.medium)
+                    .frame(width: 28, height: 28)
+            }
+            .accessibilityLabel(muted ? "Show Slides" : "Black Out")
+        }
+
+        Menu {
+            Button("Presentation Settings", systemImage: "slider.horizontal.3") {
+                isShowingSettings = true
+            }
+            Button("New Song", systemImage: "music.note.list") {
+                Task { await newSong(session) }
+            }
+            if session.isShowingSlides {
+                Button("Close Slides", systemImage: "xmark.circle") {
+                    session.show(.close)
+                }
+            }
+            Button("Notifications", systemImage: "bell") {
+                isShowingNotifications = true
+            }
+            if session.events.count > 1 {
+                Menu("Event") { eventChoices(session) }
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .imageScale(.medium)
+                .frame(width: 28, height: 28)
+        }
+        .accessibilityLabel("Actions")
+    }
+
+    @ViewBuilder
+    private func iphonePresenter(_ session: MetocastSession, maxHeight: CGFloat) -> some View {
+        VStack(alignment: .trailing, spacing: 8) {
+            // In a row of its own, under the status bar and clear of the slides.
+            floatingActions(session)
+            HStack(spacing: 8) {
+                if session.usesWebPresenter, let state = session.presenter, state.loaded {
+                    previousSlideButton(session) {
+                        currentSlide(state, session: session)
+                            .aspectRatio(16 / 9, contentMode: .fit)
+                            .frame(maxHeight: maxHeight - 16)
+                    }
+                    .accessibilityLabel("Current slide \(state.currentSlide). Tap for previous.")
+
+                    if state.currentSlide < state.totalSlides {
+                        nextSlideButton(session) {
+                            SlideView(state: state, number: state.currentSlide + 1, theme: session.presenterTheme)
+                                .clipShape(.rect(cornerRadius: 12))
+                                .aspectRatio(16 / 9, contentMode: .fit)
+                                .frame(maxHeight: maxHeight - 16)
+                        }
+                        .accessibilityLabel("Next slide \(state.currentSlide + 1). Tap for next.")
+                    } else {
+                        endPlaceholder
+                            .aspectRatio(16 / 9, contentMode: .fit)
+                            .frame(maxHeight: maxHeight - 16)
+                    }
+                } else if !session.usesWebPresenter, let status = session.presentationStatus, status.appRunning {
+                    keynotePreview(status, session: session, maxHeight: maxHeight)
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .padding(8)
+        .fixedSize(horizontal: false, vertical: true)
+        .overlay {
+            if isLoading(session) {
+                openingIndicator
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func keynotePreview(_ status: PresentationStatus, session: MetocastSession, maxHeight: CGFloat) -> some View {
+        let current = status.currentSlide ?? 1
+        let total = status.totalSlides ?? 1
+        HStack(spacing: 8) {
+            previousSlideButton(session) {
+            ZStack {
+                Color.black.opacity(0.8)
+                VStack(spacing: 4) {
+                    Image(systemName: "play.display")
+                    Text("\(current)")
+                        .font(.headline)
+                }
+                .foregroundStyle(.white)
+            }
+            .clipShape(.rect(cornerRadius: 12))
+            .aspectRatio(16 / 9, contentMode: .fit)
+            .frame(maxHeight: maxHeight - 16)
+            }
+
+            if current < total {
+                nextSlideButton(session) {
+                ZStack {
+                    Color.black.opacity(0.5)
+                    VStack(spacing: 4) {
+                        Image(systemName: "chevron.forward")
+                        Text("\(current + 1)")
+                            .font(.subheadline)
+                    }
+                    .foregroundStyle(.secondary)
+                }
+                .clipShape(.rect(cornerRadius: 12))
+                .aspectRatio(16 / 9, contentMode: .fit)
+                .frame(maxHeight: maxHeight - 16)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func keynoteContent(_ status: PresentationStatus, session: MetocastSession) -> some View {
+        VStack(spacing: 20) {
+            ContentUnavailableView {
+                Label(status.documentName ?? "Keynote", systemImage: "play.display")
+            } description: {
+                Text(status.slideshowActive ? "Playing in Keynote." : "Open in Keynote, not playing.")
+            }
+            #if os(macOS)
+            if let current = status.currentSlide, let total = status.totalSlides {
+                slidePicker(current: current, total: total, session: session)
+            }
+            #else
+            HStack(spacing: 16) {
+                Button("Previous Slide", systemImage: "chevron.backward") { session.show(.previous) }
+                    .keyboardShortcut(.leftArrow, modifiers: [])
+                    .buttonStyle(.glass)
+                if let current = status.currentSlide, let total = status.totalSlides {
+                    Text("Slide \(current) of \(total)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Button("Next Slide", systemImage: "chevron.forward") { session.show(.next) }
+                    .keyboardShortcut(.rightArrow, modifiers: [])
+                    .buttonStyle(.glassProminent)
+            }
+            .labelStyle(.iconOnly)
+            .controlSize(.extraLarge)
+            #endif
+            Button(status.slideshowActive ? "Stop Slideshow" : "Play Slideshow", systemImage: status.slideshowActive ? "stop" : "play") {
+                session.show(status.slideshowActive ? .stop : .start)
+            }
+            .buttonStyle(.bordered)
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var openingIndicator: some View {
+        HStack(spacing: 8) {
+            ProgressView()
+                .controlSize(.small)
+            Text("Opening…")
+                .font(.subheadline.weight(.medium))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .glassEffect(.regular, in: .capsule)
+        .shadow(radius: 6)
+    }
+
+    @ViewBuilder
+    private func content(_ session: MetocastSession) -> some View {
+        ZStack(alignment: .topTrailing) {
+            if session.usesWebPresenter, let state = session.presenter, state.loaded {
+                VStack(spacing: 20) {
+                    slideLayout {
+                        previousSlideButton(session) {
+                            currentSlide(state, session: session)
+                        }
+                        .accessibilityLabel("Current slide \(state.currentSlide). Tap for previous.")
+
+                        slideButtons(state, session: session) {
+                            if state.currentSlide < state.totalSlides {
+                                nextSlideButton(session) {
+                                    SlideView(state: state, number: state.currentSlide + 1, theme: session.presenterTheme)
+                                        .clipShape(.rect(cornerRadius: 12))
+                                        .frame(width: 240)
+                                }
+                                .accessibilityLabel("Next slide \(state.currentSlide + 1). Tap for next.")
+                            } else {
+                                endPlaceholder
+                                .frame(width: 240)
+                                .aspectRatio(16 / 9, contentMode: .fit)
+                            }
+                        }
+                    }
+                    #if os(macOS)
+                    slidePicker(current: state.currentSlide, total: state.totalSlides, session: session)
+                    #endif
+                    Spacer(minLength: 0)
+                }
+                .padding()
+            } else if !session.usesWebPresenter, let status = session.presentationStatus, status.appRunning {
+                keynoteContent(status, session: session)
+                    .padding()
+            } else {
+                ContentUnavailableView {
+                    Label("No Presentation", systemImage: "play.rectangle")
+                } description: {
+                    Text(session.usesWebPresenter
+                        ? "Pick a deck from the list to show it on the output screen."
+                        : "Pick a deck from the list to show it in Keynote on the server's Mac.")
+                }
+            }
+
+            if isLoading(session) {
+                openingIndicator
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        #if os(iOS)
+        // On the left, clear of the floating Settings button on the right.
+        .overlay(alignment: .bottomLeading) {
+            bottomActions(session).padding(16)
+        }
+        #endif
+    }
+
+    /// The current and next slides: side by side on the Mac, stacked on the narrower iPad.
+    @ViewBuilder
+    private func slideLayout(@ViewBuilder slides: () -> some View) -> some View {
+        #if os(macOS)
+        HStack(alignment: .top, spacing: 20, content: slides)
+        #else
+        VStack(spacing: 20, content: slides)
+        #endif
+    }
+
+    /// The next slide, with Previous and Next on either side where there is no toolbar to hold them.
+    @ViewBuilder
+    private func slideButtons(_ state: PresenterStateRecord, session: MetocastSession, @ViewBuilder preview: () -> some View) -> some View {
+        #if os(macOS)
+        preview()
+        #else
+        VStack(spacing: 8) {
+            HStack(spacing: 16) {
+                Button("Previous Slide", systemImage: "chevron.backward") { session.show(.previous) }
+                    .keyboardShortcut(.leftArrow, modifiers: [])
+                    .buttonStyle(.glass)
+                    .disabled(state.currentSlide <= 1)
+                preview()
+                Button("Next Slide", systemImage: "chevron.forward") { session.show(.next) }
+                    .keyboardShortcut(.rightArrow, modifiers: [])
+                    .buttonStyle(.glassProminent)
+                    .disabled(state.currentSlide >= state.totalSlides)
+            }
+            .labelStyle(.iconOnly)
+            .controlSize(.extraLarge)
+            Text("Slide \(state.currentSlide) of \(state.totalSlides)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        #endif
+    }
+
+    /// A tap steps straight away, and First Slide stays out of reach of a hurried second tap.
+    private func previousSlideButton(_ session: MetocastSession, @ViewBuilder label: () -> some View) -> some View {
+        Button { session.show(.previous) } label: { label().contentShape(.rect) }
+            .buttonStyle(.plain)
+            .contextMenu { Button("First Slide", systemImage: "backward.end") { session.show(.first) } }
+    }
+
+    private func nextSlideButton(_ session: MetocastSession, @ViewBuilder label: () -> some View) -> some View {
+        Button { session.show(.next) } label: { label().contentShape(.rect) }
+            .buttonStyle(.plain)
+            .contextMenu { Button("Last Slide", systemImage: "forward.end") { session.show(.last) } }
+    }
+
+    private var endPlaceholder: some View {
+        ZStack {
+            Color.black.opacity(0.3)
+            Text("End")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .clipShape(.rect(cornerRadius: 12))
     }
 
     /// "Slide 3 of 12", which also jumps to any slide.
@@ -253,24 +584,7 @@ struct PresentationView: View {
             }
     }
 
-    /// The slide after this one, small; a click moves to it.
-    private func nextSlide(_ state: PresenterStateRecord, session: MetocastSession) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Next").font(.subheadline).foregroundStyle(.secondary)
-            if state.currentSlide < state.totalSlides {
-                Button { session.show(.next) } label: {
-                    SlideView(state: state, number: state.currentSlide + 1, theme: session.presenterTheme)
-                        .clipShape(.rect(cornerRadius: 8))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Next slide, \(state.currentSlide + 1)")
-                .accessibilityHint("Shows it on the output screen.")
-            } else {
-                Text("End of deck").foregroundStyle(.secondary)
-            }
-        }
-    }
-
+    #if os(macOS)
     private func slidePicker(current: UInt32, total: UInt32, session: MetocastSession) -> some View {
         Menu("Slide \(current) of \(total)") {
             ForEach(1...max(total, 1), id: \.self) { slide in
@@ -281,20 +595,6 @@ struct PresentationView: View {
         .buttonStyle(.borderless)
         .fixedSize()
     }
-
-    #if os(iOS)
-    // Transport controls float on the content like other playback controls, so they share one glass group.
-    private func controls(_ session: MetocastSession) -> some View {
-        GlassEffectContainer(spacing: 12) {
-            HStack(spacing: 12) {
-                buttons(session)
-            }
-            .buttonStyle(.glass)
-            .labelStyle(.iconOnly)
-            .controlSize(.large)
-        }
-    }
-    #endif
 
     // On the Mac these sit in the toolbar, which draws its own glass.
     @ViewBuilder
@@ -321,14 +621,12 @@ struct PresentationView: View {
             .keyboardShortcut("b", modifiers: [])
         }
         Button("Next Slide", systemImage: "chevron.forward") { session.show(.next) }
-            #if os(iOS)
-            .buttonStyle(.glassProminent)
-            #endif
             .keyboardShortcut(.rightArrow, modifiers: [])
             .disabled(total > 0 && current >= total)
         Button("Last Slide", systemImage: "forward.end") { session.show(.last) }
             .disabled(total > 0 && current >= total)
     }
+    #endif
 }
 
 /// One slide as the output screen shows it. Like Sanctum's presenter, Classic shows an imported
@@ -343,6 +641,8 @@ struct SlideView: View {
             Color.black
             if theme == .classic, state.renderMode == "svg", let slide = state.svgSlides.first(where: { $0.index == number }) {
                 SVGView(svg: SVGView.scalable(slide))
+                    // The web view would swallow the taps that step through the slides.
+                    .allowsHitTesting(false)
             } else if let slide = state.slides.first(where: { $0.index == number }) {
                 PresenterTextSlide(
                     paragraphs: slide.paragraphs.map {

@@ -13,7 +13,12 @@ struct LiveView: View {
                 let outputs = session.outputs
                 Form {
                     if let event = EventSchedule.current(in: session.events, now: .now) {
-                        LiveOrderSection(session: session, event: event)
+                        Section("Presentation") {
+                            // The Presentation page steps through the event's Order of Service.
+                            Button("Run the Order of Service for \(event.title)", systemImage: "list.number") {
+                                model.pane = .presentation
+                            }
+                        }
                     }
                     if !session.automations.isEmpty {
                         Section {
@@ -451,12 +456,7 @@ struct RecordButton: View {
                 ForEach(chosen, id: \.target) { row in
                     // A row opens the Live page, where each recorder has its own controls.
                     Button { model.pane = .live; model.equipment = nil } label: {
-                        Label {
-                            Text(row.target.shortName)
-                            Text(row.statusText)
-                        } icon: {
-                            Image(systemName: row.symbol)
-                        }
+                        Label("\(row.target.shortName) — \(row.statusText)", systemImage: row.symbol)
                     }
                 }
                 if chosen.isEmpty {
@@ -466,13 +466,7 @@ struct RecordButton: View {
             if output.isOn && !isAllOn && chosen.contains(where: { $0.available && !$0.recording }) {
                 Button("Start the Others", systemImage: "record.circle") { session.control(.recorders(on: true)) }
             }
-            Button("Choose Recorders…", systemImage: "checklist") {
-                #if os(macOS)
-                model.isShowingSettings = true
-                #else
-                model.pane = .settings
-                #endif
-            }
+            Button("Choose Recorders…", systemImage: "checklist", action: chooseRecorders)
         } label: {
             // A short, steady title: in Icon and Text mode the toolbar prints it under the icon.
             Label {
@@ -483,12 +477,20 @@ struct RecordButton: View {
                     .foregroundStyle(isTroubled ? AnyShapeStyle(.orange) : isAllOn ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
             }
         } primaryAction: {
-            guard let control = output.control else { return }
+            guard let control = output.control else { chooseRecorders(); return }
             if output.isOn { askToStop() } else { session.control(control(true)) }
         }
-        .help(output.control == nil ? String(localized: "None of the chosen recorders is connected.") : output.actionName)
+        .help(!output.isOn && !chosen.contains(where: \.available) ? String(localized: "None of the chosen recorders is connected.") : output.actionName)
         .accessibilityLabel(output.actionName)
         .accessibilityValue(isTroubled ? String(localized: "A recorder needs attention") : output.stateText)
+    }
+
+    private func chooseRecorders() {
+        #if os(macOS)
+        model.isShowingSettings = true
+        #else
+        model.pane = .settings
+        #endif
     }
 }
 
@@ -497,6 +499,9 @@ extension RecorderRecord {
     var statusText: String {
         let state = recording ? String(localized: "Recording") : available ? String(localized: "Not recording") : String(localized: "Not connected")
         guard !recording, let error = lastStartError else { return state }
+        if !available, error.hasSuffix("_not_connected") {
+            return String(localized: "\(state) · Didn't start")
+        }
         return String(localized: "\(state) · Didn't start: \(ServerCode.text(error))", comment: "A recorder's state, then why its last start failed")
     }
 

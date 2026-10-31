@@ -201,6 +201,7 @@ const EXCLUDED: &[(&str, &str, &str)] = &[
     ("GET", "/docs", "HTML API reference"),
     ("GET", "/ws", "the WebSocket itself; every command is a tool"),
     ("GET", "/callback", "OAuth redirect target, on its own port"),
+    ("POST", "/auth/callback", "finishes OAuth started by a client device; handled via the app"),
     ("GET", "/connectors/{name}/config/secrets", "reveals stored credentials; loopback and admin token only"),
     ("GET", "/connectors/youtube/stream-key", "returns the live stream key, which would sit in the agent's transcript; use connectors_youtube_schedule or the push_youtube tools, which send it on without showing it"),
     ("GET", "/presenter/welcome/photos/{number}", "a JPEG, which an agent can't use; the photo is set in the app"),

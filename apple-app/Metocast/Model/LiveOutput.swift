@@ -47,7 +47,7 @@ extension MetocastSession {
         let chosen = recorders.filter(\.selected)
         let isOn = chosen.contains(where: \.recording)
         var output = LiveOutput(connector: LiveOutput.recordButton, kind: .recording, state: isOn ? .on : .off)
-        if isOn || chosen.contains(where: \.available) {
+        if !chosen.isEmpty {
             output.control = { .recorders(on: $0) }
         }
         return output

@@ -242,6 +242,9 @@ pub enum PresentationCommand {
     /// Answered by `clients.list`.
     #[serde(rename = "clients.list")]
     ClientsList,
+    /// Pings one connected client by `client_id`; its latency arrives in `clients.updated`.
+    #[serde(rename = "clients.ping")]
+    ClientsPing { client_id: String },
 }
 
 /// `presentation.status`: the active backend, whichever it is.
@@ -266,6 +269,8 @@ pub struct ConnectedClient {
     pub user_agent: Option<String>,
     pub hostname: Option<String>,
     pub connected_at: DateTime<Utc>,
+    #[serde(default)]
+    pub last_pong_at: Option<DateTime<Utc>>,
     pub latency_ms: Option<i64>,
 }
 

@@ -80,7 +80,7 @@ read back; on the Mac that hosts the server, **Show Stored Secrets** reads them 
 run's admin token over loopback. **Save** turns into **Saved** for a moment, and leaving the page
 saves what was changed, with a notification if that fails. Folder fields, like the RØDECaster's
 **Recording Folder**, have a folder button: on the Mac that hosts the server it opens the folder
-panel, and on any other device it asks for the path on the server's Mac. **Settings → Equipment → Automations** writes the
+panel, and on any other device it asks for the path on the server's Mac. **Equipment → Automations** in the sidebar (**Settings → Equipment** on the iPhone) writes the
 [rules that link devices](#connector-automations) and shows their run history, and the **Live** screen
 carries the "Automations armed" switch, the running Middle Control preset and the RØDECaster's own SD
 recorder. **Settings → Server Tools** covers the scheduled jobs, the upload
@@ -578,7 +578,7 @@ with state, and Middle Control's protocol answers nothing.
 Metocast drives several devices, but an operator used to start each recorder by hand. **Automations**
 are rules that run inside the core, so they work with no UI open, in the Mac app's server mode and in
 the headless `metocast-server` alike: _when_ one device does something, Metocast _does_ something on
-others. Every client sees and edits the same rules: **Settings → Equipment → Automations** in the
+others. Every client sees and edits the same rules: **Equipment → Automations** in the sidebar (**Settings → Equipment** on the iPhone) in the
 Apple app, or the REST API below.
 
 A rule fires when **any** of its triggers happens and runs **all** of its actions, in order. The two
@@ -737,7 +737,7 @@ A standalone binary that connects to the Metocast server over WebSocket and rend
 
 Presentations have two persisted designs: **Classic** and **Editorial**. Editorial uses the shared warm-black, ivory and antique-gold treatment for both imported song decks and generated Bible slides; choose it from the Presentations settings in either Tauri UI. The presenter keeps both the source SVG and extracted text for imported decks, so switching the design updates the live output immediately: Classic shows the source artwork and Editorial shows the styled text. The Mac app's slide display and its New Song preview draw the same two designs natively (Cormorant Garamond and Geist Mono ship in `apple-app/Metocast/Fonts`), so the operator's preview matches the output screen.
 
-In Sanctum, use **Slides → + → Create song PPT**, enter a title, and paste lyrics with two empty lines between slides. Metocast keeps every entered line intact (a line of up to 150 characters is never wrapped; a longer one is treated as a paragraph and wraps inside the slide), adds a title slide and a final blank slide, and writes the generated `.pptx` into the song output folder shown in **Slides → Settings**. Bible decks continue to use their separate folder under **Settings → Event settings**.
+In Sanctum, use **Slides → + → Create song PPT**, enter a title, and paste lyrics. An empty line or a line starting with `Refr.` or `Refrén` begins a new slide, and a line too long for the 48 pt song size is broken at its last punctuation or space (a line over 150 characters is treated as a paragraph, stays whole and wraps inside the slide). Metocast adds a title slide and a final blank slide, and writes the generated `.pptx` into the song output folder shown in **Slides → Settings**. Bible decks continue to use their separate folder under **Settings → Event settings**.
 
 See [presenter-receiver/PRESENTER_RECEIVER.md](presenter-receiver/PRESENTER_RECEIVER.md) for full documentation: installation, auto-start on boot, supported platforms, update instructions, and WebSocket protocol reference.
 

@@ -48,7 +48,7 @@ watching them costs the devices nothing.
 Pushes: `recorders.state` (every recorder: chosen, connected, recording, last start) when anything
 changes and to a client with the token when it connects, and `recorder.stopped`
 (`target`, `reason`: `metocast` / `disconnected` / `device`, `error`) whenever a recording stops.
-A failed start or stop answers `recorders_failed: blackmagic-camera: camera_no_media; …`.
+A failed start answers `recorders_failed: blackmagic-camera: camera_no_media; …`, and a failed stop answers `recorders_stop_failed: …` in the same form.
 
 Starting and stopping go through the same code as automations (`recording_control::ensure`).
 

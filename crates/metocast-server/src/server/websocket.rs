@@ -405,7 +405,7 @@ enum WsCommand {
     RodecasterRecordStop,
     // ── Record button ────────────────────────────────────────────────────────
     /// Start every recorder the Record button is set to (`GET /api/settings/record-button`).
-    /// Each one's result arrives in `recorders.state`; `recorders_failed` names those that failed.
+    /// Each one's result arrives in `recorders.state`; `recorders_failed` (`recorders_stop_failed` on a stop) names those that failed.
     #[serde(rename = "recorders.start")]
     RecordersStart,
     /// Stop every recorder the Record button is set to.
@@ -3306,8 +3306,8 @@ async fn handle_ws_command(
         WsCommand::RodecasterRecordStart => {
             reply(client_tx, recording_control::desk_record(state, true).await)
         }
-        WsCommand::RecordersStart => reply(client_tx, crate::recorders::press(state, true).await),
-        WsCommand::RecordersStop => reply(client_tx, crate::recorders::press(state, false).await),
+        WsCommand::RecordersStart => press_recorders(state, client_tx, true),
+        WsCommand::RecordersStop => press_recorders(state, client_tx, false),
         WsCommand::RodecasterRecordStop => reply(
             client_tx,
             recording_control::desk_record(state, false).await,
@@ -3859,6 +3859,15 @@ pub async fn broadcast_clients_updated(state: &AppState) {
     for tx in guard.values() {
         tx.send(Message::Text(msg.clone().into())).log_gone();
     }
+}
+
+/// Spawned, so a slow recorder doesn't hold up the client's other commands.
+fn press_recorders(state: &AppState, client_tx: &mpsc::UnboundedSender<Message>, recording: bool) {
+    let state = state.clone();
+    let client_tx = client_tx.clone();
+    tokio::spawn(async move {
+        reply(&client_tx, crate::recorders::press(&state, recording).await);
+    });
 }
 
 /// Broadcast a `presenter.state` message to all WebSocket clients.

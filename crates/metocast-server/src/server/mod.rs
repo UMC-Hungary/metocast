@@ -726,12 +726,13 @@ pub async fn build_and_serve(options: ServerOptions) -> anyhow::Result<()> {
         .allow_methods(Any)
         .allow_headers(Any);
 
-    // OAuth URL + logout routes — no auth required
+    // OAuth URL, callback submission and logout routes
     let oauth_routes = Router::new()
         .route("/auth/youtube/url", get(routes::youtube_auth_url))
         .route("/auth/youtube/logout", post(routes::youtube_logout))
         .route("/auth/facebook/url", get(routes::facebook_auth_url))
-        .route("/auth/facebook/logout", post(routes::facebook_logout));
+        .route("/auth/facebook/logout", post(routes::facebook_logout))
+        .route("/auth/callback", post(routes::submit_oauth_callback));
 
     // PPT folder and file search routes (all platforms).
     let ppt_routes = Router::new()

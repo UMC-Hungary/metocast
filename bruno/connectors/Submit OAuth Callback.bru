@@ -1,0 +1,28 @@
+meta {
+  name: Submit OAuth Callback
+  type: http
+  seq: 15
+}
+
+post {
+  url: {{baseUrl}}/api/auth/callback
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "code": "4/0AbCdEf...",
+    "state": "00000000-0000-0000-0000-000000000000"
+  }
+}
+
+tests {
+  test("status is 400 for invalid state", function() {
+    expect(res.status).to.equal(400);
+  });
+}

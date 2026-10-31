@@ -3,8 +3,10 @@ use quick_xml::Reader;
 use quick_xml::events::{BytesStart, Event};
 use std::collections::HashMap;
 use std::fs;
+use std::hash::{Hash, Hasher};
 use std::io::{Cursor, Read};
 use std::path::{Component, Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 use zip::ZipArchive;
 
 const DEFAULT_WIDTH_EMU: i64 = 9_144_000;
@@ -18,6 +20,8 @@ const MEDIA_JPEG_QUALITY: u8 = 85;
 struct Theme {
     colors: HashMap<String, String>,
     clr_map: HashMap<String, String>,
+    /// The size a run without its own takes, by placeholder: "title" or "body".
+    placeholder_sizes: HashMap<String, f64>,
 }
 
 impl Default for Theme {
@@ -46,7 +50,11 @@ impl Default for Theme {
             ("accent5".to_string(), "accent5".to_string()),
             ("accent6".to_string(), "accent6".to_string()),
         ]);
-        Self { colors, clr_map }
+        Self {
+            colors,
+            clr_map,
+            placeholder_sizes: HashMap::new(),
+        }
     }
 }
 
@@ -209,6 +217,7 @@ pub fn convert_pptx_to_inline_svg(
     if let Some(bytes) = read_zip_entry_optional(&mut archive, "ppt/slideMasters/slideMaster1.xml")?
     {
         theme.clr_map.extend(parse_clr_map(&bytes)?);
+        theme.placeholder_sizes = parse_master_sizes(&bytes)?;
     }
 
     let background = read_zip_entry_optional(&mut archive, "ppt/slideMasters/slideMaster1.xml")?
@@ -228,7 +237,7 @@ pub fn convert_pptx_to_inline_svg(
     let media_data_uris = read_media_data_uris(&mut archive, width_px, height_px)?;
     let slide_names = slide_entry_names(&mut archive)?;
 
-    let flatten_options = build_flatten_options();
+    let flatten_options = flatten_options();
 
     let mut slides = Vec::with_capacity(slide_names.len());
     for (idx, slide_name) in slide_names.iter().enumerate() {
@@ -237,11 +246,40 @@ pub fn convert_pptx_to_inline_svg(
         let rels = read_zip_entry_optional(&mut archive, &rels_name)?
             .map(|bytes| parse_relationships(&bytes).unwrap_or_default())
             .unwrap_or_default();
-        let items = parse_slide(&slide_xml, &rels, &theme, Some(&media_data_uris))?;
-        let text_svg = render_svg(width, height, &background, &items);
+        // A slide's own background wins over its layout's, which wins over the master's.
+        let layout = rels
+            .values()
+            .find(|target| target.contains("slideLayout"))
+            .map(|target| resolve_zip_path("ppt/slides", target));
+        let layout_xml = match layout {
+            Some(name) => read_zip_entry_optional(&mut archive, &name)?,
+            None => None,
+        };
+        let slide_background = parse_background(&slide_xml, &theme)
+            .ok()
+            .flatten()
+            .or_else(|| {
+                parse_background(layout_xml.as_ref()?, &theme)
+                    .ok()
+                    .flatten()
+            })
+            .unwrap_or_else(|| background.clone());
+        // Sizes inherit like backgrounds: slide over layout over master.
+        let mut slide_theme = theme.clone();
+        if let Some(bytes) = &layout_xml {
+            slide_theme
+                .placeholder_sizes
+                .extend(parse_placeholder_sizes(bytes)?);
+        }
+        slide_theme
+            .placeholder_sizes
+            .extend(parse_placeholder_sizes(&slide_xml)?);
+        let items = parse_slide(&slide_xml, &rels, &slide_theme, Some(&media_data_uris))?;
+        let svg =
+            render_and_flatten_slide(width, height, &slide_background, &items, flatten_options);
         slides.push(InlineSvgSlide {
             index: idx as u32 + 1,
-            svg: flatten_text_to_paths(&text_svg, &flatten_options),
+            svg,
             width_px,
             height_px,
         });
@@ -594,6 +632,88 @@ fn parse_background(
     }
 }
 
+/// The title and body sizes in a master's text styles.
+fn parse_master_sizes(xml: &[u8]) -> Result<HashMap<String, f64>, Box<dyn std::error::Error>> {
+    let mut reader = Reader::from_reader(xml);
+    let mut buf = Vec::new();
+    let mut sizes = HashMap::new();
+    let mut style = None;
+    let mut in_level_one = false;
+    loop {
+        match reader.read_event_into(&mut buf)? {
+            Event::Start(e) => match local_name(e.name().into_inner()) {
+                b"titleStyle" => style = Some("title"),
+                b"bodyStyle" => style = Some("body"),
+                b"lvl1pPr" => in_level_one = true,
+                b"defRPr" if in_level_one => insert_size(&mut sizes, style, &e),
+                _ => {}
+            },
+            Event::Empty(e) if in_level_one && local_name(e.name().into_inner()) == b"defRPr" => {
+                insert_size(&mut sizes, style, &e);
+            }
+            Event::End(e) => match local_name(e.name().into_inner()) {
+                b"titleStyle" | b"bodyStyle" => style = None,
+                b"lvl1pPr" => in_level_one = false,
+                _ => {}
+            },
+            Event::Eof => return Ok(sizes),
+            _ => {}
+        }
+        buf.clear();
+    }
+}
+
+/// The sizes a layout's or slide's placeholders set in their own list styles.
+fn parse_placeholder_sizes(xml: &[u8]) -> Result<HashMap<String, f64>, Box<dyn std::error::Error>> {
+    let mut reader = Reader::from_reader(xml);
+    let mut buf = Vec::new();
+    let mut sizes = HashMap::new();
+    let mut placeholder = None;
+    let mut in_list_style_level = false;
+    loop {
+        match reader.read_event_into(&mut buf)? {
+            Event::Start(e) | Event::Empty(e) if local_name(e.name().into_inner()) == b"ph" => {
+                placeholder = placeholder_kind(&e);
+            }
+            Event::Start(e) => match local_name(e.name().into_inner()) {
+                b"sp" => placeholder = None,
+                b"lvl1pPr" => in_list_style_level = true,
+                b"defRPr" if in_list_style_level => insert_size(&mut sizes, placeholder, &e),
+                _ => {}
+            },
+            Event::Empty(e)
+                if in_list_style_level && local_name(e.name().into_inner()) == b"defRPr" =>
+            {
+                insert_size(&mut sizes, placeholder, &e);
+            }
+            Event::End(e) if local_name(e.name().into_inner()) == b"lvl1pPr" => {
+                in_list_style_level = false;
+            }
+            Event::Eof => return Ok(sizes),
+            _ => {}
+        }
+        buf.clear();
+    }
+}
+
+fn insert_size(sizes: &mut HashMap<String, f64>, kind: Option<&str>, e: &BytesStart<'_>) {
+    if let (Some(kind), Some(size)) = (
+        kind,
+        attr_value(e, b"sz").and_then(|v| v.parse::<f64>().ok()),
+    ) {
+        sizes.insert(kind.to_string(), size / 100.0);
+    }
+}
+
+/// Date, footer and slide number placeholders have sizes of their own, so they inherit nothing here.
+fn placeholder_kind(e: &BytesStart<'_>) -> Option<&'static str> {
+    match attr_value(e, b"type").as_deref() {
+        Some("title" | "ctrTitle") => Some("title"),
+        Some("dt" | "ftr" | "sldNum") => None,
+        _ => Some("body"),
+    }
+}
+
 fn parse_relationships(xml: &[u8]) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
     let mut reader = Reader::from_reader(xml);
     let mut buf = Vec::new();
@@ -630,9 +750,14 @@ fn parse_slide(
     let mut pic: Option<PicState> = None;
     let mut in_text = false;
     let mut in_rpr = false;
+    // Inside a run's outline or shadow, whose colours aren't the text's.
+    let mut rpr_decoration_depth = 0_u32;
     let mut in_text_value = false;
     let mut text_value = String::new();
     let mut current_style = RunStyle::default();
+    let mut shape_size_pt = current_style.size_pt;
+    // PowerPoint's shrink-to-fit, which scales every run in the shape.
+    let mut font_scale = 1.0;
     let mut editing_style: Option<RunStyle> = None;
     let mut para_align = Align::Left;
     let mut line_runs: Vec<TextRun> = Vec::new();
@@ -642,7 +767,24 @@ fn parse_slide(
             Event::Start(e) => {
                 let name = local_name(e.name().into_inner());
                 match name {
-                    b"sp" => shape = Some(ShapeState::default()),
+                    b"sp" => {
+                        shape = Some(ShapeState::default());
+                        shape_size_pt = RunStyle::default().size_pt;
+                        font_scale = 1.0;
+                        current_style.size_pt = shape_size_pt;
+                    }
+                    b"ph" => {
+                        if let Some(size) =
+                            placeholder_kind(&e).and_then(|kind| theme.placeholder_sizes.get(kind))
+                        {
+                            shape_size_pt = *size;
+                            current_style.size_pt = shape_size_pt;
+                        }
+                    }
+                    b"normAutofit" if in_text => {
+                        font_scale = fit_scale(&e);
+                        current_style.size_pt = shape_size_pt * font_scale;
+                    }
                     b"pic" => pic = Some(PicState::default()),
                     b"txBody" => in_text = true,
                     b"bodyPr" if in_text => {
@@ -667,10 +809,10 @@ fn parse_slide(
                     b"rPr" if in_text => {
                         in_rpr = true;
                         let mut style = current_style.clone();
-                        if let Some(sz) = attr_value(&e, b"sz").and_then(|v| v.parse::<f64>().ok())
-                        {
-                            style.size_pt = sz / 100.0;
-                        }
+                        style.size_pt = attr_value(&e, b"sz")
+                            .and_then(|v| v.parse::<f64>().ok())
+                            .map_or(shape_size_pt, |sz| sz / 100.0)
+                            * font_scale;
                         if let Some(bold) = attr_value(&e, b"b") {
                             style.bold = bold == "1" || bold.eq_ignore_ascii_case("true");
                         }
@@ -683,12 +825,15 @@ fn parse_slide(
                         in_text_value = true;
                         text_value.clear();
                     }
+                    b"ln" | b"effectLst" | b"effectDag" | b"highlight" if in_rpr => {
+                        rpr_decoration_depth += 1;
+                    }
                     _ => handle_common_start(
                         &e,
                         name,
                         &mut shape,
                         &mut pic,
-                        (in_text, in_rpr),
+                        (in_text, in_rpr && rpr_decoration_depth == 0),
                         &mut editing_style,
                         theme,
                     ),
@@ -697,6 +842,18 @@ fn parse_slide(
             Event::Empty(e) => {
                 let name = local_name(e.name().into_inner());
                 match name {
+                    b"ph" => {
+                        if let Some(size) =
+                            placeholder_kind(&e).and_then(|kind| theme.placeholder_sizes.get(kind))
+                        {
+                            shape_size_pt = *size;
+                            current_style.size_pt = shape_size_pt;
+                        }
+                    }
+                    b"normAutofit" if in_text => {
+                        font_scale = fit_scale(&e);
+                        current_style.size_pt = shape_size_pt * font_scale;
+                    }
                     b"bodyPr" if in_text => {
                         if let Some(anchor) = attr_value(&e, b"anchor")
                             && let Some(s) = shape.as_mut()
@@ -714,10 +871,10 @@ fn parse_slide(
                     }
                     b"rPr" if in_text => {
                         let mut style = current_style.clone();
-                        if let Some(sz) = attr_value(&e, b"sz").and_then(|v| v.parse::<f64>().ok())
-                        {
-                            style.size_pt = sz / 100.0;
-                        }
+                        style.size_pt = attr_value(&e, b"sz")
+                            .and_then(|v| v.parse::<f64>().ok())
+                            .map_or(shape_size_pt, |sz| sz / 100.0)
+                            * font_scale;
                         if let Some(bold) = attr_value(&e, b"b") {
                             style.bold = bold == "1" || bold.eq_ignore_ascii_case("true");
                         }
@@ -731,7 +888,7 @@ fn parse_slide(
                         name,
                         &mut shape,
                         &mut pic,
-                        (in_text, in_rpr),
+                        (in_text, in_rpr && rpr_decoration_depth == 0),
                         &mut editing_style,
                         theme,
                     ),
@@ -756,6 +913,9 @@ fn parse_slide(
                         }
                         in_text_value = false;
                         text_value.clear();
+                    }
+                    b"ln" | b"effectLst" | b"effectDag" | b"highlight" if in_rpr => {
+                        rpr_decoration_depth -= 1;
                     }
                     b"rPr" if in_rpr => {
                         if let Some(style) = editing_style.take() {
@@ -804,6 +964,12 @@ fn parse_slide(
     }
 
     Ok(items)
+}
+
+fn fit_scale(e: &BytesStart<'_>) -> f64 {
+    attr_value(e, b"fontScale")
+        .and_then(|v| v.parse::<f64>().ok())
+        .map_or(1.0, |scale| scale / 100_000.0)
 }
 
 fn handle_common_start(
@@ -922,11 +1088,14 @@ fn image_href_for_target(
         .map(|file_name| format!("../media/{}", escape_attr(&file_name.to_string_lossy())))
 }
 
-pub(crate) fn build_flatten_options() -> usvg::Options<'static> {
-    let mut options = usvg::Options::default();
-    options.fontdb_mut().load_system_fonts();
-    options.font_family = "Helvetica".to_string();
-    options
+pub(crate) fn flatten_options() -> &'static usvg::Options<'static> {
+    static OPTIONS: OnceLock<usvg::Options<'static>> = OnceLock::new();
+    OPTIONS.get_or_init(|| {
+        let mut options = usvg::Options::default();
+        options.fontdb_mut().load_system_fonts();
+        options.font_family = "Helvetica".to_string();
+        options
+    })
 }
 
 pub(crate) fn flatten_text_to_paths(svg: &str, options: &usvg::Options) -> String {
@@ -939,13 +1108,79 @@ pub(crate) fn flatten_text_to_paths(svg: &str, options: &usvg::Options) -> Strin
     }
 }
 
+/// Flattens only `<text>` shapes through `usvg` while keeping `<image>` data URIs untouched,
+/// so `usvg` never decodes and re-encodes multi-megabyte slide photos on every slide. Each shape
+/// stays where the slide stacks it.
+fn render_and_flatten_slide(
+    width: i64,
+    height: i64,
+    background: &str,
+    items: &[SvgItem],
+    options: &usvg::Options,
+) -> String {
+    let (pixel_width, pixel_height) = svg_pixel_size(width, height);
+    let sx = pixel_width as f64 / width.max(1) as f64;
+    let sy = pixel_height as f64 / height.max(1) as f64;
+    let header = format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" viewBox=\"0 0 {pixel_width} {pixel_height}\" width=\"{pixel_width}\" height=\"{pixel_height}\">\n"
+    );
+    let mut svg = header.clone();
+    svg.push_str(&format!(
+        "<rect x=\"0\" y=\"0\" width=\"{pixel_width}\" height=\"{pixel_height}\" fill=\"#{}\"/>\n",
+        escape_attr(background)
+    ));
+    for item in items {
+        match item {
+            SvgItem::Rect { rect, fill } => render_rect(&mut svg, rect, fill, sx, sy),
+            SvgItem::Image(image) => render_image(&mut svg, image, sx, sy),
+            SvgItem::Text(text) => {
+                let mut text_only = header.clone();
+                render_text_box(&mut text_only, text, sx, sy);
+                text_only.push_str("</svg>\n");
+                svg.push_str(svg_inner_body(&flatten_text_to_paths(&text_only, options)));
+            }
+        }
+    }
+    svg.push_str("\n</svg>\n");
+    svg
+}
+
+fn svg_inner_body(svg: &str) -> &str {
+    let start = svg
+        .find("<svg")
+        .and_then(|s| svg[s..].find('>').map(|c| s + c + 1))
+        .unwrap_or(0);
+    let end = svg.rfind("</svg>").unwrap_or(svg.len());
+    &svg[start..end]
+}
+
+fn frame_cache_key(svg: &str, width: u32, height: u32) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    svg.hash(&mut hasher);
+    width.hash(&mut hasher);
+    height.hash(&mut hasher);
+    hasher.finish()
+}
+
 /// A slide's SVG drawn as a JPEG for a `width`×`height` screen, fitted and centred on black.
 /// A Raspberry Pi takes seconds to draw a photo with resvg, but only a moment to decode this.
+/// Cached by `(svg_hash, width, height)` so repeated requests reply in <1 ms.
 pub(crate) fn render_frame(svg: &str, width: u32, height: u32) -> Result<Vec<u8>, String> {
     // Up to a 4K screen.
     if width == 0 || height == 0 || u64::from(width) * u64::from(height) > 3840 * 2160 {
         return Err(format!("a {width}x{height} frame is not supported"));
     }
+    static FRAME_CACHE: OnceLock<Mutex<HashMap<u64, Vec<u8>>>> = OnceLock::new();
+    let key = frame_cache_key(svg, width, height);
+    if let Some(cached) = FRAME_CACHE
+        .get_or_init(|| Mutex::new(HashMap::new()))
+        .lock()
+        .ok()
+        .and_then(|map| map.get(&key).cloned())
+    {
+        return Ok(cached);
+    }
+
     let tree = usvg::Tree::from_data(svg.as_bytes(), &usvg::Options::default())
         .map_err(|e| format!("the slide's SVG doesn't parse: {e}"))?;
     let size = tree.size();
@@ -971,34 +1206,16 @@ pub(crate) fn render_frame(svg: &str, width: u32, height: u32) -> Result<Vec<u8>
     image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg, MEDIA_JPEG_QUALITY)
         .encode(&rgb, width, height, image::ExtendedColorType::Rgb8)
         .map_err(|e| format!("the frame can't be encoded: {e}"))?;
-    Ok(jpeg)
-}
-
-fn render_svg(width: i64, height: i64, background: &str, items: &[SvgItem]) -> String {
-    let (pixel_width, pixel_height) = svg_pixel_size(width, height);
-    let sx = pixel_width as f64 / width.max(1) as f64;
-    let sy = pixel_height as f64 / height.max(1) as f64;
-    let mut svg = String::new();
-    svg.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-    svg.push_str(
-        "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" ",
-    );
-    svg.push_str(&format!(
-        "viewBox=\"0 0 {pixel_width} {pixel_height}\" width=\"{pixel_width}\" height=\"{pixel_height}\">\n"
-    ));
-    svg.push_str(&format!(
-        "<rect x=\"0\" y=\"0\" width=\"{pixel_width}\" height=\"{pixel_height}\" fill=\"#{}\"/>\n",
-        escape_attr(background)
-    ));
-    for item in items {
-        match item {
-            SvgItem::Rect { rect, fill } => render_rect(&mut svg, rect, fill, sx, sy),
-            SvgItem::Image(image) => render_image(&mut svg, image, sx, sy),
-            SvgItem::Text(text) => render_text_box(&mut svg, text, sx, sy),
+    if let Ok(mut map) = FRAME_CACHE
+        .get_or_init(|| Mutex::new(HashMap::new()))
+        .lock()
+    {
+        if map.len() >= 32 {
+            map.clear();
         }
+        map.insert(key, jpeg.clone());
     }
-    svg.push_str("</svg>\n");
-    svg
+    Ok(jpeg)
 }
 
 fn svg_pixel_size(width: i64, height: i64) -> (u32, u32) {
@@ -1302,6 +1519,75 @@ fn resolve_zip_path(base_dir: &str, target: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_run_without_a_size_inherits_from_its_placeholder() {
+        let master = br#"<p:sldMaster xmlns:a="a" xmlns:p="p"><p:txStyles><p:titleStyle><a:lvl1pPr><a:defRPr sz="4400"/></a:lvl1pPr></p:titleStyle><p:bodyStyle><a:lvl1pPr><a:defRPr sz="3200"><a:latin typeface="x"/></a:defRPr></a:lvl1pPr></p:bodyStyle></p:txStyles></p:sldMaster>"#;
+        let theme = Theme {
+            placeholder_sizes: parse_master_sizes(master).unwrap(),
+            ..Theme::default()
+        };
+        let shape = |ph: &str, body: &str| {
+            format!(
+                r#"<p:sp><p:nvSpPr><p:nvPr>{ph}</p:nvPr></p:nvSpPr><p:txBody><a:bodyPr>{body}</a:bodyPr><a:p><a:r><a:rPr b="1"/><a:t>Text</a:t></a:r></a:p></p:txBody></p:sp>"#
+            )
+        };
+        let size = |xml: String| {
+            let slide =
+                format!(r#"<p:sld xmlns:a="a" xmlns:p="p"><p:spTree>{xml}</p:spTree></p:sld>"#);
+            let debug = format!(
+                "{:?}",
+                parse_slide(slide.as_bytes(), &HashMap::new(), &theme, None).unwrap()
+            );
+            debug
+                .split("size_pt: ")
+                .nth(1)
+                .unwrap()
+                .split(',')
+                .next()
+                .unwrap()
+                .to_string()
+        };
+
+        assert_eq!(size(shape(r#"<p:ph type="title"/>"#, "")), "44.0");
+        assert_eq!(size(shape(r#"<p:ph idx="1"/>"#, "")), "32.0");
+        assert_eq!(
+            size(shape(
+                r#"<p:ph idx="1"/>"#,
+                r#"<a:normAutofit fontScale="50000"/>"#
+            )),
+            "16.0"
+        );
+        // Not a placeholder: the renderer's own default, as before.
+        assert_eq!(size(shape("", "")), "28.0");
+    }
+
+    #[test]
+    fn a_text_shadow_does_not_colour_the_text() {
+        let slide = br#"<p:sld xmlns:a="a" xmlns:p="p"><p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:rPr><a:ln><a:solidFill><a:srgbClr val="00FF00"/></a:solidFill></a:ln><a:solidFill><a:schemeClr val="bg1"/></a:solidFill><a:effectLst><a:outerShdw><a:srgbClr val="000000"><a:alpha val="43137"/></a:srgbClr></a:outerShdw></a:effectLst></a:rPr><a:t>Text</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>"#;
+
+        let items = parse_slide(slide, &HashMap::new(), &Theme::default(), None).unwrap();
+
+        let debug = format!("{items:?}");
+        assert!(debug.contains(r#"fill: "FFFFFF""#), "{debug}");
+        assert!(
+            !debug.contains("000000") && !debug.contains("00FF00"),
+            "{debug}"
+        );
+    }
+
+    #[test]
+    fn a_slide_can_have_its_own_background() {
+        let slide = br#"<p:sld xmlns:a="a" xmlns:p="p"><p:cSld><p:bg><p:bgPr><a:solidFill><a:schemeClr val="tx1"/></a:solidFill></p:bgPr></p:bg><p:spTree/></p:cSld></p:sld>"#;
+        let plain = br#"<p:sld xmlns:p="p"><p:cSld><p:spTree/></p:cSld></p:sld>"#;
+        let theme = Theme::default();
+
+        assert_eq!(
+            parse_background(slide, &theme).unwrap().as_deref(),
+            Some("000000")
+        );
+        assert_eq!(parse_background(plain, &theme).unwrap(), None);
+    }
 
     #[test]
     fn a_frame_fits_the_slide_to_the_screen_on_black() {

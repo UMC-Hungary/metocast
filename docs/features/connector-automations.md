@@ -10,7 +10,7 @@ The trigger and action kinds, the options and how a run behaves are in the
 
 ## Use it
 
-**Settings → Equipment → Automations** in the Apple app. Create a rule, give it triggers and
+**Equipment → Automations** in the sidebar (**Settings → Equipment** on the iPhone) in the Apple app. Create a rule, give it triggers and
 actions, and arm Automations. **Run now** runs a rule's actions at once, ignoring the cooldown and
 the armed switch, to check a setup; it really records and really moves cameras.
 

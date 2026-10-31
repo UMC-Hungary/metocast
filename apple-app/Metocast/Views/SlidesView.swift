@@ -81,6 +81,7 @@ struct DeckList: View {
         let isOpen = session.usesWebPresenter
             ? session.presenter?.filePath == file.path
             : session.presentationStatus?.documentName == file.name
+        let isOpening = session.loadingDeckPath == file.path
         return HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(file.titleParts.isEmpty ? AttributedString(file.name.replacing(/\.pptx?$/, with: "")) : marked(file.titleParts))
@@ -96,7 +97,12 @@ struct DeckList: View {
                     .lineLimit(1)
             }
             Spacer()
-            if isOpen {
+            if isOpening {
+                ProgressView()
+                    .controlSize(.small)
+                    .padding(4)
+                    .glassEffect(.regular, in: .capsule)
+            } else if isOpen {
                 Image(systemName: "play.fill")
                     .foregroundStyle(.tint)
                     .accessibilityLabel("On screen")
@@ -250,7 +256,7 @@ struct SongSlidesView: View {
         } header: {
             Text("Lyrics")
         } footer: {
-            Text("Leave two empty lines between slides. One empty line stays on the slide. A title slide and a blank last slide are added.")
+            Text("An empty line or a Refr. line starts a new slide, and long lines are broken to keep the text large. A title slide and a blank last slide are added.")
         }
         Section {
             LabeledContent("Song Slides Folder") {
@@ -289,24 +295,48 @@ struct SongSlide: Identifiable {
     static func deck(title: String, lyrics: String) -> [SongSlide] {
         var pages: [[String]] = []
         var lines: [String] = []
-        var empty = 0
         func finish() {
-            while lines.last?.isEmpty == true { lines.removeLast() }
-            if lines.contains(where: { !$0.isEmpty }) { pages.append(lines) }
+            if !lines.isEmpty { pages.append(lines) }
             lines = []
         }
         for line in lyrics.trimmed.components(separatedBy: .newlines).map(\.trimmed) {
             if line.isEmpty {
-                empty += 1
-                if empty == 1 { lines.append("") } else if empty == 2 { finish() }
-            } else {
-                empty = 0
-                lines.append(line)
+                finish()
+                continue
             }
+            if ["refr.", "refr:", "refrén"].contains(where: line.lowercased().hasPrefix) { finish() }
+            lines += split(line)
         }
         finish()
         let all = [[title]] + pages + [[]]
         return all.enumerated().map { SongSlide(id: $0.offset + 1, lines: $0.element, isTitle: $0.offset == 0) }
+    }
+
+    // Mirrors presenter.rs `split_song_line`.
+    private static func split(_ line: String) -> [String] {
+        let maxChars = 34
+        let words = line.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        guard words.count <= 150 else { return [words] }
+        var parts: [String] = []
+        var rest = Substring(words)
+        while rest.count > maxChars {
+            var lastSpace: String.Index?
+            var lastPhrase: String.Index?
+            var previous: Character = " "
+            for (position, index) in rest.indices.enumerated() {
+                if position > maxChars { break }
+                if rest[index] == " " {
+                    lastSpace = index
+                    if position >= maxChars / 3, ",;:.!?".contains(previous) { lastPhrase = index }
+                }
+                previous = rest[index]
+            }
+            guard let index = lastPhrase ?? lastSpace else { break }
+            parts.append(String(rest[..<index]))
+            rest = rest[rest.index(after: index)...]
+        }
+        parts.append(String(rest))
+        return parts
     }
 
     // ponytail: mirrors presenter.rs `song_file_name`, which names the deck the Editorial label shows.
@@ -330,9 +360,9 @@ private struct SongPreview: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     PresenterTextSlide(
-                        // The deck is 960 × 540 pt: 52 pt for the title, 40 pt for the lyrics, nothing on the blank slide.
+                        // The deck is 960 × 540 pt: 60 pt for the title, 48 pt for the lyrics, nothing on the blank slide.
                         paragraphs: slide.lines.isEmpty ? [] : [
-                            PresenterParagraph(lines: slide.lines, align: "center", fontSizePt: slide.isTitle ? 52 : 40),
+                            PresenterParagraph(lines: slide.lines, align: "center", fontSizePt: slide.isTitle ? 60 : 48),
                         ],
                         index: slide.id,
                         fileName: fileName,
@@ -437,7 +467,6 @@ extension View {
     /// Search for the deck library. On the Mac it sits at the top of the list rather than in the
     /// toolbar, where it would land after Notifications and Settings; the iPhone keeps its bar.
     func librarySearch(_ query: Binding<String>) -> some View {
-        #if os(macOS)
         safeAreaInset(edge: .top, spacing: 0) {
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
@@ -455,9 +484,6 @@ extension View {
             .glassEffect(.regular.interactive(), in: .capsule)
             .padding(10)
         }
-        #else
-        searchable(text: query, prompt: "Title, number or lyrics")
-        #endif
     }
 }
 

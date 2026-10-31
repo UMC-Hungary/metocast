@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use crate::HostHandle;
 use futures_util::StreamExt;
-use obws::events::Event;
+use obws::events::{Event, OutputState};
 use tokio::sync::{Mutex, RwLock, broadcast, watch};
 use tokio::time::Duration;
 
@@ -408,7 +408,11 @@ async fn handle_event(
     output_state_tx: &broadcast::Sender<ObsOutputState>,
 ) {
     let updated = match event {
-        Event::StreamStateChanged { active, .. } => {
+        Event::StreamStateChanged {
+            active,
+            state: OutputState::Started | OutputState::Stopped,
+            ..
+        } => {
             let mut guard = current.write().await;
             let state = guard.get_or_insert(ObsOutputState {
                 is_streaming: false,
@@ -417,7 +421,11 @@ async fn handle_event(
             state.is_streaming = *active;
             Some(*state)
         }
-        Event::RecordStateChanged { active, .. } => {
+        Event::RecordStateChanged {
+            active,
+            state: OutputState::Started | OutputState::Stopped,
+            ..
+        } => {
             let mut guard = current.write().await;
             let state = guard.get_or_insert(ObsOutputState {
                 is_streaming: false,

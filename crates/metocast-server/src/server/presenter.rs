@@ -12,8 +12,12 @@ pub(crate) mod presenter_svg;
 const MAX_BIBLE_WORDS_PER_SLIDE: usize = 55;
 const BIBLE_MAIN_FONT_SIZE_PT: f32 = 38.0;
 const BIBLE_COUNTER_FONT_SIZE_PT: f32 = 18.0;
-const SONG_FONT_SIZE_PT: f32 = 40.0;
-const SONG_TITLE_FONT_SIZE_PT: f32 = 52.0;
+const SONG_FONT_SIZE_PT: f32 = 48.0;
+const SONG_TITLE_FONT_SIZE_PT: f32 = 60.0;
+/// The longest line that keeps 48 pt inside a generated deck's margins.
+const SONG_LINE_CHARS: usize = 34;
+/// Past this, a line is a paragraph: it stays whole and wraps inside the slide.
+const SONG_PARAGRAPH_CHARS: usize = 150;
 const ANNOUNCEMENTS_PER_SLIDE: usize = 5;
 
 // ── Data types ────────────────────────────────────────────────────────────────
@@ -397,12 +401,36 @@ pub fn parse_pptx(file_path: &str) -> Result<ParsedPresentation, String> {
 }
 
 /// Parse a `.pptx` file into both the legacy text model and self-contained SVG slides.
+/// Cached by `(file_path, modified_time, file_len)` so re-opening a deck with background photos is instant.
 pub fn parse_pptx_svg(file_path: &str) -> Result<ParsedSvgPresentation, String> {
+    use std::collections::HashMap;
+    use std::sync::{Mutex, OnceLock};
+    use std::time::SystemTime;
+
+    type CacheKey = (String, Option<SystemTime>, u64);
+    static DECK_CACHE: OnceLock<Mutex<HashMap<CacheKey, ParsedSvgPresentation>>> = OnceLock::new();
+
+    let meta = std::fs::metadata(file_path).ok();
+    let key: CacheKey = (
+        file_path.to_string(),
+        meta.as_ref().and_then(|m| m.modified().ok()),
+        meta.as_ref().map(|m| m.len()).unwrap_or(0),
+    );
+    if key.2 > 0
+        && let Some(cached) = DECK_CACHE
+            .get_or_init(|| Mutex::new(HashMap::new()))
+            .lock()
+            .ok()
+            .and_then(|map| map.get(&key).cloned())
+    {
+        return Ok(cached);
+    }
+
     let parsed_text = parse_pptx(file_path)?;
     let deck = presenter_svg::convert_pptx_to_inline_svg(Path::new(file_path))
         .map_err(|e| format!("Cannot convert presentation to SVG: {e}"))?;
 
-    Ok(ParsedSvgPresentation {
+    let parsed = ParsedSvgPresentation {
         file_path: file_path.to_string(),
         total_slides: deck.slides.len() as u32,
         slides: parsed_text.slides,
@@ -418,7 +446,16 @@ pub fn parse_pptx_svg(file_path: &str) -> Result<ParsedSvgPresentation, String> 
             .collect(),
         slide_width_emu: deck.width_emu,
         slide_height_emu: deck.height_emu,
-    })
+    };
+    if key.2 > 0
+        && let Ok(mut map) = DECK_CACHE.get_or_init(|| Mutex::new(HashMap::new())).lock()
+    {
+        if map.len() >= 16 {
+            map.clear();
+        }
+        map.insert(key, parsed.clone());
+    }
+    Ok(parsed)
 }
 
 pub fn load_pptx(
@@ -843,6 +880,41 @@ fn format_bible_counter(
     }
 }
 
+/// Breaks a line too long for the song size, at the last punctuation that fits, or else the last
+/// space. A word too long to break stays whole, and so does a paragraph.
+fn split_song_line(line: &str) -> Vec<String> {
+    let line = line.split_whitespace().collect::<Vec<_>>().join(" ");
+    if line.chars().count() > SONG_PARAGRAPH_CHARS {
+        return vec![line];
+    }
+    let mut parts = Vec::new();
+    let mut rest = line.as_str();
+    while rest.chars().count() > SONG_LINE_CHARS {
+        let mut last_space = None;
+        let mut last_phrase = None;
+        let mut previous = ' ';
+        for (position, (index, ch)) in rest.char_indices().enumerate() {
+            if position > SONG_LINE_CHARS {
+                break;
+            }
+            if ch == ' ' {
+                last_space = Some(index);
+                if position >= SONG_LINE_CHARS / 3 && ",;:.!?".contains(previous) {
+                    last_phrase = Some(index);
+                }
+            }
+            previous = ch;
+        }
+        let Some(index) = last_phrase.or(last_space) else {
+            break;
+        };
+        parts.push(rest[..index].to_string());
+        rest = &rest[index + 1..];
+    }
+    parts.push(rest.to_string());
+    parts
+}
+
 fn finish_song_page(pages: &mut Vec<Vec<String>>, lines: &mut Vec<String>) {
     while lines.last().is_some_and(String::is_empty) {
         lines.pop();
@@ -856,21 +928,21 @@ fn finish_song_page(pages: &mut Vec<Vec<String>>, lines: &mut Vec<String>) {
 pub fn song_slides(title: &str, lyrics: &str) -> Vec<SlideContent> {
     let mut pages: Vec<Vec<String>> = Vec::new();
     let mut lines: Vec<String> = Vec::new();
-    let mut empty_lines = 0;
 
     for line in lyrics.lines() {
         let line = line.trim();
         if line.is_empty() {
-            empty_lines += 1;
-            if empty_lines == 1 {
-                lines.push(String::new());
-            } else if empty_lines == 2 {
-                finish_song_page(&mut pages, &mut lines);
-            }
-        } else {
-            empty_lines = 0;
-            lines.push(line.to_string());
+            finish_song_page(&mut pages, &mut lines);
+            continue;
         }
+        let lowercase = line.to_lowercase();
+        if ["refr.", "refr:", "refrén"]
+            .iter()
+            .any(|refrain| lowercase.starts_with(refrain))
+        {
+            finish_song_page(&mut pages, &mut lines);
+        }
+        lines.extend(split_song_line(line));
     }
     finish_song_page(&mut pages, &mut lines);
 
@@ -971,20 +1043,52 @@ mod tests {
     }
 
     #[test]
+    fn a_pasted_song_keeps_the_song_size_on_every_slide() {
+        let slides = song_slides(
+            "Erőt adsz",
+            "1. Erőt adsz minden helyzetben,\nTe vagy a kincsem, életem, Te vagy a mindenem.\n\
+             Kereslek, mert oly drága vagy,\nNincs mivel pótolhatnálak, Te vagy a mindenem.\n\n\
+             Refr.: Jézus, hű Bárány, áldom szent Neved.\n\
+             Jézus, hű Bárány, áldom szent Neved.\n\n\
+             2. Elvetted bűnöm, szégyenem,\nKöszönöm, hogy újjá lettem, Te vagy a mindenem.\n\
+             Felemelsz, hogyha elbukom,\nSzentlelked betölt, jól tudom.  Te vagy a mindenem.\n\
+             Refr.: Jézus, hű Bárány, áldom szent Neved.\n\
+             Jézus, hű Bárány, áldom szent Neved.",
+        );
+
+        assert_eq!(slides.len(), 6, "title, four sections and the blank slide");
+        assert_eq!(
+            slides[1].paragraphs[0].lines[1..3],
+            ["Te vagy a kincsem, életem,", "Te vagy a mindenem."]
+        );
+        let margin = 12_192_000 / 40;
+        for slide in &slides[1..5] {
+            let lines = &slide.paragraphs[0].lines;
+            let (size, wrap) = song_text_fit(
+                lines,
+                12_192_000 - 2 * margin,
+                6_858_000 - 2 * (6_858_000 / 40),
+                SONG_FONT_SIZE_PT,
+            );
+            assert_eq!(size, SONG_FONT_SIZE_PT, "{lines:?}");
+            assert_eq!(wrap, "none");
+        }
+    }
+
+    #[test]
     fn song_sections_become_safe_paged_slides() {
         let slides = song_slides(
             "Song title",
-            "one line stays whole\n\nstill same slide\n\n\nRefr.: next slide",
+            "first line\nsame slide\n\nnext slide\n\n\nafter two blanks\nRefr.: refrain slide",
         );
 
-        assert_eq!(slides.len(), 4);
+        assert_eq!(slides.len(), 6);
         assert_eq!(slides[0].paragraphs[0].lines, ["Song title"]);
-        assert_eq!(
-            slides[1].paragraphs[0].lines,
-            ["one line stays whole", "", "still same slide"]
-        );
-        assert_eq!(slides[2].paragraphs[0].lines, ["Refr.: next slide"]);
-        assert!(slides[3].paragraphs.is_empty());
+        assert_eq!(slides[1].paragraphs[0].lines, ["first line", "same slide"]);
+        assert_eq!(slides[2].paragraphs[0].lines, ["next slide"]);
+        assert_eq!(slides[3].paragraphs[0].lines, ["after two blanks"]);
+        assert_eq!(slides[4].paragraphs[0].lines, ["Refr.: refrain slide"]);
+        assert!(slides[5].paragraphs.is_empty());
         assert_eq!(
             song_file_name("../Kegyelem: 1/2"),
             Some("Kegyelem 1 2.pptx".into())
@@ -1291,11 +1395,15 @@ mod tests {
     }
 
     #[test]
+    fn classic_slides_name_their_font() {
+        let slides = song_slides("Song title", "A line");
+        let xml = classic_slide_xml(&slides[1], 12_192_000, 6_858_000);
+        assert!(xml.contains(r#"<a:latin typeface="Helvetica"/>"#));
+    }
+
+    #[test]
     fn editorial_song_pptx_keeps_lines_and_bookends() {
-        let slides = song_slides(
-            "Song title",
-            "This entire lyric stays on one entered line\nsecond line",
-        );
+        let slides = song_slides("Song title", "This lyric stays on one line\nsecond line");
         let path = std::env::temp_dir().join(format!(
             "metocast-editorial-song-test-{}.pptx",
             std::process::id()
@@ -1324,7 +1432,7 @@ mod tests {
         assert_eq!(parsed.slides[0].paragraphs[0].lines, ["Song title"]);
         assert_eq!(
             parsed.slides[1].paragraphs[0].lines,
-            ["This entire lyric stays on one entered line", "second line"]
+            ["This lyric stays on one line", "second line"]
         );
         assert!(parsed.slides[2].paragraphs.is_empty());
         assert!(xml.contains(r#"wrap="none""#));
@@ -1385,9 +1493,10 @@ fn pptx_align(css: &str) -> &'static str {
 }
 
 fn classic_slide_xml(slide: &SlideContent, width_emu: u64, height_emu: u64) -> String {
-    let margin_x = width_emu / 12;
-    let margin_y = height_emu / 12;
     let is_bible = slide_counter_index(slide).is_some();
+    let margin_divisor = if is_bible { 12 } else { 40 };
+    let margin_x = width_emu / margin_divisor;
+    let margin_y = height_emu / margin_divisor;
     let fits: Vec<(f32, &str)> = slide
         .paragraphs
         .iter()
@@ -1422,7 +1531,7 @@ fn classic_slide_xml(slide: &SlideContent, width_emu: u64, height_emu: u64) -> S
                 .enumerate()
                 .map(|(i, line)| {
                     format!(
-                        r#"{}<a:r><a:rPr lang="hu-HU" sz="{sz}" b="1" dirty="0"><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:rPr><a:t>{}</a:t></a:r>"#,
+                        r#"{}<a:r><a:rPr lang="hu-HU" sz="{sz}" b="1" dirty="0"><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill><a:latin typeface="Helvetica"/></a:rPr><a:t>{}</a:t></a:r>"#,
                         if i > 0 { "<a:br/>" } else { "" },
                         quick_xml::escape::escape(line),
                     )
@@ -1539,9 +1648,8 @@ fn bible_verse_number(counter: &str) -> String {
         .unwrap_or_default()
 }
 
-/// Font size and `wrap` mode for song text. Entered lines stay intact on one
-/// line, however long, so the author's line breaks are the only ones. The one
-/// exception is a paragraph: a line over `PARAGRAPH_CHARS` wraps inside the box
+/// Font size and `wrap` mode for song text. Lines stay on one line, since
+/// `song_slides` has already broken the long ones. The one exception is a paragraph: a line over `PARAGRAPH_CHARS` wraps inside the box
 /// and shrinks only until the wrapped block fits, instead of becoming a 12 pt
 /// strip running off both edges of the slide.
 fn song_text_fit(
@@ -1551,7 +1659,6 @@ fn song_text_fit(
     preferred: f32,
 ) -> (f32, &'static str) {
     const EMU_PER_POINT: f32 = 12_700.0;
-    const PARAGRAPH_CHARS: f32 = 150.0;
     const MIN_PT: f32 = 12.0;
     const CHAR_WIDTH_EM: f32 = 0.54;
     // Word wrapping leaves ragged line ends, so wrapped text needs wider estimates.
@@ -1569,7 +1676,7 @@ fn song_text_fit(
 
     let width_limit = width_pt / (longest * CHAR_WIDTH_EM);
     let height_limit = height_pt / (line_count * LINE_HEIGHT_EM);
-    if longest <= PARAGRAPH_CHARS {
+    if longest <= SONG_PARAGRAPH_CHARS as f32 {
         return (
             preferred.min(width_limit).min(height_limit).max(MIN_PT),
             "none",
@@ -1630,8 +1737,8 @@ fn editorial_slide_xml(
     let song_fit = (!is_bible).then(|| {
         song_text_fit(
             &main.lines,
-            width_emu * 86 / 100,
-            height_emu * 54 / 100,
+            width_emu * 96 / 100,
+            height_emu * 68 / 100,
             if is_title {
                 SONG_TITLE_FONT_SIZE_PT
             } else {
@@ -1770,10 +1877,10 @@ fn editorial_slide_xml(
                 2,
                 "Body",
                 (
-                    width_emu * 7 / 100,
-                    height_emu * 24 / 100,
-                    width_emu * 86 / 100,
-                    height_emu * 54 / 100,
+                    width_emu * 2 / 100,
+                    height_emu * 20 / 100,
+                    width_emu * 96 / 100,
+                    height_emu * 68 / 100,
                 ),
                 &main.lines,
                 TextBoxStyle {

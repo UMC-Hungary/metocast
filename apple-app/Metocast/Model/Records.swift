@@ -275,9 +275,13 @@ enum ServerCode {
         case "camera_ignored_command":
             String(localized: "The camera took the command but nothing changed. Check the camera; Middle Control may be controlling it.")
         case "recorders_failed":
-            String(localized: "Some recorders didn't respond. The Record button's menu says why.")
+            recorderFailures(detail)
+        case "recorders_stop_failed":
+            recorderFailures(detail, stopping: true)
         case "middlecontrol_ignored_command":
             String(localized: "Middle Control didn't report the change. Check the camera in Middle Control.")
+        case "obs_ignored_command":
+            String(localized: "OBS took the command but didn't report the change.")
         case "rodecaster_not_connected", "obs_not_connected", "atem_not_connected", "middlecontrol_not_connected":
             String(localized: "\(ConnectorInfo(id: String(code.dropLast("_not_connected".count)).replacing("_", with: "-")).name) isn't connected right now.")
         case "atem_timeout", "atem_no_response", "atem_no_ack":
@@ -324,6 +328,36 @@ enum ServerCode {
         case "not_live": String(localized: "It isn't live.")
         case "broadcast_ended": String(localized: "This broadcast has ended. Schedule a new one.")
         default: nil
+        }
+    }
+
+    private static func recorderFailures(_ detail: String, stopping: Bool = false) -> String {
+        let items = detail.split(separator: ";").compactMap { part -> String? in
+            let pieces = part.split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+            guard pieces.count == 2 else { return nil }
+            let name = recorderName(pieces[0])
+            let why = pieces[1].hasSuffix("_not_connected") ? String(localized: "Not connected") : text(pieces[1])
+            return "\(name): \(why)"
+        }
+        guard !items.isEmpty else {
+            return String(localized: "Some recorders didn't respond. The Record button's menu says why.")
+        }
+        let list = items.joined(separator: " · ")
+        return stopping ? String(localized: "Didn't stop — \(list)") : String(localized: "Didn't start — \(list)")
+    }
+
+    private static func recorderName(_ raw: String) -> String {
+        if raw.hasPrefix("middlecontrol "), let id = UInt8(raw.dropFirst("middlecontrol ".count)) {
+            return RecordTarget.middlecontrol(cameraId: id).shortName
+        }
+        return switch raw {
+        case "obs": RecordTarget.obs.shortName
+        case "atem": RecordTarget.atem.shortName
+        case "blackmagic-camera": RecordTarget.blackmagicCamera.shortName
+        case "middlecontrol": RecordTarget.middlecontrol(cameraId: nil).shortName
+        case "rodecaster": RecordTarget.rodecaster.shortName
+        case "rodecaster-audio": RecordTarget.rodecasterAudio.shortName
+        default: ConnectorInfo(id: raw).name
         }
     }
 }
