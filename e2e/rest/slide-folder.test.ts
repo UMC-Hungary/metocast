@@ -119,7 +119,8 @@ describe.skipIf(!isLive)('Song slide deck generation', () => {
     });
 
     expect(res.status).toBe(200);
-    expect(res.body.slideCount).toBe(4);
+    // Title, one slide for each of the three sections, and the blank last slide.
+    expect(res.body.slideCount).toBe(5);
     expect(res.body.filePath).toBe(join(dir, 'Kegyelemből ének.pptx'));
     expect(await readdir(dir)).toEqual(['Kegyelemből ének.pptx']);
   });
