@@ -260,7 +260,7 @@ export const ProgramProgressSchema = z.object({
   /** The program job, also while it's being nudged. */
   jobId: z.string().uuid(),
   state: z.enum(['running', 'succeeded', 'failed', 'cancelled']),
-  step: z.enum(['download', 'picture', 'prepare', 'sync', 'clean', 'merge', 'captions']).nullable(),
+  step: z.enum(['download', 'picture', 'prepare', 'sync', 'clean', 'merge', 'portrait', 'captions']).nullable(),
   fraction: z.number().nullable(),
   outputPath: z.string(),
   error: z.string().nullable(),

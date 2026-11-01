@@ -23,7 +23,8 @@ body:json {
     "settings": null,
     "audioSettings": null,
     "startSeconds": null,
-    "subtitles": [{ "path": "/Users/me/Desktop/sermon.hu.srt", "language": "hu" }]
+    "subtitles": [{ "path": "/Users/me/Desktop/sermon.hu.srt", "language": "hu" }],
+    "portrait": { "shiftX": 0 }
   }
 }
 
@@ -37,7 +38,9 @@ docs {
   search (the sync method is then `manual`). Each of `subtitles` (an .srt or
   .vtt, timed to the video or to the recording) is moved onto the program's
   voice, written beside it as `<name>.<lang>.srt`, and, when filed under an
-  event, sent with its YouTube and Facebook uploads as captions.
+  event, sent with its YouTube and Facebook uploads as captions. `portrait` also
+  makes `<name> Portrait.mov`, a 1080×1920 copy with the same sound, filed as its
+  own recording (source `portrait`) so it can upload to different platforms.
   Watch `media.program.progress` on the WebSocket; cancel with Cancel Render
   using the returned `jobId`.
 }

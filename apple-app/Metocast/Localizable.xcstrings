@@ -950,6 +950,16 @@
         }
       }
     },
+    "A second file for phones, 1080 × 1920. It takes about as long again to make." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Egy második fájl telefonokra, 1080 × 1920. Az elkészítése körülbelül még egyszer ennyi idő."
+          }
+        }
+      }
+    },
     "A Slide step in the Order of Service shows this with the web presenter: the photo of the event's month with the logo, and its title, the blessing and the date in the lower third. Click a month to preview it. The text always stays readable: the photo softens and tones down only where text sits." : {
       "localizations" : {
         "hu" : {
@@ -1112,6 +1122,16 @@
         }
       }
     },
+    "Also Make a Portrait Video (9:16)" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Álló videó készítése is (9:16)"
+          }
+        }
+      }
+    },
     "API Key" : {
       "comment" : "Named in English by the Rust core (metocast_core::config); looked up at runtime",
       "extractionState" : "manual",
@@ -1120,6 +1140,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "API-kulcs"
+          }
+        }
+      }
+    },
+    "Assign this file to an event to upload it." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A feltöltéshez rendeld ezt a fájlt egy eseményhez."
           }
         }
       }
@@ -1982,6 +2012,16 @@
         }
       }
     },
+    "Centre" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Középre"
+          }
+        }
+      }
+    },
     "Certificate Fingerprint" : {
       "comment" : "Named in English by the Rust core (metocast_core::config); looked up at runtime",
       "extractionState" : "manual",
@@ -2374,6 +2414,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Csatlakoztasd a(z) %@ eszközt, mielőtt az eszközeit keresed."
+          }
+        }
+      }
+    },
+    "Connect %@ in Settings → Connectors." : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Csatlakoztasd: %@ – Beállítások → Csatlakozók."
           }
         }
       }
@@ -4372,6 +4422,16 @@
         }
       }
     },
+    "Landscape" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fekvő"
+          }
+        }
+      }
+    },
     "LUT" : {
       "localizations" : {
         "hu" : {
@@ -4626,6 +4686,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Új szabályt készít fordított lépésekkel: ami elindult, most leáll, és a felvétel a kamera mozgása előtt áll le. Az élővé vált csatorna most legalább 5 mp-re elnémul. A preset kiváltók kimaradnak, mert egy preset ellentéte az, amelyet te választasz. Ez a szabály változatlan marad."
+          }
+        }
+      }
+    },
+    "Making the portrait video" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az álló videó készítése"
+          }
+        }
+      }
+    },
+    "Making the portrait video · %@" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Az álló videó készítése · %@"
           }
         }
       }
@@ -6298,6 +6378,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Port"
+          }
+        }
+      }
+    },
+    "Portrait" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Álló"
+          }
+        }
+      }
+    },
+    "Portrait Frame" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Álló képkivágás"
           }
         }
       }
@@ -9480,6 +9580,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Közelgő"
+          }
+        }
+      }
+    },
+    "Upload" : {
+      "localizations" : {
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Feltöltés"
           }
         }
       }

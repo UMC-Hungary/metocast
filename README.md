@@ -311,6 +311,12 @@ goes out with the program:
   are only generated with AI (see [Live English transcript and captions](#live-english-transcript-and-captions)) when no English
   transcript was given.
 
+### Portrait copies
+
+A video job can also make a 9:16 copy for phones (`<name> Portrait.mov`, 1080 × 1920), and each file
+can upload to its own platforms: by default portrait goes to Facebook and landscape to YouTube. See
+[Portrait and landscape](docs/features/media.md#portrait-and-landscape).
+
 ### Media processing settings
 
 <img src="docs/images/media/media-settings.png" alt="The Media Processing connector settings" width="380" align="right">

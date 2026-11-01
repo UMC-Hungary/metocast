@@ -282,8 +282,8 @@ final class MetocastSession {
     }
 
     /// Queues a render; its progress then arrives in `renders`.
-    func startRender(path: String, eventId: String?, settings: RenderSettings?) async throws {
-        let queued = try await client.startRender(path: path, eventId: eventId, settings: settings)
+    func startRender(path: String, eventId: String?, settings: RenderSettings?, portrait: PortraitRequest?) async throws {
+        let queued = try await client.startRender(path: path, eventId: eventId, settings: settings, portrait: portrait)
         jobEvents[queued.jobId] = eventId
         renders[queued.jobId] = RenderProgressRecord(
             jobId: queued.jobId,

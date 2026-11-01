@@ -30,6 +30,9 @@ struct MediaViewer: View {
                     ))
                 }
             }
+            if draft.makesPortrait, draft.work != .audio {
+                PortraitSlider(draft: draft, active: draft.crop?.active ?? video.activeArea)
+            }
             if let failure = draft.previewFailure {
                 Label(failure, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.orange)
             }
@@ -87,6 +90,9 @@ struct MediaViewer: View {
                 if let crop = draft.crop, crop.output != crop.active {
                     CropShade(crop: crop, size: geometry.size)
                 }
+                if draft.makesPortrait {
+                    PortraitFrame(active: active, shiftX: draft.portraitShiftX, size: geometry.size)
+                }
                 Rectangle()
                     .fill(.white)
                     .frame(width: 2, height: geometry.size.height)
@@ -138,6 +144,58 @@ private struct CropShade: View {
             Path { $0.addRect(kept) }.stroke(.white.opacity(0.8), lineWidth: 1)
         }
         .allowsHitTesting(false)
+    }
+}
+
+/// Outlines what the portrait copy keeps, over the picture.
+private struct PortraitFrame: View {
+    let active: CropRect
+    let shiftX: Int
+    let size: CGSize
+
+    var body: some View {
+        let frame = portraitFrame(active: active, shiftX: Int32(shiftX))
+        let scale = size.width / CGFloat(max(active.width, 1))
+        let kept = CGRect(
+            x: CGFloat(Int(frame.x) - Int(active.x)) * scale,
+            y: CGFloat(Int(frame.y) - Int(active.y)) * scale,
+            width: CGFloat(frame.width) * scale,
+            height: CGFloat(frame.height) * scale
+        )
+        Path { $0.addRect(kept) }
+            .stroke(.yellow, style: StrokeStyle(lineWidth: 2, dash: [8, 4]))
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}
+
+/// Moves the portrait frame left or right, to keep the speaker in it.
+private struct PortraitSlider: View {
+    @Bindable var draft: MediaDraft
+    let active: CropRect
+
+    var body: some View {
+        let spare = Int(active.width) - Int(portraitFrame(active: active, shiftX: 0).width)
+        let reach = Double(max(spare, 2)) / 2
+        HStack {
+            Text("Portrait Frame").font(.caption).foregroundStyle(.yellow)
+            Slider(
+                value: Binding(
+                    get: { Double(draft.portraitShiftX) },
+                    // Even columns, as 4:2:0 video needs.
+                    set: { draft.portraitShiftX = Int(($0 / 2).rounded()) * 2 }
+                ),
+                in: -reach...reach
+            ) {
+                Text("Portrait Frame")
+            }
+            .labelsHidden()
+            .disabled(spare <= 0)
+            Button("Centre") { draft.portraitShiftX = 0 }
+                .buttonStyle(.borderless)
+                .font(.caption)
+                .disabled(draft.portraitShiftX == 0)
+        }
     }
 }
 
