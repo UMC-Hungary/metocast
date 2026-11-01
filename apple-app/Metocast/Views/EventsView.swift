@@ -469,11 +469,10 @@ private struct RecordingsSection: View {
                             }
                             if let link = recording.videoUrl.flatMap(URL.init(string:)) {
                                 Link("Watch", destination: link).font(.subheadline)
-                            } else if !recording.uploadable {
-                                Button("Upload to YouTube") {
-                                    Task { await flag(recording) }
+                            } else if !recording.uploadable, let session = model.session {
+                                UploadChoices(session: session, eventId: eventId, recordings: [recording]) {
+                                    Task { await load() }
                                 }
-                                .font(.subheadline)
                             }
                         }
                         // Names the recording that a "Watch" or "Upload" among several belongs to.
@@ -508,15 +507,6 @@ private struct RecordingsSection: View {
         do {
             recordings = try await model.session?.recordings(eventId: eventId) ?? []
             failure = nil
-        } catch {
-            failure = error.metocastMessage
-        }
-    }
-
-    private func flag(_ recording: RecordingRecord) async {
-        do {
-            try await model.session?.flagUpload(eventId: eventId, recordingId: recording.id, platforms: ["youtube"])
-            await load()
         } catch {
             failure = error.metocastMessage
         }

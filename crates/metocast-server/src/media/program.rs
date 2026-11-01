@@ -35,18 +35,19 @@ use tokio::sync::{mpsc, oneshot, watch};
 use uuid::Uuid;
 
 use metocast_core::media::{
-    AUDIO_SAMPLE_RATE, AudioReport, AudioSettings, ClockEstimate, MediaConfig, MediaKind,
-    MediaProbe, NudgeRequest, PictureMode, ProgramProbe, ProgramProbeRequest, ProgramProgress,
-    ProgramReport, ProgramRequest, ProgramStep, RenderQueued, RenderSettings, RenderState,
-    SubtitleReport, SubtitleSource, SubtitlesRequest, SyncMethod, SyncReport, VideoSound,
-    output_crop,
+    AUDIO_SAMPLE_RATE, AudioReport, AudioSettings, ClockEstimate, LutMode, MediaConfig, MediaKind,
+    MediaProbe, NudgeRequest, PORTRAIT_MAX_BITRATE_MBPS, PORTRAIT_SOURCE, PictureMode,
+    ProgramProbe, ProgramProbeRequest, ProgramProgress, ProgramReport, ProgramRequest, ProgramStep,
+    RenderQueued, RenderSettings, RenderState, SubtitleReport, SubtitleSource, SubtitlesRequest,
+    SyncMethod, SyncReport, VideoSound, output_crop, portrait_crop,
 };
 
 use super::audio::{self, CANCELLED, HEARTBEAT, StepProgress, arg, strings};
 use super::sync::{self, ENVELOPE_RATE, Envelope};
 use super::{
-    MEDIA_QUEUE, MediaError, Probed, RENDERS_FOLDER, Tools, command, file_recording, load_config,
-    partial_path, probe_source, subtitles, tools, validate_source, whisper, worker,
+    MEDIA_QUEUE, MediaError, PortraitOutput, Probed, RENDERS_FOLDER, Tools, command,
+    file_recording, load_config, partial_path, probe_source, subtitles, tools, validate_source,
+    whisper, worker,
 };
 use crate::queue::{self, Job};
 use crate::server::AppState;
@@ -410,7 +411,12 @@ fn program_paths(config: &MediaConfig, video: &FsPath) -> (PathBuf, PathBuf) {
         || "program".to_string(),
         |stem| stem.to_string_lossy().into_owned(),
     );
-    let taken = |path: &FsPath| path.exists() || partial_path(path).exists();
+    let taken = |path: &FsPath| {
+        let portrait = super::portrait_path(path);
+        [path, portrait.as_path()]
+            .iter()
+            .any(|file| file.exists() || partial_path(file).exists())
+    };
     (1..)
         .map(|n| {
             let name = match n {
@@ -468,6 +474,8 @@ struct ProgramPayload {
     start_seconds: Option<f64>,
     #[serde(default)]
     subtitles: Vec<SubtitleSource>,
+    #[serde(default)]
+    portrait: Option<PortraitOutput>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -476,6 +484,8 @@ struct NudgePayload {
     program_job_id: Uuid,
     output_path: String,
     audio_output_path: String,
+    #[serde(default)]
+    portrait_output_path: Option<String>,
     frames: i32,
 }
 
@@ -486,6 +496,8 @@ struct SubtitlesPayload {
     program_job_id: Uuid,
     output_path: String,
     audio_output_path: String,
+    #[serde(default)]
+    portrait_output_path: Option<String>,
     subtitles: Vec<SubtitleSource>,
 }
 
@@ -623,7 +635,14 @@ async fn queue_program(state: &AppState, body: ProgramRequest) -> Result<RenderQ
             PictureMode::Copy => facts.video.probe.file_size as f64 * 1.05,
         };
         let audio_bytes = facts.video.probe.duration_seconds * f64::from(AUDIO_SAMPLE_RATE) * 6.0;
-        let needed = (picture_bytes + audio_bytes) as u64;
+        // A portrait copy is also written twice: its encode, then its merge with the sound.
+        let portrait_bytes = if body.portrait.is_some() {
+            2.0 * facts.video.probe.duration_seconds * f64::from(PORTRAIT_MAX_BITRATE_MBPS) * 1e6
+                / 8.0
+        } else {
+            0.0
+        };
+        let needed = (picture_bytes + audio_bytes + portrait_bytes) as u64;
         if let Some(free) = free_bytes(folder).await
             && free < needed
         {
@@ -654,6 +673,7 @@ async fn queue_program(state: &AppState, body: ProgramRequest) -> Result<RenderQ
         audio_output_path: audio_output.to_string_lossy().into_owned(),
         start_seconds: body.start_seconds,
         subtitles: body.subtitles,
+        portrait: PortraitOutput::beside(&output, body.portrait),
     };
     let job_id: Uuid = sqlx::query_scalar(
         "INSERT INTO job_queue (queue, job_type, payload, max_attempts) \
@@ -716,6 +736,7 @@ async fn queue_nudge(state: &AppState, id: Uuid, frames: i32) -> Result<RenderQu
         program_job_id: id,
         output_path: program.output_path,
         audio_output_path: program.audio_output_path,
+        portrait_output_path: program.portrait.map(|portrait| portrait.output_path),
         frames,
     };
     let job_id: Uuid = sqlx::query_scalar(
@@ -806,6 +827,7 @@ async fn queue_subtitles(
         program_job_id: id,
         output_path: program.output_path,
         audio_output_path: program.audio_output_path,
+        portrait_output_path: program.portrait.map(|portrait| portrait.output_path),
         subtitles: sources,
     };
     let job_id: Uuid = sqlx::query_scalar(
@@ -1138,6 +1160,11 @@ pub(super) async fn process(state: &AppState, job: &Job) -> Result<(), String> {
     if result.is_err() {
         metocast_core::best_effort::remove_file_if_present(partial_path(&output));
         metocast_core::best_effort::remove_file_if_present(partial_path(&audio_output));
+        if let Some(portrait) = &payload.portrait {
+            metocast_core::best_effort::remove_file_if_present(partial_path(FsPath::new(
+                &portrait.output_path,
+            )));
+        }
     }
     match &result {
         Ok(report) => {
@@ -1190,8 +1217,11 @@ async fn produce(
                 state,
                 job_id,
                 &facts,
-                &payload.settings,
-                &picture,
+                PictureTarget {
+                    settings: &payload.settings,
+                    portrait_shift: None,
+                    output: &picture,
+                },
                 reporter,
                 cancel.clone(),
             )
@@ -1349,11 +1379,53 @@ async fn produce(
         cancel.clone(),
     )
     .await?;
+    clock.done("merge");
+
+    // 6. Portrait: the same sound under a second picture, before either file lands.
+    if let Some(portrait) = &payload.portrait {
+        let picture = work.join("portrait.mov");
+        let mut settings = payload.settings.clone();
+        if payload.picture == PictureMode::Copy {
+            // A kept picture has its look already.
+            settings.lut_mode = LutMode::None;
+        }
+        render_picture(
+            state,
+            job_id,
+            &facts,
+            PictureTarget {
+                settings: &settings,
+                portrait_shift: Some(portrait.shift_x),
+                output: &picture,
+            },
+            reporter,
+            cancel.clone(),
+        )
+        .await?;
+        audio::run_ffmpeg(
+            &ffmpeg,
+            &mux_args(
+                &picture,
+                &audio_partial,
+                facts.video.probe.start_timecode.as_deref(),
+                &partial_path(FsPath::new(&portrait.output_path)),
+            ),
+            None::<(f64, &Step)>,
+            cancel.clone(),
+        )
+        .await?;
+        clock.done("portrait");
+    }
+
     std::fs::rename(&audio_partial, &audio_output)
         .map_err(|e| format!("cannot move the program audio into place: {e}"))?;
     std::fs::rename(&output_partial, &output)
         .map_err(|e| format!("cannot move the program into place: {e}"))?;
-    clock.done("merge");
+    if let Some(portrait) = &payload.portrait {
+        let portrait = FsPath::new(&portrait.output_path);
+        std::fs::rename(partial_path(portrait), portrait)
+            .map_err(|e| format!("cannot move the portrait copy into place: {e}"))?;
+    }
 
     let (coverage, silent_start, silent_end) = sync::coverage(
         sync.offset_seconds,
@@ -1534,19 +1606,35 @@ async fn place_subtitles(
         .collect()
 }
 
-/// The phase 1 render of the picture alone, its frame count reported as the step's progress.
+/// Which picture [`render_picture`] makes, and where.
+struct PictureTarget<'a> {
+    settings: &'a RenderSettings,
+    portrait_shift: Option<i32>,
+    output: &'a FsPath,
+}
+
+/// A render of the picture alone, its frame count reported as the step's progress: the landscape
+/// picture, or the 9:16 copy when `portrait_shift` is set.
 async fn render_picture(
     state: &AppState,
     job_id: Uuid,
     facts: &Facts,
-    settings: &RenderSettings,
-    output: &FsPath,
+    target: PictureTarget<'_>,
     reporter: &Reporter<'_>,
     cancel: watch::Receiver<bool>,
 ) -> Result<(), String> {
-    reporter.step(ProgramStep::Picture, Some(0.0)).await;
+    let PictureTarget {
+        settings,
+        portrait_shift,
+        output,
+    } = target;
+    let step = if portrait_shift.is_some() {
+        ProgramStep::Portrait
+    } else {
+        ProgramStep::Picture
+    };
+    reporter.step(step, Some(0.0)).await;
     let probe = &facts.video.probe;
-    let crop = output_crop(probe.active_area, settings.aspect, settings.crop_shift_y);
     let source = command::Source {
         path: &facts.video_path,
         kind: probe.kind,
@@ -1561,13 +1649,23 @@ async fn render_picture(
         audio_channels: None,
         pixel_format: &facts.video.pixel_format,
     };
-    let commands = command::render_commands(
-        &source,
-        settings,
-        crop,
-        facts.video.tools.braw_sdk.as_deref(),
-        output,
-    );
+    let sdk = facts.video.tools.braw_sdk.as_deref();
+    let commands = match portrait_shift {
+        Some(shift) => command::portrait_commands(
+            &source,
+            settings,
+            portrait_crop(probe.active_area, shift),
+            sdk,
+            output,
+        ),
+        None => command::render_commands(
+            &source,
+            settings,
+            output_crop(probe.active_area, settings.aspect, settings.crop_shift_y),
+            sdk,
+            output,
+        ),
+    };
     let (progress, mut updates) = mpsc::unbounded_channel::<worker::Progress>();
     let (stop, stopped) = oneshot::channel();
     let mut watching = cancel;
@@ -1580,7 +1678,7 @@ async fn render_picture(
         while let Some(update) = updates.recv().await {
             reporter
                 .step(
-                    ProgramStep::Picture,
+                    step,
                     Some((update.frame as f64 / total as f64).clamp(0.0, 1.0)),
                 )
                 .await;
@@ -1919,6 +2017,37 @@ async fn register(
             .await;
         }
     }
+    if let Some(portrait) = &payload.portrait {
+        // Its own recording, so it can go to its own platforms. The sync's report stays with the
+        // landscape file: the portrait's sound simply follows it.
+        let metadata = json!({
+            "source": PORTRAIT_SOURCE,
+            "timeline": metadata["timeline"],
+            "frame": portrait_crop(probe.active_area, portrait.shift_x),
+            "landscapeFile": payload.output_path,
+        });
+        let recording = file_recording(
+            state,
+            payload.event_id,
+            FsPath::new(&portrait.output_path),
+            probe.duration_seconds,
+            "video",
+            PORTRAIT_SOURCE,
+            &metadata,
+        )
+        .await;
+        if let Some(recording_id) = recording {
+            for subtitle in &report.subtitles {
+                crate::transcription::captions_job::store_track(
+                    &state.pool,
+                    recording_id,
+                    &subtitle.language,
+                    &subtitle.srt_path,
+                )
+                .await;
+            }
+        }
+    }
 }
 
 // ── Adjusting a finished program ──────────────────────────────────────────────
@@ -2038,6 +2167,24 @@ async fn caption_program(
         }
         // An upload that already finished gets the new tracks now.
         crate::transcription::captions_job::after_upload(&state.pool, recording_id).await;
+        let portrait: Option<Uuid> =
+            sqlx::query_scalar("SELECT id FROM recordings WHERE file_path = $1")
+                .bind(&payload.portrait_output_path)
+                .fetch_optional(&state.pool)
+                .await
+                .map_err(|e| format!("database error: {e}"))?;
+        if let Some(portrait) = portrait {
+            for subtitle in &placed {
+                crate::transcription::captions_job::store_track(
+                    &state.pool,
+                    portrait,
+                    &subtitle.language,
+                    &subtitle.srt_path,
+                )
+                .await;
+            }
+            crate::transcription::captions_job::after_upload(&state.pool, portrait).await;
+        }
     }
     tracing::info!(program = %payload.program_job_id, transcripts = placed.len(), "media: transcripts added to a finished program");
     Ok(report)
@@ -2064,6 +2211,9 @@ pub(super) async fn nudge(state: &AppState, job: &Job) -> Result<(), String> {
         metocast_core::best_effort::remove_file_if_present(partial_path(FsPath::new(
             &payload.audio_output_path,
         )));
+        if let Some(portrait) = &payload.portrait_output_path {
+            metocast_core::best_effort::remove_file_if_present(partial_path(FsPath::new(portrait)));
+        }
     }
     reporter.ended(&result).await;
     result.map(|_| ())
@@ -2111,13 +2261,51 @@ async fn shift_program(
         &ffmpeg,
         &mux_args(&output, &wav_partial, timecode.as_deref(), &output_partial),
         Some((seconds, &step)),
-        cancel,
+        cancel.clone(),
     )
     .await?;
+    // The portrait copy shares the sound, so it moves too; one deleted by hand is left out.
+    let portrait = payload
+        .portrait_output_path
+        .as_deref()
+        .map(FsPath::new)
+        .filter(|portrait| portrait.is_file());
+    if let Some(portrait) = portrait {
+        audio::run_ffmpeg(
+            &ffmpeg,
+            &mux_args(
+                portrait,
+                &wav_partial,
+                timecode.as_deref(),
+                &partial_path(portrait),
+            ),
+            Some((seconds, &step)),
+            cancel,
+        )
+        .await?;
+    }
     std::fs::rename(&wav_partial, &wav)
         .map_err(|e| format!("cannot move the program audio into place: {e}"))?;
     std::fs::rename(&output_partial, &output)
         .map_err(|e| format!("cannot move the program into place: {e}"))?;
+    if let Some(portrait) = portrait {
+        std::fs::rename(partial_path(portrait), portrait)
+            .map_err(|e| format!("cannot move the portrait copy into place: {e}"))?;
+        let size = i64::try_from(std::fs::metadata(portrait).map_or(0, |meta| meta.len()))
+            .unwrap_or(i64::MAX);
+        sqlx::query("UPDATE recordings SET file_size = $2 WHERE file_path = $1")
+            .bind(portrait.to_string_lossy().as_ref())
+            .bind(size)
+            .execute(&state.pool)
+            .await
+            .map_err(|e| format!("database error: {e}"))?;
+        sqlx::query("UPDATE untracked_recordings SET file_size = $2 WHERE file_path = $1")
+            .bind(portrait.to_string_lossy().as_ref())
+            .bind(size)
+            .execute(&state.pool)
+            .await
+            .map_err(|e| format!("database error: {e}"))?;
+    }
 
     // Playing the audio later means taking it from earlier in the recording.
     let moved = f64::from(payload.frames) * frame;

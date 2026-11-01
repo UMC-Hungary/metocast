@@ -26,10 +26,10 @@ use metocast_core::{
     media::{
         AsShot, AudioInfo, AudioProbe, AudioProgress, AudioReport, AudioRequest, AudioSettings,
         AudioSource, AudioStep, ClockEstimate, CropRect, LutMode, MediaKind, MediaProbe,
-        OutputAspect, PictureMode, PreviewFrame, PreviewRequest, ProgramProbe, ProgramProgress,
-        ProgramReport, ProgramRequest, ProgramStep, RawOptions, RenderProgress, RenderRequest,
-        RenderSettings, RenderState, SubtitleReport, SubtitleSource, SyncMethod, SyncReport,
-        SyncWindow, ValueRange, VideoSound,
+        OutputAspect, PictureMode, PortraitRequest, PreviewFrame, PreviewRequest, ProgramProbe,
+        ProgramProgress, ProgramReport, ProgramRequest, ProgramStep, RawOptions, RenderProgress,
+        RenderRequest, RenderSettings, RenderState, SubtitleReport, SubtitleSource, SyncMethod,
+        SyncReport, SyncWindow, ValueRange, VideoSound,
     },
     operations::{
         BroadlinkCommand, CronJob, CronJobDraft, DeviceListener, QueueJob, QueueSummary,
@@ -817,6 +817,11 @@ pub enum OutputAspect {
     Native,
 }
 
+#[uniffi::remote(Record)]
+pub struct PortraitRequest {
+    pub shift_x: i32,
+}
+
 #[uniffi::remote(Enum)]
 pub enum MediaKind {
     Braw,
@@ -1050,6 +1055,7 @@ pub enum ProgramStep {
     Sync,
     Clean,
     Merge,
+    Portrait,
     Captions,
 }
 
@@ -1116,6 +1122,8 @@ pub struct ProgramRequestRecord {
     pub audio_settings: Option<AudioSettings>,
     pub start_seconds: Option<f64>,
     pub subtitles: Vec<SubtitleSource>,
+    /// Also makes a 9:16 copy with the same sound.
+    pub portrait: Option<PortraitRequest>,
 }
 
 /// A video and its audio on the server's disk, and how a program job would put them together.
@@ -1178,6 +1186,24 @@ pub struct RecordingRecord {
     pub video_url: Option<String>,
     /// "youtube: uploading 12%", one per platform that has started.
     pub upload_states: Vec<String>,
+}
+
+/// The part of `active` a portrait copy keeps, for the viewer's frame.
+#[uniffi::export]
+pub fn portrait_frame(active: CropRect, shift_x: i32) -> CropRect {
+    metocast_core::media::portrait_crop(active, shift_x)
+}
+
+/// What a portrait copy of `file_name` is called, to find its recording.
+#[uniffi::export]
+pub fn portrait_name(file_name: String) -> String {
+    metocast_core::media::portrait_file_name(&file_name)
+}
+
+/// A recording's `source` when it is a portrait copy.
+#[uniffi::export]
+pub fn is_portrait_source(source: String) -> bool {
+    source == metocast_core::media::PORTRAIT_SOURCE
 }
 
 #[derive(Clone, uniffi::Record)]
@@ -1773,12 +1799,14 @@ impl AppleClient {
     }
 
     /// Queues a render. `settings` replaces the stored defaults for this file only; without an
-    /// event the finished file is listed with the untracked recordings.
+    /// event the finished file is listed with the untracked recordings. `portrait` also makes a
+    /// 9:16 copy.
     pub async fn start_render(
         &self,
         path: String,
         event_id: Option<String>,
         settings: Option<RenderSettings>,
+        portrait: Option<PortraitRequest>,
     ) -> Result<RenderQueuedRecord, AppleError> {
         let event_id = event_id.as_deref().map(parse_id).transpose()?;
         let client = self.client.clone();
@@ -1786,6 +1814,7 @@ impl AppleClient {
             path,
             event_id,
             settings,
+            portrait,
         };
         let queued = self
             .run(async move { client.start_render(&request).await })
@@ -1859,6 +1888,7 @@ impl AppleClient {
             audio_settings: request.audio_settings,
             start_seconds: request.start_seconds,
             subtitles: request.subtitles,
+            portrait: request.portrait,
         };
         let queued = self
             .run(async move { client.start_program(&request).await })

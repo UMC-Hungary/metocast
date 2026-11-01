@@ -13,7 +13,9 @@ use tokio::process::{Child, Command};
 use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
 
-use metocast_core::media::{MediaKind, MediaProbe, RenderProgress, RenderState, output_crop};
+use metocast_core::media::{
+    MediaKind, MediaProbe, PORTRAIT_SOURCE, RenderProgress, RenderState, output_crop, portrait_crop,
+};
 
 use super::{
     MEDIA_QUEUE, RenderPayload, Tools, broadcast_progress, command, partial_path, probe_source,
@@ -81,6 +83,10 @@ async fn render(state: &AppState, job: &Job) -> Result<(), String> {
         .map_err(|e| format!("unreadable job payload: {e}"))?;
     let output = PathBuf::from(&payload.output_path);
     let partial = partial_path(&output);
+    let portrait_output = payload
+        .portrait
+        .as_ref()
+        .map(|portrait| PathBuf::from(&portrait.output_path));
     let progress =
         |state_now: RenderState, frame: u64, total: u64, error: Option<String>| RenderProgress {
             job_id: job.id,
@@ -144,9 +150,56 @@ async fn render(state: &AppState, job: &Job) -> Result<(), String> {
             stopped,
         )
         .await?;
+        // The second pass: both files land together, or neither does.
+        let portrait = match (&payload.portrait, &portrait_output) {
+            (Some(portrait), Some(portrait_output)) => {
+                let (stop, stopped) = oneshot::channel();
+                {
+                    let mut running = state.media.running.lock().await;
+                    // Cancel took the first pass's sender just as that pass ended.
+                    if !running.contains_key(&job.id) {
+                        return Err(CANCELLED.to_string());
+                    }
+                    running.insert(job.id, stop);
+                }
+                let frame = portrait_crop(probed.probe.active_area, portrait.shift_x);
+                let commands = command::portrait_commands(
+                    &source,
+                    &payload.settings,
+                    frame,
+                    probed.tools.braw_sdk.as_deref(),
+                    &partial_path(portrait_output),
+                );
+                run(
+                    state,
+                    job.id,
+                    &probed.tools,
+                    &commands,
+                    &probed.probe,
+                    &payload,
+                    stopped,
+                )
+                .await?;
+                std::fs::rename(partial_path(portrait_output), portrait_output)
+                    .map_err(|e| format!("cannot move the portrait copy into place: {e}"))?;
+                Some((portrait_output, frame))
+            }
+            _ => None,
+        };
         std::fs::rename(&partial, &output)
             .map_err(|e| format!("cannot move the render into place: {e}"))?;
-        register(state, &payload, &probed.probe, &output, crop).await;
+        register(state, &payload, &probed.probe, &output, crop, None).await;
+        if let Some((portrait_output, frame)) = portrait {
+            register(
+                state,
+                &payload,
+                &probed.probe,
+                portrait_output,
+                frame,
+                Some(PORTRAIT_SOURCE),
+            )
+            .await;
+        }
         Ok(probed.probe.frame_count)
     }
     .await;
@@ -164,6 +217,9 @@ async fn render(state: &AppState, job: &Job) -> Result<(), String> {
         }
         Err(error) => {
             metocast_core::best_effort::remove_file_if_present(&partial);
+            if let Some(portrait_output) = &portrait_output {
+                metocast_core::best_effort::remove_file_if_present(partial_path(portrait_output));
+            }
             let ended = if error == CANCELLED {
                 progress(RenderState::Cancelled, 0, 0, None)
             } else {
@@ -414,11 +470,12 @@ async fn register(
     probe: &MediaProbe,
     output: &Path,
     frame: metocast_core::media::CropRect,
+    source: Option<&str>,
 ) {
-    let source = match probe.kind {
+    let source = source.unwrap_or(match probe.kind {
         MediaKind::Braw => "braw_render",
         MediaKind::Video => "video_render",
-    };
+    });
     let metadata = json!({
         "source": source,
         "timeline": {

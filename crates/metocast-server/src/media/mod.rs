@@ -32,8 +32,9 @@ use uuid::Uuid;
 
 use base64::Engine as _;
 use metocast_core::media::{
-    CropRect, MediaConfig, MediaKind, MediaProbe, PreviewFrame, PreviewRequest, ProbeRequest,
-    RenderProgress, RenderQueued, RenderRequest, RenderSettings, RenderState, output_crop,
+    CropRect, MediaConfig, MediaKind, MediaProbe, PortraitRequest, PreviewFrame, PreviewRequest,
+    ProbeRequest, RenderProgress, RenderQueued, RenderRequest, RenderSettings, RenderState,
+    output_crop, portrait_file_name,
 };
 
 use crate::database::settings;
@@ -457,8 +458,38 @@ fn output_path(config: &MediaConfig, source: &FsPath) -> PathBuf {
             1 => folder.join(format!("{stem}.mov")),
             n => folder.join(format!("{stem} ({n}).mov")),
         })
-        .find(|path| !path.exists() && !partial_path(path).exists())
+        .find(|path| {
+            let portrait = portrait_path(path);
+            ![path, &portrait]
+                .iter()
+                .any(|file| file.exists() || partial_path(file).exists())
+        })
         .unwrap_or_else(|| folder.join(format!("{stem}.mov")))
+}
+
+/// Where the portrait copy of `output` lands: beside it, named after it.
+fn portrait_path(output: &FsPath) -> PathBuf {
+    let name = output
+        .file_name()
+        .map_or_else(String::new, |name| name.to_string_lossy().into_owned());
+    output.with_file_name(portrait_file_name(&name))
+}
+
+/// A job's portrait copy, fixed when the job was queued.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PortraitOutput {
+    output_path: String,
+    shift_x: i32,
+}
+
+impl PortraitOutput {
+    fn beside(output: &FsPath, request: Option<PortraitRequest>) -> Option<Self> {
+        request.map(|request| Self {
+            output_path: portrait_path(output).to_string_lossy().into_owned(),
+            shift_x: request.shift_x,
+        })
+    }
 }
 
 fn partial_path(output: &FsPath) -> PathBuf {
@@ -553,6 +584,8 @@ struct RenderPayload {
     event_id: Option<Uuid>,
     settings: RenderSettings,
     output_path: String,
+    #[serde(default)]
+    portrait: Option<PortraitOutput>,
 }
 
 // ── REST handlers ─────────────────────────────────────────────────────────────
@@ -657,6 +690,7 @@ async fn queue_render(state: &AppState, body: RenderRequest) -> Result<RenderQue
         event_id: body.event_id,
         settings,
         output_path: output.to_string_lossy().into_owned(),
+        portrait: PortraitOutput::beside(&output, body.portrait),
     };
     // One attempt: a failed render needs a person to look at it, not five retries.
     let job_id: Uuid = sqlx::query_scalar(
@@ -881,6 +915,12 @@ mod tests {
         assert_eq!(
             output_path(&config, &source),
             renders.join("Untitled CAM 1 05 (2).mov")
+        );
+        // A portrait copy left behind keeps its name taken too.
+        std::fs::write(renders.join("Untitled CAM 1 05 (2) Portrait.mov"), b"").unwrap();
+        assert_eq!(
+            output_path(&config, &source),
+            renders.join("Untitled CAM 1 05 (3).mov")
         );
         let elsewhere = MediaConfig {
             output_folder: "/Volumes/Renders".to_string(),

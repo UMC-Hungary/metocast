@@ -255,6 +255,51 @@ pub fn output_crop(active: CropRect, aspect: OutputAspect, shift_y: i32) -> Crop
     }
 }
 
+/// A portrait copy is sized for phones, whatever the source's resolution.
+pub const PORTRAIT_SIZE: (u32, u32) = (1080, 1920);
+/// The most a portrait copy is encoded at: enough for 1080×1920, and small enough for Facebook.
+pub const PORTRAIT_MAX_BITRATE_MBPS: u32 = 10;
+/// The `source` of a portrait copy's recording.
+pub const PORTRAIT_SOURCE: &str = "portrait";
+
+/// Asks a job for a second, 9:16 video beside the landscape one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PortraitRequest {
+    /// Pixels to move the 9:16 frame right (negative: left) from centre.
+    #[serde(default)]
+    pub shift_x: i32,
+}
+
+/// The part of `active` a portrait copy keeps: as tall as the picture allows, 9:16, even-sized.
+#[must_use]
+pub fn portrait_crop(active: CropRect, shift_x: i32) -> CropRect {
+    let even = |value: u32| value & !1;
+    let width = even(active.height * 9 / 16);
+    let (width, height) = if width <= active.width {
+        (width, even(active.height))
+    } else {
+        (even(active.width), even(active.width * 16 / 9))
+    };
+    let spare_x = i64::from(active.width - width);
+    let x = (spare_x / 2 + i64::from(shift_x)).clamp(0, spare_x);
+    CropRect {
+        x: active.x + u32::try_from(x).unwrap_or(0),
+        y: active.y + (active.height - height) / 2,
+        width,
+        height,
+    }
+}
+
+/// What a portrait copy of `file_name` is called: `sermon.mov` → `sermon Portrait.mov`.
+#[must_use]
+pub fn portrait_file_name(file_name: &str) -> String {
+    match file_name.rsplit_once('.') {
+        Some((stem, extension)) => format!("{stem} Portrait.{extension}"),
+        None => format!("{file_name} Portrait"),
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum MediaKind {
@@ -406,6 +451,9 @@ pub struct RenderRequest {
     pub event_id: Option<Uuid>,
     /// The stored defaults when absent.
     pub settings: Option<RenderSettings>,
+    /// Also makes a 9:16 copy; landscape only when absent.
+    #[serde(default)]
+    pub portrait: Option<PortraitRequest>,
 }
 
 /// `POST /api/media/renders` reply.
@@ -673,6 +721,9 @@ pub struct ProgramRequest {
     /// Transcripts to line up with the program and send with its uploads.
     #[serde(default)]
     pub subtitles: Vec<SubtitleSource>,
+    /// Also makes a 9:16 copy with the same sound; landscape only when absent.
+    #[serde(default)]
+    pub portrait: Option<PortraitRequest>,
 }
 
 /// A transcript (`.srt` or `.vtt`) of the program's speech, timed to the video or to the
@@ -721,6 +772,8 @@ pub enum ProgramStep {
     Clean,
     /// Placing the audio under the picture and writing the file.
     Merge,
+    /// Encoding the 9:16 copy and placing the same audio under it.
+    Portrait,
     /// Whisper listening to the program, to place a dropped English transcript on the speech.
     Captions,
 }
@@ -875,6 +928,70 @@ mod tests {
                 height: 3402
             }
         );
+    }
+
+    #[test]
+    fn the_portrait_crop_of_the_6k_active_area_is_centred_9_by_16() {
+        assert_eq!(
+            portrait_crop(ACTIVE_6K, 0),
+            CropRect {
+                x: 8 + (6048 - 2268) / 2,
+                y: 8,
+                width: 2268,
+                height: 4032
+            }
+        );
+    }
+
+    #[test]
+    fn a_portrait_shift_moves_the_frame_but_never_past_the_active_area() {
+        let shifted = |shift| portrait_crop(ACTIVE_6K, shift).x;
+        assert_eq!(shifted(-100), 8 + 1890 - 100);
+        assert_eq!(shifted(-10_000), 8);
+        assert_eq!(shifted(10_000), 8 + 6048 - 2268);
+    }
+
+    #[test]
+    fn a_source_narrower_than_9_by_16_keeps_its_width() {
+        let tall = CropRect {
+            x: 0,
+            y: 0,
+            width: 720,
+            height: 1920,
+        };
+        assert_eq!(
+            portrait_crop(tall, 0),
+            CropRect {
+                x: 0,
+                y: 320,
+                width: 720,
+                height: 1280
+            }
+        );
+    }
+
+    #[test]
+    fn a_portrait_copy_is_named_after_its_landscape_file() {
+        assert_eq!(portrait_file_name("CAM 1.mov"), "CAM 1 Portrait.mov");
+        assert_eq!(
+            portrait_file_name("CAM 1 (2).mov"),
+            "CAM 1 (2) Portrait.mov"
+        );
+        assert_eq!(portrait_file_name("sermon"), "sermon Portrait");
+    }
+
+    #[test]
+    fn a_job_is_landscape_only_unless_it_asks_for_portrait() {
+        let plain: RenderRequest = serde_json::from_value(
+            serde_json::json!({"path": "/a.mov", "eventId": null, "settings": null}),
+        )
+        .unwrap();
+        assert_eq!(plain.portrait, None);
+        let both: ProgramRequest = serde_json::from_value(
+            serde_json::json!({"videoPath": "/a.mov", "portrait": {"shiftX": -40}}),
+        )
+        .unwrap();
+        assert_eq!(both.portrait, Some(PortraitRequest { shift_x: -40 }));
     }
 
     #[test]

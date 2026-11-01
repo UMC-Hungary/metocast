@@ -1007,7 +1007,14 @@ fn handwritten() -> Value {
                     "properties": {
                         "path": { "type": "string", "description": "Absolute path of a .braw, .mov or .mp4 file on the server's disk" },
                         "eventId": { "type": ["string", "null"], "format": "uuid", "description": "The event the finished file is filed under; untracked when absent" },
-                        "settings": { "oneOf": [{ "$ref": "#/components/schemas/RenderSettings" }, { "type": "null" }], "description": "The stored defaults when absent" }
+                        "settings": { "oneOf": [{ "$ref": "#/components/schemas/RenderSettings" }, { "type": "null" }], "description": "The stored defaults when absent" },
+                        "portrait": { "oneOf": [{ "$ref": "#/components/schemas/PortraitRequest" }, { "type": "null" }], "description": "Also makes `<name> Portrait.mov`, filed as its own recording with source `portrait`; landscape only when absent" }
+                    }
+                },
+                "PortraitRequest": {
+                    "type": "object",
+                    "properties": {
+                        "shiftX": { "type": "integer", "description": "Pixels to move the 9:16 frame right (negative: left) from centre; it stops at the picture's edge" }
                     }
                 },
                 "RenderQueued": {
@@ -1160,7 +1167,8 @@ fn handwritten() -> Value {
                         "settings": { "oneOf": [{ "$ref": "#/components/schemas/RenderSettings" }, { "type": "null" }], "description": "The grade; the stored defaults when absent" },
                         "audioSettings": { "oneOf": [{ "$ref": "#/components/schemas/AudioSettings" }, { "type": "null" }], "description": "The stored defaults when absent" },
                         "startSeconds": { "type": ["number", "null"], "description": "Where in the joined audio the video starts, when the operator knows; skips the search (sync method `manual`). Negative when the audio starts after the video", "example": 346.75 },
-                        "subtitles": { "type": "array", "items": { "$ref": "#/components/schemas/SubtitleSource" }, "description": "Transcripts to move onto the program's voice, write beside it as .srt and send with its YouTube and Facebook uploads (when filed under an event); one per language" }
+                        "subtitles": { "type": "array", "items": { "$ref": "#/components/schemas/SubtitleSource" }, "description": "Transcripts to move onto the program's voice, write beside it as .srt and send with its YouTube and Facebook uploads (when filed under an event); one per language" },
+                        "portrait": { "oneOf": [{ "$ref": "#/components/schemas/PortraitRequest" }, { "type": "null" }], "description": "Also makes `<name> Portrait.mov` with the same sound, filed as its own recording with source `portrait`; landscape only when absent" }
                     }
                 },
                 "SyncWindow": {
@@ -1212,7 +1220,7 @@ fn handwritten() -> Value {
                     "properties": {
                         "jobId": { "type": "string", "format": "uuid", "description": "The program job, also while it's being nudged" },
                         "state": { "type": "string", "enum": ["running", "succeeded", "failed", "cancelled"] },
-                        "step": { "type": ["string", "null"], "enum": ["download", "picture", "prepare", "sync", "clean", "merge", "captions", null] },
+                        "step": { "type": ["string", "null"], "enum": ["download", "picture", "prepare", "sync", "clean", "merge", "portrait", "captions", null] },
                         "fraction": { "type": ["number", "null"] },
                         "outputPath": { "type": "string" },
                         "error": { "type": ["string", "null"] },

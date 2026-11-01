@@ -59,6 +59,9 @@ final class MediaDraft {
     var picture: PictureMode = .grade
     var sound: VideoSoundChoice = .cleaned
     var event: EventSummaryRecord?
+    /// Also make a 9:16 copy, framed `portraitShiftX` pixels right of centre.
+    var makesPortrait = true
+    var portraitShiftX = 0
     var frame = 0.0
     var original: NSImage?
     var result: NSImage?
@@ -152,6 +155,7 @@ final class MediaDraft {
                     sound = program.videoSound.usable ? .cleaned : .none
                     // The middle is more likely the sermon than the first frame is.
                     frame = Double(program.video.frameCount / 2)
+                    portraitShiftX = 0
                     original = nil
                     result = nil
                     originalFrame = nil
@@ -221,6 +225,7 @@ final class MediaDraft {
         SystemNotice.ask()
         isWorking = true
         defer { isWorking = false }
+        let portrait = makesPortrait ? PortraitRequest(shiftX: Int32(portraitShiftX)) : nil
         do {
             switch work {
             case .program:
@@ -233,12 +238,13 @@ final class MediaDraft {
                     settings: picture == .grade ? settings : nil,
                     audioSettings: audioSettings,
                     startSeconds: nil,
-                    subtitles: transcripts.map { SubtitleSource(path: $0.path, language: $0.language) }
+                    subtitles: transcripts.map { SubtitleSource(path: $0.path, language: $0.language) },
+                    portrait: portrait
                 ))
             case .render:
                 guard let program, var settings else { return }
                 if sound == .none { settings.audioChannels = [] }
-                try await session.startRender(path: program.video.path, eventId: event?.id, settings: settings)
+                try await session.startRender(path: program.video.path, eventId: event?.id, settings: settings, portrait: portrait)
             case .audio:
                 guard let audio else { return }
                 try await session.startAudio(paths: audio.sources.map(\.path), eventId: event?.id, settings: audioSettings)
@@ -639,6 +645,11 @@ private struct OutputCard: View {
                     Text("Keep as Is").tag(PictureMode.copy)
                 }
                 .pickerStyle(.segmented)
+            }
+            Toggle("Also Make a Portrait Video (9:16)", isOn: $draft.makesPortrait)
+            if draft.makesPortrait {
+                Text("A second file for phones, 1080 × 1920. It takes about as long again to make.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             if draft.picture == .grade, let settings = Binding($draft.settings) {
                 Picker("Frame", selection: settings.aspect) {

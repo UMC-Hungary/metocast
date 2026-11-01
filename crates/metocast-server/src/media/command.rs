@@ -3,7 +3,9 @@
 //! line.
 use std::path::Path;
 
-use metocast_core::media::{CropRect, LutMode, MediaKind, RenderSettings};
+use metocast_core::media::{
+    CropRect, LutMode, MediaKind, PORTRAIT_MAX_BITRATE_MBPS, PORTRAIT_SIZE, RenderSettings,
+};
 
 /// Everything a render needs to know about its source, resolved by the probe.
 #[derive(Debug, Clone)]
@@ -183,6 +185,7 @@ fn ffmpeg_args(
     source: &Source,
     settings: &RenderSettings,
     crop: CropRect,
+    scale_to: Option<(u32, u32)>,
     output: &Path,
 ) -> Vec<String> {
     let mut args: Vec<String> = [
@@ -260,7 +263,10 @@ fn ffmpeg_args(
     }
 
     // Tag the frames themselves: VideoToolbox writes the VUI from them, not from -color_*.
-    filters.push("scale=out_color_matrix=bt709:out_range=tv".to_string());
+    let size = scale_to.map_or_else(String::new, |(width, height)| {
+        format!("{width}:{height}:flags=lanczos:")
+    });
+    filters.push(format!("scale={size}out_color_matrix=bt709:out_range=tv"));
     filters.push("format=p010le".to_string());
     filters.push(
         "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709:range=tv".to_string(),
@@ -305,7 +311,27 @@ pub fn render_commands(
     RenderCommands {
         decoder: (source.kind == MediaKind::Braw)
             .then(|| decoder_args(source, settings, crop, sdk)),
-        ffmpeg: ffmpeg_args(source, settings, crop, output),
+        ffmpeg: ffmpeg_args(source, settings, crop, None, output),
+    }
+}
+
+/// [`render_commands`] for a portrait copy: brought down to phone size and bitrate, and never up.
+pub fn portrait_commands(
+    source: &Source,
+    settings: &RenderSettings,
+    crop: CropRect,
+    sdk: Option<&Path>,
+    output: &Path,
+) -> RenderCommands {
+    let settings = RenderSettings {
+        bitrate_mbps: settings.bitrate_mbps.min(PORTRAIT_MAX_BITRATE_MBPS),
+        ..settings.clone()
+    };
+    let scale_to = (crop.height > PORTRAIT_SIZE.1).then_some(PORTRAIT_SIZE);
+    RenderCommands {
+        decoder: (source.kind == MediaKind::Braw)
+            .then(|| decoder_args(source, &settings, crop, sdk)),
+        ffmpeg: ffmpeg_args(source, &settings, crop, scale_to, output),
     }
 }
 
@@ -344,6 +370,44 @@ mod tests {
         args.iter()
             .position(|arg| arg == flag)
             .map(|at| args[at + 1].as_str())
+    }
+
+    #[test]
+    fn a_portrait_copy_is_cropped_tall_then_brought_down_to_phone_size() {
+        let source = sermon();
+        let settings = MediaConfig::default().settings().unwrap();
+        let active = CropRect {
+            x: 0,
+            y: 0,
+            width: source.width,
+            height: source.height,
+        };
+        let crop = metocast_core::media::portrait_crop(active, 0);
+        let commands = portrait_commands(
+            &source,
+            &settings,
+            crop,
+            None,
+            Path::new("/out/a Portrait.mov"),
+        );
+        let decoder = commands.decoder.unwrap();
+        assert_eq!(
+            value_after(&decoder, "--crop"),
+            Some(format!("{},0,{},{}", crop.x, crop.width, crop.height).as_str())
+        );
+        let filters = value_after(&commands.ffmpeg, "-vf").unwrap();
+        assert!(filters.contains("scale=1080:1920:flags=lanczos:out_color_matrix=bt709"));
+        assert_eq!(value_after(&commands.ffmpeg, "-b:v"), Some("10M"));
+
+        let small = CropRect {
+            x: 0,
+            y: 0,
+            width: 608,
+            height: 1080,
+        };
+        let commands = portrait_commands(&source, &settings, small, None, Path::new("/out/b.mov"));
+        let filters = value_after(&commands.ffmpeg, "-vf").unwrap();
+        assert!(filters.contains(",scale=out_color_matrix"), "{filters}");
     }
 
     #[test]

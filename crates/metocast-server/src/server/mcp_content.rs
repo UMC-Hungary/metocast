@@ -183,7 +183,8 @@ pub const PROMPTS: &[Prompt] = &[
          uploaded.\n\
          2. `recordings_untracked_list`: offer to link any that belong to this event with \
          `recordings_untracked_assign`.\n\
-         3. Ask which recordings go to which platform, then call `recordings_flag_upload`.\n\
+         3. Ask which recordings go to which platform, suggesting source `portrait` to Facebook \
+         and landscape files to YouTube, then call `recordings_flag_upload`.\n\
          4. Call `uploads_trigger` to run the upload now.\n\
          5. Call `events_poll` with `types` set to the `upload.progress`, `upload.completed` and \
          `upload.failed` events and `wait_ms` 20000, repeating until every upload ends. Check \

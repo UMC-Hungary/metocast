@@ -51,8 +51,27 @@
           | undefined) ?? 'ONLY_ME',
     ),
   );
+  // A portrait copy starts on Facebook and anything else on YouTube; each can go to either or both.
+  let platforms = $state<Record<string, { youtube: boolean; facebook: boolean }>>(
+    untrack(() =>
+      Object.fromEntries(
+        recordings.map((r) => [
+          r.id,
+          { youtube: r.source !== 'portrait', facebook: r.source === 'portrait' },
+        ]),
+      ),
+    ),
+  );
   let saving = $state(false);
   let error = $state('');
+
+  function platformsFor(id: string): string[] {
+    const chosen = platforms[id];
+    const names: string[] = [];
+    if (chosen?.youtube && ytConnected) names.push('youtube');
+    if (chosen?.facebook && fbConnected) names.push('facebook');
+    return names;
+  }
 
   function toggleSelection(id: string) {
     if (selectedIds.has(id)) {
@@ -65,11 +84,12 @@
   async function startUpload() {
     if (selectedIds.size === 0) return;
 
-    const platforms: string[] = [];
-    if (ytConnected) platforms.push('youtube');
-    if (fbConnected) platforms.push('facebook');
-    if (platforms.length === 0) {
+    if (!ytConnected && !fbConnected) {
       error = 'No platforms connected. Connect YouTube or Facebook first.';
+      return;
+    }
+    if ([...selectedIds].some((id) => platformsFor(id).length === 0)) {
+      error = 'Pick a connected platform for each selected recording.';
       return;
     }
 
@@ -82,7 +102,7 @@
         custom_description: customDescriptions[id] || undefined,
         youtube_visibility: ytConnected ? youtubeVisibility : undefined,
         facebook_visibility: fbConnected ? facebookVisibility : undefined,
-        platforms,
+        platforms: platformsFor(id),
       }));
 
       await flagRecordingsForUpload(event.id, items);
@@ -136,6 +156,26 @@
                   <span>Description</span>
                   <textarea bind:value={customDescriptions[rec.id]} rows={2}></textarea>
                 </label>
+                {#if platforms[rec.id]}
+                  <div class="platforms">
+                    <label>
+                      <input
+                        type="checkbox"
+                        disabled={!ytConnected}
+                        bind:checked={platforms[rec.id]!.youtube}
+                      />
+                      YouTube
+                    </label>
+                    <label>
+                      <input
+                        type="checkbox"
+                        disabled={!fbConnected}
+                        bind:checked={platforms[rec.id]!.facebook}
+                      />
+                      Facebook
+                    </label>
+                  </div>
+                {/if}
               </div>
             {/if}
           </li>
@@ -311,6 +351,13 @@
 
   .field textarea {
     resize: vertical;
+  }
+
+  .platforms {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
   }
 
   .visibility-section {

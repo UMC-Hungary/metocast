@@ -15,6 +15,33 @@ Drop the video, its audio recording, a transcript or a Resolve look on the Files
 look on the viewer's tiles, pick the event, and start the job. Settings are under **Connectors →
 Media Processing**; changes on the page apply to that job unless saved as the default.
 
+### Portrait and landscape
+
+Every video job can make two files: the landscape one, and a 9:16 copy for phones. **Also Make a
+Portrait Video** on the Output card is on by default.
+
+- **Framing.** The dashed yellow outline on the viewer is what the portrait video keeps. Drag
+  **Portrait Frame** under the picture to keep the speaker inside it; it starts in the centre for
+  each new clip. It crops the source itself, so it is not limited to the 16:9 frame's height.
+- **The file.** `<name> Portrait.mov`, beside the landscape file: 1080 × 1920 (never enlarged), HEVC
+  10-bit at up to 10 Mbps, with the same look, sound and transcripts as the landscape file. Moving
+  the sound by a frame, or dropping a transcript on the finished job, applies to both.
+- **The time.** The picture is encoded a second time, from the source, as the **Making the portrait
+  video** step. Both files land together: a job that fails or is cancelled leaves neither.
+- **Keep as Is.** The landscape file's picture is copied untouched; only the portrait file is
+  encoded.
+
+### Choosing where each file uploads
+
+A finished job filed under an event lists **Landscape** and **Portrait** in **Finished**, each with
+a **YouTube** and a **Facebook** button. Landscape starts on YouTube and portrait on Facebook; change
+either, send one file to both places, or turn both off, then press **Upload**. A platform that isn't
+connected can't be picked, and the row says so. An event's **Recordings** list offers the same
+choice, and so does the Upload Recordings dialog in the web UI.
+
+Each file is its own recording: over the API a portrait file has `source: "portrait"`, and
+`POST /api/events/{id}/recordings/flag-upload` takes the platforms for each recording.
+
 ### While a job runs
 
 - **One at a time.** The Start card swaps its button for the running job's progress and
@@ -95,12 +122,13 @@ see [the SDK on a build machine](../../braw-decode/README.md#the-sdk-on-a-build-
 | ----------------------------------------- | ---------------------------------------------------------------------------------------- | -------------------------------- |
 | Describe a video file                     | `POST /api/media/probe`                                                                  | `media_probe`                    |
 | Render a still preview of the graded look | `POST /api/media/preview`                                                                | `media_preview`                  |
-| Start a video render                      | `POST /api/media/renders`                                                                | `media_renders_start`            |
+| Start a video render (`portrait` for two) | `POST /api/media/renders`                                                                | `media_renders_start`            |
 | Cancel a render                           | `POST /api/media/renders/{id}/cancel`                                                    | `media_renders_cancel`           |
 | Describe the audio files of a recording   | `POST /api/media/audio/probe`                                                            | `media_audio_probe`              |
 | Start an audio master                     | `POST /api/media/audio`                                                                  | `media_audio_start`              |
 | Describe a program (video plus audio)     | `POST /api/media/programs/probe`                                                         | `media_programs_probe`           |
-| Start a program render                    | `POST /api/media/programs`                                                               | `media_programs_start`           |
+| Start a program (`portrait` for two)      | `POST /api/media/programs`                                                               | `media_programs_start`           |
+| Choose where each file uploads            | `POST /api/events/{id}/recordings/flag-upload`                                           | `recordings_flag_upload`         |
 | Shift a program's audio against its video | `POST /api/media/programs/{id}/nudge`                                                    | `media_programs_nudge`           |
 | Place transcripts on a finished program   | `POST /api/media/programs/{id}/subtitles`                                                | `media_programs_subtitles`       |
 | Read or save the processing defaults      | `GET`/`PUT /api/connectors/media/config`                                                 | `connectors_config_get`/`_set`   |

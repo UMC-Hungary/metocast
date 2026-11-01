@@ -151,6 +151,9 @@ enum MediaJob {
             case .sync: String(localized: "Finding where the video starts in the audio")
             case .clean: String(localized: "Cleaning the voice with jive-vocals")
             case .merge: job.report == nil ? String(localized: "Putting the sound under the picture") : String(localized: "Moving the sound")
+            case .portrait: job.fraction.map {
+                String(localized: "Making the portrait video · \($0.formatted(.percent.precision(.fractionLength(0))))")
+            } ?? String(localized: "Making the portrait video")
             case .captions: job.fraction.map {
                 String(localized: "Placing the transcript on the speech · \($0.formatted(.percent.precision(.fractionLength(0))))")
             } ?? String(localized: "Placing the transcript on the speech")
@@ -166,15 +169,14 @@ struct MediaJobRow: View {
     /// Why a nudge or added transcripts were refused.
     @State private var adjustFailure: String?
     @State private var transcriptTargeted = false
-    /// The filed recording, once the job has made one under an event.
-    @State private var recording: RecordingRecord?
-    @State private var uploadFailure: String?
+    /// The filed recordings, once the job has made them under an event: landscape, then portrait.
+    @State private var recordings: [RecordingRecord] = []
     /// Bumped when an upload starts, which restarts `watchUpload`.
-    @State private var uploads = 0
+    @State private var uploadsStarted = 0
 
     private struct Watch: Equatable {
         var succeeded: Bool
-        var uploads: Int
+        var uploadsStarted: Int
     }
 
     var body: some View {
@@ -211,7 +213,7 @@ struct MediaJobRow: View {
                 Text(job.step).font(.caption).foregroundStyle(.secondary)
             case .succeeded:
                 result
-                youtube
+                uploads
             case .cancelled:
                 Label("Cancelled", systemImage: "xmark.circle").font(.caption).foregroundStyle(.secondary)
             case .failed:
@@ -225,9 +227,6 @@ struct MediaJobRow: View {
             if let adjustFailure {
                 Label(adjustFailure, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.red)
             }
-            if let uploadFailure {
-                Label(uploadFailure, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.red)
-            }
         }
         // A finished program takes transcripts dropped on its row: they're placed on it as the job
         // would have, without producing it again.
@@ -238,76 +237,46 @@ struct MediaJobRow: View {
         // Says which file a "Cancel" or "Play" among several jobs is for.
         .accessibilityElement(children: .contain)
         .accessibilityLabel(URL(fileURLWithPath: job.outputPath).lastPathComponent)
-        .task(id: Watch(succeeded: job.state == .succeeded, uploads: uploads)) { await watchUpload() }
+        .task(id: Watch(succeeded: job.state == .succeeded, uploadsStarted: uploadsStarted)) { await watchUpload() }
     }
 
-    /// Uploading to YouTube: audio masters don't go there, and a file needs its event for a title.
+    /// Where each file goes: audio masters go nowhere, and a file needs its event for a title.
     @ViewBuilder
-    private var youtube: some View {
+    private var uploads: some View {
         switch job {
         case .audio:
             EmptyView()
         case .render, .program:
             if let eventId = session.jobEvents[job.id] {
-                HStack(spacing: 8) {
-                    if let link = recording?.videoUrl.flatMap(URL.init(string:)) {
-                        Label("On YouTube (private)", systemImage: "checkmark.circle").foregroundStyle(.green)
-                        Link("Watch", destination: link)
-                    } else if let state = recording?.uploadStates.first, !state.contains("failed") {
-                        Label(state, systemImage: "arrow.up.circle").foregroundStyle(.secondary)
-                    } else {
-                        Button(recording?.uploadStates.isEmpty == false ? "Try Again" : "Upload to YouTube", systemImage: "arrow.up.circle") {
-                            upload(eventId: eventId)
-                        }
-                        .disabled(recording == nil || !youtubeIsConnected)
-                        if recording?.uploadStates.isEmpty == false {
-                            Text("The last upload failed.").foregroundStyle(.red)
-                        } else if !youtubeIsConnected {
-                            Text("Connect YouTube in Settings → Connectors.").foregroundStyle(.secondary)
-                        }
-                    }
+                UploadChoices(session: session, eventId: eventId, recordings: recordings) {
+                    uploadsStarted += 1
                 }
-                .font(.caption)
-                .controlSize(.small)
             } else {
-                Text("Assign this file to an event to upload it to YouTube.").font(.caption).foregroundStyle(.secondary)
+                Text("Assign this file to an event to upload it.").font(.caption).foregroundStyle(.secondary)
             }
         }
     }
 
-    private var youtubeIsConnected: Bool { session.connectors["youtube"]?.status == .connected }
-
-    private func upload(eventId: String) {
-        guard let recording else { return }
-        Task {
-            do {
-                try await session.flagUpload(eventId: eventId, recordingId: recording.id, platforms: ["youtube"])
-                try await session.triggerUploads()
-                uploadFailure = nil
-                uploads += 1
-            } catch {
-                uploadFailure = error.metocastMessage
-            }
-        }
-    }
-
-    /// Finds the file's recording under its event, and follows its upload while one is going.
+    /// Finds the job's recordings under its event, and follows their uploads while any is going.
     /// ponytail: asks every 2 s because the Mac doesn't receive `upload.progress`; bind that in the
     /// Apple bridge if this feels coarse.
     private func watchUpload() async {
         guard job.state == .succeeded, let eventId = session.jobEvents[job.id] else { return }
         let name = URL(fileURLWithPath: job.outputPath).lastPathComponent
+        let names = [name, portraitName(fileName: name)]
         var misses = 0
         repeat {
-            if let found = try? await session.recordings(eventId: eventId).first(where: { $0.fileName == name }) {
-                recording = found
-            } else {
+            let filed = (try? await session.recordings(eventId: eventId)) ?? []
+            let found = names.compactMap { name in filed.first { $0.fileName == name } }
+            if found.isEmpty {
                 misses += 1
+            } else {
+                recordings = found
             }
             // Done once it is filed and not on its way up; a file that isn't filed yet (the job
             // has only just ended) gets a few more looks.
-            if let recording {
-                if !recording.isUploading { return }
+            if !recordings.isEmpty {
+                if !recordings.contains(where: \.isUploading) { return }
             } else if misses > 3 {
                 return
             }
@@ -464,6 +433,138 @@ private struct ProgramResult: View {
             return String(localized: "\(name) transcript (\(subtitle.cues) lines) already in place, saved beside the video")
         }
         return String(localized: "\(name) transcript (\(subtitle.cues) lines) moved \(timestamp(subtitle.shiftSeconds)), saved beside the video")
+    }
+}
+
+/// Picks where each of a job's files uploads, and starts it. A portrait file starts on Facebook
+/// and any other on YouTube; the operator can send either file to either place, or both.
+struct UploadChoices: View {
+    let session: MetocastSession
+    let eventId: String
+    let recordings: [RecordingRecord]
+    let onStarted: () -> Void
+    /// What the operator changed; a recording not here has its default.
+    @State private var chosen: [String: Set<UploadPlatform>] = [:]
+    @State private var failure: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(recordings, id: \.id) { recording in
+                row(recording)
+            }
+            HStack(spacing: 8) {
+                if needsChoice {
+                    Button("Upload", systemImage: "arrow.up.circle") { upload() }
+                        .disabled(ready.isEmpty)
+                }
+                ForEach(UploadPlatform.allCases.filter { !isConnected($0) }, id: \.self) { platform in
+                    Text("Connect \(platform.name) in Settings → Connectors.").foregroundStyle(.secondary)
+                }
+            }
+            if let failure {
+                Label(failure, systemImage: "exclamationmark.triangle").foregroundStyle(.red)
+            }
+        }
+        .font(.caption)
+        .controlSize(.small)
+    }
+
+    private func row(_ recording: RecordingRecord) -> some View {
+        HStack(spacing: 8) {
+            Label(
+                recording.isPortrait ? String(localized: "Portrait") : String(localized: "Landscape"),
+                systemImage: recording.isPortrait ? "rectangle.portrait" : "rectangle"
+            )
+            .frame(minWidth: 90, alignment: .leading)
+            ForEach(UploadPlatform.allCases, id: \.self) { platform in
+                if let state = recording.uploadState(platform), !state.contains("failed") {
+                    Label(state, systemImage: state.contains("completed") ? "checkmark.circle" : "arrow.up.circle")
+                        .foregroundStyle(state.contains("completed") ? .green : .secondary)
+                } else {
+                    Toggle(platform.name, isOn: Binding(
+                        get: { selection(recording).contains(platform) },
+                        set: { isOn in
+                            var platforms = selection(recording)
+                            if isOn { platforms.insert(platform) } else { platforms.remove(platform) }
+                            chosen[recording.id] = platforms
+                        }
+                    ))
+                    .toggleStyle(.button)
+                    .disabled(!isConnected(platform))
+                    if recording.uploadState(platform) != nil {
+                        Text("The last upload failed.").foregroundStyle(.red)
+                    }
+                }
+            }
+            if let link = recording.videoUrl.flatMap(URL.init(string:)) {
+                Link("Watch", destination: link)
+            }
+        }
+        // Says which file a platform's toggle among several is for.
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(recording.fileName)
+    }
+
+    private func isConnected(_ platform: UploadPlatform) -> Bool {
+        session.connectors[platform.rawValue]?.status == .connected
+    }
+
+    private func selection(_ recording: RecordingRecord) -> Set<UploadPlatform> {
+        chosen[recording.id] ?? [recording.isPortrait ? .facebook : .youtube]
+    }
+
+    /// Whether any file still has a platform it could go to.
+    private var needsChoice: Bool {
+        recordings.contains { recording in
+            UploadPlatform.allCases.contains { recording.uploadState($0)?.contains("failed") ?? true }
+        }
+    }
+
+    /// Each file with the connected platforms picked for it that it hasn't already gone to.
+    private var ready: [(recording: RecordingRecord, platforms: [String])] {
+        recordings.compactMap { recording in
+            let platforms = UploadPlatform.allCases
+                .filter { selection(recording).contains($0) && isConnected($0) }
+                .filter { recording.uploadState($0)?.contains("failed") ?? true }
+                .map(\.rawValue)
+            return platforms.isEmpty ? nil : (recording, platforms)
+        }
+    }
+
+    private func upload() {
+        let ready = ready
+        Task {
+            do {
+                for (recording, platforms) in ready {
+                    try await session.flagUpload(eventId: eventId, recordingId: recording.id, platforms: platforms)
+                }
+                try await session.triggerUploads()
+                failure = nil
+                onStarted()
+            } catch {
+                failure = error.metocastMessage
+            }
+        }
+    }
+}
+
+enum UploadPlatform: String, CaseIterable {
+    case youtube, facebook
+
+    var name: String {
+        switch self {
+        case .youtube: "YouTube"
+        case .facebook: "Facebook"
+        }
+    }
+}
+
+extension RecordingRecord {
+    var isPortrait: Bool { isPortraitSource(source: source) }
+
+    /// How this file's upload to `platform` is going ("youtube: uploading 12%"), when it has one.
+    func uploadState(_ platform: UploadPlatform) -> String? {
+        uploadStates.first { $0.hasPrefix("\(platform.rawValue): ") }
     }
 }
 
